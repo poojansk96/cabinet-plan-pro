@@ -1,6 +1,8 @@
-import { BarChart3, Download } from 'lucide-react';
+import { useState } from 'react';
+import { BarChart3, Download, FileText, Loader2 } from 'lucide-react';
 import type { Project, Unit } from '@/types/project';
 import { calcProjectSummary, calcUnitCabinetTotals, calcUnitCountertopTotal } from '@/lib/calculations';
+import { exportProjectPDF } from '@/lib/exportPDF';
 
 interface Props {
   project: Project;
@@ -11,6 +13,17 @@ interface Props {
 
 export default function SummaryModule({ project }: Props) {
   const summary = calcProjectSummary(project);
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  const handleExportPDF = async () => {
+    setPdfLoading(true);
+    try {
+      await new Promise(r => setTimeout(r, 80));
+      exportProjectPDF(project);
+    } finally {
+      setPdfLoading(false);
+    }
+  };
 
   const handleExportCSV = () => {
     const rows: string[] = [];
@@ -72,13 +85,26 @@ export default function SummaryModule({ project }: Props) {
           <BarChart3 size={16} className="text-primary" />
           <h2 className="font-semibold text-sm">Project Summary</h2>
         </div>
-        <button
-          onClick={handleExportCSV}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-border text-foreground hover:bg-secondary"
-        >
-          <Download size={12} />
-          Export CSV
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-border text-foreground hover:bg-secondary transition-colors"
+          >
+            <Download size={12} />
+            Export CSV
+          </button>
+          <button
+            onClick={handleExportPDF}
+            disabled={pdfLoading}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium text-white transition-colors disabled:opacity-70"
+            style={{ background: 'hsl(var(--primary))' }}
+          >
+            {pdfLoading
+              ? <><Loader2 size={12} className="animate-spin" /> Generating…</>
+              : <><FileText size={12} /> Export PDF</>
+            }
+          </button>
+        </div>
       </div>
 
       {/* Top stat cards */}
