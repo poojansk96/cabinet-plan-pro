@@ -1,5 +1,5 @@
 export type ProjectType = 'Residential' | 'Commercial';
-export type UnitType = 'Studio' | '1BHK' | '2BHK' | '3BHK' | '4BHK' | 'Townhouse' | 'Condo' | 'Other';
+export type UnitType = 'Studio' | '1BHK' | '2BHK' | '3BHK' | '4BHK' | 'Townhouse' | 'Condo' | 'Other' | string;
 export type CabinetType = 'Base' | 'Wall' | 'Tall' | 'Vanity';
 export type Room = 'Kitchen' | 'Pantry' | 'Laundry' | 'Bath' | 'Other';
 export type AccessoryType =
