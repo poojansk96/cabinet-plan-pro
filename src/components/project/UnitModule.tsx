@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Plus, Trash2, Copy, Users } from 'lucide-react';
+import { Plus, Trash2, Copy, Users, FileUp } from 'lucide-react';
 import type { Project, Unit, UnitType } from '@/types/project';
 import { calcUnitCabinetTotals, calcUnitCountertopTotal } from '@/lib/calculations';
+import PDFImportDialog from './PDFImportDialog';
 
 const UNIT_TYPES: UnitType[] = ['Studio', '1BHK', '2BHK', '3BHK', '4BHK', 'Townhouse', 'Condo', 'Other'];
 
@@ -21,6 +22,8 @@ const blankForm = () => ({ unitNumber: '', type: 'Studio' as UnitType, notes: ''
 export default function UnitModule({ project, selectedUnitId, setSelectedUnitId, addUnit, deleteUnit, duplicateUnit }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(blankForm());
+  const [showPDFImport, setShowPDFImport] = useState(false);
+  const [importedCount, setImportedCount] = useState<number | null>(null);
 
   const handleAdd = () => {
     if (!form.unitNumber.trim()) return;
@@ -28,6 +31,20 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
     setSelectedUnitId(unit.id);
     setForm(blankForm());
     setShowForm(false);
+  };
+
+  const handlePDFImport = (units: Array<{ unitNumber: string; type: UnitType }>) => {
+    let lastUnit: Unit | null = null;
+    units.forEach(u => {
+      const exists = project.units.some(pu => pu.unitNumber === u.unitNumber);
+      if (!exists) {
+        lastUnit = addUnit(project.id, { unitNumber: u.unitNumber, type: u.type, notes: '' });
+      }
+    });
+    if (lastUnit) setSelectedUnitId((lastUnit as Unit).id);
+    setImportedCount(units.length);
+    setShowPDFImport(false);
+    setTimeout(() => setImportedCount(null), 4000);
   };
 
   // Group by type
@@ -39,8 +56,16 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
 
   return (
     <div className="space-y-4">
+      {/* PDF Import Dialog */}
+      {showPDFImport && (
+        <PDFImportDialog
+          onImport={handlePDFImport}
+          onClose={() => setShowPDFImport(false)}
+        />
+      )}
+
       {/* Header row */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <Users size={16} className="text-primary" />
           <h2 className="font-semibold text-sm">Unit Count</h2>
@@ -48,15 +73,32 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
             {project.units.length} total
           </span>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium text-white"
-          style={{ background: 'hsl(var(--primary))' }}
-        >
-          <Plus size={12} />
-          Add Unit
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowPDFImport(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border transition-colors"
+            style={{ borderColor: 'hsl(var(--primary))', color: 'hsl(var(--primary))' }}
+          >
+            <FileUp size={12} />
+            Import from PDF
+          </button>
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium text-white"
+            style={{ background: 'hsl(var(--primary))' }}
+          >
+            <Plus size={12} />
+            Add Unit
+          </button>
+        </div>
       </div>
+
+      {/* Import success toast */}
+      {importedCount !== null && (
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-white" style={{ background: 'hsl(var(--success))' }}>
+          ✓ Successfully imported {importedCount} unit{importedCount !== 1 ? 's' : ''} from PDF
+        </div>
+      )}
 
       {/* Add unit form */}
       {showForm && (
@@ -114,7 +156,16 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
       {project.units.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <Users size={36} className="mx-auto mb-3 opacity-20" />
-          <p className="text-sm">No units added yet. Click "Add Unit" to start.</p>
+          <p className="text-sm font-medium mb-1">No units added yet</p>
+          <p className="text-xs mb-4">Upload your architectural PDF to auto-detect units, or add manually.</p>
+          <button
+            onClick={() => setShowPDFImport(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium border"
+            style={{ borderColor: 'hsl(var(--primary))', color: 'hsl(var(--primary))' }}
+          >
+            <FileUp size={14} />
+            Import from PDF Plan
+          </button>
         </div>
       ) : (
         <div className="space-y-4">
