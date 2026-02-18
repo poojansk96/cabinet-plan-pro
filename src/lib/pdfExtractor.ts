@@ -8,6 +8,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 
 export interface DetectedUnit {
   unitNumber: string;
+  detectedType: string | null;   // type name read from the PDF (may be null)
   rawMatch: string;
   page: number;
   confidence: 'high' | 'medium' | 'low';
@@ -20,23 +21,104 @@ export interface PDFExtractionResult {
   fileName: string;
 }
 
-// Regex patterns to detect unit numbers in architectural drawings
-const UNIT_PATTERNS = [
-  // "Unit 101", "UNIT 2A", "Unit A1"
+// ---------------------------------------------------------------------------
+// Unit-number patterns
+// ---------------------------------------------------------------------------
+const UNIT_NUMBER_PATTERNS = [
   { re: /\bunit[s]?\s*#?\s*([A-Z0-9]{1,6}(?:-[A-Z0-9]{1,4})?)\b/gi, confidence: 'high' as const },
-  // "APT 101", "APARTMENT 2B"
-  { re: /\bapt\.?\s*#?\s*([A-Z0-9]{1,6}(?:-[A-Z0-9]{1,4})?)\b/gi, confidence: 'high' as const },
-  // "Suite 101", "STE 2A"
+  { re: /\bapt\.?\s*#?\s*([A-Z0-9]{1,6}(?:-[A-Z0-9]{1,4})?)\b/gi,   confidence: 'high' as const },
+  { re: /\bapartment\s*#?\s*([A-Z0-9]{1,6}(?:-[A-Z0-9]{1,4})?)\b/gi, confidence: 'high' as const },
   { re: /\bsuite[s]?\s*#?\s*([A-Z0-9]{1,6}(?:-[A-Z0-9]{1,4})?)\b/gi, confidence: 'high' as const },
-  // "#101", "# 205"
-  { re: /#\s*([0-9]{2,6}[A-Z]?)\b/g, confidence: 'medium' as const },
-  // "No. 101", "NO 205"
-  { re: /\bno\.?\s*([0-9]{2,6}[A-Z]?)\b/gi, confidence: 'medium' as const },
-  // Standalone 3-digit numbers that look like unit numbers (101-999)
-  { re: /\b([1-9][0-9]{2})\b/g, confidence: 'low' as const },
-  // Floor-unit combos: "1-01", "2-05", "B-12"
-  { re: /\b([1-9A-Z]-[0-9]{2})\b/g, confidence: 'medium' as const },
+  { re: /#\s*([0-9]{2,6}[A-Z]?)\b/g,                                   confidence: 'medium' as const },
+  { re: /\bno\.?\s*([0-9]{2,6}[A-Z]?)\b/gi,                            confidence: 'medium' as const },
+  { re: /\b([1-9A-Z]-[0-9]{2,3})\b/g,                                  confidence: 'medium' as const },
+  { re: /\b([1-9][0-9]{2,3}[A-Z]?)\b/g,                                confidence: 'low' as const },
 ];
+
+// ---------------------------------------------------------------------------
+// Unit type detection
+// Architectural plans typically label units like:
+//   "2 BED", "2BR", "1 BEDROOM", "STUDIO", "3BHK", "PENTHOUSE", "TOWNHOUSE"
+// We look for these in a ±120-char window around each unit-number match.
+// ---------------------------------------------------------------------------
+
+interface TypePattern {
+  re: RegExp;
+  label: string;
+}
+
+const UNIT_TYPE_PATTERNS: TypePattern[] = [
+  // BHK style  → "3BHK", "2 BHK", "4 B.H.K"
+  { re: /\b([1-6])\s*b\.?h\.?k\.?\b/gi,                   label: '$1BHK' },
+  // Bedroom count  → "2 BEDROOM", "2 BED", "2BR", "2 BD"
+  { re: /\b([1-6])\s*(?:bed(?:room)?s?|br|bd)\b/gi,        label: '$1BHK' },
+  // Studio / Efficiency
+  { re: /\b(studio|efficiency|eff\.?)\b/gi,                 label: 'Studio' },
+  // Penthouse
+  { re: /\b(penthouse|ph)\b/gi,                             label: 'Penthouse' },
+  // Townhouse / Townhome
+  { re: /\b(townhouse|townhome|town\s*house)\b/gi,          label: 'Townhouse' },
+  // Condo / Condominium
+  { re: /\b(condo(?:minium)?)\b/gi,                         label: 'Condo' },
+  // Loft
+  { re: /\b(loft)\b/gi,                                     label: 'Loft' },
+  // Duplex / Triplex
+  { re: /\b(duplex|triplex)\b/gi,                           label: '$1' },
+  // "4 BED" / "4 BR"  (already caught by second pattern but belt-and-suspenders)
+  { re: /\b([1-6])\s*(?:room|rms?)\b/gi,                   label: '$1BHK' },
+];
+
+/** Try to detect a unit type from a text snippet surrounding the match */
+function detectTypeFromContext(contextText: string): string | null {
+  for (const { re, label } of UNIT_TYPE_PATTERNS) {
+    re.lastIndex = 0;
+    const m = re.exec(contextText);
+    if (m) {
+      // Resolve capture-group references in label (e.g. '$1BHK')
+      const resolved = label.replace(/\$(\d+)/g, (_, n) => (m[parseInt(n)] ?? '').toUpperCase());
+      return resolved;
+    }
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// PDF text extraction helpers
+// ---------------------------------------------------------------------------
+
+interface TextItem {
+  str: string;
+  /** X position on the page (from PDF viewport) */
+  x: number;
+  /** Y position on the page */
+  y: number;
+}
+
+async function extractPageTextItems(page: pdfjsLib.PDFPageProxy): Promise<TextItem[]> {
+  const content = await page.getTextContent();
+  return content.items
+    .filter((item): item is any => 'str' in item)
+    .map((item: any) => ({
+      str: item.str as string,
+      x: (item.transform as number[])[4],
+      y: (item.transform as number[])[5],
+    }));
+}
+
+/**
+ * Given a list of positioned text items and a target position,
+ * find all text items within `radius` units and return them joined.
+ */
+function getNearbyText(items: TextItem[], targetX: number, targetY: number, radius = 200): string {
+  return items
+    .filter(it => Math.abs(it.x - targetX) < radius && Math.abs(it.y - targetY) < radius)
+    .map(it => it.str)
+    .join(' ');
+}
+
+// ---------------------------------------------------------------------------
+// Main export
+// ---------------------------------------------------------------------------
 
 export async function extractUnitsFromPDF(file: File): Promise<PDFExtractionResult> {
   const arrayBuffer = await file.arrayBuffer();
@@ -44,70 +126,91 @@ export async function extractUnitsFromPDF(file: File): Promise<PDFExtractionResu
   const totalPages = pdf.numPages;
 
   const allText: string[] = [];
-  const pageTexts: Array<{ text: string; page: number }> = [];
+  const pageData: Array<{ text: string; items: TextItem[]; page: number }> = [];
 
-  // Extract text from all pages
   for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
     const page = await pdf.getPage(pageNum);
-    const content = await page.getTextContent();
-    const text = content.items
-      .filter((item): item is any => 'str' in item)
-      .map((item: any) => item.str)
-      .join(' ');
+    const items = await extractPageTextItems(page);
+    const text = items.map(i => i.str).join(' ');
     allText.push(text);
-    pageTexts.push({ text, page: pageNum });
+    pageData.push({ text, items, page: pageNum });
   }
 
   const rawText = allText.join('\n');
 
-  // Collect all matches with deduplication
+  // --- Collect matches with deduplication ---
   const seen = new Map<string, DetectedUnit>();
 
-  for (const { text, page } of pageTexts) {
-    for (const { re, confidence } of UNIT_PATTERNS) {
+  for (const { text, items, page } of pageData) {
+    for (const { re, confidence } of UNIT_NUMBER_PATTERNS) {
       re.lastIndex = 0;
       let match: RegExpExecArray | null;
+
       while ((match = re.exec(text)) !== null) {
         const unitNumber = match[1].trim().toUpperCase();
 
-        // Skip obvious false positives
+        // Skip false positives
         if (
           unitNumber.length < 1 ||
           unitNumber === '000' ||
-          parseInt(unitNumber) > 9999 ||
-          // Skip common drawing numbers / scales
-          /^(1\/|1:|\\d+\"|SCALE|DATE|REV)/i.test(unitNumber)
+          /^(SCALE|DATE|REV|NO|NUM|FIG|DWG)$/i.test(unitNumber) ||
+          (parseInt(unitNumber) > 9999 && /^\d+$/.test(unitNumber))
         ) continue;
+
+        // ---- Detect type from positional context ----
+        // Find the approximate position of this match in the items array
+        let detectedType: string | null = null;
+
+        // Strategy 1: look for type keywords in ±120 chars of plain text
+        const startIdx = Math.max(0, match.index - 120);
+        const endIdx   = Math.min(text.length, match.index + match[0].length + 120);
+        const contextText = text.slice(startIdx, endIdx);
+        detectedType = detectTypeFromContext(contextText);
+
+        // Strategy 2 (fallback): use spatial proximity on the PDF page
+        if (!detectedType) {
+          // Find which text item contains this match by accumulating char counts
+          let charCount = 0;
+          let matchItem: TextItem | null = null;
+          for (const item of items) {
+            if (charCount + item.str.length + 1 >= match.index) {
+              matchItem = item;
+              break;
+            }
+            charCount += item.str.length + 1; // +1 for the space joiner
+          }
+          if (matchItem) {
+            const nearby = getNearbyText(items, matchItem.x, matchItem.y, 250);
+            detectedType = detectTypeFromContext(nearby);
+          }
+        }
 
         const key = unitNumber;
         const existing = seen.get(key);
 
-        // Keep the highest confidence match, prefer earlier pages
         if (!existing || confidenceRank(confidence) > confidenceRank(existing.confidence)) {
           seen.set(key, {
             unitNumber,
+            detectedType,
             rawMatch: match[0].trim(),
             page,
             confidence,
           });
+        } else if (existing && !existing.detectedType && detectedType) {
+          // Keep better type info even if confidence is same
+          seen.set(key, { ...existing, detectedType });
         }
       }
     }
   }
 
-  // Sort: high confidence first, then by unit number
   const detectedUnits = Array.from(seen.values()).sort((a, b) => {
     const cd = confidenceRank(b.confidence) - confidenceRank(a.confidence);
     if (cd !== 0) return cd;
     return a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true });
   });
 
-  return {
-    detectedUnits,
-    totalPages,
-    rawText,
-    fileName: file.name,
-  };
+  return { detectedUnits, totalPages, rawText, fileName: file.name };
 }
 
 function confidenceRank(c: DetectedUnit['confidence']) {
