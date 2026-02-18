@@ -1,16 +1,21 @@
 import { useState, useRef, useCallback } from 'react';
-import { FileUp, X, Loader2, CheckCircle, AlertCircle, ChevronDown, ChevronUp, FileText } from 'lucide-react';
+import { FileUp, X, Loader2, CheckCircle, AlertCircle, ChevronDown, ChevronUp, FileText, Tag } from 'lucide-react';
 import type { DetectedUnit, PDFExtractionResult } from '@/lib/pdfExtractor';
 import type { UnitType } from '@/types/project';
 
-const UNIT_TYPES: UnitType[] = ['Studio', '1BHK', '2BHK', '3BHK', '4BHK', 'Townhouse', 'Condo', 'Other'];
+const PRESET_UNIT_TYPES = ['Studio', '1BHK', '2BHK', '3BHK', '4BHK', 'Townhouse', 'Condo', 'Penthouse', 'Loft', 'Other'];
 
 interface UnitRow {
   unitNumber: string;
-  type: UnitType;
+  /** The final type that will be imported — starts as detectedType or fallback */
+  type: string;
+  /** Type read directly from the PDF text (may be null) */
+  detectedType: string | null;
   selected: boolean;
   confidence: DetectedUnit['confidence'];
   page: number;
+  /** If true, user manually chose a type from the dropdown */
+  typeOverridden: boolean;
 }
 
 interface Props {
@@ -27,7 +32,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [showRawText, setShowRawText] = useState(false);
-  const [defaultType, setDefaultType] = useState<UnitType>('1BHK');
+  const [defaultType, setDefaultType] = useState<string>('1BHK');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const processFile = async (file: File) => {
@@ -39,18 +44,22 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
     setStep('processing');
 
     try {
-      // Lazy import to avoid loading pdfjs on initial render
       const { extractUnitsFromPDF } = await import('@/lib/pdfExtractor');
       const res = await extractUnitsFromPDF(file);
       setResult(res);
 
-      const initialRows: UnitRow[] = res.detectedUnits.map(u => ({
-        unitNumber: u.unitNumber,
-        type: defaultType,
-        selected: u.confidence !== 'low',
-        confidence: u.confidence,
-        page: u.page,
-      }));
+      const initialRows: UnitRow[] = res.detectedUnits.map(u => {
+        const resolvedType = u.detectedType ?? defaultType;
+        return {
+          unitNumber: u.unitNumber,
+          type: resolvedType,
+          detectedType: u.detectedType,
+          selected: u.confidence !== 'low',
+          confidence: u.confidence,
+          page: u.page,
+          typeOverridden: false,
+        };
+      });
       setRows(initialRows);
       setStep('review');
     } catch (err) {
@@ -74,21 +83,25 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
 
   const toggleAll = (val: boolean) => setRows(r => r.map(row => ({ ...row, selected: val })));
 
+  const setRowType = (i: number, type: string) =>
+    setRows(r => r.map((x, j) => j === i ? { ...x, type, typeOverridden: true } : x));
+
   const handleImport = () => {
-    const selected = rows.filter(r => r.selected).map(r => ({ unitNumber: r.unitNumber, type: r.type }));
+    const selected = rows.filter(r => r.selected).map(r => ({ unitNumber: r.unitNumber, type: r.type as UnitType }));
     if (selected.length === 0) return;
     onImport(selected);
   };
 
   const confidenceBadge = (c: DetectedUnit['confidence']) => {
     const cls = c === 'high'
-      ? 'bg-green-100 text-green-700'
+      ? 'bg-accent text-accent-foreground border border-border'
       : c === 'medium'
-      ? 'bg-yellow-100 text-yellow-700'
-      : 'bg-gray-100 text-gray-500';
+      ? 'bg-secondary text-secondary-foreground border border-border'
+      : 'bg-muted text-muted-foreground border border-border';
     return <span className={`px-1.5 py-0.5 rounded text-xs font-semibold ${cls}`}>{c}</span>;
   };
 
+  const detectedCount = rows.filter(r => r.detectedType !== null).length;
   const selectedCount = rows.filter(r => r.selected).length;
 
   return (
@@ -110,29 +123,27 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
           {step === 'upload' && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Upload your architectural floor plan PDF. The system will scan for unit numbers and auto-populate the unit list.
+                Upload your architectural floor plan PDF. The system will scan for unit numbers <strong>and unit type labels</strong> (e.g. "2BHK", "Studio", "Penthouse") written on the plan.
               </p>
 
-              {/* Default type picker */}
+              {/* Default type fallback picker */}
               <div>
                 <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                  Default Unit Type for Detected Units
+                  Default Unit Type (used if type can't be detected from PDF)
                 </label>
                 <select
                   className="est-input"
                   value={defaultType}
-                  onChange={e => setDefaultType(e.target.value as UnitType)}
+                  onChange={e => setDefaultType(e.target.value)}
                 >
-                  {UNIT_TYPES.map(t => <option key={t}>{t}</option>)}
+                  {PRESET_UNIT_TYPES.map(t => <option key={t}>{t}</option>)}
                 </select>
               </div>
 
               {/* Drop zone */}
               <div
                 className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors ${
-                  dragging
-                    ? 'border-primary bg-accent'
-                    : 'border-border hover:border-primary hover:bg-accent/50'
+                  dragging ? 'border-primary bg-accent' : 'border-border hover:border-primary hover:bg-accent/50'
                 }`}
                 onDragOver={e => { e.preventDefault(); setDragging(true); }}
                 onDragLeave={() => setDragging(false)}
@@ -140,29 +151,22 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                 onClick={() => fileRef.current?.click()}
               >
                 <FileUp size={36} className="mx-auto mb-3 text-muted-foreground" />
-                <p className="font-semibold text-sm text-foreground">
-                  Drop your architectural PDF here
-                </p>
+                <p className="font-semibold text-sm text-foreground">Drop your architectural PDF here</p>
                 <p className="text-xs text-muted-foreground mt-1">or click to browse</p>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept=".pdf"
-                  className="hidden"
-                  onChange={handleFile}
-                />
+                <input ref={fileRef} type="file" accept=".pdf" className="hidden" onChange={handleFile} />
               </div>
 
               {error && (
-                <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 text-red-700 text-sm border border-red-200">
+                <div className="flex items-start gap-2 p-3 rounded-lg border text-sm border-destructive bg-destructive/10 text-destructive">
                   <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
                   <p>{error}</p>
                 </div>
               )}
 
-              <div className="text-xs text-muted-foreground bg-secondary rounded-lg p-3 border border-border">
-                <strong>Works best with:</strong> Text-based PDFs with labeled unit numbers (e.g. "Unit 101", "APT 205", "#302"). 
-                Scanned image-only PDFs may not yield results — you can still add units manually.
+              <div className="text-xs text-muted-foreground bg-secondary rounded-lg p-3 border border-border space-y-1">
+                <p><strong>Unit numbers detected from:</strong> "Unit 101", "APT 205", "#302", "Suite A", "1-01"</p>
+                <p><strong>Unit types detected from:</strong> "2BHK", "2 Bed", "Studio", "Penthouse", "Townhouse", "Loft", "Condo"</p>
+                <p className="opacity-70 pt-1">Scanned image-only PDFs may yield no results — add units manually in that case.</p>
               </div>
             </div>
           )}
@@ -171,7 +175,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
           {step === 'processing' && (
             <div className="flex flex-col items-center justify-center py-16 gap-4">
               <Loader2 size={40} className="animate-spin text-primary" />
-              <p className="font-semibold text-sm">Scanning PDF for unit numbers…</p>
+              <p className="font-semibold text-sm">Scanning PDF for unit numbers and types…</p>
               <p className="text-xs text-muted-foreground">This may take a moment for large files.</p>
             </div>
           )}
@@ -181,10 +185,18 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
             <div className="space-y-4">
               {/* Summary bar */}
               <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary border border-border">
-                <CheckCircle size={18} className="text-green-600 flex-shrink-0" />
+                <CheckCircle size={18} className="text-primary flex-shrink-0" />
                 <div className="flex-1 text-sm">
-                  <strong className="text-foreground">{result.detectedUnits.length} unit numbers detected</strong>
-                  <span className="text-muted-foreground ml-2">across {result.totalPages} page{result.totalPages !== 1 ? 's' : ''} of "{result.fileName}"</span>
+                  <strong className="text-foreground">{result.detectedUnits.length} units detected</strong>
+                  <span className="text-muted-foreground ml-2">
+                    across {result.totalPages} page{result.totalPages !== 1 ? 's' : ''}
+                  </span>
+                  {detectedCount > 0 && (
+                    <span className="ml-2 inline-flex items-center gap-1 text-xs font-medium text-primary bg-accent px-2 py-0.5 rounded-full border border-border">
+                      <Tag size={10} />
+                      {detectedCount} unit type{detectedCount !== 1 ? 's' : ''} auto-detected from PDF
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -211,13 +223,18 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                           <th className="w-8">
                             <input
                               type="checkbox"
-                              checked={selectedCount === rows.length}
+                              checked={selectedCount === rows.length && rows.length > 0}
                               onChange={e => toggleAll(e.target.checked)}
                               className="cursor-pointer"
                             />
                           </th>
                           <th>Unit #</th>
-                          <th>Unit Type</th>
+                          <th>
+                            <span className="flex items-center gap-1">
+                              Unit Type
+                              <span className="text-[10px] font-normal text-muted-foreground">(from PDF / override)</span>
+                            </span>
+                          </th>
                           <th>Confidence</th>
                           <th>Page</th>
                         </tr>
@@ -235,13 +252,54 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                             </td>
                             <td className="font-mono font-bold">{row.unitNumber}</td>
                             <td>
-                              <select
-                                className="est-input"
-                                value={row.type}
-                                onChange={e => setRows(r => r.map((x, j) => j === i ? { ...x, type: e.target.value as UnitType } : x))}
-                              >
-                                {UNIT_TYPES.map(t => <option key={t}>{t}</option>)}
-                              </select>
+                              <div className="flex items-center gap-1.5">
+                                {/* Show auto-detected badge if we got a type from PDF and user hasn't overridden */}
+                                {row.detectedType && !row.typeOverridden && (
+                                  <span
+                                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-accent text-primary border border-border flex-shrink-0"
+                                    title="Detected from PDF text"
+                                  >
+                                    <Tag size={8} />
+                                    PDF
+                                  </span>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  {/* Show preset options + allow free-text for custom types */}
+                                  {PRESET_UNIT_TYPES.includes(row.type) && !row.typeOverridden ? (
+                                    <select
+                                      className="est-input w-full text-xs"
+                                      value={row.type}
+                                      onChange={e => setRowType(i, e.target.value)}
+                                    >
+                                      {/* If detectedType is not in preset list, show it as first custom option */}
+                                      {row.detectedType && !PRESET_UNIT_TYPES.includes(row.detectedType) && (
+                                        <option value={row.detectedType}>{row.detectedType} (detected)</option>
+                                      )}
+                                      {PRESET_UNIT_TYPES.map(t => <option key={t}>{t}</option>)}
+                                      <option value="__custom__">Custom…</option>
+                                    </select>
+                                  ) : (
+                                    <div className="flex gap-1">
+                                      <input
+                                        className="est-input w-full text-xs"
+                                        value={row.type === '__custom__' ? '' : row.type}
+                                        placeholder="Type name…"
+                                        autoFocus={row.type === '__custom__'}
+                                        onChange={e => setRowType(i, e.target.value)}
+                                      />
+                                      <button
+                                        className="text-xs text-muted-foreground hover:text-foreground px-1"
+                                        title="Back to preset"
+                                        onClick={() => setRows(r => r.map((x, j) => j === i
+                                          ? { ...x, type: x.detectedType ?? defaultType, typeOverridden: false }
+                                          : x))}
+                                      >
+                                        ↩
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
                             </td>
                             <td>{confidenceBadge(row.confidence)}</td>
                             <td className="text-muted-foreground text-xs">{row.page}</td>
@@ -257,7 +315,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                     className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
                   >
                     {showRawText ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                    {showRawText ? 'Hide' : 'Show'} extracted text
+                    {showRawText ? 'Hide' : 'Show'} extracted text (for troubleshooting)
                   </button>
 
                   {showRawText && (
