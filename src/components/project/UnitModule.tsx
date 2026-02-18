@@ -4,7 +4,8 @@ import type { Project, Unit, UnitType } from '@/types/project';
 import { calcUnitCabinetTotals, calcUnitCountertopTotal } from '@/lib/calculations';
 import PDFImportDialog from './PDFImportDialog';
 
-const UNIT_TYPES: UnitType[] = ['Studio', '1BHK', '2BHK', '3BHK', '4BHK', 'Townhouse', 'Condo', 'Other'];
+const PRESET_UNIT_TYPES = ['Studio', '1BHK', '2BHK', '3BHK', '4BHK', 'Townhouse', 'Condo', 'Other'];
+const blankForm = () => ({ unitNumber: '', type: 'Studio' as UnitType, customType: '', notes: '' });
 
 interface Props {
   project: Project;
@@ -17,17 +18,19 @@ interface Props {
   duplicateUnit: (projectId: string, unitId: string) => void;
 }
 
-const blankForm = () => ({ unitNumber: '', type: 'Studio' as UnitType, notes: '' });
-
 export default function UnitModule({ project, selectedUnitId, setSelectedUnitId, addUnit, deleteUnit, duplicateUnit }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(blankForm());
   const [showPDFImport, setShowPDFImport] = useState(false);
   const [importedCount, setImportedCount] = useState<number | null>(null);
 
+  const resolvedType = (form.type === 'Other' && form.customType.trim())
+    ? form.customType.trim()
+    : form.type;
+
   const handleAdd = () => {
     if (!form.unitNumber.trim()) return;
-    const unit = addUnit(project.id, form);
+    const unit = addUnit(project.id, { unitNumber: form.unitNumber, type: resolvedType, notes: form.notes });
     setSelectedUnitId(unit.id);
     setForm(blankForm());
     setShowForm(false);
@@ -47,10 +50,11 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
     setTimeout(() => setImportedCount(null), 4000);
   };
 
-  // Group by type
-  const byType = UNIT_TYPES.reduce<Record<string, Unit[]>>((acc, t) => {
-    const units = project.units.filter(u => u.type === t);
-    if (units.length > 0) acc[t] = units;
+  // Group by actual type string (supports custom types too)
+  const byType = project.units.reduce<Record<string, Unit[]>>((acc, u) => {
+    const t = u.type || 'Other';
+    if (!acc[t]) acc[t] = [];
+    acc[t].push(u);
     return acc;
   }, {});
 
@@ -120,11 +124,24 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
               <select
                 className="est-input w-full"
                 value={form.type}
-                onChange={e => setForm(f => ({ ...f, type: e.target.value as UnitType }))}
+                onChange={e => setForm(f => ({ ...f, type: e.target.value as UnitType, customType: '' }))}
               >
-                {UNIT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                {PRESET_UNIT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
+            {/* Custom type name — shown when "Other" is selected */}
+            {form.type === 'Other' && (
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Custom Type Name</label>
+                <input
+                  className="est-input w-full"
+                  placeholder="e.g. Penthouse"
+                  value={form.customType}
+                  onChange={e => setForm(f => ({ ...f, customType: e.target.value }))}
+                  onKeyDown={e => e.key === 'Enter' && handleAdd()}
+                />
+              </div>
+            )}
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Notes</label>
               <input
