@@ -9,6 +9,16 @@ const DRAWER_BOX_OPTIONS = ['Dovetail Wood', 'Melamine', 'Metal (Legrabox)', 'Me
 const DRAWER_GUIDE_OPTIONS = ['Blum Tandem', 'Blum Legrabox', 'Grass Dynapro', 'King Slide', 'Other'];
 const COUNTERTOP_OPTIONS = ['Quartz', 'Granite', 'Laminate', 'Solid Surface', 'Porcelain', 'Marble', 'Other'];
 
+const COUNTERTOP_MANUFACTURERS: Record<string, string[]> = {
+  Quartz: ['Caesarstone', 'Silestone', 'Cambria', 'MSI Q Premium', 'Viatera', 'HanStone', 'Other'],
+  Granite: ['MSI', 'Emser Tile', 'Bedrosians', 'Arizona Tile', 'Dal-Tile', 'Other'],
+  Laminate: ['Wilsonart', 'Formica', 'Pionite', 'Nevamar', 'Laminart', 'Other'],
+  'Solid Surface': ['Corian (DuPont)', 'Avonite', 'Wilsonart SS', 'Staron (Samsung)', 'Other'],
+  Porcelain: ['Porcelanosa', 'Atlas Plan', 'Dekton (Cosentino)', 'Neolith', 'Other'],
+  Marble: ['Carrara', 'Calacatta', 'Statuario', 'Thassos', 'Other'],
+  Other: ['Other'],
+};
+
 export default function NewProject() {
   const navigate = useNavigate();
   const { createProject } = useProjectStore();
@@ -28,6 +38,7 @@ export default function NewProject() {
     drawerBox: '',
     drawerGuides: '',
     countertops: '',
+    countertopManufacturer: '',
     handlesAndHardware: '',
     tax: '',
   });
