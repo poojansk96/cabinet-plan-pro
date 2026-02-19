@@ -1,8 +1,13 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Building2, ArrowLeft } from 'lucide-react';
+import { Building2, ArrowLeft, Settings2 } from 'lucide-react';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import type { ProjectType } from '@/types/project';
+
+const HINGE_OPTIONS = ['Blum Clip Top', 'Grass Tiomos', 'Salice', 'King Slide', 'Other'];
+const DRAWER_BOX_OPTIONS = ['Dovetail Wood', 'Melamine', 'Metal (Legrabox)', 'Metal (Tandem)', 'Other'];
+const DRAWER_GUIDE_OPTIONS = ['Blum Tandem', 'Blum Legrabox', 'Grass Dynapro', 'King Slide', 'Other'];
+const COUNTERTOP_OPTIONS = ['Quartz', 'Granite', 'Laminate', 'Solid Surface', 'Porcelain', 'Marble', 'Other'];
 
 export default function NewProject() {
   const navigate = useNavigate();
@@ -14,6 +19,19 @@ export default function NewProject() {
     type: 'Residential' as ProjectType,
     notes: '',
   });
+
+  const [specs, setSpecs] = useState({
+    projectSuper: '',
+    customer: '',
+    doorStyle: '',
+    hinges: '',
+    drawerBox: '',
+    drawerGuides: '',
+    countertops: '',
+    handlesAndHardware: '',
+    tax: '',
+  });
+
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const validate = () => {
@@ -26,17 +44,17 @@ export default function NewProject() {
     ev.preventDefault();
     const e = validate();
     if (Object.keys(e).length > 0) { setErrors(e); return; }
-    const project = createProject(form);
+    const project = createProject({ ...form, specs });
     navigate(`/project/${project.id}`);
   };
 
-  const field = (label: string, key: keyof typeof form, type = 'text', placeholder = '') => (
+  const textField = (label: string, key: keyof typeof form, placeholder = '') => (
     <div>
       <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
         {label}
       </label>
       <input
-        type={type}
+        type="text"
         value={form[key] as string}
         onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
         placeholder={placeholder}
@@ -45,6 +63,37 @@ export default function NewProject() {
         } bg-card`}
       />
       {errors[key] && <p className="text-xs text-destructive mt-0.5">{errors[key]}</p>}
+    </div>
+  );
+
+  const specTextField = (label: string, key: keyof typeof specs, placeholder = '') => (
+    <div>
+      <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+        {label}
+      </label>
+      <input
+        type="text"
+        value={specs[key]}
+        onChange={e => setSpecs(s => ({ ...s, [key]: e.target.value }))}
+        placeholder={placeholder}
+        className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+      />
+    </div>
+  );
+
+  const specSelectField = (label: string, key: keyof typeof specs, options: string[], placeholder = 'Select…') => (
+    <div>
+      <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+        {label}
+      </label>
+      <select
+        value={specs[key]}
+        onChange={e => setSpecs(s => ({ ...s, [key]: e.target.value }))}
+        className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+      >
+        <option value="">{placeholder}</option>
+        {options.map(o => <option key={o} value={o}>{o}</option>)}
+      </select>
     </div>
   );
 
@@ -69,68 +118,131 @@ export default function NewProject() {
           Back to Dashboard
         </Link>
 
-        <div className="est-card">
-          <div className="est-section-header">
-            <Building2 size={15} />
-            New Project Setup
-          </div>
-          <form onSubmit={handleSubmit} className="p-6 space-y-4">
-            {field('Project Name *', 'name', 'text', 'e.g. Maple Grove Apartments – Phase 1')}
-            {field('Project Address', 'address', 'text', 'e.g. 1234 Oak St, Austin, TX 78701')}
+        <form onSubmit={handleSubmit} className="space-y-5">
 
-            <div>
-              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                Project Type
-              </label>
-              <div className="flex gap-3">
-                {(['Residential', 'Commercial'] as ProjectType[]).map(t => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setForm(f => ({ ...f, type: t }))}
-                    className={`flex-1 py-2 rounded-md text-sm font-medium border transition-colors ${
-                      form.type === t
-                        ? 'border-primary text-white'
-                        : 'border-border text-muted-foreground hover:border-primary'
-                    }`}
-                    style={form.type === t ? { background: 'hsl(var(--primary))' } : {}}
-                  >
-                    {t}
-                  </button>
-                ))}
+          {/* ── Basic Info ── */}
+          <div className="est-card">
+            <div className="est-section-header">
+              <Building2 size={15} />
+              New Project Setup
+            </div>
+            <div className="p-6 space-y-4">
+              {textField('Project Name *', 'name', 'e.g. Maple Grove Apartments – Phase 1')}
+              {textField('Project Address', 'address', 'e.g. 1234 Oak St, Austin, TX 78701')}
+
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                  Project Type
+                </label>
+                <div className="flex gap-3">
+                  {(['Residential', 'Commercial'] as ProjectType[]).map(t => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, type: t }))}
+                      className={`flex-1 py-2 rounded-md text-sm font-medium border transition-colors ${
+                        form.type === t
+                          ? 'border-primary text-white'
+                          : 'border-border text-muted-foreground hover:border-primary'
+                      }`}
+                      style={form.type === t ? { background: 'hsl(var(--primary))' } : {}}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                  Notes
+                </label>
+                <textarea
+                  value={form.notes}
+                  onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                  rows={3}
+                  placeholder="Project notes, special requirements..."
+                  className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary border-border bg-card resize-none"
+                />
               </div>
             </div>
+          </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                Notes
-              </label>
-              <textarea
-                value={form.notes}
-                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-                rows={3}
-                placeholder="Project notes, special requirements..."
-                className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary border-border bg-card resize-none"
-              />
+          {/* ── Project Specifications ── */}
+          <div className="est-card">
+            <div className="est-section-header">
+              <Settings2 size={15} />
+              Project Specifications
             </div>
+            <div className="p-6 space-y-4">
 
-            <div className="flex justify-end gap-3 pt-2">
-              <Link
-                to="/"
-                className="px-4 py-2 rounded-md text-sm font-medium border border-border text-muted-foreground hover:bg-secondary transition-colors"
-              >
-                Cancel
-              </Link>
-              <button
-                type="submit"
-                className="px-5 py-2 rounded-md text-sm font-medium text-white transition-colors"
-                style={{ background: 'hsl(var(--primary))' }}
-              >
-                Create Project →
-              </button>
+              {/* Row 1: Project Super + Customer */}
+              <div className="grid grid-cols-2 gap-4">
+                {specTextField('Project Super', 'projectSuper', 'Supervisor name')}
+                {specTextField('Customer', 'customer', 'Customer / client name')}
+              </div>
+
+              {/* Row 2: Door Style + Countertops */}
+              <div className="grid grid-cols-2 gap-4">
+                {specTextField('Door Style', 'doorStyle', 'e.g. Shaker, Slab, Raised Panel…')}
+                {specSelectField('Countertops', 'countertops', COUNTERTOP_OPTIONS)}
+              </div>
+
+              {/* Row 3: Hinges + Drawer Box */}
+              <div className="grid grid-cols-2 gap-4">
+                {specSelectField('Hinges', 'hinges', HINGE_OPTIONS)}
+                {specSelectField('Drawer Box', 'drawerBox', DRAWER_BOX_OPTIONS)}
+              </div>
+
+              {/* Row 4: Drawer Guides + Handles & Hardware */}
+              <div className="grid grid-cols-2 gap-4">
+                {specSelectField('Drawer Guides', 'drawerGuides', DRAWER_GUIDE_OPTIONS)}
+                {specTextField('Handles & Hardware', 'handlesAndHardware', 'e.g. Amerock BP55342, Brushed Nickel')}
+              </div>
+
+              {/* Row 5: Tax */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                    Tax (%)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.01}
+                      value={specs.tax}
+                      onChange={e => setSpecs(s => ({ ...s, tax: e.target.value }))}
+                      placeholder="e.g. 8.25"
+                      className="w-full h-9 px-3 pr-8 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                  </div>
+                </div>
+              </div>
+
             </div>
-          </form>
-        </div>
+          </div>
+
+          {/* ── Actions ── */}
+          <div className="flex justify-end gap-3">
+            <Link
+              to="/"
+              className="px-4 py-2 rounded-md text-sm font-medium border border-border text-muted-foreground hover:bg-secondary transition-colors"
+            >
+              Cancel
+            </Link>
+            <button
+              type="submit"
+              className="px-5 py-2 rounded-md text-sm font-medium text-white transition-colors"
+              style={{ background: 'hsl(var(--primary))' }}
+            >
+              Create Project →
+            </button>
+          </div>
+
+        </form>
       </main>
     </div>
   );

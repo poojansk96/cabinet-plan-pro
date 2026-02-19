@@ -54,12 +54,25 @@ export interface Unit {
   notes?: string;
 }
 
+export interface ProjectSpecs {
+  projectSuper?: string;
+  customer?: string;
+  doorStyle?: string;
+  hinges?: string;
+  drawerBox?: string;
+  drawerGuides?: string;
+  countertops?: string;
+  handlesAndHardware?: string;
+  tax?: string;
+}
+
 export interface Project {
   id: string;
   name: string;
   address: string;
   type: ProjectType;
   notes?: string;
+  specs?: ProjectSpecs;
   units: Unit[];
   createdAt: string;
   updatedAt: string;
