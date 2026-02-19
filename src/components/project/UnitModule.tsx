@@ -271,7 +271,7 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
                     onClick={() => setSelectedUnitId(unit.id)}
                     className={`cursor-pointer ${isActive ? '!bg-accent' : ''}`}
                   >
-                    <td onClick={e => { e.stopPropagation(); toggleOne(unit.id); }}>
+                    <td onClick={e => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={isChecked}
