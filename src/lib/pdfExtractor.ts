@@ -51,7 +51,7 @@ const UNIT_TYPE_PATTERNS: TypePattern[] = [
   // BHK style  → "3BHK", "2 BHK", "4 B.H.K"
   { re: /\b([1-6])\s*b\.?h\.?k\.?\b/gi,                   label: '$1BHK' },
   // Bedroom count  → "2 BEDROOM", "2 BED", "2BR", "2 BD"
-  { re: /\b([1-6])\s*(?:bed(?:room)?s?|br|bd)\b/gi,        label: '$1BHK' },
+  { re: /\b([1-6])\s*(?:bed(?:room)?s?|br|bd)\b/gi,        label: '$1BR' },
   // Studio / Efficiency
   { re: /\b(studio|efficiency|eff\.?)\b/gi,                 label: 'Studio' },
   // Penthouse
@@ -65,7 +65,15 @@ const UNIT_TYPE_PATTERNS: TypePattern[] = [
   // Duplex / Triplex
   { re: /\b(duplex|triplex)\b/gi,                           label: '$1' },
   // "4 BED" / "4 BR"  (already caught by second pattern but belt-and-suspenders)
-  { re: /\b([1-6])\s*(?:room|rms?)\b/gi,                   label: '$1BHK' },
+  { re: /\b([1-6])\s*(?:room|rms?)\b/gi,                   label: '$1BR' },
+  // Generic "Type X" / "Plan X" / "Unit Type X"  →  any letter/number suffix
+  { re: /\bunit\s*type\s+([A-Z0-9][\w\-]*)\b/gi,           label: 'Type $1' },
+  { re: /\btype\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi,         label: 'Type $1' },
+  { re: /\bplan\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi,         label: 'Plan $1' },
+  { re: /\bfloor\s*plan\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi, label: 'Plan $1' },
+  // Layout labels  → "Layout A", "Model B2"
+  { re: /\blayout\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi,       label: 'Layout $1' },
+  { re: /\bmodel\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi,        label: 'Model $1' },
 ];
 
 /** Try to detect a unit type from a text snippet surrounding the match */
@@ -74,11 +82,24 @@ function detectTypeFromContext(contextText: string): string | null {
     re.lastIndex = 0;
     const m = re.exec(contextText);
     if (m) {
-      // Resolve capture-group references in label (e.g. '$1BHK')
+      // Resolve capture-group references in label (e.g. '$1BR')
       const resolved = label.replace(/\$(\d+)/g, (_, n) => (m[parseInt(n)] ?? '').toUpperCase());
       return resolved;
     }
   }
+
+  // Broad fallback: grab any standalone ALL-CAPS word or short ALL-CAPS phrase
+  // that looks like a type label (2–20 chars, possibly hyphenated, not a noise word)
+  const NOISE = /^(UNIT|APT|NO|NUM|FIG|DWG|REV|DATE|SCALE|THE|AND|FOR|WITH|FROM)$/;
+  const capsRe = /\b([A-Z][A-Z0-9\-]{1,19})\b/g;
+  let cm: RegExpExecArray | null;
+  while ((cm = capsRe.exec(contextText)) !== null) {
+    const word = cm[1];
+    if (!NOISE.test(word) && !/^\d+$/.test(word)) {
+      return word;
+    }
+  }
+
   return null;
 }
 
