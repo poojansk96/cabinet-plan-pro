@@ -54,8 +54,17 @@ RULES:
 - Unit type:
   - For residential units: capture FULL type name EXACTLY as written (e.g. "Type A5 - 2 Bedroom", "Plan B3-1BR"). NOT just "A" or "2BR"
   - For common areas: use a clear descriptive label (e.g. "Common Laundry", "Community Kitchen", "Pantry", "Clubhouse Kitchen", "Leasing Office")
-- Floor: look for "Level X", "Floor X", "1st Floor", "Ground Floor", "Basement", "Mezzanine", etc.
-- Building: look for "Building 1", "Building A", "Bldg 2", "Block A", "Tower B", "Wing C", "Phase 1", directional names (North, South, East, West, Central). Capture EXACTLY as written. If the whole page is clearly one building, apply to all.
+- Floor: look for "Level X", "Floor X", "1st Floor", "Ground Floor", "Basement", "Mezzanine", "P1", "G" (ground), etc. Normalize word numbers ("First" → "1", "Second" → "2").
+- Building: IMPORTANT — scan the ENTIRE page for any building identifier. Look for:
+  * Explicit labels: "Building 1", "Building A", "Bldg 2", "Bldg. A", "Block A", "Block 3"
+  * Tower/wing labels: "Tower B", "Tower North", "Wing C", "Wing East"
+  * Phase labels: "Phase 1", "Phase 2", "Phase II"
+  * Directional building names: "North Building", "South Tower", "East Wing", "West Block", "Central Building"
+  * Title block text: building name often appears in the drawing title block at top or bottom of page
+  * If the page title or header contains a building reference, use it for ALL units on that page
+  * If multiple building identifiers exist, assign the nearest one to each unit
+  * Capture EXACTLY as written (e.g. "Building A", "Bldg 2", "North Tower", "Block C")
+  * If the whole page clearly belongs to one building, set pageBuilding to that value and apply to all units
 - If no spaces with cabinet/countertop content are found, return empty array.
 
 Return ONLY valid JSON, no markdown, no explanation:
