@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2, Copy, Users, FileUp } from 'lucide-react';
+import { Plus, Trash2, Copy, Users, FileUp, Eraser } from 'lucide-react';
 import type { Project, Unit, UnitType } from '@/types/project';
 import PDFImportDialog from './PDFImportDialog';
 
@@ -14,10 +14,11 @@ interface Props {
   addUnit: (projectId: string, data: Omit<Unit, 'id' | 'cabinets' | 'accessories' | 'countertops'>) => Unit;
   updateUnit: (projectId: string, unitId: string, data: Partial<Unit>) => void;
   deleteUnit: (projectId: string, unitId: string) => void;
+  clearUnits: (projectId: string) => void;
   duplicateUnit: (projectId: string, unitId: string) => void;
 }
 
-export default function UnitModule({ project, selectedUnitId, setSelectedUnitId, addUnit, deleteUnit, duplicateUnit }: Props) {
+export default function UnitModule({ project, selectedUnitId, setSelectedUnitId, addUnit, deleteUnit, clearUnits, duplicateUnit }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(blankForm());
   const [showPDFImport, setShowPDFImport] = useState(false);
@@ -244,6 +245,24 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Clear all units */}
+      {project.units.length > 0 && (
+        <div className="flex justify-end pt-1">
+          <button
+            onClick={() => {
+              if (window.confirm(`Delete all ${project.units.length} unit${project.units.length !== 1 ? 's' : ''}? This cannot be undone.`)) {
+                clearUnits(project.id);
+                setSelectedUnitId('');
+              }
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-destructive text-destructive hover:bg-destructive/10 transition-colors"
+          >
+            <Eraser size={12} />
+            Clear All Units
+          </button>
         </div>
       )}
     </div>

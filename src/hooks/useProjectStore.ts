@@ -93,6 +93,14 @@ export function useProjectStore() {
     ));
   }, []);
 
+  const clearUnits = useCallback((projectId: string) => {
+    commit(store.map(p =>
+      p.id === projectId
+        ? { ...p, units: [], updatedAt: new Date().toISOString() }
+        : p
+    ));
+  }, []);
+
   const duplicateUnit = useCallback((projectId: string, unitId: string) => {
     commit(store.map(p => {
       if (p.id !== projectId) return p;
@@ -275,6 +283,7 @@ export function useProjectStore() {
     addUnit,
     updateUnit,
     deleteUnit,
+    clearUnits,
     duplicateUnit,
     addCabinet,
     updateCabinet,
