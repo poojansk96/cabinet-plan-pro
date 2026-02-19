@@ -167,6 +167,13 @@ function normaliseNumber(raw: string): string {
   return raw.replace(/^(\d+)(?:st|nd|rd|th)$/i, '$1').toUpperCase();
 }
 
+// Directional building names: East, West, North, South, North-East, etc.
+const DIRECTIONS = ['north[\\-\\s]?east', 'north[\\-\\s]?west', 'south[\\-\\s]?east', 'south[\\-\\s]?west', 'north', 'south', 'east', 'west', 'central', 'centre', 'center'];
+const BLDG_DIR_PATTERN = new RegExp(
+  `\\b(?:building|bldg\\.?|block|tower|wing|phase)\\s*[:\\-]?\\s*(${DIRECTIONS.join('|')})\\b`,
+  'gi'
+);
+
 // Also extend patterns to match written-out words after the keyword
 const BLDG_WORD_PATTERN =
   /\b(?:building|bldg\.?)\s*[:\-]?\s*(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth)\b/gi;
@@ -184,7 +191,7 @@ const BLDG_PATTERNS = [
   /\bphase\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi,
 ];
 
-/** Detect building number from a page — scans bottom strip first, then full page */
+/** Detect building number/name from a page — scans bottom strip first, then full page */
 function detectBldgFromPage(items: TextItem[]): string | null {
   if (items.length === 0) return null;
 
@@ -196,13 +203,28 @@ function detectBldgFromPage(items: TextItem[]): string | null {
   const bottomText = items.filter(i => i.y <= threshold).map(i => i.str).join(' ');
   const fullText   = items.map(i => i.str).join(' ');
 
-  // Try written-out word patterns first ("Building First" → "Building 1")
+  // 1. Directional names first: "Building East", "Tower North-West"
+  for (const text of [bottomText, fullText]) {
+    BLDG_DIR_PATTERN.lastIndex = 0;
+    const m = BLDG_DIR_PATTERN.exec(text);
+    if (m) {
+      const keyword = m[0].match(/building|bldg|block|tower|wing|phase/i)?.[0] ?? 'Building';
+      const label = keyword.charAt(0).toUpperCase() + keyword.slice(1).toLowerCase();
+      const dir = m[1].trim();
+      const dirFormatted = dir.charAt(0).toUpperCase() + dir.slice(1).toLowerCase()
+        .replace(/\b\w/g, c => c.toUpperCase());
+      return `${label} ${dirFormatted}`;
+    }
+  }
+
+  // 2. Written-out number words: "Building First" → "Building 1"
   for (const text of [bottomText, fullText]) {
     BLDG_WORD_PATTERN.lastIndex = 0;
     const m = BLDG_WORD_PATTERN.exec(text);
     if (m) return `Building ${normaliseNumber(m[1])}`;
   }
 
+  // 3. Alphanumeric patterns: "Building 1", "Tower A", "Block B2"
   for (const re of BLDG_PATTERNS) {
     re.lastIndex = 0;
     let m = re.exec(bottomText);
