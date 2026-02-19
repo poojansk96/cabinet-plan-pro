@@ -52,12 +52,18 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
   const numericAsc = (a: string, b: string) =>
     a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
 
-  // Sort all units: bldg → floor → unit number (ascending)
+  const floorVal = (f: string) => {
+    const n = parseFloat(f);
+    return isNaN(n) ? Infinity : n;
+  };
+
+  // Sort all units: bldg → floor (numeric) → unit number (ascending)
   const sortedUnits = [...project.units].sort((a, b) => {
     const bldgCmp = numericAsc(a.bldg || '', b.bldg || '');
     if (bldgCmp !== 0) return bldgCmp;
-    const floorCmp = numericAsc(a.floor || '', b.floor || '');
-    if (floorCmp !== 0) return floorCmp;
+    const fa = floorVal(a.floor || '');
+    const fb = floorVal(b.floor || '');
+    if (fa !== fb) return fa - fb;
     return numericAsc(a.unitNumber, b.unitNumber);
   });
 
