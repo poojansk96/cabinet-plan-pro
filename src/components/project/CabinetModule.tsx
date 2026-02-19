@@ -146,7 +146,7 @@ export default function CabinetModule({ project, selectedUnit, setSelectedUnitId
                       <td className="font-mono font-medium">{sku}</td>
                       {unitTypes.map(type => (
                         <td key={type} className="text-center">
-                          {skuTypeQty[sku]?.[type] || ''}
+                          {skuTypeQty[sku]?.[type] ? '1' : ''}
                         </td>
                       ))}
                     </tr>
