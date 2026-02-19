@@ -42,6 +42,8 @@ export default function NewProject() {
     countertopManufacturerCustom: '',
     countertopColor: '',
     countertopColorCustom: '',
+    laminateSubstrate: '',
+    laminateSubstrateCustom: '',
     handlesAndHardware: '',
     tax: '',
   });
@@ -106,7 +108,7 @@ export default function NewProject() {
           const val = e.target.value;
           // Reset manufacturer when countertop type changes
           if (key === 'countertops') {
-            setSpecs(s => ({ ...s, countertops: val, countertopManufacturer: '', countertopManufacturerCustom: '', countertopColor: '', countertopColorCustom: '' }));
+            setSpecs(s => ({ ...s, countertops: val, countertopManufacturer: '', countertopManufacturerCustom: '', countertopColor: '', countertopColorCustom: '', laminateSubstrate: '', laminateSubstrateCustom: '' }));
           } else {
             setSpecs(s => ({ ...s, [key]: val }));
           }
@@ -261,6 +263,36 @@ export default function NewProject() {
                               value={specs.countertopColorCustom}
                               onChange={e => setSpecs(s => ({ ...s, countertopColorCustom: e.target.value }))}
                               placeholder="Enter specific color name or code…"
+                              className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                              autoFocus
+                            />
+                          )}
+                        </div>
+                      )}
+                      {/* Substrate selection — only for Laminate */}
+                      {specs.countertops === 'Laminate' && (
+                        <div className="space-y-2">
+                          <div>
+                            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                              Substrate
+                            </label>
+                            <select
+                              value={specs.laminateSubstrate}
+                              onChange={e => setSpecs(s => ({ ...s, laminateSubstrate: e.target.value, laminateSubstrateCustom: '' }))}
+                              className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
+                            >
+                              <option value="">Select substrate…</option>
+                              <option value="Particleboard">Particleboard</option>
+                              <option value="Plywood">Plywood</option>
+                              <option value="Other">Other</option>
+                            </select>
+                          </div>
+                          {specs.laminateSubstrate === 'Other' && (
+                            <input
+                              type="text"
+                              value={specs.laminateSubstrateCustom}
+                              onChange={e => setSpecs(s => ({ ...s, laminateSubstrateCustom: e.target.value }))}
+                              placeholder="Enter substrate type…"
                               className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
                               autoFocus
                             />
