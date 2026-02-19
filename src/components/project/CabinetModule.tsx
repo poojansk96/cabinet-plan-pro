@@ -32,10 +32,9 @@ function TypeBadge({ type }: { type: CabinetType }) {
   return <span className={cls}>{type[0]}</span>;
 }
 
-export default function CabinetModule({ project, selectedUnit, setSelectedUnitId, addCabinet, updateCabinet, deleteCabinet }: Props) {
+export default function CabinetModule({ project, selectedUnit, addCabinet, updateCabinet, deleteCabinet }: Props) {
   const [form, setForm] = useState(blankCabinet());
   const [showForm, setShowForm] = useState(false);
-  const [filterType, setFilterType] = useState<CabinetType | 'All'>('All');
 
   const handleAdd = () => {
     if (!selectedUnit || !form.sku.trim()) return;
@@ -44,23 +43,13 @@ export default function CabinetModule({ project, selectedUnit, setSelectedUnitId
   };
 
   const cabinets = selectedUnit?.cabinets ?? [];
-  const filtered = filterType === 'All' ? cabinets : cabinets.filter(c => c.type === filterType);
-
-  // Totals for selected unit
-  const totals = CABINET_TYPES.reduce<Record<string, number>>((acc, t) => {
-    acc[t] = cabinets.filter(c => c.type === t).reduce((s, c) => s + c.quantity, 0);
-    return acc;
-  }, {});
-  totals['All'] = cabinets.reduce((s, c) => s + c.quantity, 0);
-
   const skuSummary = selectedUnit ? buildSkuSummary(selectedUnit.cabinets) : [];
 
-  // Type-wise summary: group units by unit type, sum cabinets per cabinet type
-  const unitTypeGroups = project.units.reduce<Record<string, { unitCount: number; base: number; wall: number; tall: number; vanity: number; total: number; skus: string[] }>>((acc, u) => {
-    if (!acc[u.type]) acc[u.type] = { unitCount: 0, base: 0, wall: 0, tall: 0, vanity: 0, total: 0, skus: [] };
+  // Type-wise summary: group units by unit type
+  const unitTypeGroups = project.units.reduce<Record<string, { unitCount: number; base: number; wall: number; tall: number; vanity: number; skus: string[] }>>((acc, u) => {
+    if (!acc[u.type]) acc[u.type] = { unitCount: 0, base: 0, wall: 0, tall: 0, vanity: 0, skus: [] };
     acc[u.type].unitCount += 1;
     u.cabinets.forEach(c => {
-      acc[u.type].total += c.quantity;
       if (c.type === 'Base') acc[u.type].base += c.quantity;
       else if (c.type === 'Wall') acc[u.type].wall += c.quantity;
       else if (c.type === 'Tall') acc[u.type].tall += c.quantity;
@@ -72,24 +61,10 @@ export default function CabinetModule({ project, selectedUnit, setSelectedUnitId
 
   return (
     <div className="space-y-4">
-      {/* Unit selector */}
-      <div className="flex items-center gap-2 flex-wrap">
+      {/* Header */}
+      <div className="flex items-center gap-2">
         <Layers size={16} className="text-primary flex-shrink-0" />
         <span className="font-semibold text-sm">Cabinet Takeoff</span>
-        <span className="text-muted-foreground text-xs">|</span>
-        <span className="text-xs text-muted-foreground">Unit:</span>
-        <select
-          className="est-input"
-          value={selectedUnit?.id ?? ''}
-          onChange={e => setSelectedUnitId(e.target.value)}
-        >
-          {project.units.length === 0 && <option value="">No units — add units first</option>}
-          {project.units.map(u => (
-            <option key={u.id} value={u.id}>
-              #{u.unitNumber} ({u.type})
-            </option>
-          ))}
-        </select>
         <button
           onClick={() => setShowForm(!showForm)}
           disabled={!selectedUnit}
@@ -104,9 +79,7 @@ export default function CabinetModule({ project, selectedUnit, setSelectedUnitId
       {/* Unit-type-wise cabinet summary — pivot: SKUs as rows, unit types as rotated columns */}
       {Object.keys(unitTypeGroups).length > 0 && (() => {
         const unitTypes = Object.keys(unitTypeGroups);
-        // collect all unique SKUs across all units
         const allSkus = Array.from(new Set(project.units.flatMap(u => u.cabinets.map(c => c.sku)))).sort();
-        // build a map: sku -> unitType -> total qty
         const skuTypeQty: Record<string, Record<string, number>> = {};
         project.units.forEach(u => {
           u.cabinets.forEach(c => {
@@ -157,23 +130,6 @@ export default function CabinetModule({ project, selectedUnit, setSelectedUnitId
           </div>
         );
       })()}
-
-      {/* Quick stats */}
-      {selectedUnit && (
-        <div className="grid grid-cols-5 gap-2">
-          {(['All', ...CABINET_TYPES] as const).map(t => (
-            <button
-              key={t}
-              onClick={() => setFilterType(t as CabinetType | 'All')}
-              className={`stat-card text-center cursor-pointer transition-all ${filterType === t ? 'ring-2' : ''}`}
-              style={filterType === t ? { '--tw-ring-color': 'hsl(var(--primary))' } as React.CSSProperties : {}}
-            >
-              <div className="stat-value text-xl">{totals[t] ?? 0}</div>
-              <div className="stat-label">{t}</div>
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* Add form */}
       {showForm && selectedUnit && (
@@ -227,11 +183,10 @@ export default function CabinetModule({ project, selectedUnit, setSelectedUnitId
           <div className="est-card overflow-hidden">
             <div className="est-section-header">
               <span>Cabinet List — Unit #{selectedUnit.unitNumber}</span>
-              {filterType !== 'All' && <span className="ml-2 text-muted-foreground font-normal">({filterType} only)</span>}
             </div>
-            {filtered.length === 0 ? (
+            {cabinets.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground text-sm">
-                No cabinets{filterType !== 'All' ? ` of type "${filterType}"` : ''}. Click "Add Cabinet" above.
+                No cabinets. Click "Add Cabinet" above.
               </div>
             ) : (
               <table className="est-table">
@@ -248,7 +203,7 @@ export default function CabinetModule({ project, selectedUnit, setSelectedUnitId
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map(cab => (
+                  {cabinets.map(cab => (
                     <tr key={cab.id}>
                       <td>{cab.room}</td>
                       <td><TypeBadge type={cab.type} /></td>
@@ -279,7 +234,7 @@ export default function CabinetModule({ project, selectedUnit, setSelectedUnitId
                 <tfoot>
                   <tr style={{ background: 'hsl(var(--secondary))', fontWeight: 600 }}>
                     <td colSpan={6} className="px-3 py-1.5 text-sm">TOTAL</td>
-                    <td className="px-3 py-1.5 text-sm text-right">{filtered.reduce((s, c) => s + c.quantity, 0)}</td>
+                    <td className="px-3 py-1.5 text-sm text-right">{cabinets.reduce((s, c) => s + c.quantity, 0)}</td>
                     <td></td>
                   </tr>
                 </tfoot>
@@ -322,7 +277,7 @@ export default function CabinetModule({ project, selectedUnit, setSelectedUnitId
         </div>
       ) : (
         <div className="text-center py-12 text-muted-foreground text-sm">
-          Add units first, then select a unit to add cabinets.
+          Add units first, then add cabinets.
         </div>
       )}
     </div>
