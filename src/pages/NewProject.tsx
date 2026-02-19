@@ -254,6 +254,7 @@ export default function NewProject() {
                               <option value="Group 1 Color">Group 1 Color</option>
                               <option value="Group 2 Color">Group 2 Color</option>
                               <option value="Group 3 Color">Group 3 Color</option>
+                              <option value="Group 5 Color">Group 5 Color</option>
                               <option value="Custom/Specific Color">Custom / Specific Color</option>
                             </select>
                           </div>
