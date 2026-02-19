@@ -552,6 +552,7 @@ export default function NewProject() {
                       <option value="">Select tax rate…</option>
                       <option value="CT-6.35%">CT — 6.35%</option>
                       <option value="MA-6.25%">MA — 6.25%</option>
+                      <option value="Tax Exempt">Tax Exempt</option>
                       <option value="Other">Other</option>
                     </select>
                   </div>
