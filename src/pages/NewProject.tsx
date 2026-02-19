@@ -48,6 +48,7 @@ export default function NewProject() {
     laminateSubstrateCustom: '',
     laminateColor: '',
     laminateColorCustom: '',
+    handlesCustom: '',
     handlesAndHardware: '',
     tax: '',
   });
@@ -369,7 +370,34 @@ export default function NewProject() {
                     />
                   )}
                 </div>
-                {specTextField('Handles', 'handlesAndHardware', 'e.g. Amerock BP55342, Brushed Nickel')}
+                <div className="space-y-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                      Handles
+                    </label>
+                    <select
+                      value={specs.handlesAndHardware}
+                      onChange={e => setSpecs(s => ({ ...s, handlesAndHardware: e.target.value, handlesCustom: '' }))}
+                      className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                    >
+                      <option value="">Select handles…</option>
+                      <option value="Standard knob, 4&quot; wire pulls or 96mm barpulls in Brushed nickel finish">
+                        Standard knob, 4" wire pulls or 96mm barpulls in Brushed nickel finish
+                      </option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  {specs.handlesAndHardware === 'Other' && (
+                    <input
+                      type="text"
+                      value={specs.handlesCustom}
+                      onChange={e => setSpecs(s => ({ ...s, handlesCustom: e.target.value }))}
+                      placeholder="Describe handle style…"
+                      className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                      autoFocus
+                    />
+                  )}
+                </div>
               </div>
 
               {/* Row 5: Tax */}
