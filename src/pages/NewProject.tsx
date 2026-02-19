@@ -282,14 +282,14 @@ export default function NewProject() {
                     <div className="space-y-2">
                       <div>
                         <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                          Manufacturer
+                          Vendor
                         </label>
                         <select
                           value={specs.countertopManufacturer}
                           onChange={e => setSpecs(s => ({ ...s, countertopManufacturer: e.target.value, countertopManufacturerCustom: '' }))}
                           className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
                         >
-                          <option value="">Select manufacturer…</option>
+                          <option value="">Select vendor…</option>
                           {COUNTERTOP_MANUFACTURERS[specs.countertops].map(m => (
                             <option key={m} value={m}>{m}</option>
                           ))}
