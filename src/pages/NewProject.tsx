@@ -6,7 +6,7 @@ import type { ProjectType } from '@/types/project';
 
 const HINGE_OPTIONS = ['Standard soft close 6 way adjustable hinges', 'Other'];
 const DRAWER_BOX_OPTIONS = ['Dovetail Wood', 'Melamine', 'Particleboard', 'Metal (Tandem)', 'Other'];
-const DRAWER_GUIDE_OPTIONS = ['Blum Tandem', 'Blum Legrabox', 'Grass Dynapro', 'King Slide', 'Other'];
+const DRAWER_GUIDE_OPTIONS = ['Standard NRG guides', 'Upgraded SCG guides', 'Other'];
 const COUNTERTOP_OPTIONS = ['Quartz', 'Granite', 'Laminate', 'Solid Surface', 'Porcelain', 'Marble', 'Other'];
 
 const COUNTERTOP_MANUFACTURERS: Record<string, string[]> = {
@@ -36,6 +36,7 @@ export default function NewProject() {
     doorStyle: '',
     hinges: '',
     hingesCustom: '',
+    drawerGuidesCustom: '',
     drawerBox: '',
     drawerGuides: '',
     countertops: '',
@@ -355,7 +356,19 @@ export default function NewProject() {
 
               {/* Row 4: Drawer Guides + Handles & Hardware */}
               <div className="grid grid-cols-2 gap-4">
-                {specSelectField('Drawer Guides', 'drawerGuides', DRAWER_GUIDE_OPTIONS)}
+                <div className="space-y-2">
+                  {specSelectField('Drawer Guides', 'drawerGuides', DRAWER_GUIDE_OPTIONS)}
+                  {specs.drawerGuides === 'Other' && (
+                    <input
+                      type="text"
+                      value={specs.drawerGuidesCustom}
+                      onChange={e => setSpecs(s => ({ ...s, drawerGuidesCustom: e.target.value }))}
+                      placeholder="Describe drawer guide type…"
+                      className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                      autoFocus
+                    />
+                  )}
+                </div>
                 {specTextField('Handles & Hardware', 'handlesAndHardware', 'e.g. Amerock BP55342, Brushed Nickel')}
               </div>
 
