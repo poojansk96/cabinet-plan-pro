@@ -33,12 +33,12 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
     setShowForm(false);
   };
 
-  const handlePDFImport = (units: Array<{ unitNumber: string; type: UnitType }>) => {
+  const handlePDFImport = (units: Array<{ unitNumber: string; type: UnitType; floor: string }>) => {
     let lastUnit: Unit | null = null;
     units.forEach(u => {
       const exists = project.units.some(pu => pu.unitNumber === u.unitNumber);
       if (!exists) {
-        lastUnit = addUnit(project.id, { unitNumber: u.unitNumber, type: u.type, notes: '' });
+        lastUnit = addUnit(project.id, { unitNumber: u.unitNumber, type: u.type, floor: u.floor || '', notes: '' });
       }
     });
     if (lastUnit) setSelectedUnitId((lastUnit as Unit).id);
