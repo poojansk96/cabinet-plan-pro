@@ -48,6 +48,8 @@ export interface Unit {
   id: string;
   unitNumber: string;
   type: UnitType;
+  bldg?: string;
+  floor?: string;
   cabinets: Cabinet[];
   accessories: Accessory[];
   countertops: CountertopSection[];
