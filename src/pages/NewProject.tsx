@@ -34,6 +34,7 @@ export default function NewProject() {
     projectSuper: '',
     customer: '',
     doorStyle: '',
+    doorStyleCustom: '',
     hinges: '',
     hingesCustom: '',
     drawerGuidesCustom: '',
@@ -213,7 +214,36 @@ export default function NewProject() {
 
               {/* Row 2: Door Style + Countertops */}
               <div className="grid grid-cols-2 gap-4">
-                {specTextField('Door Style', 'doorStyle', 'e.g. Shaker, Slab, Raised Panel…')}
+                <div className="space-y-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                      Door Style
+                    </label>
+                    <select
+                      value={specs.doorStyle}
+                      onChange={e => setSpecs(s => ({ ...s, doorStyle: e.target.value, doorStyleCustom: '' }))}
+                      className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                    >
+                      <option value="">Select manufacturer…</option>
+                      <option value="Overseas">Overseas</option>
+                      <option value="India">India</option>
+                      <option value="Legacy">Legacy</option>
+                      <option value="Bristol">Bristol</option>
+                      <option value="India box+ Bristol door">India box+ Bristol door</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  {specs.doorStyle === 'Other' && (
+                    <input
+                      type="text"
+                      value={specs.doorStyleCustom}
+                      onChange={e => setSpecs(s => ({ ...s, doorStyleCustom: e.target.value }))}
+                      placeholder="Describe door style / manufacturer…"
+                      className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                      autoFocus
+                    />
+                  )}
+                </div>
                 <div className="space-y-2">
                   {specSelectField('Countertops', 'countertops', COUNTERTOP_OPTIONS)}
                   {specs.countertops && COUNTERTOP_MANUFACTURERS[specs.countertops] && (
