@@ -39,6 +39,8 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
   const [showRawText, setShowRawText] = useState(false);
   const [processingStatus, setProcessingStatus] = useState('Extracting text from PDF…');
   const [usedAI, setUsedAI] = useState(false);
+  const [progress, setProgress] = useState(0);       // 0–100
+  const [progressLabel, setProgressLabel] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const processFile = async (file: File) => {
@@ -49,16 +51,21 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
     setError(null);
     setStep('processing');
     setUsedAI(false);
+    setProgress(0);
+    setProgressLabel('');
 
     try {
       // Step 1: Extract raw text from PDF using pdfjs locally
       setProcessingStatus('Extracting text from PDF…');
+      setProgress(5);
+      setProgressLabel('Reading PDF…');
       const { extractUnitsFromPDF } = await import('@/lib/pdfExtractor');
       const res = await extractUnitsFromPDF(file);
       setResult(res);
+      setProgress(30);
 
       // Step 2: Re-extract page texts for AI (pdfjs already loaded)
-      setProcessingStatus('AI is analyzing floor plans for units with cabinets/countertops…');
+      setProcessingStatus('Preparing pages for AI analysis…');
       const arrayBuffer = await file.arrayBuffer();
       const pdfjsLib = (await import('pdfjs-dist')) as any;
       pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -66,8 +73,9 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
         import.meta.url
       ).toString();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const totalPages = pdf.numPages;
       const pageTexts: string[] = [];
-      for (let p = 1; p <= pdf.numPages; p++) {
+      for (let p = 1; p <= totalPages; p++) {
         const page = await pdf.getPage(p);
         const content = await page.getTextContent();
         const text = content.items
@@ -75,9 +83,15 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
           .map((item: any) => item.str)
           .join(' ');
         pageTexts.push(text);
+        // Progress 30→60 during page extraction
+        setProgress(30 + Math.round((p / totalPages) * 30));
+        setProgressLabel(`Reading page ${p} of ${totalPages}`);
       }
 
       // Step 3: Call AI edge function
+      setProcessingStatus('AI is analyzing floor plans for units with cabinets/countertops…');
+      setProgress(65);
+      setProgressLabel('AI analyzing…');
       let detectedUnits: DetectedUnit[] = res.detectedUnits;
 
       const aiResponse = await fetch(EDGE_FUNCTION_URL, {
@@ -99,6 +113,9 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
       } else {
         toast.warning('AI analysis unavailable. Using standard detection.');
       }
+
+      setProgress(95);
+      setProgressLabel('Building unit list…');
 
       const initialRows: UnitRow[] = detectedUnits.map(u => ({
         unitNumber: u.unitNumber,
@@ -124,6 +141,8 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
         return a.floor.localeCompare(b.floor, undefined, { numeric: true });
       });
       setRows(sortedRows);
+      setProgress(100);
+      setProgressLabel('Done!');
       setStep('review');
     } catch (err) {
       console.error(err);
@@ -232,13 +251,27 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
 
           {/* STEP: Processing */}
           {step === 'processing' && (
-            <div className="flex flex-col items-center justify-center py-16 gap-4">
+            <div className="flex flex-col items-center justify-center py-12 gap-5 px-4">
               <div className="relative">
                 <Loader2 size={40} className="animate-spin text-primary" />
                 <Sparkles size={14} className="absolute -top-1 -right-1 text-primary" />
               </div>
-              <p className="font-semibold text-sm text-center">{processingStatus}</p>
-              <p className="text-xs text-muted-foreground">AI is reading your floor plans carefully…</p>
+              <div className="w-full max-w-sm space-y-2">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground truncate">{processingStatus}</span>
+                  <span className="ml-2 flex-shrink-0 font-semibold text-primary">{progress}%</span>
+                </div>
+                {/* Progress bar */}
+                <div className="w-full h-2 rounded-full bg-secondary border border-border overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500 ease-out"
+                    style={{ width: `${progress}%`, background: 'hsl(var(--primary))' }}
+                  />
+                </div>
+                {progressLabel && (
+                  <p className="text-xs text-muted-foreground text-center">{progressLabel}</p>
+                )}
+              </div>
             </div>
           )}
 
