@@ -73,66 +73,105 @@ interface TypePattern {
   label: string;
 }
 
+// Stop words that mark the end of a type name in running text
+const TYPE_STOPWORDS = /\b(?:unit|floor|level|building|bldg|kitchen|total|area|drawing|schedule|note|scale|date|revision|sheet|typical|refer|see|typ|similar)\b/i;
+
+/** Capture up to ~8 tokens after a keyword, stopping at structural stop-words */
+function captureFullTypeName(afterKeyword: string): string {
+  // Take up to 60 chars then trim at the last "clean" word boundary
+  const chunk = afterKeyword.slice(0, 60);
+  // Split into tokens, stop when we hit a stop-word or punctuation that ends the name
+  const tokens: string[] = [];
+  const tokenRe = /[A-Z0-9][A-Z0-9\-\/\.]*/gi;
+  let m: RegExpExecArray | null;
+  let lastEnd = 0;
+  while ((m = tokenRe.exec(chunk)) !== null) {
+    // Gap between previous token and this one — if large skip (probably different label)
+    if (tokens.length > 0 && m.index - lastEnd > 4) break;
+    // Stop at stop-words
+    if (TYPE_STOPWORDS.test(m[0])) break;
+    tokens.push(m[0].toUpperCase());
+    lastEnd = m.index + m[0].length;
+    if (tokens.length >= 8) break;
+  }
+  return tokens.join(' ').trim();
+}
+
+/** Clean up a captured type name — collapse whitespace, trim trailing noise */
+function cleanTypeName(raw: string): string {
+  return raw
+    .replace(/\s+/g, ' ')
+    .replace(/\s*[\-–]\s*/g, '-')
+    .trim()
+    .replace(/\s+(UNIT|APT|NO|FIG|DWG|REV|DATE|SCALE|THE|AND|FOR|WITH|FROM|OF|BY)$/i, '')
+    .trim();
+}
+
 const UNIT_TYPE_PATTERNS: TypePattern[] = [
-  // ── Highest priority: full combined type names ───────────────────────────
-  // "Unit Type A5-1BR", "Unit Type B3 2 Bedroom"
-  { re: /\bunit\s*type\s+([A-Z0-9][\w\-]*(?:\s*[\-\/]\s*[A-Z0-9][\w\-]*)*(?:\s+[1-6]\s*(?:bed(?:room)?s?|br|bd|b\.?h\.?k\.?))?)\b/gi, label: '$1' },
-  // "Type A5-1BR", "Type B3 2BR", "Type A - 2 Bedroom"
-  { re: /\btype\s*[:\-]?\s*([A-Z0-9][\w\-]*(?:\s*[\-\/]\s*[A-Z0-9][\w\-]*)*(?:\s+[1-6]\s*(?:bed(?:room)?s?|br|bd))?)\b/gi, label: '$1' },
-  // "Plan A5-1BR", "Floor Plan B-2BR"
-  { re: /\b(?:floor\s*)?plan\s*[:\-]?\s*([A-Z0-9][\w\-]*(?:\s*[\-\/]\s*[A-Z0-9][\w\-]*)*(?:\s+[1-6]\s*(?:bed(?:room)?s?|br|bd))?)\b/gi, label: 'Plan $1' },
+  // ── BHK style  → "3BHK", "2 BHK" ────────────────────────────────────────
+  { re: /\b([1-6])\s*b\.?h\.?k\.?\b/gi, label: '$1BHK' },
+  // Bedroom count with leading code: "A5 1BR", "B3 - 2 Bedroom", "A-2BR"
+  { re: /\b([A-Z][A-Z0-9\-\/]*)\s*[\-\s]\s*([1-6]\s*(?:bed(?:room)?s?|br|bd))\b/gi, label: '$1-$2' },
+  // Bedroom count only (fallback)
+  { re: /\b([1-6])\s*(?:bed(?:room)?s?|br|bd)\b/gi, label: '$1BR' },
+  // Special unit types
+  { re: /\b(studio|efficiency|eff\.?)\b/gi,         label: 'Studio' },
+  { re: /\b(penthouse|ph)\b/gi,                     label: 'Penthouse' },
+  { re: /\b(townhouse|townhome|town\s*house)\b/gi,  label: 'Townhouse' },
+  { re: /\b(condo(?:minium)?)\b/gi,                 label: 'Condo' },
+  { re: /\b(loft)\b/gi,                             label: 'Loft' },
+  { re: /\b(duplex|triplex)\b/gi,                   label: '$1' },
+];
 
-  // ── Alphanumeric code + bedroom count fused or combined ──────────────────
-  // "A5-1BR", "B3-2BR", "C1-Studio" — code dash/slash bedroom designation
-  { re: /\b([A-Z][A-Z0-9]*[\-\/][A-Z0-9]+(?:\s*[\-\/]\s*[A-Z0-9]*)?(?:\s+[1-6]\s*(?:bed(?:room)?s?|br|bd)|\s+studio|\s+loft|\s+penthouse)?)\b/g, label: '$1' },
-  // "A5 1BR", "B3 2 Bedroom" — code space bedroom
-  { re: /\b([A-Z][A-Z0-9]*)\s+([1-6]\s*(?:bed(?:room)?s?|br|bd))\b/gi, label: '$1 $2' },
-
-  // ── BHK style  → "3BHK", "2 BHK", "4 B.H.K" ────────────────────────────
-  { re: /\b([1-6])\s*b\.?h\.?k\.?\b/gi,                   label: '$1BHK' },
-  // Bedroom count only (fallback) → "2 BEDROOM", "2 BED", "2BR", "2 BD"
-  { re: /\b([1-6])\s*(?:bed(?:room)?s?|br|bd)\b/gi,        label: '$1BR' },
-
-  // ── Special unit types ────────────────────────────────────────────────────
-  { re: /\b(studio|efficiency|eff\.?)\b/gi,                 label: 'Studio' },
-  { re: /\b(penthouse|ph)\b/gi,                             label: 'Penthouse' },
-  { re: /\b(townhouse|townhome|town\s*house)\b/gi,          label: 'Townhouse' },
-  { re: /\b(condo(?:minium)?)\b/gi,                         label: 'Condo' },
-  { re: /\b(loft)\b/gi,                                     label: 'Loft' },
-  { re: /\b(duplex|triplex)\b/gi,                           label: '$1' },
-  { re: /\b([1-6])\s*(?:room|rms?)\b/gi,                   label: '$1BR' },
-
-  // ── Layout / Model labels ─────────────────────────────────────────────────
-  { re: /\blayout\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi,       label: 'Layout $1' },
-  { re: /\bmodel\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi,        label: 'Model $1' },
+// Keywords that introduce a type label — we grab everything after them
+const TYPE_KEYWORD_RES: Array<{ re: RegExp; prefix: string }> = [
+  { re: /\bunit\s*type\s*[:\-]?\s*/gi,      prefix: '' },
+  { re: /\btype\s*[:\-]?\s*/gi,             prefix: '' },
+  { re: /\b(?:floor\s*)?plan\s*[:\-]?\s*/gi, prefix: 'Plan ' },
+  { re: /\blayout\s*[:\-]?\s*/gi,           prefix: 'Layout ' },
+  { re: /\bmodel\s*[:\-]?\s*/gi,            prefix: 'Model ' },
 ];
 
 /** Try to detect a unit type from a text snippet surrounding the match */
 function detectTypeFromContext(contextText: string): string | null {
+  // 1. Try keyword-anchored full-name extraction first (highest accuracy)
+  for (const { re, prefix } of TYPE_KEYWORD_RES) {
+    re.lastIndex = 0;
+    const km = re.exec(contextText);
+    if (km) {
+      const after = contextText.slice(km.index + km[0].length);
+      const full = captureFullTypeName(after);
+      if (full.length > 0) return cleanTypeName(prefix + full);
+    }
+  }
+
+  // 2. Try structured regex patterns (bedroom counts, codes, special types)
   for (const { re, label } of UNIT_TYPE_PATTERNS) {
     re.lastIndex = 0;
     const m = re.exec(contextText);
     if (m) {
-      // Resolve capture-group references in label (e.g. '$1BR')
       const resolved = label.replace(/\$(\d+)/g, (_, n) => (m[parseInt(n)] ?? '').toUpperCase());
-      return resolved;
+      return cleanTypeName(resolved);
     }
   }
 
-  // Broad fallback: grab any standalone ALL-CAPS word or short ALL-CAPS phrase
-  // that looks like a type label (2–20 chars, possibly hyphenated, not a noise word)
-  const NOISE = /^(UNIT|APT|NO|NUM|FIG|DWG|REV|DATE|SCALE|THE|AND|FOR|WITH|FROM)$/;
-  const capsRe = /\b([A-Z][A-Z0-9\-]{1,19})\b/g;
+  // 3. Broad fallback: grab an ALL-CAPS multi-word phrase (not a noise word)
+  const NOISE = /^(UNIT|APT|NO|NUM|FIG|DWG|REV|DATE|SCALE|THE|AND|FOR|WITH|FROM|OF|BY|AT|IN|OR|NEW|OLD|TYP|SIM|UNO|SEE|REF|NTS|TBC|TBD|NA)$/;
+  // Try to grab a multi-word CAPS phrase (e.g. "TYPE A 2BR" already handled above, but catches
+  // standalone labels like "PENTHOUSE PH-2" that didn't match keyword patterns)
+  const capsPhrase = /\b([A-Z][A-Z0-9\-\/]{0,19}(?:\s+[A-Z][A-Z0-9\-\/]{0,19}){0,4})\b/g;
   let cm: RegExpExecArray | null;
-  while ((cm = capsRe.exec(contextText)) !== null) {
-    const word = cm[1];
-    if (!NOISE.test(word) && !/^\d+$/.test(word)) {
-      return word;
+  while ((cm = capsPhrase.exec(contextText)) !== null) {
+    const phrase = cm[1];
+    const firstWord = phrase.split(/\s+/)[0];
+    if (!NOISE.test(firstWord) && !/^\d+$/.test(firstWord)) {
+      return cleanTypeName(phrase);
     }
   }
 
   return null;
 }
+
 
 // ---------------------------------------------------------------------------
 // Kitchen / cabinet / countertop detection
