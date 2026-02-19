@@ -81,7 +81,9 @@ Return ONLY valid JSON, no markdown, no explanation:
   ]
 }`;
 
-      const userPrompt = `Page ${i + 1} floor plan text:\n\n${pageText.slice(0, 8000)}`;
+      const titleBlock = pageText.slice(0, 1000); // Title blocks appear at start/end of extracted text
+      const tailBlock = pageText.slice(-500);
+      const userPrompt = `Page ${i + 1} floor plan text:\n\nTITLE BLOCK / HEADER (building name often here):\n${titleBlock}\n\nTAIL / FOOTER:\n${tailBlock}\n\nFULL PAGE TEXT:\n${pageText.slice(0, 8000)}`;
 
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
