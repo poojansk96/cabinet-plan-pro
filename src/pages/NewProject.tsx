@@ -5,7 +5,7 @@ import { useProjectStore } from '@/hooks/useProjectStore';
 import type { ProjectType } from '@/types/project';
 
 const HINGE_OPTIONS = ['Standard soft close 6 way adjustable hinges', 'Other'];
-const DRAWER_BOX_OPTIONS = ['Dovetail Wood', 'Melamine', 'Metal (Legrabox)', 'Metal (Tandem)', 'Other'];
+const DRAWER_BOX_OPTIONS = ['Dovetail Wood', 'Melamine', 'Particleboard', 'Metal (Tandem)', 'Other'];
 const DRAWER_GUIDE_OPTIONS = ['Blum Tandem', 'Blum Legrabox', 'Grass Dynapro', 'King Slide', 'Other'];
 const COUNTERTOP_OPTIONS = ['Quartz', 'Granite', 'Laminate', 'Solid Surface', 'Porcelain', 'Marble', 'Other'];
 
