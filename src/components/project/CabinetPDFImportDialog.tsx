@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import { FileUp, X, Loader2, CheckCircle, AlertCircle, Sparkles, Trash2 } from 'lucide-react';
+import { FileUp, X, Loader2, CheckCircle, AlertCircle, Sparkles, Trash2, Ruler } from 'lucide-react';
 import type { Cabinet, CabinetType, Room } from '@/types/project';
 import { toast } from 'sonner';
 
@@ -20,24 +20,107 @@ type Step = 'upload' | 'processing' | 'review';
 const CABINET_TYPES: CabinetType[] = ['Base', 'Wall', 'Tall', 'Vanity'];
 const ROOMS: Room[] = ['Kitchen', 'Pantry', 'Laundry', 'Bath', 'Other'];
 
+// Common architectural drawing scales (scale = drawn units per real unit)
+// e.g. 1/4"=1'-0" means 1 inch on paper = 4 feet real = 48 inches real → scale factor = 48
+const COMMON_SCALES = [
+  { label: '1/4" = 1\'-0"',  factor: 48 },
+  { label: '3/8" = 1\'-0"',  factor: 32 },
+  { label: '1/2" = 1\'-0"',  factor: 24 },
+  { label: '3/4" = 1\'-0"',  factor: 16 },
+  { label: '1" = 1\'-0"',    factor: 12 },
+  { label: '1-1/2" = 1\'-0"',factor: 8 },
+  { label: '3" = 1\'-0"',    factor: 4 },
+  { label: '1:1 (full size)',  factor: 1 },
+  { label: 'Custom ratio…',   factor: -1 },
+];
+
+/** Extract rectangle geometries (cabinet boxes) from a PDF page using pdfjs-dist operator stream */
+async function extractPageGeometry(page: any): Promise<{ x: number; y: number; w: number; h: number }[]> {
+  const ops = await page.getOperatorList();
+  const OPS = (await import('pdfjs-dist')).OPS as any;
+
+  const rects: { x: number; y: number; w: number; h: number }[] = [];
+  const stack: number[][] = []; // CTM stack
+  let ctm = [1, 0, 0, 1, 0, 0]; // current transform matrix
+
+  for (let i = 0; i < ops.fnArray.length; i++) {
+    const fn = ops.fnArray[i];
+    const args = ops.argsArray[i];
+
+    if (fn === OPS.save) {
+      stack.push([...ctm]);
+    } else if (fn === OPS.restore) {
+      if (stack.length) ctm = stack.pop()!;
+    } else if (fn === OPS.transform) {
+      // Concatenate matrix
+      const [a, b, c, d, e, f] = args as number[];
+      ctm = [
+        ctm[0] * a + ctm[2] * b,
+        ctm[1] * a + ctm[3] * b,
+        ctm[0] * c + ctm[2] * d,
+        ctm[1] * c + ctm[3] * d,
+        ctm[0] * e + ctm[2] * f + ctm[4],
+        ctm[1] * e + ctm[3] * f + ctm[5],
+      ];
+    } else if (fn === OPS.rectangle) {
+      // args: [x, y, width, height] in user space
+      const [rx, ry, rw, rh] = args as number[];
+      // Apply CTM to get page-space dimensions
+      // Width in page space ≈ rw * ctm[0] (assuming no shear)
+      const pw = Math.abs(rw * ctm[0] + rh * ctm[2]);
+      const ph = Math.abs(rw * ctm[1] + rh * ctm[3]);
+      // Only collect rectangles that look like cabinet boxes: width > height, reasonable sizes
+      if (pw > 10 && ph > 10 && pw < 2000 && ph < 2000) {
+        rects.push({ x: rx * ctm[0] + ctm[4], y: ry * ctm[3] + ctm[5], w: pw, h: ph });
+      }
+    }
+  }
+  return rects;
+}
+
+/** Convert PDF-point measurements to real-world inches given scale factor */
+function ptsToInches(pts: number, scaleFactor: number): number {
+  // PDF points: 72 pts = 1 inch on paper
+  // scaleFactor = real inches per drawn inch
+  const drawnInches = pts / 72;
+  return Math.round(drawnInches * scaleFactor);
+}
+
 export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<CabinetRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [processingStatus, setProcessingStatus] = useState('Extracting text from PDF…');
+  const [selectedScaleIdx, setSelectedScaleIdx] = useState(0); // default 1/4"=1'
+  const [customRatio, setCustomRatio] = useState(''); // e.g. "1:48"
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const processFile = async (file: File) => {
-    if (!file.type.includes('pdf')) {
-      setError('Please upload a PDF file.');
-      return;
+  /** Returns the real-world scale factor (real inches per 1 drawn inch) */
+  const getScaleFactor = (): number | null => {
+    const sel = COMMON_SCALES[selectedScaleIdx];
+    if (sel.factor !== -1) return sel.factor;
+    // Parse custom ratio like "1:48" or "48"
+    const trimmed = customRatio.trim();
+    if (!trimmed) return null;
+    if (trimmed.includes(':')) {
+      const [, denom] = trimmed.split(':').map(Number);
+      return isNaN(denom) || denom <= 0 ? null : denom;
     }
+    const n = Number(trimmed);
+    return isNaN(n) || n <= 0 ? null : n;
+  };
+
+  const processFile = async (file: File) => {
+    if (!file.type.includes('pdf')) { setError('Please upload a PDF file.'); return; }
+    const scaleFactor = getScaleFactor();
+    if (!scaleFactor) { setError('Please enter a valid scale ratio before uploading.'); return; }
+
     setError(null);
     setStep('processing');
 
     try {
-      setProcessingStatus('Extracting text from PDF…');
+      setProcessingStatus('Extracting text and geometry from PDF…');
       const arrayBuffer = await file.arrayBuffer();
       const pdfjsLib = (await import('pdfjs-dist')) as any;
       pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -45,23 +128,41 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
         import.meta.url
       ).toString();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
       const pageTexts: string[] = [];
+      // Measured cabinet box sizes per page: array of {wIn, hIn} per page
+      const pageMeasuredBoxes: Array<Array<{ wIn: number; hIn: number }>> = [];
+
       for (let p = 1; p <= pdf.numPages; p++) {
         const page = await pdf.getPage(p);
+
+        // Extract text
         const content = await page.getTextContent();
         const text = content.items
           .filter((item: any) => 'str' in item)
           .map((item: any) => item.str)
           .join(' ');
         pageTexts.push(text);
+
+        // Extract geometry and convert to real-world inches
+        try {
+          const rects = await extractPageGeometry(page);
+          // Filter to plausible cabinet box proportions (width > height, min 6" real)
+          const boxes = rects
+            .map(r => ({ wIn: ptsToInches(r.w, scaleFactor), hIn: ptsToInches(r.h, scaleFactor) }))
+            .filter(b => b.wIn >= 6 && b.wIn <= 96 && b.hIn >= 6 && b.hIn <= 120 && b.wIn >= b.hIn * 0.5);
+          pageMeasuredBoxes.push(boxes);
+        } catch {
+          pageMeasuredBoxes.push([]);
+        }
       }
 
-      setProcessingStatus('AI is analyzing cabinet schedules and floor plans…');
+      setProcessingStatus('AI is analyzing cabinet elevations with scale measurements…');
 
       const aiResponse = await fetch(EDGE_FUNCTION_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pageTexts, unitType }),
+        body: JSON.stringify({ pageTexts, pageMeasuredBoxes, scaleFactor, unitType }),
       });
 
       if (!aiResponse.ok) {
@@ -105,7 +206,7 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
     setDragging(false);
     const file = e.dataTransfer.files[0];
     if (file) processFile(file);
-  }, [unitType]);
+  }, [selectedScaleIdx, customRatio, unitType]);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -113,21 +214,18 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
   };
 
   const toggleAll = (val: boolean) => setRows(r => r.map(row => ({ ...row, selected: val })));
-
   const updateRow = (i: number, patch: Partial<CabinetRow>) =>
     setRows(r => r.map((x, j) => j === i ? { ...x, ...patch } : x));
-
   const deleteRow = (i: number) => setRows(r => r.filter((_, j) => j !== i));
 
   const handleImport = () => {
-    const selected = rows
-      .filter(r => r.selected)
-      .map(({ selected: _, ...cab }) => cab);
+    const selected = rows.filter(r => r.selected).map(({ selected: _, ...cab }) => cab);
     if (selected.length === 0) return;
     onImport(selected);
   };
 
   const selectedCount = rows.filter(r => r.selected).length;
+  const isCustomScale = COMMON_SCALES[selectedScaleIdx].factor === -1;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
@@ -156,8 +254,41 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
           {step === 'upload' && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Upload your <strong>cabinet elevation PDF</strong>. AI reads each elevation sheet, identifies cabinet boxes by SKU, detects type (Base/Wall/Tall/Vanity) from position and code prefix, extracts widths, and counts quantities per room.
+                Upload your <strong>cabinet elevation PDF</strong>. The AI reads elevation sheets, measures cabinet box sizes using the drawing scale, and identifies SKUs, types, and quantities.
               </p>
+
+              {/* Scale selector — always shown, always required */}
+              <div className="p-4 rounded-xl border border-primary/30 bg-primary/5 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Ruler size={15} className="text-primary flex-shrink-0" />
+                  <span className="text-sm font-semibold text-foreground">Drawing Scale <span className="text-destructive">*</span></span>
+                  <span className="text-xs text-muted-foreground">(required — used to measure cabinet box dimensions)</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    className="est-input text-sm"
+                    value={selectedScaleIdx}
+                    onChange={e => setSelectedScaleIdx(Number(e.target.value))}
+                  >
+                    {COMMON_SCALES.map((s, i) => (
+                      <option key={i} value={i}>{s.label}</option>
+                    ))}
+                  </select>
+                  {isCustomScale && (
+                    <input
+                      className="est-input text-sm w-28"
+                      placeholder="e.g. 1:48"
+                      value={customRatio}
+                      onChange={e => setCustomRatio(e.target.value)}
+                    />
+                  )}
+                  {!isCustomScale && (
+                    <span className="text-xs text-muted-foreground">
+                      1 drawn inch = <strong>{COMMON_SCALES[selectedScaleIdx].factor}"</strong> real
+                    </span>
+                  )}
+                </div>
+              </div>
 
               <div
                 className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors ${
@@ -184,10 +315,10 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
               <div className="text-xs text-muted-foreground bg-secondary rounded-lg p-3 border border-border space-y-1">
                 <p className="flex items-center gap-1.5">
                   <Sparkles size={11} className="text-primary flex-shrink-0" />
-                  <strong>AI reads elevation sheets:</strong> identifies each cabinet box by SKU, type (Base/Wall/Tall/Vanity) from position + code prefix, width from dimension labels, and quantity
+                  <strong>Geometry + AI:</strong> Cabinet box rectangles are measured directly from the PDF vector data at your chosen scale, then combined with SKU labels and dimension text for the most accurate results.
                 </p>
-                <p>Works best with <strong>interior elevation drawings</strong> and millwork schedules. Each elevation page is analyzed separately.</p>
-                <p className="opacity-70">Scanned image-only PDFs cannot be read — use vector/text PDFs from CAD software.</p>
+                <p>Works best with <strong>interior elevation drawings</strong> exported from CAD software (AutoCAD, Revit, Chief Architect). Each elevation page is analyzed separately.</p>
+                <p className="opacity-70">Scanned image-only PDFs cannot be measured — use vector/text PDFs.</p>
               </div>
             </div>
           )}
@@ -200,7 +331,7 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
                 <Sparkles size={14} className="absolute -top-1 -right-1 text-primary" />
               </div>
               <p className="font-semibold text-sm text-center">{processingStatus}</p>
-              <p className="text-xs text-muted-foreground">AI is reading cabinet schedules carefully…</p>
+              <p className="text-xs text-muted-foreground">Measuring boxes and reading cabinet schedules…</p>
             </div>
           )}
 
@@ -273,47 +404,23 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
                           </select>
                         </td>
                         <td>
-                          <input
-                            type="number"
-                            className="est-input text-xs w-16 text-right"
-                            value={row.width}
-                            min={1}
-                            onChange={e => updateRow(i, { width: +e.target.value })}
-                          />
+                          <input type="number" className="est-input text-xs w-16 text-right" value={row.width} min={1}
+                            onChange={e => updateRow(i, { width: +e.target.value })} />
                         </td>
                         <td>
-                          <input
-                            type="number"
-                            className="est-input text-xs w-16 text-right"
-                            value={row.height}
-                            min={1}
-                            onChange={e => updateRow(i, { height: +e.target.value })}
-                          />
+                          <input type="number" className="est-input text-xs w-16 text-right" value={row.height} min={1}
+                            onChange={e => updateRow(i, { height: +e.target.value })} />
                         </td>
                         <td>
-                          <input
-                            type="number"
-                            className="est-input text-xs w-16 text-right"
-                            value={row.depth}
-                            min={1}
-                            onChange={e => updateRow(i, { depth: +e.target.value })}
-                          />
+                          <input type="number" className="est-input text-xs w-16 text-right" value={row.depth} min={1}
+                            onChange={e => updateRow(i, { depth: +e.target.value })} />
                         </td>
                         <td>
-                          <input
-                            type="number"
-                            className="est-input text-xs w-14 text-right"
-                            value={row.quantity}
-                            min={1}
-                            onChange={e => updateRow(i, { quantity: Math.max(1, +e.target.value) })}
-                          />
+                          <input type="number" className="est-input text-xs w-14 text-right" value={row.quantity} min={1}
+                            onChange={e => updateRow(i, { quantity: Math.max(1, +e.target.value) })} />
                         </td>
                         <td>
-                          <button
-                            onClick={() => deleteRow(i)}
-                            className="p-1 hover:text-destructive text-muted-foreground"
-                            title="Remove row"
-                          >
+                          <button onClick={() => deleteRow(i)} className="p-1 hover:text-destructive text-muted-foreground" title="Remove row">
                             <Trash2 size={12} />
                           </button>
                         </td>
