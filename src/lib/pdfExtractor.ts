@@ -430,17 +430,18 @@ export async function extractUnitsFromPDF(file: File): Promise<PDFExtractionResu
 
         // ---- Detect type from positional context ----
         let detectedType: string | null = null;
+        let nearbyText = '';
+        let matchItem: TextItem | null = null;
 
-        // Strategy 1: look for type keywords in ±120 chars of plain text
-        const startIdx = Math.max(0, match.index - 120);
-        const endIdx   = Math.min(text.length, match.index + match[0].length + 120);
+        // Strategy 1: look for type keywords in ±200 chars of plain text
+        const startIdx = Math.max(0, match.index - 200);
+        const endIdx   = Math.min(text.length, match.index + match[0].length + 200);
         const contextText = text.slice(startIdx, endIdx);
         detectedType = detectTypeFromContext(contextText);
 
         // Strategy 2 (fallback): use spatial proximity on the PDF page
-        if (!detectedType) {
+        {
           let charCount = 0;
-          let matchItem: TextItem | null = null;
           for (const item of items) {
             if (charCount + item.str.length + 1 >= match.index) {
               matchItem = item;
@@ -449,10 +450,16 @@ export async function extractUnitsFromPDF(file: File): Promise<PDFExtractionResu
             charCount += item.str.length + 1;
           }
           if (matchItem) {
-            const nearby = getNearbyText(items, matchItem.x, matchItem.y, 250);
-            detectedType = detectTypeFromContext(nearby);
+            nearbyText = getNearbyText(items, matchItem.x, matchItem.y, 300);
+            if (!detectedType) detectedType = detectTypeFromContext(nearbyText);
           }
         }
+
+        // ---- Kitchen / cabinet / countertop detection ----
+        const kitchenConfidence = detectKitchenConfidence(contextText, nearbyText, text);
+
+        // Skip units with no kitchen/cabinet indicators at all
+        if (kitchenConfidence === 'no') continue;
 
         const key = unitNumber;
         const existing = seen.get(key);
@@ -466,12 +473,16 @@ export async function extractUnitsFromPDF(file: File): Promise<PDFExtractionResu
             rawMatch: match[0].trim(),
             page,
             confidence,
+            kitchenConfidence,
           });
         } else if (existing) {
           const updates: Partial<DetectedUnit> = {};
           if (!existing.detectedType  && detectedType)  updates.detectedType  = detectedType;
           if (!existing.detectedFloor && detectedFloor) updates.detectedFloor = detectedFloor;
           if (!existing.detectedBldg  && detectedBldg)  updates.detectedBldg  = detectedBldg;
+          // Upgrade kitchen confidence if we find a better signal
+          if (existing.kitchenConfidence === 'maybe' && kitchenConfidence === 'yes')
+            updates.kitchenConfidence = 'yes';
           if (Object.keys(updates).length) seen.set(key, { ...existing, ...updates });
         }
       }

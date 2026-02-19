@@ -15,6 +15,7 @@ interface UnitRow {
   bldg: string;
   selected: boolean;
   confidence: DetectedUnit['confidence'];
+  kitchenConfidence: DetectedUnit['kitchenConfidence'];
   page: number;
   typeOverridden: boolean;
   floorOverridden: boolean;
@@ -65,6 +66,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
           bldg: u.detectedBldg ?? '',
           selected: u.confidence !== 'low',
           confidence: u.confidence,
+          kitchenConfidence: u.kitchenConfidence,
           page: u.page,
           typeOverridden: false,
           floorOverridden: false,
@@ -167,10 +169,10 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
               )}
 
               <div className="text-xs text-muted-foreground bg-secondary rounded-lg p-3 border border-border space-y-1">
-                <p><strong>Unit numbers detected from:</strong> "Unit 101", "APT 205", "#302", "Suite A", "1-01"</p>
-                <p><strong>Unit types detected from:</strong> "2BHK", "2 Bed", "Studio", "Penthouse", "Type A", "Plan B"</p>
-                <p><strong>Floor detected from:</strong> "Floor 1", "Level 3", "Ground Floor", bottom title block text</p>
-                <p><strong>Building detected from:</strong> "Building 1", "Bldg A", "Block 2", "Tower B", "Wing C"</p>
+                <p><strong>Only units with cabinet/countertop drawings are imported.</strong> Units with uncertain indicators are marked <span className="font-bold px-1 rounded border" style={{ background: 'hsl(48 96% 89%)', color: 'hsl(32 95% 44%)', borderColor: 'hsl(48 96% 75%)' }}>?</span></p>
+                <p><strong>Kitchen keywords:</strong> "Kitchen", "Cabinet", "Counter", "Sink", "Granite", "CT", "DW", "Refrigerator"…</p>
+                <p><strong>Floor detected from:</strong> "Floor 1", "Level 3", "Ground Floor" in title block</p>
+                <p><strong>Building #:</strong> assigned manually by you in the review step</p>
                 <p className="opacity-70 pt-1">Scanned image-only PDFs may yield no results — add units manually in that case.</p>
               </div>
             </div>
@@ -250,7 +252,18 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                                 className="cursor-pointer"
                               />
                             </td>
-                            <td className="font-mono font-bold">{row.unitNumber}</td>
+                            <td>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono font-bold">{row.unitNumber}</span>
+                                {row.kitchenConfidence === 'maybe' && (
+                                  <span
+                                    className="px-1 py-0.5 rounded text-[10px] font-bold border flex-shrink-0"
+                                    style={{ background: 'hsl(48 96% 89%)', color: 'hsl(32 95% 44%)', borderColor: 'hsl(48 96% 75%)' }}
+                                    title="Uncertain — may or may not have kitchen/cabinet drawings"
+                                  >?</span>
+                                )}
+                              </div>
+                            </td>
                             <td>
                               <div className="flex items-center gap-1.5">
                                 {row.detectedType && (
