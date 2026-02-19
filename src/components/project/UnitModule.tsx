@@ -4,8 +4,7 @@ import type { Project, Unit, UnitType } from '@/types/project';
 import { calcUnitCabinetTotals, calcUnitCountertopTotal } from '@/lib/calculations';
 import PDFImportDialog from './PDFImportDialog';
 
-const PRESET_UNIT_TYPES = ['Studio', '1BHK', '2BHK', '3BHK', '4BHK', 'Townhouse', 'Condo', 'Other'];
-const blankForm = () => ({ unitNumber: '', type: 'Studio' as UnitType, customType: '', bldg: '', floor: '', notes: '' });
+const blankForm = () => ({ unitNumber: '', type: '' as UnitType, bldg: '', floor: '', notes: '' });
 
 interface Props {
   project: Project;
@@ -24,9 +23,7 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
   const [showPDFImport, setShowPDFImport] = useState(false);
   const [importedCount, setImportedCount] = useState<number | null>(null);
 
-  const resolvedType = (form.type === 'Other' && form.customType.trim())
-    ? form.customType.trim()
-    : form.type;
+  const resolvedType = form.type.trim() || 'Other';
 
   const handleAdd = () => {
     if (!form.unitNumber.trim()) return;
@@ -139,27 +136,14 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
             </div>
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Unit Type</label>
-              <select
+              <input
                 className="est-input w-full"
+                placeholder="e.g. 2BHK, Studio, Penthouse…"
                 value={form.type}
-                onChange={e => setForm(f => ({ ...f, type: e.target.value as UnitType, customType: '' }))}
-              >
-                {PRESET_UNIT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
+                onChange={e => setForm(f => ({ ...f, type: e.target.value as UnitType }))}
+                onKeyDown={e => e.key === 'Enter' && handleAdd()}
+              />
             </div>
-            {/* Custom type name — shown when "Other" is selected */}
-            {form.type === 'Other' && (
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Custom Type Name</label>
-                <input
-                  className="est-input w-full"
-                  placeholder="e.g. Penthouse"
-                  value={form.customType}
-                  onChange={e => setForm(f => ({ ...f, customType: e.target.value }))}
-                  onKeyDown={e => e.key === 'Enter' && handleAdd()}
-                />
-              </div>
-            )}
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Notes</label>
               <input
