@@ -3,7 +3,7 @@ import { FileUp, X, Loader2, CheckCircle, AlertCircle, ChevronDown, ChevronUp, F
 import type { DetectedUnit, PDFExtractionResult } from '@/lib/pdfExtractor';
 import type { UnitType } from '@/types/project';
 
-const PRESET_UNIT_TYPES = ['Studio', '1BHK', '2BHK', '3BHK', '4BHK', 'Townhouse', 'Condo', 'Penthouse', 'Loft', 'Other'];
+
 
 interface UnitRow {
   unitNumber: string;
@@ -37,7 +37,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [showRawText, setShowRawText] = useState(false);
-  const [defaultType, setDefaultType] = useState<string>('1BHK');
+  const [defaultType] = useState<string>(''); // empty = user must enter manually
   const fileRef = useRef<HTMLInputElement>(null);
 
   const processFile = async (file: File) => {
@@ -54,7 +54,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
       setResult(res);
 
       const initialRows: UnitRow[] = res.detectedUnits.map(u => {
-        const resolvedType = u.detectedType ?? defaultType;
+        const resolvedType = u.detectedType ?? '';
         return {
           unitNumber: u.unitNumber,
           type: resolvedType,
@@ -177,19 +177,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                 Upload your architectural floor plan PDF. The system will scan for unit numbers <strong>and unit type labels</strong> (e.g. "2BHK", "Studio", "Penthouse") written on the plan.
               </p>
 
-              {/* Default type fallback picker */}
-              <div>
-                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                  Default Unit Type (used if type can't be detected from PDF)
-                </label>
-                <select
-                  className="est-input"
-                  value={defaultType}
-                  onChange={e => setDefaultType(e.target.value)}
-                >
-                  {PRESET_UNIT_TYPES.map(t => <option key={t}>{t}</option>)}
-                </select>
-              </div>
+
 
               {/* Drop zone */}
               <div
@@ -322,29 +310,19 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                                     />
                                   </td>
                                   <td className="font-mono font-bold">{row.unitNumber}</td>
-                                  <td>
+                                   <td>
                                     <div className="flex items-center gap-1.5">
-                                      {row.detectedType && !row.typeOverridden && (
+                                      {row.detectedType && (
                                         <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-accent text-primary border border-border flex-shrink-0" title="Detected from PDF text">
                                           <Tag size={8} />PDF
                                         </span>
                                       )}
-                                      <div className="flex-1 min-w-0">
-                                        {PRESET_UNIT_TYPES.includes(row.type) && !row.typeOverridden ? (
-                                          <select className="est-input w-full text-xs" value={row.type} onChange={e => setRowType(i, e.target.value)}>
-                                            {row.detectedType && !PRESET_UNIT_TYPES.includes(row.detectedType) && (
-                                              <option value={row.detectedType}>{row.detectedType} (detected)</option>
-                                            )}
-                                            {PRESET_UNIT_TYPES.map(t => <option key={t}>{t}</option>)}
-                                            <option value="__custom__">Custom…</option>
-                                          </select>
-                                        ) : (
-                                          <div className="flex gap-1">
-                                            <input className="est-input w-full text-xs" value={row.type === '__custom__' ? '' : row.type} placeholder="Type name…" autoFocus={row.type === '__custom__'} onChange={e => setRowType(i, e.target.value)} />
-                                            <button className="text-xs text-muted-foreground hover:text-foreground px-1" title="Back to preset" onClick={() => setRows(r => r.map((x, j) => j === i ? { ...x, type: x.detectedType ?? defaultType, typeOverridden: false } : x))}>↩</button>
-                                          </div>
-                                        )}
-                                      </div>
+                                      <input
+                                        className="est-input w-full text-xs"
+                                        value={row.type}
+                                        placeholder="Enter type (e.g. 2BHK, Studio…)"
+                                        onChange={e => setRowType(i, e.target.value)}
+                                      />
                                     </div>
                                   </td>
                                   {/* Floor — editable inline */}
