@@ -542,7 +542,7 @@ export default function NewProject() {
                 <div className="space-y-2">
                   <div>
                     <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                      Tax
+                      Sales Tax on Materials
                     </label>
                     <select
                       value={specs.tax}
