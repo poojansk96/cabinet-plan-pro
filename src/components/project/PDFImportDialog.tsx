@@ -333,16 +333,12 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                               />
                             </td>
                             <td>
-                              <select
-                                className="est-input text-xs w-20"
+                              <input
+                                className="est-input text-xs w-24"
                                 value={row.bldg}
+                                placeholder="e.g. Building A"
                                 onChange={e => setRowBldg(i, e.target.value)}
-                              >
-                                <option value="">—</option>
-                                {BLDG_OPTIONS.map(o => (
-                                  <option key={o} value={o}>{o}</option>
-                                ))}
-                              </select>
+                              />
                             </td>
                             <td className="text-muted-foreground text-xs">{row.page}</td>
                           </tr>
