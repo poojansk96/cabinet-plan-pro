@@ -10,6 +10,7 @@ export interface DetectedUnit {
   unitNumber: string;
   detectedType: string | null;   // type name read from the PDF (may be null)
   detectedFloor: string | null;  // floor/level read from the page (may be null)
+  detectedBldg: string | null;   // building number read from the page (may be null)
   rawMatch: string;
   page: number;
   confidence: 'high' | 'medium' | 'low';
@@ -139,6 +140,52 @@ function getNearbyText(items: TextItem[], targetX: number, targetY: number, radi
 }
 
 // ---------------------------------------------------------------------------
+// Building detection — scanned from the full page (title block anywhere)
+// ---------------------------------------------------------------------------
+
+const BLDG_PATTERNS = [
+  // "Building 1", "Bldg 2", "Bldg. A", "BLDG-3"
+  /\b(?:building|bldg\.?)\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi,
+  // "Block A", "Block 1"
+  /\bblock\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi,
+  // "Tower A", "Tower 2"
+  /\btower\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi,
+  // "Wing A", "Wing B1"
+  /\bwing\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi,
+  // "Phase 1", "Phase 2A"
+  /\bphase\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi,
+];
+
+/** Detect building number from a page — scans bottom strip first, then full page */
+function detectBldgFromPage(items: TextItem[]): string | null {
+  if (items.length === 0) return null;
+
+  const ys = items.map(i => i.y);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const threshold = minY + (maxY - minY) * 0.25;
+
+  const bottomText = items.filter(i => i.y <= threshold).map(i => i.str).join(' ');
+  const fullText   = items.map(i => i.str).join(' ');
+
+  for (const re of BLDG_PATTERNS) {
+    re.lastIndex = 0;
+    let m = re.exec(bottomText);
+    if (!m) { re.lastIndex = 0; m = re.exec(fullText); }
+    if (m) {
+      const raw = (m[1] ?? m[0]).trim().toUpperCase();
+      if (raw.length === 0) continue;
+      // Return a clean label like "Bldg 1", "Bldg A", "Tower B"
+      const keyword = re.source.match(/building|bldg|block|tower|wing|phase/i)?.[0] ?? 'Bldg';
+      const label = keyword.charAt(0).toUpperCase() + keyword.slice(1).toLowerCase();
+      return `${label} ${raw}`;
+    }
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // Floor / Level detection — scanned from the bottom third of each page
 // ---------------------------------------------------------------------------
 
@@ -159,37 +206,22 @@ const FLOOR_PATTERNS = [
 function detectFloorFromPage(items: TextItem[]): string | null {
   if (items.length === 0) return null;
 
-  // PDF Y coords: higher Y = top of page in most PDFs
-  // We look at items whose Y is in the lowest 25% of the page
   const ys = items.map(i => i.y);
   const minY = Math.min(...ys);
   const maxY = Math.max(...ys);
   const threshold = minY + (maxY - minY) * 0.25;
 
-  const bottomText = items
-    .filter(i => i.y <= threshold)
-    .map(i => i.str)
-    .join(' ');
-
-  // Also scan full page text — some plans put floor labels at top title block
-  const fullText = items.map(i => i.str).join(' ');
+  const bottomText = items.filter(i => i.y <= threshold).map(i => i.str).join(' ');
+  const fullText   = items.map(i => i.str).join(' ');
 
   for (const re of FLOOR_PATTERNS) {
     re.lastIndex = 0;
-    // Try bottom strip first
     let m = re.exec(bottomText);
-    if (!m) {
-      re.lastIndex = 0;
-      m = re.exec(fullText);
-    }
+    if (!m) { re.lastIndex = 0; m = re.exec(fullText); }
     if (m) {
-      // The captured group may be in group 1; for named words like "Ground" the match[0] itself is useful
       const raw = (m[1] ?? m[0]).trim();
       if (raw.length === 0) continue;
-      // Normalise ordinal floors → digit
-      const norm = raw
-        .replace(/^(\d+)(?:st|nd|rd|th)$/i, '$1')
-        .toUpperCase();
+      const norm = raw.replace(/^(\d+)(?:st|nd|rd|th)$/i, '$1').toUpperCase();
       return `Floor ${norm}`;
     }
   }
@@ -207,15 +239,16 @@ export async function extractUnitsFromPDF(file: File): Promise<PDFExtractionResu
   const totalPages = pdf.numPages;
 
   const allText: string[] = [];
-  const pageData: Array<{ text: string; items: TextItem[]; page: number; detectedFloor: string | null }> = [];
+  const pageData: Array<{ text: string; items: TextItem[]; page: number; detectedFloor: string | null; detectedBldg: string | null }> = [];
 
   for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
     const page = await pdf.getPage(pageNum);
     const items = await extractPageTextItems(page);
     const text = items.map(i => i.str).join(' ');
     const detectedFloor = detectFloorFromPage(items);
+    const detectedBldg  = detectBldgFromPage(items);
     allText.push(text);
-    pageData.push({ text, items, page: pageNum, detectedFloor });
+    pageData.push({ text, items, page: pageNum, detectedFloor, detectedBldg });
   }
 
   const rawText = allText.join('\n');
@@ -223,7 +256,7 @@ export async function extractUnitsFromPDF(file: File): Promise<PDFExtractionResu
   // --- Collect matches with deduplication ---
   const seen = new Map<string, DetectedUnit>();
 
-  for (const { text, items, page, detectedFloor } of pageData) {
+  for (const { text, items, page, detectedFloor, detectedBldg } of pageData) {
     for (const { re, confidence } of UNIT_NUMBER_PATTERNS) {
       re.lastIndex = 0;
       let match: RegExpExecArray | null;
@@ -273,14 +306,16 @@ export async function extractUnitsFromPDF(file: File): Promise<PDFExtractionResu
             unitNumber,
             detectedType,
             detectedFloor,
+            detectedBldg,
             rawMatch: match[0].trim(),
             page,
             confidence,
           });
         } else if (existing) {
           const updates: Partial<DetectedUnit> = {};
-          if (!existing.detectedType && detectedType) updates.detectedType = detectedType;
+          if (!existing.detectedType  && detectedType)  updates.detectedType  = detectedType;
           if (!existing.detectedFloor && detectedFloor) updates.detectedFloor = detectedFloor;
+          if (!existing.detectedBldg  && detectedBldg)  updates.detectedBldg  = detectedBldg;
           if (Object.keys(updates).length) seen.set(key, { ...existing, ...updates });
         }
       }
