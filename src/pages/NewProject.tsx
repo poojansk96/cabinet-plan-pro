@@ -369,7 +369,7 @@ export default function NewProject() {
                     />
                   )}
                 </div>
-                {specTextField('Handles & Hardware', 'handlesAndHardware', 'e.g. Amerock BP55342, Brushed Nickel')}
+                {specTextField('Handles', 'handlesAndHardware', 'e.g. Amerock BP55342, Brushed Nickel')}
               </div>
 
               {/* Row 5: Tax */}
