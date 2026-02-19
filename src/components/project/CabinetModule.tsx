@@ -102,42 +102,23 @@ export default function CabinetModule({ project, selectedUnit, setSelectedUnitId
 
       {/* Unit-type-wise cabinet summary */}
       {Object.keys(unitTypeGroups).length > 0 && (
-        <div className="est-card overflow-hidden">
-          <div className="est-section-header">Cabinet Summary by Unit Type</div>
-          <div className="overflow-x-auto">
-            <table className="est-table">
-              <thead>
-                <tr>
-                  <th>Unit Type</th>
-                  <th className="text-right">Units</th>
-                  <th className="text-right font-bold">Grand Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(unitTypeGroups).map(([type, g]) => {
-                  const perTotal = g.unitCount > 0 ? Math.round((g.base + g.wall + g.tall + g.vanity) / g.unitCount) : 0;
-                  return (
-                    <tr key={type}>
-                      <td className="font-semibold">{type}</td>
-                      <td className="text-right">{g.unitCount}</td>
-                      <td className="text-right font-bold">{perTotal * g.unitCount}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot>
-                <tr style={{ background: 'hsl(var(--secondary))', fontWeight: 600 }}>
-                  <td className="px-3 py-1.5 text-sm">TOTAL</td>
-                  <td className="px-3 py-1.5 text-sm text-right">{project.units.length}</td>
-                  <td className="px-3 py-1.5 text-sm text-right">
-                    {Object.values(unitTypeGroups).reduce((s, g) => {
-                      const perTotal = g.unitCount > 0 ? Math.round((g.base + g.wall + g.tall + g.vanity) / g.unitCount) : 0;
-                      return s + perTotal * g.unitCount;
-                    }, 0)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
+        <div className="flex flex-wrap gap-3">
+          {Object.entries(unitTypeGroups).map(([type, g]) => {
+            const total = g.base + g.wall + g.tall + g.vanity;
+            return (
+              <div key={type} className="stat-card text-center min-w-[90px]">
+                <div className="stat-label mb-1">{type}</div>
+                <div className="stat-value text-xl">{total}</div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">{g.unitCount} unit{g.unitCount !== 1 ? 's' : ''}</div>
+              </div>
+            );
+          })}
+          <div className="stat-card text-center min-w-[90px] border-primary/30">
+            <div className="stat-label mb-1">Grand Total</div>
+            <div className="stat-value text-xl text-primary">
+              {Object.values(unitTypeGroups).reduce((s, g) => s + g.base + g.wall + g.tall + g.vanity, 0)}
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">{project.units.length} units</div>
           </div>
         </div>
       )}
