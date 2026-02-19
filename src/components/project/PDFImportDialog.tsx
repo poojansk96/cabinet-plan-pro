@@ -251,26 +251,71 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
 
           {/* STEP: Processing */}
           {step === 'processing' && (
-            <div className="flex flex-col items-center justify-center py-12 gap-5 px-4">
-              <div className="relative">
-                <Loader2 size={40} className="animate-spin text-primary" />
-                <Sparkles size={14} className="absolute -top-1 -right-1 text-primary" />
+            <div className="flex flex-col items-center justify-center py-10 gap-6 px-6 animate-fade-in">
+              {/* Animated icon cluster */}
+              <div className="relative flex items-center justify-center w-20 h-20">
+                {/* Pulsing ring */}
+                <span className="absolute inset-0 rounded-full opacity-20 animate-[ping_1.8s_cubic-bezier(0,0,0.2,1)_infinite]" style={{ background: 'hsl(var(--primary))' }} />
+                <span className="absolute inset-2 rounded-full opacity-10 animate-[ping_1.8s_cubic-bezier(0,0,0.2,1)_0.4s_infinite]" style={{ background: 'hsl(var(--primary))' }} />
+                {/* Core circle */}
+                <span className="absolute inset-3 rounded-full" style={{ background: 'hsl(var(--primary)/0.12)' }} />
+                <Loader2 size={32} className="animate-spin relative z-10" style={{ color: 'hsl(var(--primary))' }} />
+                <Sparkles size={13} className="absolute top-2 right-2 z-20 animate-pulse" style={{ color: 'hsl(var(--primary))' }} />
               </div>
-              <div className="w-full max-w-sm space-y-2">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground truncate">{processingStatus}</span>
-                  <span className="ml-2 flex-shrink-0 font-semibold text-primary">{progress}%</span>
-                </div>
-                {/* Progress bar */}
-                <div className="w-full h-2 rounded-full bg-secondary border border-border overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${progress}%`, background: 'hsl(var(--primary))' }}
-                  />
-                </div>
+
+              {/* Status text */}
+              <div className="text-center space-y-1 max-w-xs">
+                <p className="font-semibold text-sm text-foreground leading-snug">{processingStatus}</p>
                 {progressLabel && (
-                  <p className="text-xs text-muted-foreground text-center">{progressLabel}</p>
+                  <p className="text-xs text-muted-foreground">{progressLabel}</p>
                 )}
+              </div>
+
+              {/* Progress bar */}
+              <div className="w-full max-w-sm space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground font-medium">Progress</span>
+                  <span className="font-bold tabular-nums" style={{ color: 'hsl(var(--primary))' }}>{progress}%</span>
+                </div>
+                {/* Track */}
+                <div className="relative w-full h-3 rounded-full overflow-hidden" style={{ background: 'hsl(var(--secondary))' }}>
+                  {/* Shimmer layer */}
+                  <div
+                    className="absolute inset-0 -translate-x-full animate-[shimmer_1.6s_ease-in-out_infinite]"
+                    style={{
+                      background: 'linear-gradient(90deg, transparent 0%, hsl(var(--primary)/0.25) 50%, transparent 100%)',
+                      width: '60%',
+                    }}
+                  />
+                  {/* Fill */}
+                  <div
+                    className="h-full rounded-full transition-all duration-700 ease-out relative overflow-hidden"
+                    style={{
+                      width: `${progress}%`,
+                      background: 'linear-gradient(90deg, hsl(var(--primary)/0.8) 0%, hsl(var(--primary)) 60%, hsl(var(--primary)/0.9) 100%)',
+                    }}
+                  >
+                    {/* Inner shine */}
+                    <span className="absolute inset-0 rounded-full" style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.18) 0%, transparent 60%)' }} />
+                  </div>
+                </div>
+
+                {/* Step dots */}
+                <div className="flex justify-between items-center pt-1">
+                  {['Read PDF', 'Extract pages', 'AI analysis', 'Build list'].map((label, idx) => {
+                    const stepThreshold = [5, 30, 65, 95][idx];
+                    const done = progress >= stepThreshold + 10;
+                    const active = progress >= stepThreshold && !done;
+                    return (
+                      <div key={label} className="flex flex-col items-center gap-1">
+                        <div className={`w-2 h-2 rounded-full transition-all duration-500 ${done ? 'scale-110' : active ? 'scale-125 animate-pulse' : 'opacity-30'}`}
+                          style={{ background: done || active ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))' }}
+                        />
+                        <span className={`text-[9px] font-medium transition-colors duration-300 ${done || active ? 'text-primary' : 'text-muted-foreground opacity-50'}`}>{label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}
