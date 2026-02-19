@@ -54,12 +54,18 @@ export default function SummaryModule({ project }: Props) {
     wsInfo['!cols'] = [{ wch: 22 }, { wch: 40 }];
     XLSX.utils.book_append_sheet(wb, wsInfo, 'Project Info');
 
-    // ── Sheet 2: Unit Count ────────────────────────────────────────
-    const unitHeader = ['Unit #', 'Type', 'Building', 'Floor'];
-    const unitData = project.units.map(u => [u.unitNumber, u.type, u.bldg || '', u.floor || '']);
-    const unitTotRow = [`TOTAL: ${project.units.length} unit${project.units.length !== 1 ? 's' : ''}`, '', '', ''];
+    // ── Sheet 2: Unit Count (pivot: units vertical, types horizontal) ──
+    const uniqueTypes = Array.from(new Set(project.units.map(u => u.type).filter(Boolean))).sort();
+    const unitHeader = ['Unit #', 'Building', 'Floor', ...uniqueTypes];
+    const unitData = project.units.map(u => {
+      const typeFlags = uniqueTypes.map(t => (u.type === t ? 1 : ''));
+      return [u.unitNumber, u.bldg || '', u.floor || '', ...typeFlags];
+    });
+    // Total row: count of units per type
+    const typeCounts = uniqueTypes.map(t => project.units.filter(u => u.type === t).length);
+    const unitTotRow = [`TOTAL (${project.units.length})`, '', '', ...typeCounts];
     const wsUnit = XLSX.utils.aoa_to_sheet([unitHeader, ...unitData, [], unitTotRow]);
-    wsUnit['!cols'] = [{ wch: 12 }, { wch: 28 }, { wch: 16 }, { wch: 10 }];
+    wsUnit['!cols'] = [{ wch: 12 }, { wch: 16 }, { wch: 10 }, ...uniqueTypes.map(() => ({ wch: 20 }))];
     XLSX.utils.book_append_sheet(wb, wsUnit, 'Unit Count');
 
     // ── Sheet 3: SKU Summary ───────────────────────────────────────
