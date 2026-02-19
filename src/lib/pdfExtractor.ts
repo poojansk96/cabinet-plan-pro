@@ -143,6 +143,34 @@ function getNearbyText(items: TextItem[], targetX: number, targetY: number, radi
 // Building detection — scanned from the full page (title block anywhere)
 // ---------------------------------------------------------------------------
 
+/** Maps written-out number words (cardinal + ordinal) to digits */
+const WORD_TO_NUM: Record<string, string> = {
+  one: '1', first: '1',
+  two: '2', second: '2',
+  three: '3', third: '3',
+  four: '4', fourth: '4',
+  five: '5', fifth: '5',
+  six: '6', sixth: '6',
+  seven: '7', seventh: '7',
+  eight: '8', eighth: '8',
+  nine: '9', ninth: '9',
+  ten: '10', tenth: '10',
+  eleven: '11', eleventh: '11',
+  twelve: '12', twelfth: '12',
+};
+
+/** Convert ordinal/cardinal words and ordinal suffixes to plain digits */
+function normaliseNumber(raw: string): string {
+  const lower = raw.toLowerCase().trim();
+  if (WORD_TO_NUM[lower]) return WORD_TO_NUM[lower];
+  // "1st", "2nd", "3rd", "4th" → "1", "2", "3", "4"
+  return raw.replace(/^(\d+)(?:st|nd|rd|th)$/i, '$1').toUpperCase();
+}
+
+// Also extend patterns to match written-out words after the keyword
+const BLDG_WORD_PATTERN =
+  /\b(?:building|bldg\.?)\s*[:\-]?\s*(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth)\b/gi;
+
 const BLDG_PATTERNS = [
   // "Building 1", "Bldg 2", "Bldg. A", "BLDG-3"
   /\b(?:building|bldg\.?)\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi,
@@ -168,17 +196,23 @@ function detectBldgFromPage(items: TextItem[]): string | null {
   const bottomText = items.filter(i => i.y <= threshold).map(i => i.str).join(' ');
   const fullText   = items.map(i => i.str).join(' ');
 
+  // Try written-out word patterns first ("Building First" → "Building 1")
+  for (const text of [bottomText, fullText]) {
+    BLDG_WORD_PATTERN.lastIndex = 0;
+    const m = BLDG_WORD_PATTERN.exec(text);
+    if (m) return `Building ${normaliseNumber(m[1])}`;
+  }
+
   for (const re of BLDG_PATTERNS) {
     re.lastIndex = 0;
     let m = re.exec(bottomText);
     if (!m) { re.lastIndex = 0; m = re.exec(fullText); }
     if (m) {
-      const raw = (m[1] ?? m[0]).trim().toUpperCase();
+      const raw = (m[1] ?? m[0]).trim();
       if (raw.length === 0) continue;
-      // Return a clean label like "Bldg 1", "Bldg A", "Tower B"
-      const keyword = re.source.match(/building|bldg|block|tower|wing|phase/i)?.[0] ?? 'Bldg';
+      const keyword = re.source.match(/building|bldg|block|tower|wing|phase/i)?.[0] ?? 'Building';
       const label = keyword.charAt(0).toUpperCase() + keyword.slice(1).toLowerCase();
-      return `${label} ${raw}`;
+      return `${label} ${normaliseNumber(raw)}`;
     }
   }
 
