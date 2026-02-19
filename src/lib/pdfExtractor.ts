@@ -192,6 +192,15 @@ const BLDG_PATTERNS = [
 ];
 
 /** Detect building number/name from a page — scans bottom strip first, then full page */
+/** Strip floor/level references from text before building detection to avoid cross-contamination */
+function stripFloorText(text: string): string {
+  return text
+    .replace(/\b(?:level|lvl\.?)\s*[:\-]?\s*[A-Z0-9][\w\-]*/gi, '')
+    .replace(/\b(?:floor|flr\.?)\s*[:\-]?\s*[A-Z0-9][\w\-]*/gi, '')
+    .replace(/\bstore?y\s*[:\-]?\s*[A-Z0-9][\w\-]*/gi, '')
+    .replace(/\b[1-9]\d*(?:st|nd|rd|th)\s+(?:floor|level|storey)\b/gi, '');
+}
+
 function detectBldgFromPage(items: TextItem[]): string | null {
   if (items.length === 0) return null;
 
@@ -200,8 +209,9 @@ function detectBldgFromPage(items: TextItem[]): string | null {
   const maxY = Math.max(...ys);
   const threshold = minY + (maxY - minY) * 0.25;
 
-  const bottomText = items.filter(i => i.y <= threshold).map(i => i.str).join(' ');
-  const fullText   = items.map(i => i.str).join(' ');
+  // Strip floor/level text before building detection
+  const bottomText = stripFloorText(items.filter(i => i.y <= threshold).map(i => i.str).join(' '));
+  const fullText   = stripFloorText(items.map(i => i.str).join(' '));
 
   // 1. Directional names first: "Building East", "Tower North-West"
   for (const text of [bottomText, fullText]) {
@@ -211,8 +221,8 @@ function detectBldgFromPage(items: TextItem[]): string | null {
       const keyword = m[0].match(/building|bldg|block|tower|wing|phase/i)?.[0] ?? 'Building';
       const label = keyword.charAt(0).toUpperCase() + keyword.slice(1).toLowerCase();
       const dir = m[1].trim();
-      const dirFormatted = dir.charAt(0).toUpperCase() + dir.slice(1).toLowerCase()
-        .replace(/\b\w/g, c => c.toUpperCase());
+      // Title-case the direction (handles "north-east" → "North-East")
+      const dirFormatted = dir.replace(/\b\w/g, c => c.toUpperCase());
       return `${label} ${dirFormatted}`;
     }
   }
@@ -250,16 +260,17 @@ const FLOOR_WORD_PATTERN =
   /\b(?:level|lvl\.?|floor|flr\.?|storey|story)\s*[:\-]?\s*(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth)\b/gi;
 
 const FLOOR_PATTERNS = [
-  // "Floor 1", "Floor 2", "1st Floor", "Ground Floor"
-  /\b(?:floor|flr\.?)\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi,
+  // "Floor 1", "Floor 2" — but NOT "Floor Plan" or "Floor Area"
+  /\b(?:floor|flr\.?)\s*[:\-]?\s*([0-9]+[A-Z]?|[A-Z](?![A-Z]{2,}))\b(?!\s*(?:plan|area|area|layout|drawing|schedule))/gi,
+  // "1st Floor", "2nd Floor"
   /\b([1-9]\d*(?:st|nd|rd|th))\s+floor\b/gi,
+  // "Ground Floor", "Basement Floor", etc.
   /\b(ground|basement|mezzanine|terrace|roof(?:\s*top)?)\s+floor\b/gi,
   /\b(ground|basement|mezzanine)\b/gi,
-  // "Level 1", "Level A", "L1", "L-2" — Level always means floor
+  // "Level 1", "Level A" — Level always means floor, never building
   /\b(?:level|lvl\.?)\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi,
-  /\bL[:\-]?\s*([0-9]{1,3}[A-Z]?)\b/g,
   // "Storey 3", "Story 2"
-  /\bstore?y\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi,
+  /\bstore?y\s*[:\-]?\s*([0-9]+[A-Z]?)\b/gi,
 ];
 
 /** Scan the bottom portion of the page text items for a floor/level label */
