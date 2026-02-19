@@ -10,7 +10,7 @@ const DRAWER_GUIDE_OPTIONS = ['Blum Tandem', 'Blum Legrabox', 'Grass Dynapro', '
 const COUNTERTOP_OPTIONS = ['Quartz', 'Granite', 'Laminate', 'Solid Surface', 'Porcelain', 'Marble', 'Other'];
 
 const COUNTERTOP_MANUFACTURERS: Record<string, string[]> = {
-  Quartz:          ['Overseas', 'Local MSI', 'KOL Marble'],
+  Quartz:          ['Overseas', 'Local MSI', 'KOL Marble', 'Other'],
   Granite:         ['MSI', 'Emser Tile', 'Bedrosians', 'Arizona Tile', 'Dal-Tile', 'Other'],
   Laminate:        ['Wilsonart', 'Formica', 'Pionite', 'Nevamar', 'Other'],
   'Solid Surface': ['Corian (DuPont)', 'Avonite', 'Wilsonart SS', 'Staron (Samsung)', 'Other'],
@@ -39,6 +39,7 @@ export default function NewProject() {
     drawerGuides: '',
     countertops: '',
     countertopManufacturer: '',
+    countertopManufacturerCustom: '',
     handlesAndHardware: '',
     tax: '',
   });
@@ -207,20 +208,32 @@ export default function NewProject() {
                 <div className="space-y-2">
                   {specSelectField('Countertops', 'countertops', COUNTERTOP_OPTIONS)}
                   {specs.countertops && COUNTERTOP_MANUFACTURERS[specs.countertops] && (
-                    <div>
-                      <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                        Manufacturer
-                      </label>
-                      <select
-                        value={specs.countertopManufacturer}
-                        onChange={e => setSpecs(s => ({ ...s, countertopManufacturer: e.target.value }))}
-                        className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
-                      >
-                        <option value="">Select manufacturer…</option>
-                        {COUNTERTOP_MANUFACTURERS[specs.countertops].map(m => (
-                          <option key={m} value={m}>{m}</option>
-                        ))}
-                      </select>
+                    <div className="space-y-2">
+                      <div>
+                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                          Manufacturer
+                        </label>
+                        <select
+                          value={specs.countertopManufacturer}
+                          onChange={e => setSpecs(s => ({ ...s, countertopManufacturer: e.target.value, countertopManufacturerCustom: '' }))}
+                          className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
+                        >
+                          <option value="">Select manufacturer…</option>
+                          {COUNTERTOP_MANUFACTURERS[specs.countertops].map(m => (
+                            <option key={m} value={m}>{m}</option>
+                          ))}
+                        </select>
+                      </div>
+                      {specs.countertopManufacturer === 'Other' && (
+                        <input
+                          type="text"
+                          value={specs.countertopManufacturerCustom}
+                          onChange={e => setSpecs(s => ({ ...s, countertopManufacturerCustom: e.target.value }))}
+                          placeholder="Enter manufacturer name…"
+                          className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                          autoFocus
+                        />
+                      )}
                     </div>
                   )}
                 </div>
