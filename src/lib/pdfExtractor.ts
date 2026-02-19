@@ -27,16 +27,38 @@ export interface PDFExtractionResult {
 
 // ---------------------------------------------------------------------------
 // Unit-number patterns
+// DESIGN PRINCIPLES:
+//   • Only patterns that unambiguously signal a UNIT identifier are included.
+//   • Bare numbers (dimensions, room areas, door tags) are intentionally excluded.
+//   • Low-confidence bare-number catch-all has been removed — it caused too many
+//     false positives from floor plan annotations.
 // ---------------------------------------------------------------------------
 const UNIT_NUMBER_PATTERNS = [
-  { re: /\bunit[s]?\s*#?\s*([A-Z0-9]{1,6}(?:-[A-Z0-9]{1,4})?)\b/gi, confidence: 'high' as const },
-  { re: /\bapt\.?\s*#?\s*([A-Z0-9]{1,6}(?:-[A-Z0-9]{1,4})?)\b/gi,   confidence: 'high' as const },
-  { re: /\bapartment\s*#?\s*([A-Z0-9]{1,6}(?:-[A-Z0-9]{1,4})?)\b/gi, confidence: 'high' as const },
-  { re: /\bsuite[s]?\s*#?\s*([A-Z0-9]{1,6}(?:-[A-Z0-9]{1,4})?)\b/gi, confidence: 'high' as const },
-  { re: /#\s*([0-9]{2,6}[A-Z]?)\b/g,                                   confidence: 'medium' as const },
-  { re: /\bno\.?\s*([0-9]{2,6}[A-Z]?)\b/gi,                            confidence: 'medium' as const },
-  { re: /\b([1-9A-Z]-[0-9]{2,3})\b/g,                                  confidence: 'medium' as const },
-  { re: /\b([1-9][0-9]{2,3}[A-Z]?)\b/g,                                confidence: 'low' as const },
+  // ── High confidence: explicit keyword prefix ──────────────────────────────
+  // "Unit 101", "Unit A4", "Unit 1A", "UNIT #204"
+  { re: /\bunit[s]?\s*#?\s*([A-Z]?[0-9]{1,4}[A-Z]?(?:-[A-Z0-9]{1,4})?)\b/gi, confidence: 'high' as const },
+  // "Apt 3B", "APT. 12"
+  { re: /\bapt\.?\s*#?\s*([A-Z]?[0-9]{1,4}[A-Z]?(?:-[A-Z0-9]{1,4})?)\b/gi,   confidence: 'high' as const },
+  // "Apartment 5C"
+  { re: /\bapartment\s*#?\s*([A-Z]?[0-9]{1,4}[A-Z]?(?:-[A-Z0-9]{1,4})?)\b/gi, confidence: 'high' as const },
+  // "Suite 201", "Suite B"
+  { re: /\bsuite[s]?\s*#?\s*([A-Z]?[0-9]{1,4}[A-Z]?(?:-[A-Z0-9]{1,4})?)\b/gi, confidence: 'high' as const },
+  // "Flat 3A", "Flat 10"
+  { re: /\bflat\s*#?\s*([A-Z]?[0-9]{1,4}[A-Z]?(?:-[A-Z0-9]{1,4})?)\b/gi,      confidence: 'high' as const },
+  // "Condo 4B", "Residence 12"
+  { re: /\b(?:condo|residence|dwelling)\s*#?\s*([A-Z]?[0-9]{1,4}[A-Z]?)\b/gi,   confidence: 'high' as const },
+
+  // ── Medium confidence: structural patterns common in architectural plans ──
+  // "A-101", "B-204", "1-A" — hyphenated codes (building letter + unit number)
+  { re: /\b([A-Z]-[0-9]{2,4})\b/g,    confidence: 'medium' as const },
+  // "A101", "B204", "C12" — letter prefix directly followed by 2-4 digits
+  // (very common in multi-building or floor-based unit numbering)
+  { re: /\b([A-Z][0-9]{2,4})\b/g,     confidence: 'medium' as const },
+  // "101A", "204B" — 2-4 digit number with a trailing letter suffix
+  // (common: unit 101A = building/stack identifier)
+  { re: /\b([0-9]{2,4}[A-Z])\b/g,     confidence: 'medium' as const },
+  // "#201", "#3B" — hash-prefixed numbers (explicit unit tag on plans)
+  { re: /#\s*([A-Z]?[0-9]{2,4}[A-Z]?)\b/g, confidence: 'medium' as const },
 ];
 
 // ---------------------------------------------------------------------------
@@ -420,13 +442,35 @@ export async function extractUnitsFromPDF(file: File): Promise<PDFExtractionResu
       while ((match = re.exec(text)) !== null) {
         const unitNumber = match[1].trim().toUpperCase();
 
-        // Skip false positives
-        if (
-          unitNumber.length < 1 ||
-          unitNumber === '000' ||
-          /^(SCALE|DATE|REV|NO|NUM|FIG|DWG)$/i.test(unitNumber) ||
-          (parseInt(unitNumber) > 9999 && /^\d+$/.test(unitNumber))
-        ) continue;
+        // ── Skip false positives ────────────────────────────────────────────
+        if (unitNumber.length < 1) continue;
+
+        // Explicit noise words that pattern capture groups sometimes grab
+        if (/^(SCALE|DATE|REV|NO|NUM|FIG|DWG|SHT|SHEET|PHASE|LEVEL|FLOOR|BLDG|BLOK|BLOCK|NORTH|SOUTH|EAST|WEST|AREA|TOTAL|NOTE|SEE|TYP|TYPE|REF|FF|RL|NTS|TBC|TBD|NA|SF|SQ|FT|LF|MM|CM|GL|CLG|AC|MECH|ELEC|PLMB|STRUCT|ARCH|INT|EXT|DNE|NIC|BY|OF|AT|TO|IN|OR|AND|THE|FOR|NEW|OLD|DOOR|WIN|ROOM|RM|CL|WC|WD|WH|UP|DN|OS|NS|EQ|SIM|VIF|UNO|MAX|MIN)$/i.test(unitNumber)) continue;
+
+        // Pure numbers: only allow 100–9999 — reject 1-99 (room/door tags, grid refs)
+        // and > 9999 (scales, areas, timestamps)
+        if (/^\d+$/.test(unitNumber)) {
+          const n = parseInt(unitNumber, 10);
+          if (n < 100 || n > 9999) continue;
+          // Reject numbers that are common dimension multiples (mm: 300, 600, 900…6000)
+          // or typical imperial dimensions (12, 24, 36, 48, 60, 72, 84, 96 inches * 12)
+          if (n >= 300 && n <= 9000 && n % 300 === 0) continue;
+          // Reject 4-digit numbers that look like years
+          if (n >= 1900 && n <= 2100) continue;
+        }
+
+        // For medium-confidence structural codes (A101, B204, 101A, A-101):
+        // Require at least one residential / kitchen keyword nearby to avoid
+        // picking up room-type legend codes, grid references, or detail callouts.
+        const isStructuralCode = confidence === 'medium';
+        if (isStructuralCode) {
+          const checkStart = Math.max(0, match.index - 500);
+          const checkEnd   = Math.min(text.length, match.index + match[0].length + 500);
+          const checkText  = text.slice(checkStart, checkEnd);
+          const hasUnitContext = /\b(?:unit|apt|apartment|suite|flat|condo|dwelling|residence|bedroom|bed\s*rm|bath|living|kitchen|kitch|cabinet|counter|sink|refrig|dishwash|floor\s*plan|level\s*\d|type\s+[a-z0-9]|plan\s+[a-z0-9]|typical\s+unit|balcony|entry|foyer|closet|wardrobe)\b/i.test(checkText);
+          if (!hasUnitContext) continue;
+        }
 
         // ---- Detect type from positional context ----
         let detectedType: string | null = null;
