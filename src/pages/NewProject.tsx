@@ -58,6 +58,7 @@ export default function NewProject() {
     handlesCustom: '',
     handlesAndHardware: '',
     tax: '',
+    taxCustom: '',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -538,23 +539,32 @@ export default function NewProject() {
 
               {/* Row 5: Tax */}
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                    Tax (%)
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={0.01}
+                <div className="space-y-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                      Tax
+                    </label>
+                    <select
                       value={specs.tax}
-                      onChange={e => setSpecs(s => ({ ...s, tax: e.target.value }))}
-                      placeholder="e.g. 8.25"
-                      className="w-full h-9 px-3 pr-8 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                      onChange={e => setSpecs(s => ({ ...s, tax: e.target.value, taxCustom: '' }))}
+                      className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                    >
+                      <option value="">Select tax rate…</option>
+                      <option value="CT-6.35%">CT — 6.35%</option>
+                      <option value="MA-6.25%">MA — 6.25%</option>
+                      <option value="Other">Other</option>
+                    </select>
                   </div>
+                  {specs.tax === 'Other' && (
+                    <input
+                      type="text"
+                      value={specs.taxCustom}
+                      onChange={e => setSpecs(s => ({ ...s, taxCustom: e.target.value }))}
+                      placeholder="Enter tax rate (e.g. 8.25%)"
+                      className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                      autoFocus
+                    />
+                  )}
                 </div>
               </div>
 
