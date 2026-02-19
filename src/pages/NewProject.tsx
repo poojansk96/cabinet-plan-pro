@@ -35,6 +35,8 @@ export default function NewProject() {
     customer: '',
     doorStyle: '',
     doorStyleCustom: '',
+    doorStyleStyle: '',
+    doorStyleStyleCustom: '',
     hinges: '',
     hingesCustom: '',
     drawerGuidesCustom: '',
@@ -221,7 +223,7 @@ export default function NewProject() {
                     </label>
                     <select
                       value={specs.doorStyle}
-                      onChange={e => setSpecs(s => ({ ...s, doorStyle: e.target.value, doorStyleCustom: '' }))}
+                      onChange={e => setSpecs(s => ({ ...s, doorStyle: e.target.value, doorStyleCustom: '', doorStyleStyle: '', doorStyleStyleCustom: '' }))}
                       className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
                     >
                       <option value="">Select manufacturer…</option>
@@ -242,6 +244,36 @@ export default function NewProject() {
                       className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
                       autoFocus
                     />
+                  )}
+                  {/* Style — shown once a manufacturer is selected */}
+                  {specs.doorStyle && (
+                    <div className="space-y-2">
+                      <div>
+                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                          Style
+                        </label>
+                        <select
+                          value={specs.doorStyleStyle}
+                          onChange={e => setSpecs(s => ({ ...s, doorStyleStyle: e.target.value, doorStyleStyleCustom: '' }))}
+                          className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
+                        >
+                          <option value="">Select style…</option>
+                          <option value="Shaker">Shaker</option>
+                          <option value="Slab">Slab</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                      {specs.doorStyleStyle === 'Other' && (
+                        <input
+                          type="text"
+                          value={specs.doorStyleStyleCustom}
+                          onChange={e => setSpecs(s => ({ ...s, doorStyleStyleCustom: e.target.value }))}
+                          placeholder="Describe style…"
+                          className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                          autoFocus
+                        />
+                      )}
+                    </div>
                   )}
                 </div>
                 <div className="space-y-2">
