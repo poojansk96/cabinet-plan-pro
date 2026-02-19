@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { BarChart3, Download, FileText, Loader2 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import type { Project, Unit } from '@/types/project';
 import { calcProjectSummary, calcUnitCabinetTotals, calcUnitCountertopTotal } from '@/lib/calculations';
 import { exportProjectPDF } from '@/lib/exportPDF';
@@ -25,56 +26,81 @@ export default function SummaryModule({ project }: Props) {
     }
   };
 
-  const handleExportCSV = () => {
-    const rows: string[] = [];
+  const handleExportExcel = () => {
+    const wb = XLSX.utils.book_new();
 
-    // Header
-    rows.push(`CabinetTakeoff Pro - Project Summary`);
-    rows.push(`Project: "${project.name}"`);
-    rows.push(`Address: "${project.address}"`);
-    rows.push(`Type: ${project.type}`);
-    rows.push(`Generated: ${new Date().toLocaleString()}`);
-    rows.push('');
+    // ── Sheet 1: Project Info ──────────────────────────────────────
+    const infoRows: (string | number)[][] = [
+      ['Field', 'Value'],
+      ['Project Name', project.name],
+      ['Address', project.address],
+      ['Type', project.type],
+      ['Notes', project.notes || ''],
+      [],
+      ['Specifications', ''],
+      ['Project Super', project.specs?.projectSuper || ''],
+      ['Customer', project.specs?.customer || ''],
+      ['Door Style', project.specs?.doorStyle || ''],
+      ['Hinges', project.specs?.hinges || ''],
+      ['Drawer Box', project.specs?.drawerBox || ''],
+      ['Drawer Guides', project.specs?.drawerGuides || ''],
+      ['Countertops', project.specs?.countertops || ''],
+      ['Handles & Hardware', project.specs?.handlesAndHardware || ''],
+      ['Tax', project.specs?.tax || ''],
+      [],
+      ['Generated', new Date().toLocaleString()],
+    ];
+    const wsInfo = XLSX.utils.aoa_to_sheet(infoRows);
+    wsInfo['!cols'] = [{ wch: 22 }, { wch: 40 }];
+    XLSX.utils.book_append_sheet(wb, wsInfo, 'Project Info');
 
-    // Unit summary
-    rows.push('UNIT SUMMARY');
-    rows.push('Unit #,Type,Cabinets,Base,Wall,Tall,CT Sqft');
-    project.units.forEach(u => {
+    // ── Sheet 2: Unit Count ────────────────────────────────────────
+    const unitHeader = ['Unit #', 'Type', 'Bldg', 'Floor', 'Total Cabs', 'Base', 'Wall', 'Tall', 'Vanity', 'Fillers', 'CT Sqft'];
+    const unitData = project.units.map(u => {
       const c = calcUnitCabinetTotals(u);
       const sqft = calcUnitCountertopTotal(u);
-      rows.push(`${u.unitNumber},${u.type},${c.total},${c.base},${c.wall},${c.tall},${sqft.toFixed(1)}`);
+      const fillers = u.accessories.filter(a => a.type === 'Filler').reduce((s, a) => s + a.quantity, 0);
+      return [u.unitNumber, u.type, u.bldg || '', u.floor || '', c.total, c.base, c.wall, c.tall, c.vanity, fillers, +sqft.toFixed(1)];
     });
-    rows.push('');
+    const unitTotRow = ['TOTAL', '', '', '', summary.totalCabinets, summary.totalBase, summary.totalWall, summary.totalTall, summary.totalVanity, summary.accessorySummary.totalFillers, +summary.totalCountertopSqft.toFixed(1)];
+    const wsUnit = XLSX.utils.aoa_to_sheet([unitHeader, ...unitData, [], unitTotRow]);
+    wsUnit['!cols'] = unitHeader.map(() => ({ wch: 12 }));
+    XLSX.utils.book_append_sheet(wb, wsUnit, 'Unit Count');
 
-    // SKU summary
-    rows.push('SKU SUMMARY');
-    rows.push('SKU,Type,Width",Height",Depth",Total Qty');
-    summary.skuSummary.forEach(s => {
-      rows.push(`${s.sku},${s.type},${s.width},${s.height},${s.depth},${s.totalQty}`);
+    // ── Sheet 3: SKU Summary ───────────────────────────────────────
+    const skuHeader = ['SKU', 'Type', 'Width"', 'Height"', 'Depth"', 'Rooms', 'Total Qty'];
+    const skuData = summary.skuSummary.map(s => [s.sku, s.type, s.width, s.height, s.depth, s.rooms.join(', '), s.totalQty]);
+    const wsSku = XLSX.utils.aoa_to_sheet([skuHeader, ...skuData]);
+    wsSku['!cols'] = [{ wch: 18 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 30 }, { wch: 10 }];
+    XLSX.utils.book_append_sheet(wb, wsSku, 'SKU Summary');
+
+    // ── Sheet 4: Accessories ───────────────────────────────────────
+    const accHeader = ['Item', 'Quantity', 'Unit'];
+    const accData = [
+      ['Fillers', summary.accessorySummary.totalFillers, 'pcs'],
+      ['Finished Panels', summary.accessorySummary.totalPanels, 'pcs'],
+      ['Toe Kick', summary.accessorySummary.totalToeKickLF, 'LF'],
+      ['Crown Molding', summary.accessorySummary.totalCrownLF, 'LF'],
+      ['Light Rail', summary.accessorySummary.totalLightRailLF, 'LF'],
+      ['Hardware', summary.accessorySummary.totalHardware, 'pcs'],
+    ];
+    const wsAcc = XLSX.utils.aoa_to_sheet([accHeader, ...accData]);
+    wsAcc['!cols'] = [{ wch: 20 }, { wch: 12 }, { wch: 8 }];
+    XLSX.utils.book_append_sheet(wb, wsAcc, 'Accessories');
+
+    // ── Sheet 5: Countertops ───────────────────────────────────────
+    const ctHeader = ['Unit #', 'Type', 'Bldg', 'Floor', 'CT Sqft'];
+    const ctData = project.units.map(u => {
+      const sqft = calcUnitCountertopTotal(u);
+      return [u.unitNumber, u.type, u.bldg || '', u.floor || '', +sqft.toFixed(1)];
     });
-    rows.push('');
+    const ctTotRow = ['TOTAL', '', '', '', +summary.totalCountertopSqft.toFixed(1)];
+    const wsCt = XLSX.utils.aoa_to_sheet([ctHeader, ...ctData, [], ctTotRow]);
+    wsCt['!cols'] = [{ wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 8 }, { wch: 10 }];
+    XLSX.utils.book_append_sheet(wb, wsCt, 'Countertops');
 
-    // Accessories
-    rows.push('ACCESSORIES SUMMARY');
-    rows.push(`Fillers,${summary.accessorySummary.totalFillers} pcs`);
-    rows.push(`Finished Panels,${summary.accessorySummary.totalPanels} pcs`);
-    rows.push(`Toe Kick,${summary.accessorySummary.totalToeKickLF} LF`);
-    rows.push(`Crown Molding,${summary.accessorySummary.totalCrownLF} LF`);
-    rows.push(`Light Rail,${summary.accessorySummary.totalLightRailLF} LF`);
-    rows.push(`Hardware,${summary.accessorySummary.totalHardware} pcs`);
-    rows.push('');
-
-    rows.push('COUNTERTOP SUMMARY');
-    rows.push(`Total Sqft,${summary.totalCountertopSqft.toFixed(1)}`);
-
-    const csv = rows.join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${project.name.replace(/[^a-zA-Z0-9]/g, '-')}-takeoff-summary.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    // ── Download ──────────────────────────────────────────────────
+    XLSX.writeFile(wb, `${project.name.replace(/[^a-zA-Z0-9]/g, '-')}-takeoff.xlsx`);
   };
 
   return (
@@ -87,11 +113,11 @@ export default function SummaryModule({ project }: Props) {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={handleExportCSV}
+            onClick={handleExportExcel}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-border text-foreground hover:bg-secondary transition-colors"
           >
             <Download size={12} />
-            Export CSV
+            Export Excel
           </button>
           <button
             onClick={handleExportPDF}
