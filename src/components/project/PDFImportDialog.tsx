@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback, useMemo } from 'react';
-import { FileUp, X, Loader2, CheckCircle, AlertCircle, ChevronDown, ChevronUp, FileText, Tag, Building2 } from 'lucide-react';
+import { useState, useRef, useCallback } from 'react';
+import { FileUp, X, Loader2, CheckCircle, AlertCircle, ChevronDown, ChevronUp, FileText, Tag } from 'lucide-react';
 import type { DetectedUnit, PDFExtractionResult } from '@/lib/pdfExtractor';
 import type { UnitType } from '@/types/project';
 
@@ -116,43 +116,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
   const detectedCount = rows.filter(r => r.detectedType !== null).length;
   const selectedCount = rows.filter(r => r.selected).length;
 
-  // Group rows by bldg label (empty bldg → "—"), then sort buildings and units ascending
-  const grouped = useMemo(() => {
-    const map = new Map<string, { globalIndex: number; row: UnitRow }[]>();
-    rows.forEach((row, i) => {
-      const key = row.bldg.trim() || '—';
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push({ globalIndex: i, row });
-    });
-
-    const numericAsc = (a: string, b: string) =>
-      a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
-
-    // Sort buildings ascending (unknown last)
-    const sorted = Array.from(map.entries()).sort(([a], [b]) => {
-      if (a === '—') return 1;
-      if (b === '—') return -1;
-      return numericAsc(a, b);
-    });
-
-    // Sort units within each building: floor ascending, then unit number ascending
-    sorted.forEach(([, entries]) => {
-      entries.sort((a, b) => {
-        const floorCmp = numericAsc(a.row.floor || '', b.row.floor || '');
-        if (floorCmp !== 0) return floorCmp;
-        return numericAsc(a.row.unitNumber, b.row.unitNumber);
-      });
-    });
-
-    return sorted;
-  }, [rows]);
-
-  const toggleBldg = (bldgKey: string, val: boolean) => {
-    const indices = new Set(
-      grouped.find(([k]) => k === bldgKey)?.[1].map(g => g.globalIndex) ?? []
-    );
-    setRows(r => r.map((x, i) => indices.has(i) ? { ...x, selected: val } : x));
-  };
+  const BLDG_OPTIONS = ['', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
 
 
   return (
@@ -256,95 +220,82 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                     <span className="text-xs text-muted-foreground ml-auto">{selectedCount} of {rows.length} selected</span>
                   </div>
 
-                  {/* Grouped by building */}
-                  <div className="space-y-3">
-                    {grouped.map(([bldgKey, entries]) => {
-                      const bldgSelected = entries.filter(e => e.row.selected).length;
-                      const bldgTotal = entries.length;
-                      const allBldgSelected = bldgSelected === bldgTotal;
-
-                      return (
-                        <div key={bldgKey} className="border border-border rounded-lg overflow-hidden">
-                          {/* Building group header */}
-                          <div className="flex items-center gap-2 px-3 py-2 bg-secondary border-b border-border">
-                            <input
-                              type="checkbox"
-                              checked={allBldgSelected}
-                              onChange={e => toggleBldg(bldgKey, e.target.checked)}
-                              className="cursor-pointer"
-                            />
-                            <Building2 size={13} className="text-primary flex-shrink-0" />
-                            <span className="text-xs font-semibold text-foreground">
-                              {bldgKey === '—' ? 'No Building Detected' : bldgKey}
+                  {/* Flat unit table */}
+                  <div className="border border-border rounded-lg overflow-hidden">
+                    <table className="est-table">
+                      <thead>
+                        <tr>
+                          <th className="w-8"></th>
+                          <th>Unit #</th>
+                          <th>
+                            <span className="flex items-center gap-1">
+                              Unit Type
+                              <span className="text-[10px] font-normal text-muted-foreground">(PDF / override)</span>
                             </span>
-                            <span className="ml-auto text-xs text-muted-foreground">
-                              {bldgSelected}/{bldgTotal} selected
-                            </span>
-                          </div>
-
-                          <table className="est-table">
-                            <thead>
-                              <tr>
-                                <th className="w-8"></th>
-                                <th>Unit #</th>
-                                <th>
-                                  <span className="flex items-center gap-1">
-                                    Unit Type
-                                    <span className="text-[10px] font-normal text-muted-foreground">(PDF / override)</span>
+                          </th>
+                          <th>Floor</th>
+                          <th>Building #</th>
+                          <th>Confidence</th>
+                          <th>Page</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((row, i) => (
+                          <tr key={i} className={!row.selected ? 'opacity-40' : ''}>
+                            <td>
+                              <input
+                                type="checkbox"
+                                checked={row.selected}
+                                onChange={e => setRows(r => r.map((x, j) => j === i ? { ...x, selected: e.target.checked } : x))}
+                                className="cursor-pointer"
+                              />
+                            </td>
+                            <td className="font-mono font-bold">{row.unitNumber}</td>
+                            <td>
+                              <div className="flex items-center gap-1.5">
+                                {row.detectedType && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-accent text-primary border border-border flex-shrink-0" title="Detected from PDF text">
+                                    <Tag size={8} />PDF
                                   </span>
-                                </th>
-                                <th>Floor</th>
-                                <th>Confidence</th>
-                                <th>Page</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {entries.map(({ globalIndex: i, row }) => (
-                                <tr key={i} className={!row.selected ? 'opacity-40' : ''}>
-                                  <td>
-                                    <input
-                                      type="checkbox"
-                                      checked={row.selected}
-                                      onChange={e => setRows(r => r.map((x, j) => j === i ? { ...x, selected: e.target.checked } : x))}
-                                      className="cursor-pointer"
-                                    />
-                                  </td>
-                                  <td className="font-mono font-bold">{row.unitNumber}</td>
-                                   <td>
-                                    <div className="flex items-center gap-1.5">
-                                      {row.detectedType && (
-                                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-accent text-primary border border-border flex-shrink-0" title="Detected from PDF text">
-                                          <Tag size={8} />PDF
-                                        </span>
-                                      )}
-                                      <input
-                                        className="est-input w-full text-xs"
-                                        value={row.type}
-                                        placeholder="Enter type (e.g. 2BHK, Studio…)"
-                                        onChange={e => setRowType(i, e.target.value)}
-                                      />
-                                    </div>
-                                  </td>
-                                  {/* Floor — editable inline */}
-                                  <td>
-                                    <div className="flex items-center gap-1">
-                                      {row.detectedFloor && !row.floorOverridden && (
-                                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-accent text-primary border border-border flex-shrink-0" title="Detected from PDF">
-                                          <Tag size={8} />PDF
-                                        </span>
-                                      )}
-                                      <input className="est-input text-xs w-16" value={row.floor} placeholder="e.g. 1" onChange={e => setRowFloor(i, e.target.value)} />
-                                    </div>
-                                  </td>
-                                  <td>{confidenceBadge(row.confidence)}</td>
-                                  <td className="text-muted-foreground text-xs">{row.page}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      );
-                    })}
+                                )}
+                                <input
+                                  className="est-input w-full text-xs"
+                                  value={row.type}
+                                  placeholder="Enter type…"
+                                  onChange={e => setRowType(i, e.target.value)}
+                                />
+                              </div>
+                            </td>
+                            {/* Floor */}
+                            <td>
+                              <div className="flex items-center gap-1">
+                                {row.detectedFloor && !row.floorOverridden && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-accent text-primary border border-border flex-shrink-0" title="Detected from PDF">
+                                    <Tag size={8} />PDF
+                                  </span>
+                                )}
+                                <input className="est-input text-xs w-16" value={row.floor} placeholder="e.g. 1" onChange={e => setRowFloor(i, e.target.value)} />
+                              </div>
+                            </td>
+                            {/* Building # — user selects manually */}
+                            <td>
+                              <select
+                                className="est-input text-xs w-20"
+                                value={row.bldg}
+                                onChange={e => setRowBldg(i, e.target.value)}
+                              >
+                                <option value="">—</option>
+                                {BLDG_OPTIONS.filter(o => o !== '').map(o => (
+                                  <option key={o} value={o}>{o}</option>
+                                ))}
+                              </select>
+                            </td>
+                            <td>{confidenceBadge(row.confidence)}</td>
+                            <td className="text-muted-foreground text-xs">{row.page}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
 
                   {/* Raw text toggle */}

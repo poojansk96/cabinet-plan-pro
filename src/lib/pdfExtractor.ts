@@ -340,9 +340,9 @@ export async function extractUnitsFromPDF(file: File): Promise<PDFExtractionResu
     const page = await pdf.getPage(pageNum);
     const items = await extractPageTextItems(page);
     const text = items.map(i => i.str).join(' ');
-    // Detect floor FIRST, then pass it to building detection so floor numbers are never reused as building IDs
+    // Detect floor only — building is assigned manually by the user after extraction
     const detectedFloor = detectFloorFromPage(items);
-    const detectedBldg  = detectBldgFromPage(items, detectedFloor);
+    const detectedBldg  = null;
     allText.push(text);
     pageData.push({ text, items, page: pageNum, detectedFloor, detectedBldg });
   }
