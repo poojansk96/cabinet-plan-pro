@@ -37,14 +37,16 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
 
   const handlePDFImport = (units: Array<{ unitNumber: string; type: UnitType; floor: string; bldg: string }>) => {
     let lastUnit: Unit | null = null;
+    let addedCount = 0;
     units.forEach(u => {
       const exists = project.units.some(pu => pu.unitNumber === u.unitNumber);
       if (!exists) {
         lastUnit = addUnit(project.id, { unitNumber: u.unitNumber, type: u.type, floor: u.floor || '', bldg: u.bldg || '', notes: '' });
+        addedCount++;
       }
     });
     if (lastUnit) setSelectedUnitId((lastUnit as Unit).id);
-    setImportedCount(units.length);
+    setImportedCount(addedCount);
     setShowPDFImport(false);
     setTimeout(() => setImportedCount(null), 4000);
   };
