@@ -86,22 +86,6 @@ export default function CabinetModule({ project, selectedUnit, setSelectedUnitId
         </button>
       </div>
 
-      {/* Unit type summary */}
-      {project.units.length > 0 && (() => {
-        const typeMap: Record<string, number> = {};
-        project.units.forEach(u => { typeMap[u.type] = (typeMap[u.type] || 0) + 1; });
-        return (
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(typeMap).map(([type, count]) => (
-              <div key={type} className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-border bg-secondary text-xs font-medium">
-                <span className="text-foreground">{type}</span>
-                <span className="bg-primary text-primary-foreground rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-bold">{count}</span>
-              </div>
-            ))}
-          </div>
-        );
-      })()}
-
       {/* Quick stats */}
       {selectedUnit && (
         <div className="grid grid-cols-5 gap-2">
