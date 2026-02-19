@@ -117,7 +117,13 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
         bldgOverridden: false,
       }));
 
-      setRows(initialRows);
+      const sortedRows = [...initialRows].sort((a, b) => {
+        const fa = parseFloat(a.floor) || 0;
+        const fb = parseFloat(b.floor) || 0;
+        if (fa !== fb) return fa - fb;
+        return a.floor.localeCompare(b.floor, undefined, { numeric: true });
+      });
+      setRows(sortedRows);
       setStep('review');
     } catch (err) {
       console.error(err);
