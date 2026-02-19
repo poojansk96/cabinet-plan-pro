@@ -68,7 +68,7 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
     return isNaN(n) || n <= 0 ? null : n;
   };
 
-  /** Process a single PDF file and return detected cabinet rows */
+  /** Process a single PDF file — calls edge function once per page for reliability */
   const processSingleFile = async (
     file: File,
     scaleFactor: number,
@@ -78,44 +78,50 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
   ): Promise<CabinetRow[]> => {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    const pageImages: string[] = [];
+    const allCabinets: CabinetRow[] = [];
 
     for (let p = 1; p <= pdf.numPages; p++) {
-      onStatus(`Rendering "${file.name}" — page ${p} of ${pdf.numPages}…`);
+      onStatus(`Rendering "${file.name}" page ${p}/${pdf.numPages}…`);
       const page = await pdf.getPage(p);
-      pageImages.push(await renderPageToBase64(page, 2));
+      // Render at 1.5× — enough for AI to read, keeps payload small
+      const pageImage = await renderPageToBase64(page, 1.5);
+
+      onStatus(`AI analyzing "${file.name}" page ${p}/${pdf.numPages}…`);
+
+      const aiResponse = await fetch(EDGE_FUNCTION_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pageImage, scaleFactor, scaleLabel, unitType }),
+      });
+
+      if (!aiResponse.ok) {
+        const status = aiResponse.status;
+        if (status === 429) throw new Error('rate_limit');
+        if (status === 402) throw new Error('credits');
+        console.warn(`Page ${p} of "${file.name}" failed (${status}), skipping`);
+        continue; // skip this page, continue with next
+      }
+
+      const data = await aiResponse.json();
+      if (data.error === 'rate_limit') throw new Error('rate_limit');
+      if (data.error === 'credits') throw new Error('credits');
+
+      const pageCabinets = (data.cabinets ?? []).map((c: any) => ({
+        sku: c.sku,
+        type: c.type as CabinetType,
+        room: c.room as Room,
+        width: c.width,
+        height: c.height,
+        depth: c.depth,
+        quantity: c.quantity,
+        notes: '',
+        selected: true,
+        sourceFile: file.name,
+      }));
+      allCabinets.push(...pageCabinets);
     }
 
-    onStatus(`AI analyzing "${file.name}"…`);
-
-    const aiResponse = await fetch(EDGE_FUNCTION_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pageImages, scaleFactor, scaleLabel, unitType }),
-    });
-
-    if (!aiResponse.ok) {
-      const status = aiResponse.status;
-      if (status === 429) throw new Error('rate_limit');
-      if (status === 402) throw new Error('credits');
-      throw new Error(`AI failed for "${file.name}" (${status})`);
-    }
-
-    const data = await aiResponse.json();
-    if (data.error) throw new Error(data.error);
-
-    return (data.cabinets ?? []).map((c: any) => ({
-      sku: c.sku,
-      type: c.type as CabinetType,
-      room: c.room as Room,
-      width: c.width,
-      height: c.height,
-      depth: c.depth,
-      quantity: c.quantity,
-      notes: '',
-      selected: true,
-      sourceFile: file.name,
-    }));
+    return allCabinets;
   };
 
   const processFiles = async (files: File[]) => {
