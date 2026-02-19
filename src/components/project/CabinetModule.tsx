@@ -110,8 +110,6 @@ export default function CabinetModule({ project, selectedUnit, setSelectedUnitId
               <tr>
                 <th>SKU List</th>
                 <th>Unit Type</th>
-                <th className="text-right">Units</th>
-                <th className="text-right font-bold">Grand Total</th>
               </tr>
             </thead>
             <tbody>
@@ -119,21 +117,9 @@ export default function CabinetModule({ project, selectedUnit, setSelectedUnitId
                 <tr key={type}>
                   <td className="font-mono text-xs text-muted-foreground">{g.skus.sort().join(', ') || '—'}</td>
                   <td className="font-semibold">{type}</td>
-                  <td className="text-right">{g.unitCount}</td>
-                  <td className="text-right font-bold">{g.base + g.wall + g.tall + g.vanity}</td>
                 </tr>
               ))}
             </tbody>
-            <tfoot>
-              <tr style={{ background: 'hsl(var(--secondary))', fontWeight: 600 }}>
-                <td className="px-3 py-1.5 text-sm"></td>
-                <td className="px-3 py-1.5 text-sm">TOTAL</td>
-                <td className="px-3 py-1.5 text-sm text-right">{project.units.length}</td>
-                <td className="px-3 py-1.5 text-sm text-right">
-                  {Object.values(unitTypeGroups).reduce((s, g) => s + g.base + g.wall + g.tall + g.vanity, 0)}
-                </td>
-              </tr>
-            </tfoot>
           </table>
         </div>
       )}
