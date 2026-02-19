@@ -101,28 +101,62 @@ export default function CabinetModule({ project, selectedUnit, setSelectedUnitId
         </button>
       </div>
 
-      {/* Unit-type-wise cabinet summary */}
-      {Object.keys(unitTypeGroups).length > 0 && (
-        <div className="est-card overflow-hidden">
-          <div className="est-section-header">Cabinet Summary by Unit Type</div>
-          <table className="est-table">
-            <thead>
-              <tr>
-                <th>SKU List</th>
-                <th>Unit Type</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.entries(unitTypeGroups).map(([type, g]) => (
-                <tr key={type}>
-                  <td className="font-mono text-xs text-muted-foreground">{g.skus.sort().join(', ') || '—'}</td>
-                  <td className="font-semibold">{type}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {/* Unit-type-wise cabinet summary — pivot: SKUs as rows, unit types as rotated columns */}
+      {Object.keys(unitTypeGroups).length > 0 && (() => {
+        const unitTypes = Object.keys(unitTypeGroups);
+        // collect all unique SKUs across all units
+        const allSkus = Array.from(new Set(project.units.flatMap(u => u.cabinets.map(c => c.sku)))).sort();
+        // build a map: sku -> unitType -> total qty
+        const skuTypeQty: Record<string, Record<string, number>> = {};
+        project.units.forEach(u => {
+          u.cabinets.forEach(c => {
+            if (!skuTypeQty[c.sku]) skuTypeQty[c.sku] = {};
+            skuTypeQty[c.sku][u.type] = (skuTypeQty[c.sku][u.type] || 0) + c.quantity;
+          });
+        });
+        return (
+          <div className="est-card overflow-hidden">
+            <div className="est-section-header">Cabinet Summary by Unit Type</div>
+            <div className="overflow-x-auto">
+              <table className="est-table" style={{ whiteSpace: 'nowrap' }}>
+                <thead>
+                  <tr style={{ height: '120px', verticalAlign: 'bottom' }}>
+                    <th className="text-left" style={{ verticalAlign: 'bottom' }}>SKU List</th>
+                    {unitTypes.map(type => (
+                      <th key={type} style={{ verticalAlign: 'bottom', padding: '4px 6px' }}>
+                        <div style={{
+                          writingMode: 'vertical-rl',
+                          transform: 'rotate(180deg)',
+                          whiteSpace: 'nowrap',
+                          fontWeight: 600,
+                          fontSize: '11px',
+                          height: '110px',
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}>
+                          {type}
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {allSkus.map(sku => (
+                    <tr key={sku}>
+                      <td className="font-mono font-medium">{sku}</td>
+                      {unitTypes.map(type => (
+                        <td key={type} className="text-center">
+                          {skuTypeQty[sku]?.[type] || ''}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Quick stats */}
       {selectedUnit && (
