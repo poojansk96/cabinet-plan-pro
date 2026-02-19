@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { BarChart3, Download, FileText, Loader2 } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import type { Project, Unit } from '@/types/project';
 import { calcProjectSummary, calcUnitCabinetTotals, calcUnitCountertopTotal } from '@/lib/calculations';
 import { exportProjectPDF } from '@/lib/exportPDF';
@@ -26,12 +26,26 @@ export default function SummaryModule({ project }: Props) {
     }
   };
 
-  const handleExportExcel = () => {
-    const wb = XLSX.utils.book_new();
+  const handleExportExcel = async () => {
+    const wb = new ExcelJS.Workbook();
+
+    // Helper: style a header row bold
+    const styleHeader = (row: ExcelJS.Row, bgArgb = 'FFD6E4F0') => {
+      row.eachCell(cell => {
+        cell.font = { bold: true };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
+        cell.border = {
+          bottom: { style: 'thin', color: { argb: 'FF999999' } },
+        };
+      });
+    };
 
     // ── Sheet 1: Project Info ──────────────────────────────────────
-    const infoRows: (string | number)[][] = [
-      ['Field', 'Value'],
+    const wsInfo = wb.addWorksheet('Project Info');
+    wsInfo.columns = [{ width: 22 }, { width: 40 }];
+    const infoHeaderRow = wsInfo.addRow(['Field', 'Value']);
+    styleHeader(infoHeaderRow);
+    [
       ['Project Name', project.name],
       ['Address', project.address],
       ['Type', project.type],
@@ -49,59 +63,99 @@ export default function SummaryModule({ project }: Props) {
       ['Tax', project.specs?.tax || ''],
       [],
       ['Generated', new Date().toLocaleString()],
-    ];
-    const wsInfo = XLSX.utils.aoa_to_sheet(infoRows);
-    wsInfo['!cols'] = [{ wch: 22 }, { wch: 40 }];
-    XLSX.utils.book_append_sheet(wb, wsInfo, 'Project Info');
+    ].forEach(r => wsInfo.addRow(r));
 
     // ── Sheet 2: Unit Count (pivot: units vertical, types horizontal) ──
+    const wsUnit = wb.addWorksheet('Unit Count');
     const uniqueTypes = Array.from(new Set(project.units.map(u => u.type).filter(Boolean))).sort();
-    const unitHeader = ['Unit #', 'Building', 'Floor', ...uniqueTypes];
-    const unitData = project.units.map(u => {
-      const typeFlags = uniqueTypes.map(t => (u.type === t ? 1 : ''));
-      return [u.unitNumber, u.bldg || '', u.floor || '', ...typeFlags];
+
+    // Set column widths: Unit#, Building, Floor fixed; each type column narrow (rotated text)
+    wsUnit.columns = [
+      { width: 12 },
+      { width: 16 },
+      { width: 10 },
+      ...uniqueTypes.map(() => ({ width: 6 })),
+    ];
+
+    // Header row
+    const unitHeaderRow = wsUnit.addRow(['Unit #', 'Building', 'Floor', ...uniqueTypes]);
+    unitHeaderRow.height = 120; // tall row to show rotated text
+    unitHeaderRow.eachCell((cell, colNumber) => {
+      cell.font = { bold: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F0' } };
+      cell.border = { bottom: { style: 'thin', color: { argb: 'FF999999' } } };
+      cell.alignment = { vertical: 'bottom', wrapText: false };
+      // Rotate type name columns 90 degrees
+      if (colNumber > 3) {
+        cell.alignment = { textRotation: 90, vertical: 'bottom', horizontal: 'center' };
+      }
     });
-    // Total row: count of units per type
+
+    // Data rows
+    project.units.forEach(u => {
+      const typeFlags = uniqueTypes.map(t => (u.type === t ? 1 : ''));
+      const dataRow = wsUnit.addRow([u.unitNumber, u.bldg || '', u.floor || '', ...typeFlags]);
+      dataRow.eachCell((cell, colNumber) => {
+        if (colNumber > 3) {
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        }
+      });
+    });
+
+    // Empty row then total
+    wsUnit.addRow([]);
     const typeCounts = uniqueTypes.map(t => project.units.filter(u => u.type === t).length);
-    const unitTotRow = [`TOTAL (${project.units.length})`, '', '', ...typeCounts];
-    const wsUnit = XLSX.utils.aoa_to_sheet([unitHeader, ...unitData, [], unitTotRow]);
-    wsUnit['!cols'] = [{ wch: 12 }, { wch: 16 }, { wch: 10 }, ...uniqueTypes.map(() => ({ wch: 20 }))];
-    XLSX.utils.book_append_sheet(wb, wsUnit, 'Unit Count');
+    const unitTotRow = wsUnit.addRow([`TOTAL (${project.units.length})`, '', '', ...typeCounts]);
+    unitTotRow.eachCell((cell, colNumber) => {
+      cell.font = { bold: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
+      if (colNumber > 3) cell.alignment = { horizontal: 'center' };
+    });
 
     // ── Sheet 3: SKU Summary ───────────────────────────────────────
-    const skuHeader = ['SKU', 'Type', 'Width"', 'Height"', 'Depth"', 'Rooms', 'Total Qty'];
-    const skuData = summary.skuSummary.map(s => [s.sku, s.type, s.width, s.height, s.depth, s.rooms.join(', '), s.totalQty]);
-    const wsSku = XLSX.utils.aoa_to_sheet([skuHeader, ...skuData]);
-    wsSku['!cols'] = [{ wch: 18 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 30 }, { wch: 10 }];
-    XLSX.utils.book_append_sheet(wb, wsSku, 'SKU Summary');
+    const wsSku = wb.addWorksheet('SKU Summary');
+    wsSku.columns = [
+      { width: 18 }, { width: 10 }, { width: 8 }, { width: 8 }, { width: 8 }, { width: 30 }, { width: 10 },
+    ];
+    styleHeader(wsSku.addRow(['SKU', 'Type', 'Width"', 'Height"', 'Depth"', 'Rooms', 'Total Qty']));
+    summary.skuSummary.forEach(s =>
+      wsSku.addRow([s.sku, s.type, s.width, s.height, s.depth, s.rooms.join(', '), s.totalQty])
+    );
 
     // ── Sheet 4: Accessories ───────────────────────────────────────
-    const accHeader = ['Item', 'Quantity', 'Unit'];
-    const accData = [
+    const wsAcc = wb.addWorksheet('Accessories');
+    wsAcc.columns = [{ width: 20 }, { width: 12 }, { width: 8 }];
+    styleHeader(wsAcc.addRow(['Item', 'Quantity', 'Unit']));
+    [
       ['Fillers', summary.accessorySummary.totalFillers, 'pcs'],
       ['Finished Panels', summary.accessorySummary.totalPanels, 'pcs'],
       ['Toe Kick', summary.accessorySummary.totalToeKickLF, 'LF'],
       ['Crown Molding', summary.accessorySummary.totalCrownLF, 'LF'],
       ['Light Rail', summary.accessorySummary.totalLightRailLF, 'LF'],
       ['Hardware', summary.accessorySummary.totalHardware, 'pcs'],
-    ];
-    const wsAcc = XLSX.utils.aoa_to_sheet([accHeader, ...accData]);
-    wsAcc['!cols'] = [{ wch: 20 }, { wch: 12 }, { wch: 8 }];
-    XLSX.utils.book_append_sheet(wb, wsAcc, 'Accessories');
+    ].forEach(r => wsAcc.addRow(r));
 
     // ── Sheet 5: Countertops ───────────────────────────────────────
-    const ctHeader = ['Unit #', 'Type', 'Bldg', 'Floor', 'CT Sqft'];
-    const ctData = project.units.map(u => {
+    const wsCt = wb.addWorksheet('Countertops');
+    wsCt.columns = [{ width: 10 }, { width: 24 }, { width: 14 }, { width: 8 }, { width: 10 }];
+    styleHeader(wsCt.addRow(['Unit #', 'Type', 'Building', 'Floor', 'CT Sqft']));
+    project.units.forEach(u => {
       const sqft = calcUnitCountertopTotal(u);
-      return [u.unitNumber, u.type, u.bldg || '', u.floor || '', +sqft.toFixed(1)];
+      wsCt.addRow([u.unitNumber, u.type, u.bldg || '', u.floor || '', +sqft.toFixed(1)]);
     });
-    const ctTotRow = ['TOTAL', '', '', '', +summary.totalCountertopSqft.toFixed(1)];
-    const wsCt = XLSX.utils.aoa_to_sheet([ctHeader, ...ctData, [], ctTotRow]);
-    wsCt['!cols'] = [{ wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 8 }, { wch: 10 }];
-    XLSX.utils.book_append_sheet(wb, wsCt, 'Countertops');
+    wsCt.addRow([]);
+    const ctTotRow = wsCt.addRow(['TOTAL', '', '', '', +summary.totalCountertopSqft.toFixed(1)]);
+    ctTotRow.font = { bold: true };
 
     // ── Download ──────────────────────────────────────────────────
-    XLSX.writeFile(wb, `${project.name.replace(/[^a-zA-Z0-9]/g, '-')}-takeoff.xlsx`);
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${project.name.replace(/[^a-zA-Z0-9]/g, '-')}-takeoff.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
