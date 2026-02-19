@@ -29,31 +29,37 @@ serve(async (req) => {
       const pageText = pageTexts[i];
       if (!pageText || pageText.trim().length < 20) continue;
 
-      const systemPrompt = `You are an expert at reading architectural millwork / cabinet schedules extracted from PDF floor plans or cabinet elevation sheets.
+      const systemPrompt = `You are an expert millwork estimator reading cabinet ELEVATION drawings extracted from PDFs.
 
-Your job is to extract ALL cabinet line items from the provided floor plan text. Each cabinet entry should include:
-- SKU / model number (e.g. B24, W3036, DB36, UB30, etc.)
-- Cabinet type: "Base", "Wall", "Tall", or "Vanity"
-- Room: "Kitchen", "Pantry", "Laundry", "Bath", or "Other"
-- Width in inches (numeric only)
-- Height in inches (numeric only)  
-- Depth in inches (numeric only)
-- Quantity (default 1 if not specified)
+Cabinet elevations show a FRONT VIEW of cabinets as they appear mounted on walls. The extracted text contains:
+- Cabinet model/SKU codes labeled on each cabinet box (e.g. B24, W3036, DB30, UB18, OH36, SB24, UT84, etc.)
+- Dimensions labeled per cabinet (width in inches, sometimes height)
+- Elevation/room title labels (e.g. "KITCHEN ELEVATION A", "BATH ELEVATION 2", "LAUNDRY ELEV")
+- Quantities when the same cabinet repeats (e.g. "(2) B24" or "B24 x2")
 
-RULES:
-- Cabinet SKUs are typically alphanumeric codes: B24, W3630, DB24, OH30, UT84, etc.
-- Dimensions appear as WxHxD or W"xH"xD" or listed in a schedule table
-- Base cabinets: typically 34.5" tall, 24" deep
-- Wall cabinets: typically 12-42" tall, 12" deep
-- Tall cabinets: typically 84-96" tall, 24" deep
-- Vanity cabinets: typically 31-35" tall, 21" deep
-- If a SKU appears multiple times with same dimensions, sum the quantities
-- If dimensions can't be parsed, use standard defaults for the type
-- Ignore purely structural elements, doors, windows, electrical
+CABINET TYPE IDENTIFICATION:
+- BASE: B, DB, SB, CB, EB prefixes — bottom row of elevation — default H=34.5", D=24"
+- WALL: W, UB, OH, UC, WC prefixes — upper row of elevation — default H=30", D=12"  
+- TALL: T, UT, TC, PTC, OC, PT prefixes — full-height column — default H=84", D=24"
+- VANITY: V, VB, VD prefixes — bathroom, shorter base — default H=34.5", D=21"
+- When prefix is ambiguous, use position in elevation: upper row=Wall, lower row=Base, full height=Tall
 
-${unitType ? `Focus on cabinets for unit type: ${unitType}` : 'Extract all cabinets found on the page'}
+ROOM IDENTIFICATION:
+- Look for elevation title keywords: KITCHEN→"Kitchen", BATH/LAVATORY→"Bath", LAUNDRY/UTIL→"Laundry", PANTRY→"Pantry"
+- Default to "Kitchen" if unclear
 
-Return ONLY valid JSON, no markdown, no explanation:
+CRITICAL RULES:
+1. Each distinct cabinet box on the elevation = one line item with quantity
+2. Width comes from the dimension label on that cabinet box (e.g. 24" or 24W)
+3. If the same SKU + same dimensions appear multiple times on one elevation, sum quantities
+4. DO NOT include appliances: REF, REFRIG, DW, DISHWASHER, RANGE, HOOD, MICROWAVE, OTR, MW
+5. DO NOT include dimension strings, grid references, or drawing title block numbers as SKUs
+6. A valid SKU always starts with a letter and contains numbers (e.g. B24, W3036, not just "24" or "A")
+7. If a cabinet width cannot be found, estimate from surrounding context or use 24" default for Base/Tall, 30" for Wall
+
+${unitType ? `These elevations are for unit type: ${unitType}` : ''}
+
+Return ONLY valid JSON, no markdown:
 {
   "cabinets": [
     {
@@ -68,7 +74,7 @@ Return ONLY valid JSON, no markdown, no explanation:
   ]
 }`;
 
-      const userPrompt = `Page ${i + 1} floor plan / cabinet schedule text:\n\n${pageText.slice(0, 10000)}`;
+      const userPrompt = `Page ${i + 1} cabinet elevation text:\n\n${pageText.slice(0, 12000)}`;
 
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",

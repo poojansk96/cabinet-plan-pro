@@ -156,7 +156,7 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
           {step === 'upload' && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Upload a cabinet schedule PDF or architectural floor plan. AI will detect all cabinet line items — SKU, size (W×H×D), type, and room — and allow you to review before importing.
+                Upload your <strong>cabinet elevation PDF</strong>. AI reads each elevation sheet, identifies cabinet boxes by SKU, detects type (Base/Wall/Tall/Vanity) from position and code prefix, extracts widths, and counts quantities per room.
               </p>
 
               <div
@@ -169,7 +169,7 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
                 onClick={() => fileRef.current?.click()}
               >
                 <FileUp size={36} className="mx-auto mb-3 text-muted-foreground" />
-                <p className="font-semibold text-sm text-foreground">Drop your PDF cabinet schedule here</p>
+                <p className="font-semibold text-sm text-foreground">Drop your cabinet elevation PDF here</p>
                 <p className="text-xs text-muted-foreground mt-1">or click to browse</p>
                 <input ref={fileRef} type="file" accept=".pdf" className="hidden" onChange={handleFile} />
               </div>
@@ -184,10 +184,10 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
               <div className="text-xs text-muted-foreground bg-secondary rounded-lg p-3 border border-border space-y-1">
                 <p className="flex items-center gap-1.5">
                   <Sparkles size={11} className="text-primary flex-shrink-0" />
-                  <strong>AI detects:</strong> SKU codes, cabinet type (Base/Wall/Tall/Vanity), room, W×H×D dimensions, and quantities
+                  <strong>AI reads elevation sheets:</strong> identifies each cabinet box by SKU, type (Base/Wall/Tall/Vanity) from position + code prefix, width from dimension labels, and quantity
                 </p>
-                <p>Works best with cabinet schedules, millwork drawings, and annotated floor plans.</p>
-                <p className="opacity-70">Scanned image-only PDFs may yield no results.</p>
+                <p>Works best with <strong>interior elevation drawings</strong> and millwork schedules. Each elevation page is analyzed separately.</p>
+                <p className="opacity-70">Scanned image-only PDFs cannot be read — use vector/text PDFs from CAD software.</p>
               </div>
             </div>
           )}
