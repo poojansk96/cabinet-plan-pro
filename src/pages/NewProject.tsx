@@ -261,9 +261,13 @@ export default function NewProject() {
                           className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
                         >
                           <option value="">Select style…</option>
-                          <option value="Full overlay shaker">Full overlay shaker</option>
+                          {specs.doorStyle !== 'India' && (
+                            <option value="Full overlay shaker">Full overlay shaker</option>
+                          )}
                           <option value="Full overlay slab">Full overlay slab</option>
-                          <option value="Other">Other</option>
+                          {specs.doorStyle !== 'India' && (
+                            <option value="Other">Other</option>
+                          )}
                         </select>
                       </div>
                       {specs.doorStyleStyle === 'Other' && (
