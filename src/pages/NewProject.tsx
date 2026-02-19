@@ -4,7 +4,7 @@ import { Building2, ArrowLeft, Settings2 } from 'lucide-react';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import type { ProjectType } from '@/types/project';
 
-const HINGE_OPTIONS = ['Blum Clip Top', 'Grass Tiomos', 'Salice', 'King Slide', 'Other'];
+const HINGE_OPTIONS = ['Standard soft close 6 way adjustable hinges', 'Other'];
 const DRAWER_BOX_OPTIONS = ['Dovetail Wood', 'Melamine', 'Metal (Legrabox)', 'Metal (Tandem)', 'Other'];
 const DRAWER_GUIDE_OPTIONS = ['Blum Tandem', 'Blum Legrabox', 'Grass Dynapro', 'King Slide', 'Other'];
 const COUNTERTOP_OPTIONS = ['Quartz', 'Granite', 'Laminate', 'Solid Surface', 'Porcelain', 'Marble', 'Other'];
@@ -35,6 +35,7 @@ export default function NewProject() {
     customer: '',
     doorStyle: '',
     hinges: '',
+    hingesCustom: '',
     drawerBox: '',
     drawerGuides: '',
     countertops: '',
@@ -336,7 +337,19 @@ export default function NewProject() {
 
               {/* Row 3: Hinges + Drawer Box */}
               <div className="grid grid-cols-2 gap-4">
-                {specSelectField('Hinges', 'hinges', HINGE_OPTIONS)}
+                <div className="space-y-2">
+                  {specSelectField('Hinges', 'hinges', HINGE_OPTIONS)}
+                  {specs.hinges === 'Other' && (
+                    <input
+                      type="text"
+                      value={specs.hingesCustom}
+                      onChange={e => setSpecs(s => ({ ...s, hingesCustom: e.target.value }))}
+                      placeholder="Describe hinge type…"
+                      className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                      autoFocus
+                    />
+                  )}
+                </div>
                 {specSelectField('Drawer Box', 'drawerBox', DRAWER_BOX_OPTIONS)}
               </div>
 
