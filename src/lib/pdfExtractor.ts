@@ -223,13 +223,17 @@ function detectBldgFromPage(items: TextItem[]): string | null {
 // Floor / Level detection — scanned from the bottom third of each page
 // ---------------------------------------------------------------------------
 
+// Also extend floor patterns to match written-out words after "level"
+const FLOOR_WORD_PATTERN =
+  /\b(?:level|lvl\.?|floor|flr\.?|storey|story)\s*[:\-]?\s*(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth)\b/gi;
+
 const FLOOR_PATTERNS = [
   // "Floor 1", "Floor 2", "1st Floor", "Ground Floor"
   /\b(?:floor|flr\.?)\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi,
   /\b([1-9]\d*(?:st|nd|rd|th))\s+floor\b/gi,
   /\b(ground|basement|mezzanine|terrace|roof(?:\s*top)?)\s+floor\b/gi,
   /\b(ground|basement|mezzanine)\b/gi,
-  // "Level 1", "Level A", "L1", "L-2"
+  // "Level 1", "Level A", "L1", "L-2" — Level always means floor
   /\b(?:level|lvl\.?)\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi,
   /\bL[:\-]?\s*([0-9]{1,3}[A-Z]?)\b/g,
   // "Storey 3", "Story 2"
@@ -248,6 +252,13 @@ function detectFloorFromPage(items: TextItem[]): string | null {
   const bottomText = items.filter(i => i.y <= threshold).map(i => i.str).join(' ');
   const fullText   = items.map(i => i.str).join(' ');
 
+  // Try written-out word patterns first ("Level First" → "Floor 1")
+  for (const text of [bottomText, fullText]) {
+    FLOOR_WORD_PATTERN.lastIndex = 0;
+    const m = FLOOR_WORD_PATTERN.exec(text);
+    if (m) return `Floor ${normaliseNumber(m[1])}`;
+  }
+
   for (const re of FLOOR_PATTERNS) {
     re.lastIndex = 0;
     let m = re.exec(bottomText);
@@ -255,7 +266,7 @@ function detectFloorFromPage(items: TextItem[]): string | null {
     if (m) {
       const raw = (m[1] ?? m[0]).trim();
       if (raw.length === 0) continue;
-      const norm = raw.replace(/^(\d+)(?:st|nd|rd|th)$/i, '$1').toUpperCase();
+      const norm = normaliseNumber(raw);
       return `Floor ${norm}`;
     }
   }
