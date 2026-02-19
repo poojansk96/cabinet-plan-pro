@@ -44,6 +44,8 @@ export default function NewProject() {
     countertopColorCustom: '',
     laminateSubstrate: '',
     laminateSubstrateCustom: '',
+    laminateColor: '',
+    laminateColorCustom: '',
     handlesAndHardware: '',
     tax: '',
   });
@@ -108,7 +110,7 @@ export default function NewProject() {
           const val = e.target.value;
           // Reset manufacturer when countertop type changes
           if (key === 'countertops') {
-            setSpecs(s => ({ ...s, countertops: val, countertopManufacturer: '', countertopManufacturerCustom: '', countertopColor: '', countertopColorCustom: '', laminateSubstrate: '', laminateSubstrateCustom: '' }));
+            setSpecs(s => ({ ...s, countertops: val, countertopManufacturer: '', countertopManufacturerCustom: '', countertopColor: '', countertopColorCustom: '', laminateSubstrate: '', laminateSubstrateCustom: '', laminateColor: '', laminateColorCustom: '' }));
           } else {
             setSpecs(s => ({ ...s, [key]: val }));
           }
@@ -254,7 +256,6 @@ export default function NewProject() {
                               <option value="Group 1 Color">Group 1 Color</option>
                               <option value="Group 2 Color">Group 2 Color</option>
                               <option value="Group 3 Color">Group 3 Color</option>
-                              <option value="Group 5 Color">Group 5 Color</option>
                               <option value="Custom/Specific Color">Custom / Specific Color</option>
                             </select>
                           </div>
@@ -294,6 +295,34 @@ export default function NewProject() {
                               value={specs.laminateSubstrateCustom}
                               onChange={e => setSpecs(s => ({ ...s, laminateSubstrateCustom: e.target.value }))}
                               placeholder="Enter substrate type…"
+                              className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                              autoFocus
+                            />
+                          )}
+                          {/* Color selection for Laminate */}
+                          <div>
+                            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                              Color
+                            </label>
+                            <select
+                              value={specs.laminateColor}
+                              onChange={e => setSpecs(s => ({ ...s, laminateColor: e.target.value, laminateColorCustom: '' }))}
+                              className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
+                            >
+                              <option value="">Select color group…</option>
+                              <option value="Group 1 Color">Group 1 Color</option>
+                              <option value="Group 2 Color">Group 2 Color</option>
+                              <option value="Group 3 Color">Group 3 Color</option>
+                              <option value="Group 5 Color">Group 5 Color</option>
+                              <option value="Custom/Specific Color">Custom / Specific Color</option>
+                            </select>
+                          </div>
+                          {specs.laminateColor === 'Custom/Specific Color' && (
+                            <input
+                              type="text"
+                              value={specs.laminateColorCustom}
+                              onChange={e => setSpecs(s => ({ ...s, laminateColorCustom: e.target.value }))}
+                              placeholder="Enter specific color name or code…"
                               className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
                               autoFocus
                             />
