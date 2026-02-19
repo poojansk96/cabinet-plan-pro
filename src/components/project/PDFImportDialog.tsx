@@ -116,7 +116,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
   const detectedCount = rows.filter(r => r.detectedType !== null).length;
   const selectedCount = rows.filter(r => r.selected).length;
 
-  // Group rows by bldg label (empty bldg → "No Building")
+  // Group rows by bldg label (empty bldg → "—"), then sort buildings and units ascending
   const grouped = useMemo(() => {
     const map = new Map<string, { globalIndex: number; row: UnitRow }[]>();
     rows.forEach((row, i) => {
@@ -124,12 +124,27 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push({ globalIndex: i, row });
     });
-    // Sort: explicit bldg labels first (alphabetically), unknown last
-    return Array.from(map.entries()).sort(([a], [b]) => {
+
+    const numericAsc = (a: string, b: string) =>
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+
+    // Sort buildings ascending (unknown last)
+    const sorted = Array.from(map.entries()).sort(([a], [b]) => {
       if (a === '—') return 1;
       if (b === '—') return -1;
-      return a.localeCompare(b, undefined, { numeric: true });
+      return numericAsc(a, b);
     });
+
+    // Sort units within each building: floor ascending, then unit number ascending
+    sorted.forEach(([, entries]) => {
+      entries.sort((a, b) => {
+        const floorCmp = numericAsc(a.row.floor || '', b.row.floor || '');
+        if (floorCmp !== 0) return floorCmp;
+        return numericAsc(a.row.unitNumber, b.row.unitNumber);
+      });
+    });
+
+    return sorted;
   }, [rows]);
 
   const toggleBldg = (bldgKey: string, val: boolean) => {

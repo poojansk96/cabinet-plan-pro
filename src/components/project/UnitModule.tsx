@@ -47,13 +47,26 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
     setTimeout(() => setImportedCount(null), 4000);
   };
 
-  // Group by actual type string (supports custom types too)
+  const numericAsc = (a: string, b: string) =>
+    a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+
+  // Group by type, then sort units within each group: bldg → floor → unit number (all ascending)
   const byType = project.units.reduce<Record<string, Unit[]>>((acc, u) => {
     const t = u.type || 'Other';
     if (!acc[t]) acc[t] = [];
     acc[t].push(u);
     return acc;
   }, {});
+
+  Object.values(byType).forEach(units =>
+    units.sort((a, b) => {
+      const bldgCmp = numericAsc(a.bldg || '', b.bldg || '');
+      if (bldgCmp !== 0) return bldgCmp;
+      const floorCmp = numericAsc(a.floor || '', b.floor || '');
+      if (floorCmp !== 0) return floorCmp;
+      return numericAsc(a.unitNumber, b.unitNumber);
+    })
+  );
 
   return (
     <div className="space-y-4">
