@@ -23,6 +23,7 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
   const [form, setForm] = useState(blankForm());
   const [showPDFImport, setShowPDFImport] = useState(false);
   const [importedCount, setImportedCount] = useState<number | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const resolvedType = form.type.trim() || 'Other';
 
@@ -59,6 +60,26 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
     if (floorCmp !== 0) return floorCmp;
     return numericAsc(a.unitNumber, b.unitNumber);
   });
+
+  const allSelected = sortedUnits.length > 0 && sortedUnits.every(u => selectedIds.has(u.id));
+  const someSelected = selectedIds.size > 0;
+
+  const toggleOne = (id: string) => setSelectedIds(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+
+  const toggleAll = () => {
+    if (allSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set(sortedUnits.map(u => u.id)));
+  };
+
+  const deleteSelected = () => {
+    if (!window.confirm(`Delete ${selectedIds.size} selected unit${selectedIds.size !== 1 ? 's' : ''}?`)) return;
+    selectedIds.forEach(id => deleteUnit(project.id, id));
+    setSelectedIds(new Set());
+  };
 
 
   return (
@@ -194,9 +215,38 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
         </div>
       ) : (
         <div className="est-card overflow-hidden">
+          {/* Bulk action bar */}
+          {someSelected && (
+            <div className="flex items-center gap-3 px-3 py-2 bg-accent border-b border-border">
+              <span className="text-xs font-medium text-foreground">{selectedIds.size} unit{selectedIds.size !== 1 ? 's' : ''} selected</span>
+              <button
+                onClick={deleteSelected}
+                className="flex items-center gap-1.5 px-3 py-1 rounded text-xs font-medium border border-destructive text-destructive hover:bg-destructive/10 transition-colors ml-auto"
+              >
+                <Trash2 size={12} />
+                Delete selected
+              </button>
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
           <table className="est-table">
             <thead>
               <tr>
+                <th className="w-8">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleAll}
+                    className="cursor-pointer"
+                    title="Select all"
+                  />
+                </th>
                 <th>Unit #</th>
                 <th>Bldg</th>
                 <th>Floor</th>
@@ -207,13 +257,22 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
             </thead>
             <tbody>
               {sortedUnits.map(unit => {
-                const isSelected = unit.id === selectedUnitId;
+                const isActive = unit.id === selectedUnitId;
+                const isChecked = selectedIds.has(unit.id);
                 return (
                   <tr
                     key={unit.id}
                     onClick={() => setSelectedUnitId(unit.id)}
-                    className={`cursor-pointer ${isSelected ? '!bg-accent' : ''}`}
+                    className={`cursor-pointer ${isActive ? '!bg-accent' : ''}`}
                   >
+                    <td onClick={e => { e.stopPropagation(); toggleOne(unit.id); }}>
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleOne(unit.id)}
+                        className="cursor-pointer"
+                      />
+                    </td>
                     <td className="font-semibold">{unit.unitNumber}</td>
                     <td>{unit.bldg || '—'}</td>
                     <td>{unit.floor || '—'}</td>
