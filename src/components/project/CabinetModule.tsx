@@ -46,7 +46,7 @@ export default function CabinetModule({ project, selectedUnit, setSelectedUnitId
   const cabinets = selectedUnit?.cabinets ?? [];
   const filtered = filterType === 'All' ? cabinets : cabinets.filter(c => c.type === filterType);
 
-  // Totals
+  // Totals for selected unit
   const totals = CABINET_TYPES.reduce<Record<string, number>>((acc, t) => {
     acc[t] = cabinets.filter(c => c.type === t).reduce((s, c) => s + c.quantity, 0);
     return acc;
@@ -54,6 +54,20 @@ export default function CabinetModule({ project, selectedUnit, setSelectedUnitId
   totals['All'] = cabinets.reduce((s, c) => s + c.quantity, 0);
 
   const skuSummary = selectedUnit ? buildSkuSummary(selectedUnit.cabinets) : [];
+
+  // Type-wise summary: group units by unit type, sum cabinets per cabinet type
+  const unitTypeGroups = project.units.reduce<Record<string, { unitCount: number; base: number; wall: number; tall: number; vanity: number; total: number }>>((acc, u) => {
+    if (!acc[u.type]) acc[u.type] = { unitCount: 0, base: 0, wall: 0, tall: 0, vanity: 0, total: 0 };
+    acc[u.type].unitCount += 1;
+    u.cabinets.forEach(c => {
+      acc[u.type].total += c.quantity;
+      if (c.type === 'Base') acc[u.type].base += c.quantity;
+      else if (c.type === 'Wall') acc[u.type].wall += c.quantity;
+      else if (c.type === 'Tall') acc[u.type].tall += c.quantity;
+      else if (c.type === 'Vanity') acc[u.type].vanity += c.quantity;
+    });
+    return acc;
+  }, {});
 
   return (
     <div className="space-y-4">
@@ -85,6 +99,63 @@ export default function CabinetModule({ project, selectedUnit, setSelectedUnitId
           Add Cabinet
         </button>
       </div>
+
+      {/* Unit-type-wise cabinet summary */}
+      {Object.keys(unitTypeGroups).length > 0 && (
+        <div className="est-card overflow-hidden">
+          <div className="est-section-header">Cabinet Summary by Unit Type</div>
+          <div className="overflow-x-auto">
+            <table className="est-table">
+              <thead>
+                <tr>
+                  <th>Unit Type</th>
+                  <th className="text-right">Units</th>
+                  <th className="text-right">Base/Unit</th>
+                  <th className="text-right">Wall/Unit</th>
+                  <th className="text-right">Tall/Unit</th>
+                  <th className="text-right">Vanity/Unit</th>
+                  <th className="text-right">Total/Unit</th>
+                  <th className="text-right font-bold">Grand Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(unitTypeGroups).map(([type, g]) => {
+                  const perBase = g.unitCount > 0 ? Math.round(g.base / g.unitCount) : 0;
+                  const perWall = g.unitCount > 0 ? Math.round(g.wall / g.unitCount) : 0;
+                  const perTall = g.unitCount > 0 ? Math.round(g.tall / g.unitCount) : 0;
+                  const perVanity = g.unitCount > 0 ? Math.round(g.vanity / g.unitCount) : 0;
+                  const perTotal = perBase + perWall + perTall + perVanity;
+                  return (
+                    <tr key={type}>
+                      <td className="font-semibold">{type}</td>
+                      <td className="text-right">{g.unitCount}</td>
+                      <td className="text-right">{perBase}</td>
+                      <td className="text-right">{perWall}</td>
+                      <td className="text-right">{perTall}</td>
+                      <td className="text-right">{perVanity}</td>
+                      <td className="text-right">{perTotal}</td>
+                      <td className="text-right font-bold">{perTotal * g.unitCount}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr style={{ background: 'hsl(var(--secondary))', fontWeight: 600 }}>
+                  <td className="px-3 py-1.5 text-sm">TOTAL</td>
+                  <td className="px-3 py-1.5 text-sm text-right">{project.units.length}</td>
+                  <td colSpan={5}></td>
+                  <td className="px-3 py-1.5 text-sm text-right">
+                    {Object.values(unitTypeGroups).reduce((s, g) => {
+                      const perTotal = g.unitCount > 0 ? Math.round((g.base + g.wall + g.tall + g.vanity) / g.unitCount) : 0;
+                      return s + perTotal * g.unitCount;
+                    }, 0)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Quick stats */}
       {selectedUnit && (
