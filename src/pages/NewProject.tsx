@@ -38,6 +38,7 @@ export default function NewProject() {
     doorStyleStyle: '',
     doorStyleStyleCustom: '',
     doorStyleConstruction: '',
+    doorStyleFraming: '',
     doorStyleName: '',
     doorStyleNameCustom: '',
     hinges: '',
@@ -226,7 +227,7 @@ export default function NewProject() {
                     </label>
                     <select
                       value={specs.doorStyle}
-                      onChange={e => setSpecs(s => ({ ...s, doorStyle: e.target.value, doorStyleCustom: '', doorStyleStyle: '', doorStyleStyleCustom: '', doorStyleConstruction: '', doorStyleName: '', doorStyleNameCustom: '' }))}
+                      onChange={e => setSpecs(s => ({ ...s, doorStyle: e.target.value, doorStyleCustom: '', doorStyleStyle: '', doorStyleStyleCustom: '', doorStyleConstruction: '', doorStyleFraming: '', doorStyleName: '', doorStyleNameCustom: '' }))}
                       className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
                     >
                       <option value="">Select manufacturer…</option>
@@ -293,6 +294,21 @@ export default function NewProject() {
                           <option value="">Select construction…</option>
                           <option value="Particleboard">Particleboard</option>
                           <option value="Plywood">Plywood</option>
+                        </select>
+                      </div>
+                      {/* Framing */}
+                      <div>
+                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                          Framing
+                        </label>
+                        <select
+                          value={specs.doorStyleFraming}
+                          onChange={e => setSpecs(s => ({ ...s, doorStyleFraming: e.target.value }))}
+                          className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
+                        >
+                          <option value="">Select framing…</option>
+                          <option value="Framed">Framed</option>
+                          <option value="Frameless">Frameless</option>
                         </select>
                       </div>
                       {/* Door Style Name — shown when manufacturer has named styles */}
