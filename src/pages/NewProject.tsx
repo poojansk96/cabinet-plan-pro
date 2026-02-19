@@ -7,7 +7,7 @@ import type { ProjectType } from '@/types/project';
 const HINGE_OPTIONS = ['Standard soft close 6 way adjustable hinges', 'Other'];
 const DRAWER_BOX_OPTIONS = ['Dovetail Wood', 'Melamine', 'Particleboard', 'Metal (Tandem)', 'Other'];
 const DRAWER_GUIDE_OPTIONS = ['Standard NRG guides', 'Upgraded SCG guides', 'Other'];
-const COUNTERTOP_OPTIONS = ['Quartz', 'Granite', 'Laminate', 'Solid Surface', 'Other'];
+const COUNTERTOP_OPTIONS = ['Quartz', 'Granite', 'Laminate', 'Solid Surface- Corian', 'Other'];
 
 const COUNTERTOP_MANUFACTURERS: Record<string, string[]> = {
   Quartz:          ['Overseas', 'Local MSI', 'KOL Marble', 'Other'],
