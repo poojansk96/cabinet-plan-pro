@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Plus, Trash2, Copy, Users, FileUp } from 'lucide-react';
 import type { Project, Unit, UnitType } from '@/types/project';
-import { calcUnitCabinetTotals, calcUnitCountertopTotal } from '@/lib/calculations';
 import PDFImportDialog from './PDFImportDialog';
+
 
 const blankForm = () => ({ unitNumber: '', type: '' as UnitType, bldg: '', floor: '', notes: '' });
 
@@ -215,18 +215,12 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
                     <th>Bldg</th>
                     <th>Floor</th>
                     <th>Type</th>
-                    <th className="text-right">Cabinets</th>
-                    <th className="text-right">Base</th>
-                    <th className="text-right">Wall</th>
-                    <th className="text-right">Tall</th>
-                    <th className="text-right">CT Sqft</th>
+                    <th>Notes</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {units.map(unit => {
-                    const ct = calcUnitCabinetTotals(unit);
-                    const sqft = calcUnitCountertopTotal(unit);
                     const isSelected = unit.id === selectedUnitId;
                     return (
                       <tr
@@ -238,11 +232,7 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
                         <td>{unit.bldg || '—'}</td>
                         <td>{unit.floor || '—'}</td>
                         <td>{unit.type}</td>
-                        <td className="text-right font-medium">{ct.total}</td>
-                        <td className="text-right">{ct.base}</td>
-                        <td className="text-right">{ct.wall}</td>
-                        <td className="text-right">{ct.tall}</td>
-                        <td className="text-right">{sqft.toFixed(1)}</td>
+                        <td className="text-muted-foreground text-xs">{unit.notes || '—'}</td>
                         <td>
                           <div className="flex items-center gap-1 justify-end">
                             <button
@@ -280,8 +270,6 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
                 <tr>
                   <th>Unit Type</th>
                   <th className="text-right">Count</th>
-                  <th className="text-right">Total Cabinets</th>
-                  <th className="text-right">CT Sqft</th>
                 </tr>
               </thead>
               <tbody>
@@ -289,15 +277,11 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
                   <tr key={type}>
                     <td className="font-medium">{type}</td>
                     <td className="text-right">{units.length}</td>
-                    <td className="text-right">{units.reduce((s, u) => s + calcUnitCabinetTotals(u).total, 0)}</td>
-                    <td className="text-right">{units.reduce((s, u) => s + calcUnitCountertopTotal(u), 0).toFixed(1)}</td>
                   </tr>
                 ))}
                 <tr className="font-bold" style={{ background: 'hsl(var(--secondary))' }}>
                   <td>TOTAL</td>
                   <td className="text-right">{project.units.length}</td>
-                  <td className="text-right">{project.units.reduce((s, u) => s + calcUnitCabinetTotals(u).total, 0)}</td>
-                  <td className="text-right">{project.units.reduce((s, u) => s + calcUnitCountertopTotal(u), 0).toFixed(1)}</td>
                 </tr>
               </tbody>
             </table>
