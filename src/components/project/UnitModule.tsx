@@ -50,23 +50,15 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
   const numericAsc = (a: string, b: string) =>
     a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
 
-  // Group by type, then sort units within each group: bldg → floor → unit number (all ascending)
-  const byType = project.units.reduce<Record<string, Unit[]>>((acc, u) => {
-    const t = u.type || 'Other';
-    if (!acc[t]) acc[t] = [];
-    acc[t].push(u);
-    return acc;
-  }, {});
+  // Sort all units: bldg → floor → unit number (ascending)
+  const sortedUnits = [...project.units].sort((a, b) => {
+    const bldgCmp = numericAsc(a.bldg || '', b.bldg || '');
+    if (bldgCmp !== 0) return bldgCmp;
+    const floorCmp = numericAsc(a.floor || '', b.floor || '');
+    if (floorCmp !== 0) return floorCmp;
+    return numericAsc(a.unitNumber, b.unitNumber);
+  });
 
-  Object.values(byType).forEach(units =>
-    units.sort((a, b) => {
-      const bldgCmp = numericAsc(a.bldg || '', b.bldg || '');
-      if (bldgCmp !== 0) return bldgCmp;
-      const floorCmp = numericAsc(a.floor || '', b.floor || '');
-      if (floorCmp !== 0) return floorCmp;
-      return numericAsc(a.unitNumber, b.unitNumber);
-    })
-  );
 
   return (
     <div className="space-y-4">
@@ -200,92 +192,58 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
           </button>
         </div>
       ) : (
-        <div className="space-y-4">
-          {/* Unit type groups */}
-          {Object.entries(byType).map(([type, units]) => (
-            <div key={type} className="est-card overflow-hidden">
-              <div className="est-section-header">
-                <span>{type}</span>
-                <span className="ml-auto text-xs font-normal text-muted-foreground">{units.length} unit{units.length !== 1 ? 's' : ''}</span>
-              </div>
-              <table className="est-table">
-                <thead>
-                  <tr>
-                    <th>Unit #</th>
-                    <th>Bldg</th>
-                    <th>Floor</th>
-                    <th>Type</th>
-                    <th>Notes</th>
-                    <th></th>
+        <div className="est-card overflow-hidden">
+          <table className="est-table">
+            <thead>
+              <tr>
+                <th>Unit #</th>
+                <th>Bldg</th>
+                <th>Floor</th>
+                <th>Type</th>
+                <th>Notes</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedUnits.map(unit => {
+                const isSelected = unit.id === selectedUnitId;
+                return (
+                  <tr
+                    key={unit.id}
+                    onClick={() => setSelectedUnitId(unit.id)}
+                    className={`cursor-pointer ${isSelected ? '!bg-accent' : ''}`}
+                  >
+                    <td className="font-semibold">{unit.unitNumber}</td>
+                    <td>{unit.bldg || '—'}</td>
+                    <td>{unit.floor || '—'}</td>
+                    <td>{unit.type}</td>
+                    <td className="text-muted-foreground text-xs">{unit.notes || '—'}</td>
+                    <td>
+                      <div className="flex items-center gap-1 justify-end">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); duplicateUnit(project.id, unit.id); }}
+                          className="p-1 hover:text-primary text-muted-foreground"
+                          title="Duplicate unit"
+                        >
+                          <Copy size={12} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm('Delete this unit?')) deleteUnit(project.id, unit.id);
+                          }}
+                          className="p-1 hover:text-destructive text-muted-foreground"
+                          title="Delete unit"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {units.map(unit => {
-                    const isSelected = unit.id === selectedUnitId;
-                    return (
-                      <tr
-                        key={unit.id}
-                        onClick={() => setSelectedUnitId(unit.id)}
-                        className={`cursor-pointer ${isSelected ? '!bg-accent' : ''}`}
-                      >
-                        <td className="font-semibold">{unit.unitNumber}</td>
-                        <td>{unit.bldg || '—'}</td>
-                        <td>{unit.floor || '—'}</td>
-                        <td>{unit.type}</td>
-                        <td className="text-muted-foreground text-xs">{unit.notes || '—'}</td>
-                        <td>
-                          <div className="flex items-center gap-1 justify-end">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); duplicateUnit(project.id, unit.id); }}
-                              className="p-1 hover:text-primary text-muted-foreground"
-                              title="Duplicate unit"
-                            >
-                              <Copy size={12} />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (window.confirm('Delete this unit?')) deleteUnit(project.id, unit.id);
-                              }}
-                              className="p-1 hover:text-destructive text-muted-foreground"
-                              title="Delete unit"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ))}
-
-          {/* Summary by type */}
-          <div className="est-card overflow-hidden">
-            <div className="est-section-header">Unit Type Summary</div>
-            <table className="est-table">
-              <thead>
-                <tr>
-                  <th>Unit Type</th>
-                  <th className="text-right">Count</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(byType).map(([type, units]) => (
-                  <tr key={type}>
-                    <td className="font-medium">{type}</td>
-                    <td className="text-right">{units.length}</td>
-                  </tr>
-                ))}
-                <tr className="font-bold" style={{ background: 'hsl(var(--secondary))' }}>
-                  <td>TOTAL</td>
-                  <td className="text-right">{project.units.length}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
