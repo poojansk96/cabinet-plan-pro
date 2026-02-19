@@ -38,6 +38,8 @@ export default function NewProject() {
     doorStyleStyle: '',
     doorStyleStyleCustom: '',
     doorStyleConstruction: '',
+    doorStyleName: '',
+    doorStyleNameCustom: '',
     hinges: '',
     hingesCustom: '',
     drawerGuidesCustom: '',
@@ -224,7 +226,7 @@ export default function NewProject() {
                     </label>
                     <select
                       value={specs.doorStyle}
-                      onChange={e => setSpecs(s => ({ ...s, doorStyle: e.target.value, doorStyleCustom: '', doorStyleStyle: '', doorStyleStyleCustom: '', doorStyleConstruction: '' }))}
+                      onChange={e => setSpecs(s => ({ ...s, doorStyle: e.target.value, doorStyleCustom: '', doorStyleStyle: '', doorStyleStyleCustom: '', doorStyleConstruction: '', doorStyleName: '', doorStyleNameCustom: '' }))}
                       className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
                     >
                       <option value="">Select manufacturer…</option>
@@ -289,6 +291,37 @@ export default function NewProject() {
                           <option value="Plywood">Plywood</option>
                         </select>
                       </div>
+                      {/* Door Style Name — only for Overseas */}
+                      {specs.doorStyle === 'Overseas' && (
+                        <div className="space-y-2">
+                          <div>
+                            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                              Door Style Name
+                            </label>
+                            <select
+                              value={specs.doorStyleName}
+                              onChange={e => setSpecs(s => ({ ...s, doorStyleName: e.target.value, doorStyleNameCustom: '' }))}
+                              className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
+                            >
+                              <option value="">Select door style name…</option>
+                              <option value="Avon Group 9">Avon Group 9</option>
+                              <option value="Avon Group 10- PTK">Avon Group 10- PTK</option>
+                              <option value="Kerala Slab">Kerala Slab</option>
+                              <option value="Other">Other</option>
+                            </select>
+                          </div>
+                          {specs.doorStyleName === 'Other' && (
+                            <input
+                              type="text"
+                              value={specs.doorStyleNameCustom}
+                              onChange={e => setSpecs(s => ({ ...s, doorStyleNameCustom: e.target.value }))}
+                              placeholder="Enter door style name…"
+                              className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                              autoFocus
+                            />
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
