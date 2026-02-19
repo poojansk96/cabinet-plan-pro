@@ -5,7 +5,7 @@ import { calcUnitCabinetTotals, calcUnitCountertopTotal } from '@/lib/calculatio
 import PDFImportDialog from './PDFImportDialog';
 
 const PRESET_UNIT_TYPES = ['Studio', '1BHK', '2BHK', '3BHK', '4BHK', 'Townhouse', 'Condo', 'Other'];
-const blankForm = () => ({ unitNumber: '', type: 'Studio' as UnitType, customType: '', notes: '' });
+const blankForm = () => ({ unitNumber: '', type: 'Studio' as UnitType, customType: '', bldg: '', floor: '', notes: '' });
 
 interface Props {
   project: Project;
@@ -30,7 +30,7 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
 
   const handleAdd = () => {
     if (!form.unitNumber.trim()) return;
-    const unit = addUnit(project.id, { unitNumber: form.unitNumber, type: resolvedType, notes: form.notes });
+    const unit = addUnit(project.id, { unitNumber: form.unitNumber, type: resolvedType, bldg: form.bldg, floor: form.floor, notes: form.notes });
     setSelectedUnitId(unit.id);
     setForm(blankForm());
     setShowForm(false);
@@ -107,7 +107,7 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
       {/* Add unit form */}
       {showForm && (
         <div className="est-card p-3">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-3">
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Unit # *</label>
               <input
@@ -117,6 +117,24 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
                 onChange={e => setForm(f => ({ ...f, unitNumber: e.target.value }))}
                 onKeyDown={e => e.key === 'Enter' && handleAdd()}
                 autoFocus
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Bldg</label>
+              <input
+                className="est-input w-full"
+                placeholder="A"
+                value={form.bldg}
+                onChange={e => setForm(f => ({ ...f, bldg: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Floor</label>
+              <input
+                className="est-input w-full"
+                placeholder="1"
+                value={form.floor}
+                onChange={e => setForm(f => ({ ...f, floor: e.target.value }))}
               />
             </div>
             <div>
@@ -197,6 +215,8 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
                 <thead>
                   <tr>
                     <th>Unit #</th>
+                    <th>Bldg</th>
+                    <th>Floor</th>
                     <th>Type</th>
                     <th className="text-right">Cabinets</th>
                     <th className="text-right">Base</th>
@@ -218,6 +238,8 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
                         className={`cursor-pointer ${isSelected ? '!bg-accent' : ''}`}
                       >
                         <td className="font-semibold">{unit.unitNumber}</td>
+                        <td>{unit.bldg || '—'}</td>
+                        <td>{unit.floor || '—'}</td>
                         <td>{unit.type}</td>
                         <td className="text-right font-medium">{ct.total}</td>
                         <td className="text-right">{ct.base}</td>
