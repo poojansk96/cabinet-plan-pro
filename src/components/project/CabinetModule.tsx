@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Plus, Trash2, Layers } from 'lucide-react';
+import { Plus, Trash2, Layers, FileUp } from 'lucide-react';
 import type { Project, Unit, Cabinet, CabinetType, Room } from '@/types/project';
 import { buildSkuSummary } from '@/lib/calculations';
+import CabinetPDFImportDialog from './CabinetPDFImportDialog';
 
 const CABINET_TYPES: CabinetType[] = ['Base', 'Wall', 'Tall', 'Vanity'];
 const ROOMS: Room[] = ['Kitchen', 'Pantry', 'Laundry', 'Bath', 'Other'];
@@ -35,6 +36,10 @@ function TypeBadge({ type }: { type: CabinetType }) {
 export default function CabinetModule({ project, selectedUnit, addCabinet, updateCabinet, deleteCabinet }: Props) {
   const [form, setForm] = useState(blankCabinet());
   const [showForm, setShowForm] = useState(false);
+  const [showPDFImport, setShowPDFImport] = useState(false);
+  // Which unit type to import cabinets into (applies to the first unit found of that type)
+  const [importTargetType, setImportTargetType] = useState<string>('');
+  const [importedCount, setImportedCount] = useState<number | null>(null);
 
   const handleAdd = () => {
     if (!selectedUnit || !form.sku.trim()) return;
@@ -44,6 +49,26 @@ export default function CabinetModule({ project, selectedUnit, addCabinet, updat
 
   const cabinets = selectedUnit?.cabinets ?? [];
   const skuSummary = selectedUnit ? buildSkuSummary(selectedUnit.cabinets) : [];
+
+  // Distinct unit types in project
+  const unitTypes = Array.from(new Set(project.units.map(u => u.type)));
+
+  // Handle PDF cabinet import: apply imported cabinets to all units of the chosen type
+  const handlePDFImport = (cabinets: Array<Omit<Cabinet, 'id'>>) => {
+    const targetUnits = importTargetType
+      ? project.units.filter(u => u.type === importTargetType)
+      : project.units;
+
+    targetUnits.forEach(unit => {
+      cabinets.forEach(cab => {
+        addCabinet(project.id, unit.id, cab);
+      });
+    });
+
+    setImportedCount(cabinets.length);
+    setShowPDFImport(false);
+    setTimeout(() => setImportedCount(null), 4000);
+  };
 
   // Type-wise summary: group units by unit type
   const unitTypeGroups = project.units.reduce<Record<string, { unitCount: number; base: number; wall: number; tall: number; vanity: number; skus: string[] }>>((acc, u) => {
@@ -61,20 +86,63 @@ export default function CabinetModule({ project, selectedUnit, addCabinet, updat
 
   return (
     <div className="space-y-4">
+      {/* PDF Import Dialog */}
+      {showPDFImport && (
+        <CabinetPDFImportDialog
+          unitType={importTargetType || undefined}
+          onImport={handlePDFImport}
+          onClose={() => setShowPDFImport(false)}
+        />
+      )}
+
       {/* Header */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <Layers size={16} className="text-primary flex-shrink-0" />
         <span className="font-semibold text-sm">Cabinet Takeoff</span>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          disabled={!selectedUnit}
-          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium text-white disabled:opacity-50"
-          style={{ background: 'hsl(var(--primary))' }}
-        >
-          <Plus size={12} />
-          Add Cabinet
-        </button>
+
+        <div className="ml-auto flex items-center gap-2 flex-wrap">
+          {/* Unit type selector for PDF import */}
+          {unitTypes.length > 0 && (
+            <select
+              className="est-input text-xs h-7 pr-6"
+              value={importTargetType}
+              onChange={e => setImportTargetType(e.target.value)}
+              title="Select unit type to import cabinets for"
+            >
+              <option value="">All unit types</option>
+              {unitTypes.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          )}
+
+          <button
+            onClick={() => setShowPDFImport(true)}
+            disabled={project.units.length === 0}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border transition-colors disabled:opacity-50"
+            style={{ borderColor: 'hsl(var(--primary))', color: 'hsl(var(--primary))' }}
+          >
+            <FileUp size={12} />
+            Import PDF
+          </button>
+
+          <button
+            onClick={() => setShowForm(!showForm)}
+            disabled={!selectedUnit}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium text-white disabled:opacity-50"
+            style={{ background: 'hsl(var(--primary))' }}
+          >
+            <Plus size={12} />
+            Add Cabinet
+          </button>
+        </div>
       </div>
+
+      {/* Import success toast */}
+      {importedCount !== null && (
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-white" style={{ background: 'hsl(var(--success, 142 71% 45%))' }}>
+          ✓ Successfully imported {importedCount} cabinet{importedCount !== 1 ? 's' : ''} from PDF
+          {importTargetType && <span className="opacity-80 ml-1">into "{importTargetType}" units</span>}
+        </div>
+      )}
 
       {/* Unit-type-wise cabinet summary — pivot: SKUs as rows, unit types as rotated columns */}
       {Object.keys(unitTypeGroups).length > 0 && (() => {
