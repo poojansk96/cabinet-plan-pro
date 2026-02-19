@@ -41,6 +41,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
   const [usedAI, setUsedAI] = useState(false);
   const [progress, setProgress] = useState(0);       // 0–100
   const [progressLabel, setProgressLabel] = useState('');
+  const [bulkBldg, setBulkBldg] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const processFile = async (file: File) => {
@@ -353,6 +354,27 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                 </div>
               ) : (
                 <>
+                  {/* Bulk building setter */}
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-secondary border border-border">
+                    <span className="text-xs font-medium text-foreground whitespace-nowrap">Apply building to all:</span>
+                    <input
+                      className="est-input text-xs flex-1 min-w-0"
+                      placeholder="e.g. Building A, Bldg 1, North Tower…"
+                      value={bulkBldg}
+                      onChange={e => setBulkBldg(e.target.value)}
+                    />
+                    <button
+                      onClick={() => {
+                        if (!bulkBldg.trim()) return;
+                        setRows(r => r.map(x => ({ ...x, bldg: bulkBldg.trim(), bldgOverridden: true })));
+                      }}
+                      className="px-3 py-1 rounded text-xs font-medium text-white flex-shrink-0"
+                      style={{ background: 'hsl(var(--primary))' }}
+                    >
+                      Apply
+                    </button>
+                  </div>
+
                   <div className="flex items-center gap-3 flex-wrap">
                     <button onClick={() => toggleAll(true)} className="text-xs text-primary hover:underline">Select all</button>
                     <button onClick={() => toggleAll(false)} className="text-xs text-muted-foreground hover:underline">Deselect all</button>
