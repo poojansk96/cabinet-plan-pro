@@ -191,17 +191,27 @@ const BLDG_PATTERNS = [
   /\bphase\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi,
 ];
 
-/** Detect building number/name from a page — scans bottom strip first, then full page */
 /** Strip floor/level references from text before building detection to avoid cross-contamination */
 function stripFloorText(text: string): string {
   return text
     .replace(/\b(?:level|lvl\.?)\s*[:\-]?\s*[A-Z0-9][\w\-]*/gi, '')
     .replace(/\b(?:floor|flr\.?)\s*[:\-]?\s*[A-Z0-9][\w\-]*/gi, '')
     .replace(/\bstore?y\s*[:\-]?\s*[A-Z0-9][\w\-]*/gi, '')
-    .replace(/\b[1-9]\d*(?:st|nd|rd|th)\s+(?:floor|level|storey)\b/gi, '');
+    .replace(/\b[1-9]\d*(?:st|nd|rd|th)\s+(?:floor|level|storey)\b/gi, '')
+    // Also strip standalone "L1", "L2", "L-3" style level codes
+    .replace(/\bL[:\-]?\s*([0-9]{1,3}[A-Z]?)\b/g, '');
 }
 
-function detectBldgFromPage(items: TextItem[]): string | null {
+/** Returns true if the value looks like a plain level/floor indicator (e.g. just "3", "B1") */
+function looksLikeFloorNumber(val: string): boolean {
+  // Reject if it's a plain number 1–99 (these are almost certainly levels, not building IDs)
+  if (/^[0-9]{1,2}$/.test(val)) return true;
+  // Reject if it contains the word "floor", "level", "storey"
+  if (/\b(?:floor|level|storey)\b/i.test(val)) return true;
+  return false;
+}
+
+function detectBldgFromPage(items: TextItem[], knownFloor: string | null = null): string | null {
   if (items.length === 0) return null;
 
   const ys = items.map(i => i.y);
@@ -213,6 +223,9 @@ function detectBldgFromPage(items: TextItem[]): string | null {
   const bottomText = stripFloorText(items.filter(i => i.y <= threshold).map(i => i.str).join(' '));
   const fullText   = stripFloorText(items.map(i => i.str).join(' '));
 
+  // Extract the numeric part of the known floor (e.g. "Floor 3" → "3") to avoid duplicating it as building
+  const knownFloorNum = knownFloor ? knownFloor.replace(/\D/g, '') : null;
+
   // 1. Directional names first: "Building East", "Tower North-West"
   for (const text of [bottomText, fullText]) {
     BLDG_DIR_PATTERN.lastIndex = 0;
@@ -221,7 +234,6 @@ function detectBldgFromPage(items: TextItem[]): string | null {
       const keyword = m[0].match(/building|bldg|block|tower|wing|phase/i)?.[0] ?? 'Building';
       const label = keyword.charAt(0).toUpperCase() + keyword.slice(1).toLowerCase();
       const dir = m[1].trim();
-      // Title-case the direction (handles "north-east" → "North-East")
       const dirFormatted = dir.replace(/\b\w/g, c => c.toUpperCase());
       return `${label} ${dirFormatted}`;
     }
@@ -242,6 +254,11 @@ function detectBldgFromPage(items: TextItem[]): string | null {
     if (m) {
       const raw = (m[1] ?? m[0]).trim();
       if (raw.length === 0) continue;
+
+      // Skip if it looks like a floor number or matches the already-detected floor
+      if (looksLikeFloorNumber(raw)) continue;
+      if (knownFloorNum && raw === knownFloorNum) continue;
+
       const keyword = re.source.match(/building|bldg|block|tower|wing|phase/i)?.[0] ?? 'Building';
       const label = keyword.charAt(0).toUpperCase() + keyword.slice(1).toLowerCase();
       return `${label} ${normaliseNumber(raw)}`;
@@ -323,8 +340,9 @@ export async function extractUnitsFromPDF(file: File): Promise<PDFExtractionResu
     const page = await pdf.getPage(pageNum);
     const items = await extractPageTextItems(page);
     const text = items.map(i => i.str).join(' ');
+    // Detect floor FIRST, then pass it to building detection so floor numbers are never reused as building IDs
     const detectedFloor = detectFloorFromPage(items);
-    const detectedBldg  = detectBldgFromPage(items);
+    const detectedBldg  = detectBldgFromPage(items, detectedFloor);
     allText.push(text);
     pageData.push({ text, items, page: pageNum, detectedFloor, detectedBldg });
   }
