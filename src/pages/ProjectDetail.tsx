@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Building2, ArrowLeft, Users, Layers, Wrench, Square, BarChart3 } from 'lucide-react';
+import { Building2, ArrowLeft, Users, Layers, Wrench, Square, BarChart3, Pencil } from 'lucide-react';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import UnitModule from '@/components/project/UnitModule';
 import CabinetModule from '@/components/project/CabinetModule';
@@ -8,6 +8,7 @@ import AccessoriesModule from '@/components/project/AccessoriesModule';
 import CountertopModule from '@/components/project/CountertopModule';
 import SummaryModule from '@/components/project/SummaryModule';
 import SummaryPanel from '@/components/project/SummaryPanel';
+import EditProjectDialog from '@/components/project/EditProjectDialog';
 
 type Tab = 'units' | 'cabinets' | 'accessories' | 'countertops' | 'summary';
 
@@ -25,6 +26,7 @@ export default function ProjectDetail() {
   const { getProject, updateProject, ...store } = useProjectStore();
   const [activeTab, setActiveTab] = useState<Tab>('units');
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
+  const [showEdit, setShowEdit] = useState(false);
 
   const project = id ? getProject(id) : undefined;
 
@@ -53,6 +55,13 @@ export default function ProjectDetail() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {showEdit && (
+        <EditProjectDialog
+          project={project}
+          onSave={(updates) => updateProject(project.id, updates)}
+          onClose={() => setShowEdit(false)}
+        />
+      )}
       {/* Header */}
       <header className="border-b bg-card shadow-sm sticky top-0 z-20">
         <div className="px-4 py-2 flex items-center gap-3">
@@ -74,6 +83,14 @@ export default function ProjectDetail() {
           <div className="text-xs text-muted-foreground hidden sm:block flex-shrink-0">
             {project.units.length} unit{project.units.length !== 1 ? 's' : ''}
           </div>
+          <button
+            onClick={() => setShowEdit(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-border text-muted-foreground hover:text-foreground hover:border-primary transition-colors flex-shrink-0"
+            title="Edit project details"
+          >
+            <Pencil size={12} />
+            Edit Details
+          </button>
         </div>
 
         {/* Tabs */}
