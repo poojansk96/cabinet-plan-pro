@@ -74,30 +74,35 @@ interface TypePattern {
 }
 
 const UNIT_TYPE_PATTERNS: TypePattern[] = [
-  // BHK style  → "3BHK", "2 BHK", "4 B.H.K"
+  // ── Highest priority: full combined type names ───────────────────────────
+  // "Unit Type A5-1BR", "Unit Type B3 2 Bedroom"
+  { re: /\bunit\s*type\s+([A-Z0-9][\w\-]*(?:\s*[\-\/]\s*[A-Z0-9][\w\-]*)*(?:\s+[1-6]\s*(?:bed(?:room)?s?|br|bd|b\.?h\.?k\.?))?)\b/gi, label: '$1' },
+  // "Type A5-1BR", "Type B3 2BR", "Type A - 2 Bedroom"
+  { re: /\btype\s*[:\-]?\s*([A-Z0-9][\w\-]*(?:\s*[\-\/]\s*[A-Z0-9][\w\-]*)*(?:\s+[1-6]\s*(?:bed(?:room)?s?|br|bd))?)\b/gi, label: '$1' },
+  // "Plan A5-1BR", "Floor Plan B-2BR"
+  { re: /\b(?:floor\s*)?plan\s*[:\-]?\s*([A-Z0-9][\w\-]*(?:\s*[\-\/]\s*[A-Z0-9][\w\-]*)*(?:\s+[1-6]\s*(?:bed(?:room)?s?|br|bd))?)\b/gi, label: 'Plan $1' },
+
+  // ── Alphanumeric code + bedroom count fused or combined ──────────────────
+  // "A5-1BR", "B3-2BR", "C1-Studio" — code dash/slash bedroom designation
+  { re: /\b([A-Z][A-Z0-9]*[\-\/][A-Z0-9]+(?:\s*[\-\/]\s*[A-Z0-9]*)?(?:\s+[1-6]\s*(?:bed(?:room)?s?|br|bd)|\s+studio|\s+loft|\s+penthouse)?)\b/g, label: '$1' },
+  // "A5 1BR", "B3 2 Bedroom" — code space bedroom
+  { re: /\b([A-Z][A-Z0-9]*)\s+([1-6]\s*(?:bed(?:room)?s?|br|bd))\b/gi, label: '$1 $2' },
+
+  // ── BHK style  → "3BHK", "2 BHK", "4 B.H.K" ────────────────────────────
   { re: /\b([1-6])\s*b\.?h\.?k\.?\b/gi,                   label: '$1BHK' },
-  // Bedroom count  → "2 BEDROOM", "2 BED", "2BR", "2 BD"
+  // Bedroom count only (fallback) → "2 BEDROOM", "2 BED", "2BR", "2 BD"
   { re: /\b([1-6])\s*(?:bed(?:room)?s?|br|bd)\b/gi,        label: '$1BR' },
-  // Studio / Efficiency
+
+  // ── Special unit types ────────────────────────────────────────────────────
   { re: /\b(studio|efficiency|eff\.?)\b/gi,                 label: 'Studio' },
-  // Penthouse
   { re: /\b(penthouse|ph)\b/gi,                             label: 'Penthouse' },
-  // Townhouse / Townhome
   { re: /\b(townhouse|townhome|town\s*house)\b/gi,          label: 'Townhouse' },
-  // Condo / Condominium
   { re: /\b(condo(?:minium)?)\b/gi,                         label: 'Condo' },
-  // Loft
   { re: /\b(loft)\b/gi,                                     label: 'Loft' },
-  // Duplex / Triplex
   { re: /\b(duplex|triplex)\b/gi,                           label: '$1' },
-  // "4 BED" / "4 BR"  (already caught by second pattern but belt-and-suspenders)
   { re: /\b([1-6])\s*(?:room|rms?)\b/gi,                   label: '$1BR' },
-  // Generic "Type X" / "Plan X" / "Unit Type X"  →  any letter/number suffix
-  { re: /\bunit\s*type\s+([A-Z0-9][\w\-]*)\b/gi,           label: 'Type $1' },
-  { re: /\btype\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi,         label: 'Type $1' },
-  { re: /\bplan\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi,         label: 'Plan $1' },
-  { re: /\bfloor\s*plan\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi, label: 'Plan $1' },
-  // Layout labels  → "Layout A", "Model B2"
+
+  // ── Layout / Model labels ─────────────────────────────────────────────────
   { re: /\blayout\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi,       label: 'Layout $1' },
   { re: /\bmodel\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi,        label: 'Model $1' },
 ];
