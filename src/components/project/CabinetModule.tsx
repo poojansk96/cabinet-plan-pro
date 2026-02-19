@@ -110,30 +110,16 @@ export default function CabinetModule({ project, selectedUnit, setSelectedUnitId
                 <tr>
                   <th>Unit Type</th>
                   <th className="text-right">Units</th>
-                  <th className="text-right">Base/Unit</th>
-                  <th className="text-right">Wall/Unit</th>
-                  <th className="text-right">Tall/Unit</th>
-                  <th className="text-right">Vanity/Unit</th>
-                  <th className="text-right">Total/Unit</th>
                   <th className="text-right font-bold">Grand Total</th>
                 </tr>
               </thead>
               <tbody>
                 {Object.entries(unitTypeGroups).map(([type, g]) => {
-                  const perBase = g.unitCount > 0 ? Math.round(g.base / g.unitCount) : 0;
-                  const perWall = g.unitCount > 0 ? Math.round(g.wall / g.unitCount) : 0;
-                  const perTall = g.unitCount > 0 ? Math.round(g.tall / g.unitCount) : 0;
-                  const perVanity = g.unitCount > 0 ? Math.round(g.vanity / g.unitCount) : 0;
-                  const perTotal = perBase + perWall + perTall + perVanity;
+                  const perTotal = g.unitCount > 0 ? Math.round((g.base + g.wall + g.tall + g.vanity) / g.unitCount) : 0;
                   return (
                     <tr key={type}>
                       <td className="font-semibold">{type}</td>
                       <td className="text-right">{g.unitCount}</td>
-                      <td className="text-right">{perBase}</td>
-                      <td className="text-right">{perWall}</td>
-                      <td className="text-right">{perTall}</td>
-                      <td className="text-right">{perVanity}</td>
-                      <td className="text-right">{perTotal}</td>
                       <td className="text-right font-bold">{perTotal * g.unitCount}</td>
                     </tr>
                   );
@@ -143,7 +129,6 @@ export default function CabinetModule({ project, selectedUnit, setSelectedUnitId
                 <tr style={{ background: 'hsl(var(--secondary))', fontWeight: 600 }}>
                   <td className="px-3 py-1.5 text-sm">TOTAL</td>
                   <td className="px-3 py-1.5 text-sm text-right">{project.units.length}</td>
-                  <td colSpan={5}></td>
                   <td className="px-3 py-1.5 text-sm text-right">
                     {Object.values(unitTypeGroups).reduce((s, g) => {
                       const perTotal = g.unitCount > 0 ? Math.round((g.base + g.wall + g.tall + g.vanity) / g.unitCount) : 0;
