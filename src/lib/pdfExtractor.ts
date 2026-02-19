@@ -14,6 +14,8 @@ export interface DetectedUnit {
   rawMatch: string;
   page: number;
   confidence: 'high' | 'medium' | 'low';
+  /** Whether the unit appears to have kitchen/cabinet/countertop content */
+  kitchenConfidence: 'yes' | 'maybe' | 'no';
 }
 
 export interface PDFExtractionResult {
@@ -103,6 +105,64 @@ function detectTypeFromContext(contextText: string): string | null {
   }
 
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Kitchen / cabinet / countertop detection
+// ---------------------------------------------------------------------------
+
+/** Strong indicators — if any found near the unit, it almost certainly has kitchen/cabinets */
+const KITCHEN_STRONG = [
+  /\b(?:kitchen|kitch(?:en)?|ktch|kit\.?)\b/gi,
+  /\b(?:cabinet[s]?|cab\.?|cabs\.?)\b/gi,
+  /\b(?:countertop[s]?|counter[s]?|ctr\.?|c\.?top[s]?)\b/gi,
+  /\b(?:granite|marble|quartz|laminate|corian|silestone|caesarstone)\b/gi,
+  /\b(?:sink|undermount|overmount)\b/gi,
+  /\b(?:dishwasher|dw|refrigerator|fridge|ref\.?|oven|range|stove|cooktop|microwave|mw)\b/gi,
+  /\b(?:upper\s*cab|lower\s*cab|base\s*cab|wall\s*cab|pantry\s*cab)\b/gi,
+  /\blin(?:ear)?\s*ft\b/gi,  // "linear ft" — used in cabinet takeoffs
+  /\b(?:ct|c\/t)\b/g,        // CT = countertop abbreviation
+];
+
+/** Possible indicators — presence near unit suggests maybe */
+const KITCHEN_MAYBE = [
+  /\b(?:dining|din\.?|eat(?:ing)?|breakfast|bar)\b/gi,
+  /\b(?:utility|laundry|bath(?:room)?|vanity)\b/gi,
+  /\b(?:lf|l\.f\.)\b/gi,   // "LF" = linear feet
+  /\b(?:cooking|prep|work\s*surface|work\s*top)\b/gi,
+  /\b(?:island|peninsula)\b/gi,
+];
+
+/**
+ * Score how likely a text snippet is to describe a unit with kitchen/cabinet content.
+ * Returns 'yes' | 'maybe' | 'no'
+ */
+function detectKitchenConfidence(
+  contextText: string,
+  nearbyText: string,
+  pageText: string
+): DetectedUnit['kitchenConfidence'] {
+  // Check strong keywords in close context first
+  for (const re of KITCHEN_STRONG) {
+    re.lastIndex = 0;
+    if (re.exec(contextText)) return 'yes';
+  }
+  // Check strong keywords in nearby spatial area
+  for (const re of KITCHEN_STRONG) {
+    re.lastIndex = 0;
+    if (re.exec(nearbyText)) return 'yes';
+  }
+  // Maybe — strong keyword anywhere on the page
+  for (const re of KITCHEN_STRONG) {
+    re.lastIndex = 0;
+    if (re.exec(pageText)) return 'maybe';
+  }
+  // Maybe — soft keywords close to unit
+  for (const re of KITCHEN_MAYBE) {
+    re.lastIndex = 0;
+    if (re.exec(contextText) || re.exec(nearbyText)) return 'maybe';
+  }
+  return 'no';
 }
 
 // ---------------------------------------------------------------------------
