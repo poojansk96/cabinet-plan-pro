@@ -195,8 +195,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
           {step === 'upload' && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Upload your architectural floor plan PDF. AI will read the plans and detect units that have
-                <strong> kitchen cabinets or countertop drawings</strong>, along with their full type names.
+                Upload your architectural floor plan PDF. AI will read the plans and detect <strong>all spaces with cabinet or countertop drawings</strong> — including residential units, laundry rooms, community kitchens, pantries, clubhouses, and more.
               </p>
 
               {/* Drop zone */}
@@ -223,8 +222,8 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
               )}
 
               <div className="text-xs text-muted-foreground bg-secondary rounded-lg p-3 border border-border space-y-1">
-                <p className="flex items-center gap-1.5"><Sparkles size={11} className="text-primary flex-shrink-0" /><strong>AI reads the plans</strong> — extracts full type names (e.g. "Type A5 - 2 Bedroom") exactly as written</p>
-                <p><strong>Only units with cabinet/countertop drawings are imported.</strong> Uncertain units are marked <span className="font-bold px-1 rounded border" style={{ background: 'hsl(48 96% 89%)', color: 'hsl(32 95% 44%)', borderColor: 'hsl(48 96% 75%)' }}>?</span></p>
+                <p className="flex items-center gap-1.5"><Sparkles size={11} className="text-primary flex-shrink-0" /><strong>AI reads all plans</strong> — detects residential units, laundry rooms, community kitchens, pantries, clubhouses & more</p>
+                <p><strong>Only spaces with cabinet/countertop drawings are imported.</strong> Uncertain ones are marked <span className="font-bold px-1 rounded border" style={{ background: 'hsl(48 96% 89%)', color: 'hsl(32 95% 44%)', borderColor: 'hsl(48 96% 75%)' }}>?</span></p>
                 <p><strong>Building #:</strong> assigned manually by you in the review step</p>
                 <p className="opacity-70 pt-1">Scanned image-only PDFs may yield no results — add units manually in that case.</p>
               </div>

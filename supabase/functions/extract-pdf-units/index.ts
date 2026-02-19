@@ -31,19 +31,32 @@ serve(async (req) => {
       if (!pageText || pageText.trim().length < 20) continue;
 
       const systemPrompt = `You are an expert at reading architectural floor plan text extracted from PDFs.
-Your job is to identify RESIDENTIAL UNIT identifiers that have kitchen cabinets, countertops, or cabinet/countertop-related drawings on the floor plan.
+Your job is to identify ALL spaces — both residential units AND common/shared areas — that have cabinet, countertop, or cabinetry-related drawings.
 
-Rules:
-- ONLY include units that show evidence of kitchen/cabinet/countertop content (keywords: cabinet, counter, CT, DW, sink, refrigerator, kitchen, kitch, range, cooktop, dishwasher, microwave, upper cab, lower cab, base cab, lin ft, linear ft, granite, marble, quartz, laminate, undermount, overmount, island, peninsula)
-- If a unit number appears on a page that mentions any of those keywords, include it with kitchenConfidence "yes"
-- If the page has some kitchen-related content but you're unsure if THIS specific unit has it, use "maybe"
-- NEVER include units from pages with NO kitchen/cabinet content at all
-- Unit identifiers look like: "Unit 101", "Apt 3B", "A-101", "B204", "101A", "#201", numbers 100-9999 preceded by unit/apt/suite keywords
-- DO NOT include: dimension numbers, room areas, door tags, grid references, scale numbers, year numbers, drawing numbers
-- Unit type: capture the FULL type name EXACTLY as written (e.g. "Type A5 - 2 Bedroom", "Plan B3-1BR", "A - 2 BR Unit"). NOT just "A" or "2BR"
-- Floor: look for "Level X", "Floor X", "1st Floor", "Ground Floor", "Basement", "Ground", "Mezzanine", etc.
-- Building: look for "Building 1", "Building A", "Bldg 2", "Block A", "Tower B", "Wing C", "Phase 1", "Building East", "Building North", directional names (North, South, East, West, Central). Capture EXACTLY as written, e.g. "Building A", "Tower 2", "Block North". If the whole PDF is clearly one building and a name/number is stated (e.g. title block says "Building 3"), apply it to all units on that page.
-- If no units with kitchen/cabinet content are found, return empty array
+CABINET/COUNTERTOP KEYWORDS (if any appear near a space, include it):
+cabinet, counter, CT, countertop, DW, sink, refrigerator, kitchen, kitch, range, cooktop, dishwasher, microwave, upper cab, lower cab, base cab, lin ft, linear ft, granite, marble, quartz, laminate, undermount, overmount, island, peninsula, vanity, lav, laundry tub, washer, dryer, W/D, folding counter
+
+WHAT TO DETECT:
+1. Residential units: "Unit 101", "Apt 3B", "A-101", "B204", "101A", "#201", etc.
+2. Common/shared area spaces that have cabinet or countertop content:
+   - Laundry rooms / laundry units (e.g. "Laundry Room", "Laundry 1", "Common Laundry") → unitNumber like "LAUNDRY-1"
+   - Community kitchens / common kitchens (e.g. "Community Kitchen", "Common Kitchen") → unitNumber like "COMM-KITCHEN"
+   - Pantry rooms (e.g. "Pantry", "Pantry Room") → unitNumber like "PANTRY-A"
+   - Clubhouses / amenity kitchens (e.g. "Clubhouse", "Club Room", "Amenity Kitchen") → unitNumber like "CLUBHOUSE"
+   - Leasing offices with kitchenettes (e.g. "Leasing Office", "Management Office") → unitNumber like "LEASING-OFFICE"
+   - Mail rooms, Fitness rooms, Lounge areas IF they show cabinet/counter content
+   - Any other labeled common area with cabinet/counter signals
+
+RULES:
+- ONLY include spaces where cabinet/countertop keywords appear near that space label on the same plan
+- If keywords appear on the page but you are unsure if THIS specific space has them, use kitchenConfidence "maybe"
+- DO NOT include: pure dimension numbers, room area tags, door tags, grid refs, scale numbers, drawing numbers
+- Unit type:
+  - For residential units: capture FULL type name EXACTLY as written (e.g. "Type A5 - 2 Bedroom", "Plan B3-1BR"). NOT just "A" or "2BR"
+  - For common areas: use a clear descriptive label (e.g. "Common Laundry", "Community Kitchen", "Pantry", "Clubhouse Kitchen", "Leasing Office")
+- Floor: look for "Level X", "Floor X", "1st Floor", "Ground Floor", "Basement", "Mezzanine", etc.
+- Building: look for "Building 1", "Building A", "Bldg 2", "Block A", "Tower B", "Wing C", "Phase 1", directional names (North, South, East, West, Central). Capture EXACTLY as written. If the whole page is clearly one building, apply to all.
+- If no spaces with cabinet/countertop content are found, return empty array.
 
 Return ONLY valid JSON, no markdown, no explanation:
 {
@@ -59,7 +72,7 @@ Return ONLY valid JSON, no markdown, no explanation:
   ]
 }`;
 
-      const userPrompt = `Page ${i + 1} floor plan text:\\n\\n${pageText.slice(0, 8000)}`;
+      const userPrompt = `Page ${i + 1} floor plan text:\n\n${pageText.slice(0, 8000)}`;
 
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
