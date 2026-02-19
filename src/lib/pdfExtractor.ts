@@ -9,6 +9,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 export interface DetectedUnit {
   unitNumber: string;
   detectedType: string | null;   // type name read from the PDF (may be null)
+  detectedFloor: string | null;  // floor/level read from the page (may be null)
   rawMatch: string;
   page: number;
   confidence: 'high' | 'medium' | 'low';
@@ -138,6 +139,65 @@ function getNearbyText(items: TextItem[], targetX: number, targetY: number, radi
 }
 
 // ---------------------------------------------------------------------------
+// Floor / Level detection — scanned from the bottom third of each page
+// ---------------------------------------------------------------------------
+
+const FLOOR_PATTERNS = [
+  // "Floor 1", "Floor 2", "1st Floor", "Ground Floor"
+  /\b(?:floor|flr\.?)\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi,
+  /\b([1-9]\d*(?:st|nd|rd|th))\s+floor\b/gi,
+  /\b(ground|basement|mezzanine|terrace|roof(?:\s*top)?)\s+floor\b/gi,
+  /\b(ground|basement|mezzanine)\b/gi,
+  // "Level 1", "Level A", "L1", "L-2"
+  /\b(?:level|lvl\.?)\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi,
+  /\bL[:\-]?\s*([0-9]{1,3}[A-Z]?)\b/g,
+  // "Storey 3", "Story 2"
+  /\bstore?y\s*[:\-]?\s*([A-Z0-9][\w\-]*)\b/gi,
+];
+
+/** Scan the bottom portion of the page text items for a floor/level label */
+function detectFloorFromPage(items: TextItem[]): string | null {
+  if (items.length === 0) return null;
+
+  // PDF Y coords: higher Y = top of page in most PDFs
+  // We look at items whose Y is in the lowest 25% of the page
+  const ys = items.map(i => i.y);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const threshold = minY + (maxY - minY) * 0.25;
+
+  const bottomText = items
+    .filter(i => i.y <= threshold)
+    .map(i => i.str)
+    .join(' ');
+
+  // Also scan full page text — some plans put floor labels at top title block
+  const fullText = items.map(i => i.str).join(' ');
+
+  for (const re of FLOOR_PATTERNS) {
+    re.lastIndex = 0;
+    // Try bottom strip first
+    let m = re.exec(bottomText);
+    if (!m) {
+      re.lastIndex = 0;
+      m = re.exec(fullText);
+    }
+    if (m) {
+      // The captured group may be in group 1; for named words like "Ground" the match[0] itself is useful
+      const raw = (m[1] ?? m[0]).trim();
+      if (raw.length === 0) continue;
+      // Normalise ordinal floors → digit
+      const norm = raw
+        .replace(/^(\d+)(?:st|nd|rd|th)$/i, '$1')
+        .toUpperCase();
+      return `Floor ${norm}`;
+    }
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // Main export
 // ---------------------------------------------------------------------------
 
@@ -147,14 +207,15 @@ export async function extractUnitsFromPDF(file: File): Promise<PDFExtractionResu
   const totalPages = pdf.numPages;
 
   const allText: string[] = [];
-  const pageData: Array<{ text: string; items: TextItem[]; page: number }> = [];
+  const pageData: Array<{ text: string; items: TextItem[]; page: number; detectedFloor: string | null }> = [];
 
   for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
     const page = await pdf.getPage(pageNum);
     const items = await extractPageTextItems(page);
     const text = items.map(i => i.str).join(' ');
+    const detectedFloor = detectFloorFromPage(items);
     allText.push(text);
-    pageData.push({ text, items, page: pageNum });
+    pageData.push({ text, items, page: pageNum, detectedFloor });
   }
 
   const rawText = allText.join('\n');
@@ -162,7 +223,7 @@ export async function extractUnitsFromPDF(file: File): Promise<PDFExtractionResu
   // --- Collect matches with deduplication ---
   const seen = new Map<string, DetectedUnit>();
 
-  for (const { text, items, page } of pageData) {
+  for (const { text, items, page, detectedFloor } of pageData) {
     for (const { re, confidence } of UNIT_NUMBER_PATTERNS) {
       re.lastIndex = 0;
       let match: RegExpExecArray | null;
@@ -179,7 +240,6 @@ export async function extractUnitsFromPDF(file: File): Promise<PDFExtractionResu
         ) continue;
 
         // ---- Detect type from positional context ----
-        // Find the approximate position of this match in the items array
         let detectedType: string | null = null;
 
         // Strategy 1: look for type keywords in ±120 chars of plain text
@@ -190,7 +250,6 @@ export async function extractUnitsFromPDF(file: File): Promise<PDFExtractionResu
 
         // Strategy 2 (fallback): use spatial proximity on the PDF page
         if (!detectedType) {
-          // Find which text item contains this match by accumulating char counts
           let charCount = 0;
           let matchItem: TextItem | null = null;
           for (const item of items) {
@@ -198,7 +257,7 @@ export async function extractUnitsFromPDF(file: File): Promise<PDFExtractionResu
               matchItem = item;
               break;
             }
-            charCount += item.str.length + 1; // +1 for the space joiner
+            charCount += item.str.length + 1;
           }
           if (matchItem) {
             const nearby = getNearbyText(items, matchItem.x, matchItem.y, 250);
@@ -213,13 +272,16 @@ export async function extractUnitsFromPDF(file: File): Promise<PDFExtractionResu
           seen.set(key, {
             unitNumber,
             detectedType,
+            detectedFloor,
             rawMatch: match[0].trim(),
             page,
             confidence,
           });
-        } else if (existing && !existing.detectedType && detectedType) {
-          // Keep better type info even if confidence is same
-          seen.set(key, { ...existing, detectedType });
+        } else if (existing) {
+          const updates: Partial<DetectedUnit> = {};
+          if (!existing.detectedType && detectedType) updates.detectedType = detectedType;
+          if (!existing.detectedFloor && detectedFloor) updates.detectedFloor = detectedFloor;
+          if (Object.keys(updates).length) seen.set(key, { ...existing, ...updates });
         }
       }
     }

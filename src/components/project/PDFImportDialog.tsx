@@ -7,21 +7,22 @@ const PRESET_UNIT_TYPES = ['Studio', '1BHK', '2BHK', '3BHK', '4BHK', 'Townhouse'
 
 interface UnitRow {
   unitNumber: string;
-  /** The final type that will be imported — starts as detectedType or fallback */
   type: string;
-  /** Type read directly from the PDF text (may be null) */
   detectedType: string | null;
+  detectedFloor: string | null;
+  floor: string;
   selected: boolean;
   confidence: DetectedUnit['confidence'];
   page: number;
-  /** If true, user manually chose a type from the dropdown */
   typeOverridden: boolean;
+  floorOverridden: boolean;
 }
 
 interface Props {
-  onImport: (units: Array<{ unitNumber: string; type: UnitType }>) => void;
+  onImport: (units: Array<{ unitNumber: string; type: UnitType; floor: string }>) => void;
   onClose: () => void;
 }
+
 
 type Step = 'upload' | 'processing' | 'review';
 
@@ -54,10 +55,13 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
           unitNumber: u.unitNumber,
           type: resolvedType,
           detectedType: u.detectedType,
+          detectedFloor: u.detectedFloor,
+          floor: u.detectedFloor ?? '',
           selected: u.confidence !== 'low',
           confidence: u.confidence,
           page: u.page,
           typeOverridden: false,
+          floorOverridden: false,
         };
       });
       setRows(initialRows);
@@ -86,8 +90,11 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
   const setRowType = (i: number, type: string) =>
     setRows(r => r.map((x, j) => j === i ? { ...x, type, typeOverridden: true } : x));
 
+  const setRowFloor = (i: number, floor: string) =>
+    setRows(r => r.map((x, j) => j === i ? { ...x, floor, floorOverridden: true } : x));
+
   const handleImport = () => {
-    const selected = rows.filter(r => r.selected).map(r => ({ unitNumber: r.unitNumber, type: r.type as UnitType }));
+    const selected = rows.filter(r => r.selected).map(r => ({ unitNumber: r.unitNumber, type: r.type as UnitType, floor: r.floor }));
     if (selected.length === 0) return;
     onImport(selected);
   };
@@ -165,7 +172,8 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
 
               <div className="text-xs text-muted-foreground bg-secondary rounded-lg p-3 border border-border space-y-1">
                 <p><strong>Unit numbers detected from:</strong> "Unit 101", "APT 205", "#302", "Suite A", "1-01"</p>
-                <p><strong>Unit types detected from:</strong> "2BHK", "2 Bed", "Studio", "Penthouse", "Townhouse", "Loft", "Condo"</p>
+                <p><strong>Unit types detected from:</strong> "2BHK", "2 Bed", "Studio", "Penthouse", "Type A", "Plan B"</p>
+                <p><strong>Floor detected from:</strong> "Floor 1", "Level 3", "Ground Floor", bottom title block text</p>
                 <p className="opacity-70 pt-1">Scanned image-only PDFs may yield no results — add units manually in that case.</p>
               </div>
             </div>
@@ -235,6 +243,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                               <span className="text-[10px] font-normal text-muted-foreground">(from PDF / override)</span>
                             </span>
                           </th>
+                          <th>Floor</th>
                           <th>Confidence</th>
                           <th>Page</th>
                         </tr>
@@ -253,7 +262,6 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                             <td className="font-mono font-bold">{row.unitNumber}</td>
                             <td>
                               <div className="flex items-center gap-1.5">
-                                {/* Show auto-detected badge if we got a type from PDF and user hasn't overridden */}
                                 {row.detectedType && !row.typeOverridden && (
                                   <span
                                     className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-accent text-primary border border-border flex-shrink-0"
@@ -264,14 +272,12 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                                   </span>
                                 )}
                                 <div className="flex-1 min-w-0">
-                                  {/* Show preset options + allow free-text for custom types */}
                                   {PRESET_UNIT_TYPES.includes(row.type) && !row.typeOverridden ? (
                                     <select
                                       className="est-input w-full text-xs"
                                       value={row.type}
                                       onChange={e => setRowType(i, e.target.value)}
                                     >
-                                      {/* If detectedType is not in preset list, show it as first custom option */}
                                       {row.detectedType && !PRESET_UNIT_TYPES.includes(row.detectedType) && (
                                         <option value={row.detectedType}>{row.detectedType} (detected)</option>
                                       )}
@@ -299,6 +305,26 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                                     </div>
                                   )}
                                 </div>
+                              </div>
+                            </td>
+                            {/* Floor column — editable, pre-filled from page detection */}
+                            <td>
+                              <div className="flex items-center gap-1">
+                                {row.detectedFloor && !row.floorOverridden && (
+                                  <span
+                                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-accent text-primary border border-border flex-shrink-0"
+                                    title="Detected from PDF page"
+                                  >
+                                    <Tag size={8} />
+                                    PDF
+                                  </span>
+                                )}
+                                <input
+                                  className="est-input text-xs w-20"
+                                  value={row.floor}
+                                  placeholder="e.g. 1"
+                                  onChange={e => setRowFloor(i, e.target.value)}
+                                />
                               </div>
                             </td>
                             <td>{confidenceBadge(row.confidence)}</td>
