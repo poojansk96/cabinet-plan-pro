@@ -55,16 +55,11 @@ export default function SummaryModule({ project }: Props) {
     XLSX.utils.book_append_sheet(wb, wsInfo, 'Project Info');
 
     // ── Sheet 2: Unit Count ────────────────────────────────────────
-    const unitHeader = ['Unit #', 'Type', 'Bldg', 'Floor', 'Total Cabs', 'Base', 'Wall', 'Tall', 'Vanity', 'Fillers', 'CT Sqft'];
-    const unitData = project.units.map(u => {
-      const c = calcUnitCabinetTotals(u);
-      const sqft = calcUnitCountertopTotal(u);
-      const fillers = u.accessories.filter(a => a.type === 'Filler').reduce((s, a) => s + a.quantity, 0);
-      return [u.unitNumber, u.type, u.bldg || '', u.floor || '', c.total, c.base, c.wall, c.tall, c.vanity, fillers, +sqft.toFixed(1)];
-    });
-    const unitTotRow = ['TOTAL', '', '', '', summary.totalCabinets, summary.totalBase, summary.totalWall, summary.totalTall, summary.totalVanity, summary.accessorySummary.totalFillers, +summary.totalCountertopSqft.toFixed(1)];
+    const unitHeader = ['Unit #', 'Type', 'Building', 'Floor'];
+    const unitData = project.units.map(u => [u.unitNumber, u.type, u.bldg || '', u.floor || '']);
+    const unitTotRow = [`TOTAL: ${project.units.length} unit${project.units.length !== 1 ? 's' : ''}`, '', '', ''];
     const wsUnit = XLSX.utils.aoa_to_sheet([unitHeader, ...unitData, [], unitTotRow]);
-    wsUnit['!cols'] = unitHeader.map(() => ({ wch: 12 }));
+    wsUnit['!cols'] = [{ wch: 12 }, { wch: 28 }, { wch: 16 }, { wch: 10 }];
     XLSX.utils.book_append_sheet(wb, wsUnit, 'Unit Count');
 
     // ── Sheet 3: SKU Summary ───────────────────────────────────────
