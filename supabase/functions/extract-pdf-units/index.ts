@@ -92,7 +92,7 @@ Return ONLY valid JSON, no markdown, no explanation:
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-pro-preview",
+          model: "openai/gpt-5",
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
