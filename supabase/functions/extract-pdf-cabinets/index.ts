@@ -15,9 +15,10 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const { pageTexts, pageMeasuredBoxes, scaleFactor, unitType } = await req.json();
-    if (!pageTexts || !Array.isArray(pageTexts)) {
-      return new Response(JSON.stringify({ error: "pageTexts array required" }), {
+    const { pageImages, scaleFactor, scaleLabel, unitType } = await req.json();
+
+    if (!pageImages || !Array.isArray(pageImages) || pageImages.length === 0) {
+      return new Response(JSON.stringify({ error: "pageImages array required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -25,58 +26,43 @@ serve(async (req) => {
 
     const allCabinets: Record<string, any> = {};
 
-    for (let i = 0; i < pageTexts.length; i++) {
-      const pageText = pageTexts[i];
-      if (!pageText || pageText.trim().length < 20) continue;
+    for (let i = 0; i < pageImages.length; i++) {
+      const imageBase64 = pageImages[i];
+      if (!imageBase64) continue;
 
-      // Build geometry context from measured boxes on this page
-      const measuredBoxes: Array<{ wIn: number; hIn: number }> = pageMeasuredBoxes?.[i] ?? [];
-      const geometryContext = measuredBoxes.length > 0
-        ? `\nMEASURED CABINET BOX SIZES (from PDF vector geometry at ${scaleFactor}:1 scale):\n` +
-          measuredBoxes
-            .sort((a: any, b: any) => a.wIn - b.wIn)
-            .map((b: any) => `  - Box: ${b.wIn}" wide × ${b.hIn}" tall`)
-            .join("\n") +
-          `\nUse these measured widths/heights as GROUND TRUTH for cabinet dimensions. Match each SKU label to the nearest measured box by position and size. Prefer measured geometry over dimension text annotations when they conflict.\n`
-        : "\nNo vector geometry extracted from this page — rely on text labels for dimensions.\n";
+      const systemPrompt = `You are an expert millwork estimator analyzing a cabinet ELEVATION drawing.
 
-      const systemPrompt = `You are an expert millwork estimator reading cabinet ELEVATION drawings extracted from PDFs.
+The drawing is shown at scale: ${scaleLabel} (meaning 1 drawn inch = ${scaleFactor} real inches).
 
-Cabinet elevations show a FRONT VIEW of cabinets as they appear mounted on walls. The extracted text contains:
-- Cabinet model/SKU codes labeled on each cabinet box (e.g. B24, W3036, DB30, UB18, OH36, SB24, UT84, etc.)
-- Dimension annotations labeled per cabinet (width in inches, sometimes height)
-- Elevation/room title labels (e.g. "KITCHEN ELEVATION A", "BATH ELEVATION 2", "LAUNDRY ELEV")
-- Quantities when the same cabinet repeats (e.g. "(2) B24" or "B24 x2")
-${geometryContext}
-CABINET TYPE IDENTIFICATION:
-- BASE: B, DB, SB, CB, EB prefixes — bottom row of elevation — default H=34.5", D=24"
-- WALL: W, UB, OH, UC, WC prefixes — upper row of elevation — default H=30", D=12"  
-- TALL: T, UT, TC, PTC, OC, PT prefixes — full-height column — default H=84", D=24"
-- VANITY: V, VB, VD prefixes — bathroom, shorter base — default H=34.5", D=21"
-- When prefix is ambiguous, use position in elevation: upper row=Wall, lower row=Base, full height=Tall
+Your job:
+1. Visually identify every cabinet box in the elevation drawing
+2. Read each cabinet's SKU/model label (e.g. B24, W3036, T84, VB30)
+3. Measure the WIDTH of each cabinet box using the drawing scale:
+   - Estimate the cabinet box width in drawn inches from the image
+   - Multiply by ${scaleFactor} to get real-world inches
+   - Cross-check with any dimension annotations on the drawing (these take priority)
+4. Identify the cabinet TYPE from its position and SKU prefix:
+   - BASE (B, DB, SB, CB): bottom row cabinets, default H=34.5", D=24"
+   - WALL (W, UB, OH, WC): upper row cabinets mounted on wall, default H=30", D=12"
+   - TALL (T, UT, TC, PT): full-height cabinets spanning floor to upper, default H=84", D=24"
+   - VANITY (V, VB, VD): bathroom base cabinets, default H=34.5", D=21"
+5. Identify the ROOM from the elevation title (KITCHEN, BATH, LAUNDRY, PANTRY, etc.)
+6. Count QUANTITY — if the same cabinet model repeats in this elevation, add quantities
 
-DIMENSION PRIORITY (highest to lowest):
-1. MEASURED geometry from PDF vector data (most accurate — actual drawn size)
-2. Explicit dimension text annotations on the cabinet box (e.g. "24"" or "24W")
-3. Width encoded in the SKU number (e.g. B24 → 24", W3036 → 30" wide × 36" tall)
-4. Standard defaults if nothing else available
-
-ROOM IDENTIFICATION:
-- Look for elevation title keywords: KITCHEN→"Kitchen", BATH/LAVATORY→"Bath", LAUNDRY/UTIL→"Laundry", PANTRY→"Pantry"
-- Default to "Kitchen" if unclear
+DIMENSION PRIORITY:
+1. Explicit dimension labels printed ON the drawing (most accurate)
+2. Your visual measurement of the drawn box width × scale factor
+3. Width encoded in the SKU (B24 = 24" wide, W3036 = 30" wide)
+4. Standard defaults
 
 CRITICAL RULES:
-1. Each distinct cabinet box on the elevation = one line item with quantity
-2. Use measured geometry widths when available — they are more reliable than text
-3. If the same SKU + same dimensions appear multiple times on one elevation, sum quantities
-4. DO NOT include appliances: REF, REFRIG, DW, DISHWASHER, RANGE, HOOD, MICROWAVE, OTR, MW
-5. DO NOT include dimension strings, grid references, or drawing title block numbers as SKUs
-6. A valid SKU always starts with a letter and contains numbers (e.g. B24, W3036, not just "24" or "A")
-7. Round all dimensions to nearest whole inch
+- Do NOT include appliances: REF, REFRIGERATOR, DW, DISHWASHER, RANGE, HOOD, MICROWAVE, OTR, OVEN
+- A valid SKU starts with a letter and contains numbers (B24, W3036, T84 — NOT just "24" or numbers)
+- Round all dimensions to nearest whole inch
+- If the page is a floor plan (top-down view), not an elevation (front view), return empty cabinets array
+${unitType ? `- These elevations belong to unit type: ${unitType}` : ""}
 
-${unitType ? `These elevations are for unit type: ${unitType}` : ''}
-
-Return ONLY valid JSON, no markdown:
+Return ONLY valid JSON (no markdown, no explanation):
 {
   "cabinets": [
     {
@@ -84,14 +70,12 @@ Return ONLY valid JSON, no markdown:
       "type": "Base",
       "room": "Kitchen",
       "width": 24,
-      "height": 34.5,
+      "height": 34,
       "depth": 24,
       "quantity": 1
     }
   ]
 }`;
-
-      const userPrompt = `Page ${i + 1} cabinet elevation text:\n\n${pageText.slice(0, 12000)}`;
 
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -100,16 +84,31 @@ Return ONLY valid JSON, no markdown:
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: "google/gemini-2.5-pro",
           messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
+            {
+              role: "user",
+              content: [
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: `data:image/jpeg;base64,${imageBase64}`,
+                  },
+                },
+                {
+                  type: "text",
+                  text: systemPrompt,
+                },
+              ],
+            },
           ],
           temperature: 0.1,
         }),
       });
 
       if (!response.ok) {
+        const errText = await response.text();
+        console.error(`AI gateway error on page ${i + 1}:`, response.status, errText);
         if (response.status === 429) {
           return new Response(
             JSON.stringify({ error: "Rate limit exceeded. Please try again shortly." }),
@@ -122,8 +121,7 @@ Return ONLY valid JSON, no markdown:
             { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
-        const errText = await response.text();
-        console.error("AI gateway error:", response.status, errText);
+        // Skip this page on other errors but continue
         continue;
       }
 
@@ -135,7 +133,7 @@ Return ONLY valid JSON, no markdown:
         const cleaned = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
         parsed = JSON.parse(cleaned);
       } catch {
-        console.error("Failed to parse AI response for page", i + 1, content);
+        console.error(`Failed to parse AI response for page ${i + 1}:`, content.slice(0, 500));
         continue;
       }
 
@@ -143,7 +141,8 @@ Return ONLY valid JSON, no markdown:
 
       for (const cab of parsed.cabinets) {
         const sku = (cab.sku ?? "").trim().toUpperCase();
-        if (!sku) continue;
+        if (!sku || !/^[A-Z]/.test(sku)) continue; // must start with letter
+
         const key = `${sku}__${cab.type}__${cab.room}__${cab.width}__${cab.height}__${cab.depth}`;
 
         if (allCabinets[key]) {
@@ -154,7 +153,7 @@ Return ONLY valid JSON, no markdown:
             type: cab.type ?? "Base",
             room: cab.room ?? "Kitchen",
             width: Number(cab.width) || 24,
-            height: Number(cab.height) || 34.5,
+            height: Number(cab.height) || 34,
             depth: Number(cab.depth) || 24,
             quantity: cab.quantity ?? 1,
           };
