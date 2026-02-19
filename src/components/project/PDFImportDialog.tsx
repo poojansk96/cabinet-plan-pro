@@ -10,18 +10,22 @@ interface UnitRow {
   type: string;
   detectedType: string | null;
   detectedFloor: string | null;
+  detectedBldg: string | null;
   floor: string;
+  bldg: string;
   selected: boolean;
   confidence: DetectedUnit['confidence'];
   page: number;
   typeOverridden: boolean;
   floorOverridden: boolean;
+  bldgOverridden: boolean;
 }
 
 interface Props {
-  onImport: (units: Array<{ unitNumber: string; type: UnitType; floor: string }>) => void;
+  onImport: (units: Array<{ unitNumber: string; type: UnitType; floor: string; bldg: string }>) => void;
   onClose: () => void;
 }
+
 
 
 type Step = 'upload' | 'processing' | 'review';
@@ -56,12 +60,15 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
           type: resolvedType,
           detectedType: u.detectedType,
           detectedFloor: u.detectedFloor,
+          detectedBldg: u.detectedBldg,
           floor: u.detectedFloor ?? '',
+          bldg: u.detectedBldg ?? '',
           selected: u.confidence !== 'low',
           confidence: u.confidence,
           page: u.page,
           typeOverridden: false,
           floorOverridden: false,
+          bldgOverridden: false,
         };
       });
       setRows(initialRows);
@@ -87,14 +94,12 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
 
   const toggleAll = (val: boolean) => setRows(r => r.map(row => ({ ...row, selected: val })));
 
-  const setRowType = (i: number, type: string) =>
-    setRows(r => r.map((x, j) => j === i ? { ...x, type, typeOverridden: true } : x));
-
-  const setRowFloor = (i: number, floor: string) =>
-    setRows(r => r.map((x, j) => j === i ? { ...x, floor, floorOverridden: true } : x));
+  const setRowType  = (i: number, type: string)  => setRows(r => r.map((x, j) => j === i ? { ...x, type,  typeOverridden: true  } : x));
+  const setRowFloor = (i: number, floor: string)  => setRows(r => r.map((x, j) => j === i ? { ...x, floor, floorOverridden: true } : x));
+  const setRowBldg  = (i: number, bldg: string)   => setRows(r => r.map((x, j) => j === i ? { ...x, bldg,  bldgOverridden: true  } : x));
 
   const handleImport = () => {
-    const selected = rows.filter(r => r.selected).map(r => ({ unitNumber: r.unitNumber, type: r.type as UnitType, floor: r.floor }));
+    const selected = rows.filter(r => r.selected).map(r => ({ unitNumber: r.unitNumber, type: r.type as UnitType, floor: r.floor, bldg: r.bldg }));
     if (selected.length === 0) return;
     onImport(selected);
   };
@@ -174,6 +179,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                 <p><strong>Unit numbers detected from:</strong> "Unit 101", "APT 205", "#302", "Suite A", "1-01"</p>
                 <p><strong>Unit types detected from:</strong> "2BHK", "2 Bed", "Studio", "Penthouse", "Type A", "Plan B"</p>
                 <p><strong>Floor detected from:</strong> "Floor 1", "Level 3", "Ground Floor", bottom title block text</p>
+                <p><strong>Building detected from:</strong> "Building 1", "Bldg A", "Block 2", "Tower B", "Wing C"</p>
                 <p className="opacity-70 pt-1">Scanned image-only PDFs may yield no results — add units manually in that case.</p>
               </div>
             </div>
@@ -243,6 +249,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                               <span className="text-[10px] font-normal text-muted-foreground">(from PDF / override)</span>
                             </span>
                           </th>
+                          <th>Bldg</th>
                           <th>Floor</th>
                           <th>Confidence</th>
                           <th>Page</th>
@@ -263,21 +270,13 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                             <td>
                               <div className="flex items-center gap-1.5">
                                 {row.detectedType && !row.typeOverridden && (
-                                  <span
-                                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-accent text-primary border border-border flex-shrink-0"
-                                    title="Detected from PDF text"
-                                  >
-                                    <Tag size={8} />
-                                    PDF
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-accent text-primary border border-border flex-shrink-0" title="Detected from PDF text">
+                                    <Tag size={8} />PDF
                                   </span>
                                 )}
                                 <div className="flex-1 min-w-0">
                                   {PRESET_UNIT_TYPES.includes(row.type) && !row.typeOverridden ? (
-                                    <select
-                                      className="est-input w-full text-xs"
-                                      value={row.type}
-                                      onChange={e => setRowType(i, e.target.value)}
-                                    >
+                                    <select className="est-input w-full text-xs" value={row.type} onChange={e => setRowType(i, e.target.value)}>
                                       {row.detectedType && !PRESET_UNIT_TYPES.includes(row.detectedType) && (
                                         <option value={row.detectedType}>{row.detectedType} (detected)</option>
                                       )}
@@ -286,45 +285,33 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                                     </select>
                                   ) : (
                                     <div className="flex gap-1">
-                                      <input
-                                        className="est-input w-full text-xs"
-                                        value={row.type === '__custom__' ? '' : row.type}
-                                        placeholder="Type name…"
-                                        autoFocus={row.type === '__custom__'}
-                                        onChange={e => setRowType(i, e.target.value)}
-                                      />
-                                      <button
-                                        className="text-xs text-muted-foreground hover:text-foreground px-1"
-                                        title="Back to preset"
-                                        onClick={() => setRows(r => r.map((x, j) => j === i
-                                          ? { ...x, type: x.detectedType ?? defaultType, typeOverridden: false }
-                                          : x))}
-                                      >
-                                        ↩
-                                      </button>
+                                      <input className="est-input w-full text-xs" value={row.type === '__custom__' ? '' : row.type} placeholder="Type name…" autoFocus={row.type === '__custom__'} onChange={e => setRowType(i, e.target.value)} />
+                                      <button className="text-xs text-muted-foreground hover:text-foreground px-1" title="Back to preset" onClick={() => setRows(r => r.map((x, j) => j === i ? { ...x, type: x.detectedType ?? defaultType, typeOverridden: false } : x))}>↩</button>
                                     </div>
                                   )}
                                 </div>
                               </div>
                             </td>
-                            {/* Floor column — editable, pre-filled from page detection */}
+                            {/* Bldg column */}
+                            <td>
+                              <div className="flex items-center gap-1">
+                                {row.detectedBldg && !row.bldgOverridden && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-accent text-primary border border-border flex-shrink-0" title="Detected from PDF page">
+                                    <Tag size={8} />PDF
+                                  </span>
+                                )}
+                                <input className="est-input text-xs w-20" value={row.bldg} placeholder="e.g. 1" onChange={e => setRowBldg(i, e.target.value)} />
+                              </div>
+                            </td>
+                            {/* Floor column */}
                             <td>
                               <div className="flex items-center gap-1">
                                 {row.detectedFloor && !row.floorOverridden && (
-                                  <span
-                                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-accent text-primary border border-border flex-shrink-0"
-                                    title="Detected from PDF page"
-                                  >
-                                    <Tag size={8} />
-                                    PDF
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-accent text-primary border border-border flex-shrink-0" title="Detected from PDF page">
+                                    <Tag size={8} />PDF
                                   </span>
                                 )}
-                                <input
-                                  className="est-input text-xs w-20"
-                                  value={row.floor}
-                                  placeholder="e.g. 1"
-                                  onChange={e => setRowFloor(i, e.target.value)}
-                                />
+                                <input className="est-input text-xs w-20" value={row.floor} placeholder="e.g. 1" onChange={e => setRowFloor(i, e.target.value)} />
                               </div>
                             </td>
                             <td>{confidenceBadge(row.confidence)}</td>
