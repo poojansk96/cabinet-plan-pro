@@ -10,13 +10,13 @@ const DRAWER_GUIDE_OPTIONS = ['Blum Tandem', 'Blum Legrabox', 'Grass Dynapro', '
 const COUNTERTOP_OPTIONS = ['Quartz', 'Granite', 'Laminate', 'Solid Surface', 'Porcelain', 'Marble', 'Other'];
 
 const COUNTERTOP_MANUFACTURERS: Record<string, string[]> = {
-  Quartz: ['Caesarstone', 'Silestone', 'Cambria', 'MSI Q Premium', 'Viatera', 'HanStone', 'Other'],
-  Granite: ['MSI', 'Emser Tile', 'Bedrosians', 'Arizona Tile', 'Dal-Tile', 'Other'],
-  Laminate: ['Wilsonart', 'Formica', 'Pionite', 'Nevamar', 'Laminart', 'Other'],
+  Quartz:          ['Overseas', 'Local MSI', 'KOL Marble'],
+  Granite:         ['MSI', 'Emser Tile', 'Bedrosians', 'Arizona Tile', 'Dal-Tile', 'Other'],
+  Laminate:        ['Wilsonart', 'Formica', 'Pionite', 'Nevamar', 'Other'],
   'Solid Surface': ['Corian (DuPont)', 'Avonite', 'Wilsonart SS', 'Staron (Samsung)', 'Other'],
-  Porcelain: ['Porcelanosa', 'Atlas Plan', 'Dekton (Cosentino)', 'Neolith', 'Other'],
-  Marble: ['Carrara', 'Calacatta', 'Statuario', 'Thassos', 'Other'],
-  Other: ['Other'],
+  Porcelain:       ['Porcelanosa', 'Atlas Plan', 'Dekton (Cosentino)', 'Neolith', 'Other'],
+  Marble:          ['Carrara', 'Calacatta', 'Statuario', 'Thassos', 'Other'],
+  Other:           ['Other'],
 };
 
 export default function NewProject() {
@@ -99,7 +99,15 @@ export default function NewProject() {
       </label>
       <select
         value={specs[key]}
-        onChange={e => setSpecs(s => ({ ...s, [key]: e.target.value }))}
+        onChange={e => {
+          const val = e.target.value;
+          // Reset manufacturer when countertop type changes
+          if (key === 'countertops') {
+            setSpecs(s => ({ ...s, countertops: val, countertopManufacturer: '' }));
+          } else {
+            setSpecs(s => ({ ...s, [key]: val }));
+          }
+        }}
         className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
       >
         <option value="">{placeholder}</option>
@@ -196,7 +204,26 @@ export default function NewProject() {
               {/* Row 2: Door Style + Countertops */}
               <div className="grid grid-cols-2 gap-4">
                 {specTextField('Door Style', 'doorStyle', 'e.g. Shaker, Slab, Raised Panel…')}
-                {specSelectField('Countertops', 'countertops', COUNTERTOP_OPTIONS)}
+                <div className="space-y-2">
+                  {specSelectField('Countertops', 'countertops', COUNTERTOP_OPTIONS)}
+                  {specs.countertops && COUNTERTOP_MANUFACTURERS[specs.countertops] && (
+                    <div>
+                      <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                        Manufacturer
+                      </label>
+                      <select
+                        value={specs.countertopManufacturer}
+                        onChange={e => setSpecs(s => ({ ...s, countertopManufacturer: e.target.value }))}
+                        className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
+                      >
+                        <option value="">Select manufacturer…</option>
+                        {COUNTERTOP_MANUFACTURERS[specs.countertops].map(m => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Row 3: Hinges + Drawer Box */}
