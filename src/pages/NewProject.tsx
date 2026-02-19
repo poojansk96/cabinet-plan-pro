@@ -13,7 +13,7 @@ const COUNTERTOP_MANUFACTURERS: Record<string, string[]> = {
   Quartz:          ['Overseas', 'Local MSI', 'KOL Marble', 'Other'],
   Granite:         ['Overseas', 'Local MSI', 'KOL Marble', 'Other'],
   Laminate:        ['Hartson-Kennedy', 'Other'],
-  'Solid Surface': ['Corian (DuPont)', 'Avonite', 'Wilsonart SS', 'Staron (Samsung)', 'Other'],
+  'Solid Surface- Corian': ['Parksite Material+ Sterling surface Install', 'Other'],
   Porcelain:       ['Porcelanosa', 'Atlas Plan', 'Dekton (Cosentino)', 'Neolith', 'Other'],
   Marble:          ['Carrara', 'Calacatta', 'Statuario', 'Thassos', 'Other'],
   Other:           ['Other'],
