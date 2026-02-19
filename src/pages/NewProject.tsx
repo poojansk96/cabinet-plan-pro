@@ -37,6 +37,7 @@ export default function NewProject() {
     doorStyleCustom: '',
     doorStyleStyle: '',
     doorStyleStyleCustom: '',
+    doorStyleConstruction: '',
     hinges: '',
     hingesCustom: '',
     drawerGuidesCustom: '',
@@ -223,7 +224,7 @@ export default function NewProject() {
                     </label>
                     <select
                       value={specs.doorStyle}
-                      onChange={e => setSpecs(s => ({ ...s, doorStyle: e.target.value, doorStyleCustom: '', doorStyleStyle: '', doorStyleStyleCustom: '' }))}
+                      onChange={e => setSpecs(s => ({ ...s, doorStyle: e.target.value, doorStyleCustom: '', doorStyleStyle: '', doorStyleStyleCustom: '', doorStyleConstruction: '' }))}
                       className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
                     >
                       <option value="">Select manufacturer…</option>
@@ -273,6 +274,21 @@ export default function NewProject() {
                           autoFocus
                         />
                       )}
+                      {/* Construction */}
+                      <div>
+                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                          Construction
+                        </label>
+                        <select
+                          value={specs.doorStyleConstruction}
+                          onChange={e => setSpecs(s => ({ ...s, doorStyleConstruction: e.target.value }))}
+                          className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
+                        >
+                          <option value="">Select construction…</option>
+                          <option value="Particleboard">Particleboard</option>
+                          <option value="Plywood">Plywood</option>
+                        </select>
+                      </div>
                     </div>
                   )}
                 </div>
