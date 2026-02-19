@@ -35,22 +35,25 @@ Your job is to identify RESIDENTIAL UNIT identifiers that have kitchen cabinets,
 
 Rules:
 - ONLY include units that show evidence of kitchen/cabinet/countertop content (keywords: cabinet, counter, CT, DW, sink, refrigerator, kitchen, kitch, range, cooktop, dishwasher, microwave, upper cab, lower cab, base cab, lin ft, linear ft, granite, marble, quartz, laminate, undermount, overmount, island, peninsula)
-- If a unit number appears on a page that mentions any of those keywords, include it with kitchenConfidence "yes"  
+- If a unit number appears on a page that mentions any of those keywords, include it with kitchenConfidence "yes"
 - If the page has some kitchen-related content but you're unsure if THIS specific unit has it, use "maybe"
 - NEVER include units from pages with NO kitchen/cabinet content at all
 - Unit identifiers look like: "Unit 101", "Apt 3B", "A-101", "B204", "101A", "#201", numbers 100-9999 preceded by unit/apt/suite keywords
 - DO NOT include: dimension numbers, room areas, door tags, grid references, scale numbers, year numbers, drawing numbers
 - Unit type: capture the FULL type name EXACTLY as written (e.g. "Type A5 - 2 Bedroom", "Plan B3-1BR", "A - 2 BR Unit"). NOT just "A" or "2BR"
-- Floor: look for "Level X", "Floor X", "1st Floor", "Ground Floor", etc.
+- Floor: look for "Level X", "Floor X", "1st Floor", "Ground Floor", "Basement", "Ground", "Mezzanine", etc.
+- Building: look for "Building 1", "Building A", "Bldg 2", "Block A", "Tower B", "Wing C", "Phase 1", "Building East", "Building North", directional names (North, South, East, West, Central). Capture EXACTLY as written, e.g. "Building A", "Tower 2", "Block North". If the whole PDF is clearly one building and a name/number is stated (e.g. title block says "Building 3"), apply it to all units on that page.
 - If no units with kitchen/cabinet content are found, return empty array
 
 Return ONLY valid JSON, no markdown, no explanation:
 {
+  "pageBuilding": "Building A" | null,
   "units": [
     {
       "unitNumber": "101",
       "detectedType": "Type A - 2 Bedroom" | null,
       "detectedFloor": "Floor 1" | null,
+      "detectedBldg": "Building A" | null,
       "kitchenConfidence": "yes" | "maybe"
     }
   ]
@@ -96,7 +99,7 @@ Return ONLY valid JSON, no markdown, no explanation:
       const content = aiData.choices?.[0]?.message?.content ?? "";
 
       // Parse JSON from AI response (strip markdown fences if present)
-      let parsed: { units: any[] } | null = null;
+      let parsed: { pageBuilding?: string | null; units: any[] } | null = null;
       try {
         const cleaned = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
         parsed = JSON.parse(cleaned);
@@ -107,18 +110,23 @@ Return ONLY valid JSON, no markdown, no explanation:
 
       if (!parsed?.units) continue;
 
+      // Page-level building fallback: if AI identified one building for the whole page
+      const pageBuilding = parsed.pageBuilding ?? null;
+
       for (const unit of parsed.units) {
         const key = (unit.unitNumber ?? "").trim().toUpperCase();
         if (!key || key.length < 1) continue;
 
+        // Resolve building: unit-level takes priority, then page-level
+        const bldg = unit.detectedBldg ?? pageBuilding ?? null;
+
         const existing = allUnits[key];
-        // Merge: prefer "yes" kitchen confidence; keep best type/floor
         if (!existing) {
           allUnits[key] = {
             unitNumber: key,
             detectedType: unit.detectedType ?? null,
             detectedFloor: unit.detectedFloor ?? null,
-            detectedBldg: null,
+            detectedBldg: bldg,
             rawMatch: key,
             page: i + 1,
             confidence: "high" as const,
@@ -127,6 +135,7 @@ Return ONLY valid JSON, no markdown, no explanation:
         } else {
           if (!existing.detectedType && unit.detectedType) existing.detectedType = unit.detectedType;
           if (!existing.detectedFloor && unit.detectedFloor) existing.detectedFloor = unit.detectedFloor;
+          if (!existing.detectedBldg && bldg) existing.detectedBldg = bldg;
           if (existing.kitchenConfidence === "maybe" && unit.kitchenConfidence === "yes") {
             existing.kitchenConfidence = "yes";
           }
