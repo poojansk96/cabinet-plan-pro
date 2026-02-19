@@ -56,8 +56,8 @@ export default function CabinetModule({ project, selectedUnit, setSelectedUnitId
   const skuSummary = selectedUnit ? buildSkuSummary(selectedUnit.cabinets) : [];
 
   // Type-wise summary: group units by unit type, sum cabinets per cabinet type
-  const unitTypeGroups = project.units.reduce<Record<string, { unitCount: number; base: number; wall: number; tall: number; vanity: number; total: number }>>((acc, u) => {
-    if (!acc[u.type]) acc[u.type] = { unitCount: 0, base: 0, wall: 0, tall: 0, vanity: 0, total: 0 };
+  const unitTypeGroups = project.units.reduce<Record<string, { unitCount: number; base: number; wall: number; tall: number; vanity: number; total: number; skus: string[] }>>((acc, u) => {
+    if (!acc[u.type]) acc[u.type] = { unitCount: 0, base: 0, wall: 0, tall: 0, vanity: 0, total: 0, skus: [] };
     acc[u.type].unitCount += 1;
     u.cabinets.forEach(c => {
       acc[u.type].total += c.quantity;
@@ -65,6 +65,7 @@ export default function CabinetModule({ project, selectedUnit, setSelectedUnitId
       else if (c.type === 'Wall') acc[u.type].wall += c.quantity;
       else if (c.type === 'Tall') acc[u.type].tall += c.quantity;
       else if (c.type === 'Vanity') acc[u.type].vanity += c.quantity;
+      if (!acc[u.type].skus.includes(c.sku)) acc[u.type].skus.push(c.sku);
     });
     return acc;
   }, {});
@@ -107,6 +108,7 @@ export default function CabinetModule({ project, selectedUnit, setSelectedUnitId
           <table className="est-table">
             <thead>
               <tr>
+                <th>SKU List</th>
                 <th>Unit Type</th>
                 <th className="text-right">Units</th>
                 <th className="text-right font-bold">Grand Total</th>
@@ -115,6 +117,7 @@ export default function CabinetModule({ project, selectedUnit, setSelectedUnitId
             <tbody>
               {Object.entries(unitTypeGroups).map(([type, g]) => (
                 <tr key={type}>
+                  <td className="font-mono text-xs text-muted-foreground">{g.skus.sort().join(', ') || '—'}</td>
                   <td className="font-semibold">{type}</td>
                   <td className="text-right">{g.unitCount}</td>
                   <td className="text-right font-bold">{g.base + g.wall + g.tall + g.vanity}</td>
@@ -123,6 +126,7 @@ export default function CabinetModule({ project, selectedUnit, setSelectedUnitId
             </tbody>
             <tfoot>
               <tr style={{ background: 'hsl(var(--secondary))', fontWeight: 600 }}>
+                <td className="px-3 py-1.5 text-sm"></td>
                 <td className="px-3 py-1.5 text-sm">TOTAL</td>
                 <td className="px-3 py-1.5 text-sm text-right">{project.units.length}</td>
                 <td className="px-3 py-1.5 text-sm text-right">
