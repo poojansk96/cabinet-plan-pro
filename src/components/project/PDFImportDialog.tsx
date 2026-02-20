@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { FileUp, X, Loader2, CheckCircle, AlertCircle, ChevronDown, ChevronUp, FileText, Tag, Sparkles } from 'lucide-react';
 import type { DetectedUnit, PDFExtractionResult } from '@/lib/pdfExtractor';
 import type { UnitType } from '@/types/project';
@@ -30,7 +30,26 @@ interface Props {
 
 type Step = 'upload' | 'processing' | 'review';
 
+const QUOTES = [
+  "Measure twice, cut once.",
+  "Great design is born from great planning.",
+  "Every detail matters — especially in kitchens.",
+  "Precision today saves rework tomorrow.",
+  "Good plans shape good results.",
+  "The best spaces begin on paper.",
+  "Form follows function — always.",
+  "Craftsmanship starts with accurate takeoffs.",
+  "A well-planned kitchen is a joy forever.",
+  "Excellence is in the details.",
+  "Build smart. Build right. Build once.",
+  "Your project, perfectly counted.",
+  "Behind every great build is a great plan.",
+  "Think ahead. Cut once. Install right.",
+  "The blueprint is where dreams become structure.",
+];
+
 export default function PDFImportDialog({ onImport, onClose }: Props) {
+  const [quoteIndex, setQuoteIndex] = useState(() => Math.floor(Math.random() * QUOTES.length));
   const [step, setStep] = useState<Step>('upload');
   const [result, setResult] = useState<PDFExtractionResult | null>(null);
   const [rows, setRows] = useState<UnitRow[]>([]);
@@ -42,7 +61,21 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
   const [progress, setProgress] = useState(0);       // 0–100
   const [progressLabel, setProgressLabel] = useState('');
   const [bulkBldg, setBulkBldg] = useState('');
+  const [quoteVisible, setQuoteVisible] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Rotate quote every 4 seconds during processing
+  useEffect(() => {
+    if (step !== 'processing') return;
+    const interval = setInterval(() => {
+      setQuoteVisible(false);
+      setTimeout(() => {
+        setQuoteIndex(i => (i + 1) % QUOTES.length);
+        setQuoteVisible(true);
+      }, 400);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [step]);
 
   const processFile = async (file: File) => {
     if (!file.type.includes('pdf')) {
@@ -290,12 +323,18 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                 <Sparkles size={13} className="absolute top-2 right-2 z-20 animate-pulse" style={{ color: 'hsl(var(--primary))' }} />
               </div>
 
-              {/* Status text */}
-              <div className="text-center space-y-1 max-w-xs">
+              {/* Status + Quote */}
+              <div className="text-center space-y-2 max-w-xs">
                 <p className="font-semibold text-sm text-foreground leading-snug">{processingStatus}</p>
                 {progressLabel && (
                   <p className="text-xs text-muted-foreground">{progressLabel}</p>
                 )}
+                <p
+                  className="text-xs italic text-muted-foreground/80 transition-opacity duration-400 mt-2 px-2"
+                  style={{ opacity: quoteVisible ? 1 : 0, transition: 'opacity 0.4s ease' }}
+                >
+                  "{QUOTES[quoteIndex]}"
+                </p>
               </div>
 
               {/* Progress bar */}
