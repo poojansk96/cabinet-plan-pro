@@ -123,6 +123,33 @@ export function usePrefinalStore(projectId: string) {
     });
   }, [projectId]);
 
+  // ── Import unit mappings (unit# → type with "1" assignment) ────────────
+  const importUnitMappings = useCallback((mappings: { unitNumber: string; unitType: string }[]) => {
+    setData(prev => {
+      const existingNames = new Set(prev.unitNumbers.map(u => u.name));
+      const newUnits: PrefinalUnitNumber[] = [];
+      for (const m of mappings) {
+        if (existingNames.has(m.unitNumber)) {
+          // Update existing unit's assignment
+          const idx = prev.unitNumbers.findIndex(u => u.name === m.unitNumber);
+          if (idx >= 0) {
+            prev.unitNumbers[idx] = {
+              ...prev.unitNumbers[idx],
+              assignments: { ...prev.unitNumbers[idx].assignments, [m.unitType]: true },
+            };
+          }
+        } else {
+          existingNames.add(m.unitNumber);
+          newUnits.push({ name: m.unitNumber, assignments: { [m.unitType]: true } });
+        }
+      }
+      const unitNumbers = [...prev.unitNumbers, ...newUnits];
+      const next = { ...prev, unitNumbers };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
   // ── Cabinet imports ───────────────────────────────────────────────────
   const addCabinetImport = useCallback((rows: Omit<PrefinalCabinetRow, never>[], unitType: string) => {
     setData(prev => {
@@ -167,6 +194,7 @@ export function usePrefinalStore(projectId: string) {
     updateUnitNumberName,
     deleteUnitNumber,
     toggleAssignment,
+    importUnitMappings,
     addCabinetImport,
     clearCabinets,
     clearUnits,

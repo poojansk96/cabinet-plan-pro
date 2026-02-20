@@ -1,17 +1,17 @@
 import { useState, useRef, useCallback } from 'react';
-import { FileUp, X, Loader2, CheckCircle, AlertCircle, Sparkles, Trash2, FileText } from 'lucide-react';
+import { FileUp, X, Loader2, CheckCircle, AlertCircle, Sparkles, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-pdf-unit-types`;
 
-export interface UnitTypeRow {
+export interface UnitMappingRow {
+  unitNumber: string;
   unitType: string;
-  count: number;
   selected: boolean;
 }
 
 interface Props {
-  onImport: (rows: Omit<UnitTypeRow, 'selected'>[]) => void;
+  onImport: (rows: Omit<UnitMappingRow, 'selected'>[]) => void;
   onClose: () => void;
 }
 
@@ -33,7 +33,7 @@ type Step = 'upload' | 'processing' | 'review';
 
 export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
   const [step, setStep] = useState<Step>('upload');
-  const [rows, setRows] = useState<UnitTypeRow[]>([]);
+  const [rows, setRows] = useState<UnitMappingRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [processingStatus, setProcessingStatus] = useState('');
@@ -50,19 +50,17 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
       const pdfjsLib = (await import('pdfjs-dist')) as any;
       pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 
-      // Merge unit types across all pages/files
-      const merged: Record<string, UnitTypeRow> = {};
+      const allMappings: Map<string, UnitMappingRow> = new Map();
 
       for (const file of files) {
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
         for (let p = 1; p <= pdf.numPages; p++) {
-          setProcessingStatus(`Scanning "${file.name}" page ${p}/${pdf.numPages} for unit types…`);
+          setProcessingStatus(`Scanning "${file.name}" page ${p}/${pdf.numPages} for units…`);
           const page = await pdf.getPage(p);
           const pageImage = await renderPageToBase64(page);
 
-          // Fetch with retry + 5 min timeout
           const fetchWithRetry = async (attempts = 2): Promise<Response> => {
             for (let attempt = 1; attempt <= attempts; attempt++) {
               const controller = new AbortController();
@@ -105,22 +103,21 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
           if (data.error === 'credits') { toast.error('AI credits exhausted.'); setStep('upload'); return; }
 
           for (const u of (data.units ?? [])) {
-            const key = String(u.unitType).trim().toUpperCase();
-            if (!key) continue;
-            if (merged[key]) {
-              // Take the max count seen across pages (avoid double-counting)
-              merged[key].count = Math.max(merged[key].count, Number(u.count) || 1);
-            } else {
-              merged[key] = { unitType: String(u.unitType).trim(), count: Number(u.count) || 1, selected: true };
-            }
+            const num = String(u.unitNumber ?? '').trim();
+            const type = String(u.unitType ?? '').trim();
+            if (!num || !type) continue;
+            // Deduplicate by unit number (keep first seen type, or overwrite — last wins)
+            allMappings.set(num, { unitNumber: num, unitType: type, selected: true });
           }
         }
       }
 
-      const result = Object.values(merged).sort((a, b) => a.unitType.localeCompare(b.unitType));
+      const result = Array.from(allMappings.values()).sort((a, b) =>
+        a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true })
+      );
 
       if (result.length === 0) {
-        setError('No unit type labels detected. The drawing may not contain unit type schedules or labels.');
+        setError('No unit numbers or types detected. The drawing may not contain unit schedules or labels.');
         setStep('upload');
         return;
       }
@@ -146,7 +143,7 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
     e.target.value = '';
   };
 
-  const updateRow = (i: number, patch: Partial<UnitTypeRow>) =>
+  const updateRow = (i: number, patch: Partial<UnitMappingRow>) =>
     setRows(r => r.map((x, j) => j === i ? { ...x, ...patch } : x));
   const deleteRow = (i: number) => setRows(r => r.filter((_, j) => j !== i));
   const toggleAll = (val: boolean) => setRows(r => r.map(x => ({ ...x, selected: val })));
@@ -158,6 +155,7 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
   };
 
   const selectedCount = rows.filter(r => r.selected).length;
+  const uniqueTypes = Array.from(new Set(rows.filter(r => r.selected).map(r => r.unitType)));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
@@ -167,7 +165,7 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex items-center gap-2">
             <FileUp size={18} className="text-primary" />
-            <h2 className="font-bold text-base">Import Unit Types from Shop Drawing</h2>
+            <h2 className="font-bold text-base">Import Units from Shop Drawing</h2>
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
               <Sparkles size={9} /> AI Detection
             </span>
@@ -181,7 +179,7 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
           {step === 'upload' && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Upload your <strong>2020 Design shop drawing PDFs</strong>. The AI scans each page for unit type labels, schedules, and legends to extract unit types and their counts.
+                Upload your <strong>2020 Design shop drawing PDFs</strong>. The AI scans each page to extract unit numbers and their associated unit types.
               </p>
 
               <div
@@ -209,7 +207,7 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
               <div className="text-xs text-muted-foreground bg-secondary rounded-lg p-3 border border-border space-y-1">
                 <p className="flex items-center gap-1.5">
                   <Sparkles size={11} className="text-primary flex-shrink-0" />
-                  <strong>What the AI looks for:</strong> unit type schedules, plan labels (TYPE A, 2BHK, Studio…), elevation title blocks, and repeated unit identifiers across pages.
+                  <strong>What the AI looks for:</strong> unit numbers (101, 102, 201…) and their associated unit types (TYPE A, A1-As, 2BHK…) from schedules, floor plans, and title blocks.
                 </p>
               </div>
             </div>
@@ -223,7 +221,7 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
                 <Sparkles size={14} className="absolute -top-1 -right-1 text-primary" />
               </div>
               <p className="font-semibold text-sm text-center max-w-sm">{processingStatus}</p>
-              <p className="text-xs text-muted-foreground">Detecting unit types from drawings…</p>
+              <p className="text-xs text-muted-foreground">Detecting unit numbers and types from drawings…</p>
             </div>
           )}
 
@@ -233,8 +231,8 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
               <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary border border-border">
                 <CheckCircle size={18} className="text-primary flex-shrink-0" />
                 <div className="flex-1 text-sm">
-                  <strong className="text-foreground">{rows.length} unit type{rows.length !== 1 ? 's' : ''} detected</strong>
-                  <span className="text-muted-foreground ml-2">— review and adjust counts before importing</span>
+                  <strong className="text-foreground">{rows.length} unit{rows.length !== 1 ? 's' : ''} detected</strong>
+                  <span className="text-muted-foreground ml-2">across {uniqueTypes.length} unit type{uniqueTypes.length !== 1 ? 's' : ''}</span>
                 </div>
               </div>
 
@@ -249,9 +247,8 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
                   <thead>
                     <tr>
                       <th className="w-8"></th>
-                      <th className="text-left w-16">Unit #</th>
+                      <th className="text-left">Unit #</th>
                       <th className="text-left">Unit Type</th>
-                      <th className="text-right w-28">Count</th>
                       <th className="w-8"></th>
                     </tr>
                   </thead>
@@ -261,21 +258,18 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
                         <td>
                           <input type="checkbox" checked={row.selected} onChange={e => updateRow(i, { selected: e.target.checked })} className="cursor-pointer" />
                         </td>
-                        <td className="text-xs text-muted-foreground">{i + 1}</td>
+                        <td>
+                          <input
+                            className="est-input text-xs w-24"
+                            value={row.unitNumber}
+                            onChange={e => updateRow(i, { unitNumber: e.target.value })}
+                          />
+                        </td>
                         <td>
                           <input
                             className="est-input text-xs w-full"
                             value={row.unitType}
                             onChange={e => updateRow(i, { unitType: e.target.value })}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            type="number"
-                            className="est-input text-xs w-20 text-right ml-auto"
-                            min={1}
-                            value={row.count}
-                            onChange={e => updateRow(i, { count: Math.max(1, +e.target.value) })}
                           />
                         </td>
                         <td>
@@ -304,7 +298,7 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
               className="px-4 py-2 rounded text-sm font-semibold text-white transition-colors disabled:opacity-50"
               style={{ background: 'hsl(var(--primary))' }}
             >
-              Import {selectedCount} Unit Type{selectedCount !== 1 ? 's' : ''}
+              Import {selectedCount} Unit{selectedCount !== 1 ? 's' : ''}
             </button>
           )}
         </div>
