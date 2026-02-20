@@ -97,15 +97,20 @@ export default function ProjectDetail() {
 
         {/* Tabs */}
         <div className="px-4 flex border-t" style={{ borderColor: 'hsl(var(--border))' }}>
-          {TABS.map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`module-tab flex items-center gap-1.5 mr-1 ${activeTab === tab.key ? 'active' : ''}`}
-            >
-              {tab.icon}
-              {tab.label}
-            </button>
+          {TABS.map((tab, i) => (
+            <>
+              {tab.key === 'prefinal' && (
+                <div key="sep" className="w-px my-1 mx-2 bg-border flex-shrink-0" />
+              )}
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`module-tab flex items-center gap-1.5 mr-1 ${activeTab === tab.key ? 'active' : ''}`}
+              >
+                {tab.icon}
+                {tab.label}
+              </button>
+            </>
           ))}
         </div>
       </header>
