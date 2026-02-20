@@ -26,6 +26,8 @@ export default function SummaryModule({ project }: Props) {
     }
   };
 
+  const fmtFloor = (f: string) => f && /^\d+$/.test(f) ? `Floor ${f}` : (f || '');
+
   const handleExportExcel = async () => {
     const wb = new ExcelJS.Workbook();
 
@@ -94,7 +96,7 @@ export default function SummaryModule({ project }: Props) {
     // Data rows
     project.units.forEach(u => {
       const typeFlags = uniqueTypes.map(t => (u.type === t ? 1 : ''));
-      const dataRow = wsUnit.addRow([u.unitNumber, u.bldg || '', u.floor || '', ...typeFlags]);
+      const dataRow = wsUnit.addRow([u.unitNumber, u.bldg || '', fmtFloor(u.floor || ''), ...typeFlags]);
       dataRow.eachCell((cell, colNumber) => {
         if (colNumber > 3) {
           cell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -141,7 +143,7 @@ export default function SummaryModule({ project }: Props) {
     styleHeader(wsCt.addRow(['Unit #', 'Type', 'Building', 'Floor', 'CT Sqft']));
     project.units.forEach(u => {
       const sqft = calcUnitCountertopTotal(u);
-      wsCt.addRow([u.unitNumber, u.type, u.bldg || '', u.floor || '', +sqft.toFixed(1)]);
+      wsCt.addRow([u.unitNumber, u.type, u.bldg || '', fmtFloor(u.floor || ''), +sqft.toFixed(1)]);
     });
     wsCt.addRow([]);
     const ctTotRow = wsCt.addRow(['TOTAL', '', '', '', +summary.totalCountertopSqft.toFixed(1)]);
