@@ -1,0 +1,398 @@
+import { useState, useRef, useCallback } from 'react';
+import { FileUp, X, Loader2, CheckCircle, AlertCircle, Sparkles, Trash2, FilePlus, FileText } from 'lucide-react';
+import type { CabinetType, Room } from '@/types/project';
+import { toast } from 'sonner';
+
+const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-pdf-labels`;
+
+export interface LabelRow {
+  sku: string;
+  type: string;          // Base | Wall | Tall | Vanity | Accessory
+  room: string;
+  quantity: number;
+  selected: boolean;
+  sourceFile?: string;
+}
+
+interface Props {
+  unitType?: string;
+  onImport: (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[]) => void;
+  onClose: () => void;
+}
+
+type Step = 'upload' | 'processing' | 'review';
+
+const CABINET_TYPES: CabinetType[] = ['Base', 'Wall', 'Tall', 'Vanity'];
+const ROOMS: Room[] = ['Kitchen', 'Pantry', 'Laundry', 'Bath', 'Other'];
+const ALL_TYPES = [...CABINET_TYPES, 'Accessory'];
+
+async function renderPageToBase64(page: any): Promise<string> {
+  const viewport = page.getViewport({ scale: 1.5 });
+  const canvas = document.createElement('canvas');
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext('2d')!;
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  return canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
+}
+
+export default function ShopDrawingImportDialog({ unitType, onImport, onClose }: Props) {
+  const [step, setStep] = useState<Step>('upload');
+  const [rows, setRows] = useState<LabelRow[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState('');
+  const [queuedFiles, setQueuedFiles] = useState<File[]>([]);
+  const [filterSource, setFilterSource] = useState<string>('all');
+  const fileRef = useRef<HTMLInputElement>(null);
+  const addMoreRef = useRef<HTMLInputElement>(null);
+
+  const processSingleFile = async (
+    file: File,
+    pdfjsLib: any,
+    onStatus: (msg: string) => void
+  ): Promise<LabelRow[]> => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const allRows: LabelRow[] = [];
+
+    for (let p = 1; p <= pdf.numPages; p++) {
+      onStatus(`Rendering "${file.name}" page ${p}/${pdf.numPages}…`);
+      const page = await pdf.getPage(p);
+      const pageImage = await renderPageToBase64(page);
+
+      onStatus(`AI reading labels on "${file.name}" page ${p}/${pdf.numPages}…`);
+
+      const aiResponse = await fetch(EDGE_FUNCTION_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pageImage, unitType }),
+      });
+
+      if (!aiResponse.ok) {
+        const status = aiResponse.status;
+        if (status === 429) throw new Error('rate_limit');
+        if (status === 402) throw new Error('credits');
+        console.warn(`Page ${p} of "${file.name}" failed (${status}), skipping`);
+        continue;
+      }
+
+      const data = await aiResponse.json();
+      if (data.error === 'rate_limit') throw new Error('rate_limit');
+      if (data.error === 'credits') throw new Error('credits');
+
+      const pageRows = (data.items ?? []).map((c: any) => ({
+        sku: c.sku,
+        type: c.type,
+        room: c.room,
+        quantity: c.quantity,
+        selected: true,
+        sourceFile: file.name,
+      }));
+      allRows.push(...pageRows);
+    }
+    return allRows;
+  };
+
+  const mergeRows = (incoming: LabelRow[], existing: LabelRow[] = []): LabelRow[] => {
+    const merged: Record<string, LabelRow> = {};
+    for (const r of [...existing, ...incoming]) {
+      const key = `${r.sku}__${r.type}__${r.room}__${r.sourceFile}`;
+      if (merged[key]) merged[key].quantity += r.quantity;
+      else merged[key] = { ...r };
+    }
+    return Object.values(merged).sort((a, b) => a.sku.localeCompare(b.sku, undefined, { numeric: true }));
+  };
+
+  const processFiles = async (files: File[]) => {
+    const nonPdfs = files.filter(f => !f.type.includes('pdf'));
+    if (nonPdfs.length) { setError(`Only PDF files supported. Remove: ${nonPdfs.map(f => f.name).join(', ')}`); return; }
+    setError(null);
+    setStep('processing');
+
+    try {
+      setProcessingStatus('Loading PDF library…');
+      const pdfjsLib = (await import('pdfjs-dist')) as any;
+      pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
+
+      let allRows: LabelRow[] = [];
+      for (let i = 0; i < files.length; i++) {
+        setProcessingStatus(`Processing file ${i + 1} of ${files.length}: "${files[i].name}"…`);
+        try {
+          const fileRows = await processSingleFile(files[i], pdfjsLib, setProcessingStatus);
+          allRows = mergeRows(fileRows, allRows);
+        } catch (err: any) {
+          if (err.message === 'rate_limit') { toast.error('AI rate limit reached. Try again shortly.'); setStep('upload'); return; }
+          if (err.message === 'credits') { toast.error('AI credits exhausted.'); setStep('upload'); return; }
+          toast.error(`Skipped "${files[i].name}": ${err.message}`);
+        }
+      }
+
+      if (allRows.length === 0) { setError('No cabinet or accessory labels found in any uploaded file.'); setStep('upload'); return; }
+      setRows(allRows);
+      setFilterSource('all');
+      setStep('review');
+    } catch (err) {
+      console.error(err);
+      setError('Failed to process files. Please try again.');
+      setStep('upload');
+    }
+  };
+
+  const addMoreFiles = async (files: File[]) => {
+    setStep('processing');
+    try {
+      const pdfjsLib = (await import('pdfjs-dist')) as any;
+      pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
+      let newRows: LabelRow[] = [];
+      for (const file of files) {
+        setProcessingStatus(`Processing "${file.name}"…`);
+        try {
+          const r = await processSingleFile(file, pdfjsLib, setProcessingStatus);
+          newRows = mergeRows(r, newRows);
+        } catch (err: any) { toast.error(`Skipped "${file.name}": ${err.message}`); }
+      }
+      setRows(prev => mergeRows(newRows, prev));
+      setStep('review');
+    } catch (err) {
+      toast.error('Failed to process additional files.');
+      setStep('review');
+    }
+  };
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault(); setDragging(false);
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.includes('pdf'));
+    if (files.length) { setQueuedFiles(files); processFiles(files); }
+  }, [unitType]);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length) { setQueuedFiles(files); processFiles(files); }
+    e.target.value = '';
+  };
+
+  const handleAddMore = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []).filter(f => f.type.includes('pdf'));
+    if (files.length) addMoreFiles(files);
+    e.target.value = '';
+  };
+
+  const toggleAll = (val: boolean) => setRows(r => r.map(x => ({ ...x, selected: val })));
+  const updateRow = (i: number, patch: Partial<LabelRow>) => setRows(r => r.map((x, j) => j === i ? { ...x, ...patch } : x));
+  const deleteRow = (i: number) => setRows(r => r.filter((_, j) => j !== i));
+
+  const handleImport = () => {
+    const selected = rows.filter(r => r.selected).map(({ selected: _, sourceFile: __, ...rest }) => rest);
+    if (selected.length === 0) return;
+    onImport(selected);
+  };
+
+  const sourceFiles = Array.from(new Set(rows.map(r => r.sourceFile ?? 'Unknown')));
+  const visibleRows = filterSource === 'all' ? rows : rows.filter(r => r.sourceFile === filterSource);
+  const selectedCount = rows.filter(r => r.selected).length;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
+      <div className="bg-card rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col border border-border">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div className="flex items-center gap-2">
+            <FileUp size={18} className="text-primary" />
+            <h2 className="font-bold text-base">Import 2020 Shop Drawings</h2>
+            {unitType && (
+              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-accent text-accent-foreground border border-border">
+                {unitType}
+              </span>
+            )}
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
+              <Sparkles size={9} /> AI Label Reader
+            </span>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X size={18} /></button>
+        </div>
+
+        <div className="flex-1 overflow-auto p-5">
+
+          {/* Upload step */}
+          {step === 'upload' && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Upload your <strong>2020 Design shop drawing PDFs</strong>. The AI reads each page and extracts cabinet and accessory labels exactly as printed — no measurement or scale required.
+              </p>
+
+              <div
+                className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors ${
+                  dragging ? 'border-primary bg-accent' : 'border-border hover:border-primary hover:bg-accent/50'
+                }`}
+                onDragOver={e => { e.preventDefault(); setDragging(true); }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={handleDrop}
+                onClick={() => fileRef.current?.click()}
+              >
+                <FileUp size={36} className="mx-auto mb-3 text-muted-foreground" />
+                <p className="font-semibold text-sm text-foreground">Drop 2020 shop drawing PDFs here</p>
+                <p className="text-xs text-muted-foreground mt-1">or click to browse — multiple files supported</p>
+                <input ref={fileRef} type="file" accept=".pdf" multiple className="hidden" onChange={handleFileSelect} />
+              </div>
+
+              {queuedFiles.length > 0 && (
+                <div className="space-y-1">
+                  {queuedFiles.map((f, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <FileText size={12} className="text-primary flex-shrink-0" />
+                      <span className="truncate">{f.name}</span>
+                      <span className="ml-auto opacity-60">{(f.size / 1024).toFixed(0)} KB</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {error && (
+                <div className="flex items-start gap-2 p-3 rounded-lg border text-sm border-destructive bg-destructive/10 text-destructive">
+                  <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
+                  <p>{error}</p>
+                </div>
+              )}
+
+              <div className="text-xs text-muted-foreground bg-secondary rounded-lg p-3 border border-border space-y-1">
+                <p className="flex items-center gap-1.5">
+                  <Sparkles size={11} className="text-primary flex-shrink-0" />
+                  <strong>AI Label Reader:</strong> Each page is rendered as an image and scanned for cabinet (Base, Wall, Tall, Vanity) and accessory labels (fillers, toe kick, crown, panels, hardware). Labels are read exactly as printed — no guessing or measuring.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Processing step */}
+          {step === 'processing' && (
+            <div className="flex flex-col items-center justify-center py-16 gap-4">
+              <div className="relative">
+                <Loader2 size={40} className="animate-spin text-primary" />
+                <Sparkles size={14} className="absolute -top-1 -right-1 text-primary" />
+              </div>
+              <p className="font-semibold text-sm text-center max-w-sm">{processingStatus}</p>
+              <p className="text-xs text-muted-foreground">Reading labels from shop drawings…</p>
+            </div>
+          )}
+
+          {/* Review step */}
+          {step === 'review' && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary border border-border">
+                <CheckCircle size={18} className="text-primary flex-shrink-0" />
+                <div className="flex-1 text-sm">
+                  <strong className="text-foreground">{rows.length} label{rows.length !== 1 ? 's' : ''} extracted</strong>
+                  {sourceFiles.length > 1 && <span className="text-muted-foreground ml-2">from {sourceFiles.length} files</span>}
+                  <span className="text-muted-foreground ml-2">— review and edit before importing</span>
+                </div>
+                <button
+                  onClick={() => addMoreRef.current?.click()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                >
+                  <FilePlus size={13} /> Add more PDFs
+                </button>
+                <input ref={addMoreRef} type="file" accept=".pdf" multiple className="hidden" onChange={handleAddMore} />
+              </div>
+
+              {sourceFiles.length > 1 && (
+                <div className="flex flex-wrap gap-1.5">
+                  <button onClick={() => setFilterSource('all')} className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${filterSource === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground border border-border hover:text-foreground'}`}>
+                    All ({rows.length})
+                  </button>
+                  {sourceFiles.map(src => (
+                    <button key={src} onClick={() => setFilterSource(src)} className={`px-3 py-1 rounded-full text-xs font-medium transition-colors flex items-center gap-1 ${filterSource === src ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground border border-border hover:text-foreground'}`}>
+                      <FileText size={10} />
+                      {src.replace(/\.pdf$/i, '')} ({rows.filter(r => r.sourceFile === src).length})
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex items-center gap-3">
+                <button onClick={() => toggleAll(true)} className="text-xs text-primary hover:underline">Select all</button>
+                <button onClick={() => toggleAll(false)} className="text-xs text-muted-foreground hover:underline">Deselect all</button>
+                <span className="text-xs text-muted-foreground ml-auto">{selectedCount} of {rows.length} selected</span>
+              </div>
+
+              <div className="border border-border rounded-lg overflow-hidden overflow-x-auto">
+                <table className="est-table" style={{ whiteSpace: 'nowrap', minWidth: '560px' }}>
+                  <thead>
+                    <tr>
+                      <th className="w-8"></th>
+                      <th>SKU / Label</th>
+                      <th>Type</th>
+                      <th>Room</th>
+                      <th className="text-right">Qty</th>
+                      {sourceFiles.length > 1 && <th>File</th>}
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleRows.map((row, _) => {
+                      const globalIdx = rows.indexOf(row);
+                      return (
+                        <tr key={globalIdx} className={!row.selected ? 'opacity-40' : ''}>
+                          <td>
+                            <input type="checkbox" checked={row.selected} onChange={e => updateRow(globalIdx, { selected: e.target.checked })} className="cursor-pointer" />
+                          </td>
+                          <td>
+                            <input className="est-input font-mono w-28 text-xs" value={row.sku} onChange={e => updateRow(globalIdx, { sku: e.target.value.toUpperCase() })} />
+                          </td>
+                          <td>
+                            <select className="est-input text-xs w-24" value={row.type} onChange={e => updateRow(globalIdx, { type: e.target.value })}>
+                              {ALL_TYPES.map(t => <option key={t}>{t}</option>)}
+                            </select>
+                          </td>
+                          <td>
+                            <select className="est-input text-xs w-24" value={row.room} onChange={e => updateRow(globalIdx, { room: e.target.value })}>
+                              {ROOMS.map(r => <option key={r}>{r}</option>)}
+                            </select>
+                          </td>
+                          <td>
+                            <input type="number" className="est-input text-xs w-14 text-right" value={row.quantity} min={1} onChange={e => updateRow(globalIdx, { quantity: Math.max(1, +e.target.value) })} />
+                          </td>
+                          {sourceFiles.length > 1 && (
+                            <td><span className="text-[10px] text-muted-foreground truncate max-w-[100px] block">{(row.sourceFile ?? '').replace(/\.pdf$/i, '')}</span></td>
+                          )}
+                          <td>
+                            <button onClick={() => deleteRow(globalIdx)} className="p-1 hover:text-destructive text-muted-foreground" title="Remove">
+                              <Trash2 size={12} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-4 border-t border-border flex items-center justify-between gap-3">
+          <button onClick={() => { setStep('upload'); setRows([]); setQueuedFiles([]); setError(null); }} className="text-xs text-muted-foreground hover:text-foreground">
+            ← Start over
+          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={onClose} className="px-4 py-2 rounded text-xs font-medium border border-border text-muted-foreground hover:bg-secondary">
+              Cancel
+            </button>
+            {step === 'review' && (
+              <button
+                onClick={handleImport}
+                disabled={selectedCount === 0}
+                className="px-4 py-2 rounded text-xs font-medium text-white disabled:opacity-50"
+                style={{ background: 'hsl(var(--primary))' }}
+              >
+                Import {selectedCount} item{selectedCount !== 1 ? 's' : ''}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
