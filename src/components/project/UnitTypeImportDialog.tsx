@@ -249,6 +249,7 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
                   <thead>
                     <tr>
                       <th className="w-8"></th>
+                      <th className="text-left w-16">Unit #</th>
                       <th className="text-left">Unit Type</th>
                       <th className="text-right w-28">Count</th>
                       <th className="w-8"></th>
@@ -260,6 +261,7 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
                         <td>
                           <input type="checkbox" checked={row.selected} onChange={e => updateRow(i, { selected: e.target.checked })} className="cursor-pointer" />
                         </td>
+                        <td className="text-xs text-muted-foreground">{i + 1}</td>
                         <td>
                           <input
                             className="est-input text-xs w-full"
