@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 
-export interface PrefinalUnitRow {
-  unitType: string;
-  count: number;
+export interface PrefinalUnitNumber {
+  name: string;
+  assignments: Record<string, boolean>; // unitType -> true/false
 }
 
 export interface PrefinalCabinetRow {
@@ -10,20 +10,31 @@ export interface PrefinalCabinetRow {
   type: string;
   room: string;
   quantity: number;
-  unitType: string; // which unit type this was imported for
+  unitType: string;
 }
 
 interface PrefinalData {
-  unitRows: PrefinalUnitRow[];
+  unitTypes: string[];
+  unitNumbers: PrefinalUnitNumber[];
   cabinetRows: PrefinalCabinetRow[];
 }
 
 function loadData(projectId: string): PrefinalData {
   try {
     const raw = localStorage.getItem(`prefinal_${projectId}`);
-    return raw ? JSON.parse(raw) : { unitRows: [], cabinetRows: [] };
+    if (!raw) return { unitTypes: [], unitNumbers: [], cabinetRows: [] };
+    const parsed = JSON.parse(raw);
+    // Migration: old format had unitRows
+    if (parsed.unitRows && !parsed.unitTypes) {
+      return {
+        unitTypes: parsed.unitRows.map((r: any) => r.unitType),
+        unitNumbers: [],
+        cabinetRows: parsed.cabinetRows || [],
+      };
+    }
+    return { unitTypes: parsed.unitTypes || [], unitNumbers: parsed.unitNumbers || [], cabinetRows: parsed.cabinetRows || [] };
   } catch {
-    return { unitRows: [], cabinetRows: [] };
+    return { unitTypes: [], unitNumbers: [], cabinetRows: [] };
   }
 }
 
@@ -43,50 +54,78 @@ export function usePrefinalStore(projectId: string) {
     setData(next);
   }, [projectId]);
 
-  const addUnitImport = useCallback((unitType: string, count: number) => {
+  // ── Unit Types (columns) ──────────────────────────────────────────────
+  const addUnitTypes = useCallback((types: string[]) => {
     setData(prev => {
-      const existing = prev.unitRows.find(r => r.unitType === unitType);
-      const unitRows = existing
-        ? prev.unitRows.map(r => r.unitType === unitType ? { ...r, count: r.count + count } : r)
-        : [...prev.unitRows, { unitType, count }];
-      const next = { ...prev, unitRows };
+      const existing = new Set(prev.unitTypes);
+      const newTypes = types.filter(t => !existing.has(t));
+      if (!newTypes.length) return prev;
+      const unitTypes = [...prev.unitTypes, ...newTypes];
+      const next = { ...prev, unitTypes };
       saveData(projectId, next);
       return next;
     });
   }, [projectId]);
 
-  const updateUnitRow = useCallback((unitType: string, count: number) => {
+  const deleteUnitType = useCallback((type: string) => {
     setData(prev => {
-      const unitRows = prev.unitRows.map(r => r.unitType === unitType ? { ...r, count } : r);
-      const next = { ...prev, unitRows };
+      const unitTypes = prev.unitTypes.filter(t => t !== type);
+      const unitNumbers = prev.unitNumbers.map(u => {
+        const assignments = { ...u.assignments };
+        delete assignments[type];
+        return { ...u, assignments };
+      });
+      const next = { ...prev, unitTypes, unitNumbers };
       saveData(projectId, next);
       return next;
     });
   }, [projectId]);
 
-  const deleteUnitRow = useCallback((unitType: string) => {
+  // ── Unit Numbers (rows) ───────────────────────────────────────────────
+  const addUnitNumber = useCallback((name: string) => {
     setData(prev => {
-      const next = { ...prev, unitRows: prev.unitRows.filter(r => r.unitType !== unitType) };
+      const unitNumbers = [...prev.unitNumbers, { name, assignments: {} }];
+      const next = { ...prev, unitNumbers };
       saveData(projectId, next);
       return next;
     });
   }, [projectId]);
 
-  const addManualUnitRow = useCallback((unitType: string, count: number) => {
+  const updateUnitNumberName = useCallback((index: number, name: string) => {
     setData(prev => {
-      const existing = prev.unitRows.find(r => r.unitType === unitType);
-      const unitRows = existing
-        ? prev.unitRows.map(r => r.unitType === unitType ? { ...r, count: r.count + count } : r)
-        : [...prev.unitRows, { unitType, count }];
-      const next = { ...prev, unitRows };
+      const unitNumbers = prev.unitNumbers.map((u, i) => i === index ? { ...u, name } : u);
+      const next = { ...prev, unitNumbers };
       saveData(projectId, next);
       return next;
     });
   }, [projectId]);
 
+  const deleteUnitNumber = useCallback((index: number) => {
+    setData(prev => {
+      const unitNumbers = prev.unitNumbers.filter((_, i) => i !== index);
+      const next = { ...prev, unitNumbers };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
+  const toggleAssignment = useCallback((unitIndex: number, unitType: string) => {
+    setData(prev => {
+      const unitNumbers = prev.unitNumbers.map((u, i) => {
+        if (i !== unitIndex) return u;
+        const assignments = { ...u.assignments };
+        assignments[unitType] = !assignments[unitType];
+        return { ...u, assignments };
+      });
+      const next = { ...prev, unitNumbers };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
+  // ── Cabinet imports ───────────────────────────────────────────────────
   const addCabinetImport = useCallback((rows: Omit<PrefinalCabinetRow, never>[], unitType: string) => {
     setData(prev => {
-      // Merge by sku+type+room+unitType
       const merged: Record<string, PrefinalCabinetRow> = {};
       for (const r of prev.cabinetRows) {
         const key = `${r.sku}__${r.type}__${r.room}__${r.unitType}`;
@@ -111,20 +150,23 @@ export function usePrefinalStore(projectId: string) {
   }, [commit, data]);
 
   const clearUnits = useCallback(() => {
-    commit({ ...data, unitRows: [] });
+    commit({ ...data, unitTypes: [], unitNumbers: [] });
   }, [commit, data]);
 
   const clearAll = useCallback(() => {
-    commit({ unitRows: [], cabinetRows: [] });
+    commit({ unitTypes: [], unitNumbers: [], cabinetRows: [] });
   }, [commit]);
 
   return {
-    unitRows: data.unitRows,
+    unitTypes: data.unitTypes,
+    unitNumbers: data.unitNumbers,
     cabinetRows: data.cabinetRows,
-    addUnitImport,
-    updateUnitRow,
-    deleteUnitRow,
-    addManualUnitRow,
+    addUnitTypes,
+    deleteUnitType,
+    addUnitNumber,
+    updateUnitNumberName,
+    deleteUnitNumber,
+    toggleAssignment,
     addCabinetImport,
     clearCabinets,
     clearUnits,
