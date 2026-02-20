@@ -91,7 +91,6 @@ Return ONLY valid JSON (no markdown fences, no explanation):
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
           ],
-          temperature: 0.1,
         }),
       });
 
