@@ -1,16 +1,17 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Building2, ArrowLeft, Users, Layers, Wrench, Square, BarChart3, Pencil } from 'lucide-react';
+import { Building2, ArrowLeft, Users, Layers, Wrench, Square, BarChart3, Pencil, ClipboardCheck } from 'lucide-react';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import UnitModule from '@/components/project/UnitModule';
 import CabinetModule from '@/components/project/CabinetModule';
 import AccessoriesModule from '@/components/project/AccessoriesModule';
 import CountertopModule from '@/components/project/CountertopModule';
 import SummaryModule from '@/components/project/SummaryModule';
+import PreFinalModule from '@/components/project/PreFinalModule';
 import SummaryPanel from '@/components/project/SummaryPanel';
 import EditProjectDialog from '@/components/project/EditProjectDialog';
 
-type Tab = 'units' | 'cabinets' | 'accessories' | 'countertops' | 'summary';
+type Tab = 'units' | 'cabinets' | 'accessories' | 'countertops' | 'summary' | 'prefinal';
 
 const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'units', label: 'Units', icon: <Users size={14} /> },
@@ -18,6 +19,7 @@ const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'accessories', label: 'Accessories', icon: <Wrench size={14} /> },
   { key: 'countertops', label: 'Countertops', icon: <Square size={14} /> },
   { key: 'summary', label: 'Summary', icon: <BarChart3 size={14} /> },
+  { key: 'prefinal', label: 'Pre-Final', icon: <ClipboardCheck size={14} /> },
 ];
 
 export default function ProjectDetail() {
@@ -117,6 +119,7 @@ export default function ProjectDetail() {
             {activeTab === 'accessories' && <AccessoriesModule {...storeProps} />}
             {activeTab === 'countertops' && <CountertopModule {...storeProps} />}
             {activeTab === 'summary' && <SummaryModule {...storeProps} />}
+            {activeTab === 'prefinal' && <PreFinalModule {...storeProps} />}
           </div>
         </main>
 
