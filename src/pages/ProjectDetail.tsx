@@ -125,8 +125,8 @@ export default function ProjectDetail() {
           <SummaryPanel project={project} onTabChange={(tab) => setActiveTab(tab as Tab)} />
         </aside>
       </div>
-      <footer className="text-center py-2 text-xs text-muted-foreground border-t bg-card flex-shrink-0">
-        © {new Date().getFullYear()} Poojan Khilosiya. All rights reserved.
+      <footer className="text-center py-2 border-t bg-card flex-shrink-0">
+        <span style={{ fontSize: '10px' }} className="text-muted-foreground">© {new Date().getFullYear()} Poojan Khilosiya. All rights reserved.</span>
       </footer>
     </div>
   );
