@@ -95,11 +95,27 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
       setProgressLabel('AI analyzing…');
       let detectedUnits: DetectedUnit[] = res.detectedUnits;
 
-      const aiResponse = await fetch(EDGE_FUNCTION_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pageTexts }),
-      });
+      const aiController = new AbortController();
+      const aiTimeout = setTimeout(() => aiController.abort(), 120000); // 2 min max
+      let aiResponse: Response;
+      try {
+        aiResponse = await fetch(EDGE_FUNCTION_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pageTexts }),
+          signal: aiController.signal,
+        });
+      } catch (fetchErr: any) {
+        clearTimeout(aiTimeout);
+        if (fetchErr?.name === 'AbortError') {
+          toast.warning('AI analysis timed out. Using standard detection.');
+          aiResponse = new Response(null, { status: 408 });
+        } else {
+          throw fetchErr;
+        }
+      } finally {
+        clearTimeout(aiTimeout);
+      }
 
       if (aiResponse.ok) {
         const aiData = await aiResponse.json();

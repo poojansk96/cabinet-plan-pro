@@ -79,20 +79,30 @@ Return ONLY valid JSON (no markdown fences, no explanation):
       const tailBlock = pageText.slice(-800);
       const userPrompt = `Analyze this floor plan page (page ${i + 1}).\n\nSHEET TITLE / HEADER AREA (check here first for building name):\n${titleBlock}\n\nFOOTER / TITLE BLOCK:\n${tailBlock}\n\nFULL PAGE TEXT:\n${pageText.slice(0, 8000)}`;
 
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "openai/gpt-5",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-        }),
-      });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 25000);
+
+      let response: Response;
+      try {
+        response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-3-flash-preview",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            temperature: 0.1,
+          }),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
 
       if (!response.ok) {
         if (response.status === 429) {
