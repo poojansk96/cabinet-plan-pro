@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import { FileUp, X, Loader2, CheckCircle, AlertCircle, ChevronDown, ChevronUp, FileText, Sparkles } from 'lucide-react';
+import { FileUp, X, Loader2, CheckCircle, AlertCircle, ChevronDown, ChevronUp, FileText, Tag, Sparkles } from 'lucide-react';
 import type { DetectedUnit, PDFExtractionResult } from '@/lib/pdfExtractor';
 import type { UnitType } from '@/types/project';
 import { toast } from 'sonner';
@@ -41,6 +41,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
   const [usedAI, setUsedAI] = useState(false);
   const [progress, setProgress] = useState(0);       // 0–100
   const [progressLabel, setProgressLabel] = useState('');
+  const [bulkBldg, setBulkBldg] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const processFile = async (file: File) => {
@@ -158,8 +159,14 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
       });
       setRows(sortedRows);
 
-
-
+      // Auto-populate bulkBldg if all units share the same detected building
+      const bldgValues = initialRows.map(r => r.bldg).filter(Boolean);
+      const uniqueBldgs = Array.from(new Set(bldgValues));
+      if (uniqueBldgs.length === 1) {
+        setBulkBldg(uniqueBldgs[0]);
+      } else if (uniqueBldgs.length === 0) {
+        setBulkBldg('');
+      }
 
       setProgress(100);
       setProgressLabel('Done!');
@@ -199,8 +206,18 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
     onImport(selected);
   };
 
+  const confidenceBadge = (c: DetectedUnit['confidence']) => {
+    const cls = c === 'high'
+      ? 'bg-accent text-accent-foreground border border-border'
+      : c === 'medium'
+      ? 'bg-secondary text-secondary-foreground border border-border'
+      : 'bg-muted text-muted-foreground border border-border';
+    return <span className={`px-1.5 py-0.5 rounded text-xs font-semibold ${cls}`}>{c}</span>;
+  };
 
+  const detectedCount = rows.filter(r => r.detectedType !== null).length;
   const selectedCount = rows.filter(r => r.selected).length;
+  const BLDG_OPTIONS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
@@ -346,6 +363,12 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                       <Sparkles size={10} />AI-analyzed
                     </span>
                   )}
+                  {detectedCount > 0 && (
+                    <span className="ml-2 inline-flex items-center gap-1 text-xs font-medium text-primary bg-accent px-2 py-0.5 rounded-full border border-border">
+                      <Tag size={10} />
+                      {detectedCount} type{detectedCount !== 1 ? 's' : ''} detected
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -357,6 +380,39 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                 </div>
               ) : (
                 <>
+                  {/* Building name banner */}
+                  {(() => {
+                    const noBldg = rows.every(r => !r.bldg.trim());
+                    const someMissingBldg = !noBldg && rows.some(r => !r.bldg.trim());
+                    const allHaveBldg = rows.every(r => r.bldg.trim());
+                    return (
+                      <div className={`flex items-center gap-2 p-3 rounded-lg border ${noBldg ? 'bg-amber-50 border-amber-300' : allHaveBldg ? 'bg-secondary border-border' : 'bg-secondary border-border'}`}>
+                        <div className="flex flex-col gap-0.5 flex-shrink-0">
+                          <span className={`text-xs font-semibold whitespace-nowrap ${noBldg ? 'text-amber-800' : 'text-foreground'}`}>
+                            {noBldg ? '⚠ Building not detected — enter name:' : someMissingBldg ? 'Building (apply to empty rows):' : '🏢 Building detected — apply to all:'}
+                          </span>
+                        </div>
+                        <input
+                          className="est-input text-xs flex-1 min-w-0"
+                          placeholder="e.g. Building A, Bldg 1, North Tower…"
+                          value={bulkBldg}
+                          onChange={e => setBulkBldg(e.target.value)}
+                          autoFocus={noBldg}
+                        />
+                        <button
+                          onClick={() => {
+                            if (!bulkBldg.trim()) return;
+                            setRows(r => r.map(x => ({ ...x, bldg: bulkBldg.trim(), bldgOverridden: true })));
+                          }}
+                          className="px-3 py-1 rounded text-xs font-medium text-white flex-shrink-0"
+                          style={{ background: noBldg ? 'hsl(32 95% 44%)' : 'hsl(var(--primary))' }}
+                        >
+                          Apply to All
+                        </button>
+                      </div>
+                    );
+                  })()}
+
                   <div className="flex items-center gap-3 flex-wrap">
                     <button onClick={() => toggleAll(true)} className="text-xs text-primary hover:underline">Select all</button>
                     <button onClick={() => toggleAll(false)} className="text-xs text-muted-foreground hover:underline">Deselect all</button>
@@ -369,7 +425,12 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                         <tr>
                           <th className="w-8"></th>
                           <th>Unit #</th>
-                          <th>Unit Type</th>
+                          <th>
+                            <span className="flex items-center gap-1">
+                              Unit Type
+                              <span className="text-[10px] font-normal text-muted-foreground">(from PDF / editable)</span>
+                            </span>
+                          </th>
                           <th>Floor</th>
                           <th>Building #</th>
                           <th>Page</th>
@@ -387,7 +448,16 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                               />
                             </td>
                             <td>
-                              <span className="font-mono font-bold">{row.unitNumber}</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono font-bold">{row.unitNumber}</span>
+                                {row.kitchenConfidence === 'maybe' && (
+                                  <span
+                                    className="px-1 py-0.5 rounded text-[10px] font-bold border flex-shrink-0"
+                                    style={{ background: 'hsl(48 96% 89%)', color: 'hsl(32 95% 44%)', borderColor: 'hsl(48 96% 75%)' }}
+                                    title="Uncertain — may or may not have kitchen/cabinet drawings"
+                                  >?</span>
+                                )}
+                              </div>
                             </td>
                             <td>
                               <input
