@@ -168,7 +168,7 @@ export default function Dashboard() {
         )}
       </main>
       <footer className="text-center py-3 text-xs text-muted-foreground border-t">
-        © {new Date().getFullYear()} CabinetTakeoff Pro. All rights reserved. | Developed by Poojan Khilosiya
+        © {new Date().getFullYear()} Poojan Khilosiya. All rights reserved.
       </footer>
     </div>
   );
