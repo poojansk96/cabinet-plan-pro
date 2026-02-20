@@ -474,10 +474,13 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                             </td>
                             <td>
                               <input
-                                className="est-input text-xs w-16"
-                                value={row.floor}
-                                placeholder="e.g. 1"
-                                onChange={e => setRowFloor(i, e.target.value)}
+                                className="est-input text-xs w-20"
+                                value={row.floor ? (/^\d+$/.test(row.floor) ? `Floor ${row.floor}` : row.floor) : ''}
+                                placeholder="e.g. Floor 1"
+                                onChange={e => {
+                                  const val = e.target.value.replace(/^Floor\s*/i, '').trim();
+                                  setRowFloor(i, val);
+                                }}
                               />
                             </td>
                             <td>
