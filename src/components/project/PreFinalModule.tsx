@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { FileUp, Users, LayoutGrid, Plus, Trash2, RotateCcw } from 'lucide-react';
 import type { Project, Unit, Cabinet } from '@/types/project';
 import ShopDrawingImportDialog, { type LabelRow } from './ShopDrawingImportDialog';
+import UnitTypeImportDialog from './UnitTypeImportDialog';
 import { usePrefinalStore } from '@/hooks/usePrefinalStore';
 
 interface Props {
@@ -19,41 +20,40 @@ interface Props {
 export default function PreFinalModule({ project, section = 'units' }: Props) {
   const store = usePrefinalStore(project.id);
 
-  // ── Cabinet import state ──────────────────────────────────────────────────
-  const [showImport, setShowImport] = useState(false);
-  const [importTargetType, setImportTargetType] = useState('');
-  const [importedCount, setImportedCount] = useState<number | null>(null);
-
-  // ── Unit import state ─────────────────────────────────────────────────────
+  // ── Unit Count state ──────────────────────────────────────────────────────
   const [showUnitImport, setShowUnitImport] = useState(false);
-  const [unitImportType, setUnitImportType] = useState('');
-  const [unitImportCount, setUnitImportCount] = useState(1);
   const [showAddUnit, setShowAddUnit] = useState(false);
   const [newUnitType, setNewUnitType] = useState('');
   const [newUnitCount, setNewUnitCount] = useState(1);
+  const [unitImportedCount, setUnitImportedCount] = useState<number | null>(null);
+
+  // ── Cabinet Count state ───────────────────────────────────────────────────
+  const [showCabinetImport, setShowCabinetImport] = useState(false);
+  const [importTargetType, setImportTargetType] = useState('');
+  const [cabinetImportedCount, setCabinetImportedCount] = useState<number | null>(null);
 
   const unitTypes = Array.from(new Set(project.units.map(u => u.type)));
 
-  // ── Cabinet import handler ─────────────────────────────────────────────────
+  // ── Unit import handler ───────────────────────────────────────────────────
+  const handleUnitImport = (rows: { unitType: string; count: number }[]) => {
+    rows.forEach(r => store.addManualUnitRow(r.unitType, r.count));
+    setUnitImportedCount(rows.length);
+    setShowUnitImport(false);
+    setTimeout(() => setUnitImportedCount(null), 4000);
+  };
+
+  // ── Cabinet import handler ────────────────────────────────────────────────
   const handleCabinetImport = (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[]) => {
     store.addCabinetImport(
       rows.map(r => ({ sku: r.sku, type: r.type, room: r.room, quantity: r.quantity, unitType: importTargetType || 'All' })),
       importTargetType || 'All'
     );
-    setImportedCount(rows.length);
-    setShowImport(false);
-    setTimeout(() => setImportedCount(null), 4000);
+    setCabinetImportedCount(rows.length);
+    setShowCabinetImport(false);
+    setTimeout(() => setCabinetImportedCount(null), 4000);
   };
 
-  // ── Unit import handler ────────────────────────────────────────────────────
-  const handleUnitShopDrawingImport = (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[]) => {
-    // Derive unit type from the imported rows' rooms or just use the selected target
-    const targetType = unitImportType || 'Unknown';
-    store.addUnitImport(targetType, unitImportCount);
-    setShowUnitImport(false);
-  };
-
-  // Cabinet pivot
+  // ── Cabinet pivot ─────────────────────────────────────────────────────────
   const allUnitTypes = Array.from(new Set(store.cabinetRows.map(r => r.unitType)));
   const allSkus = Array.from(new Set(store.cabinetRows.map(r => r.sku))).sort();
   const skuTypeQty: Record<string, Record<string, number>> = {};
@@ -65,19 +65,25 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
     Object.values(skuTypeQty[sku] || {}).reduce((s, n) => s + n, 0);
   const grandTotal = allSkus.reduce((s, sku) => s + skuGrandTotal(sku), 0);
 
-  // ── SECTION: Unit Count ───────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION: Pre-Final Unit Count
+  // ─────────────────────────────────────────────────────────────────────────
   if (section === 'units') {
     const totalUnits = store.unitRows.reduce((s, r) => s + r.count, 0);
 
     return (
       <div className="space-y-4">
-        {/* Unit import via shop drawing */}
         {showUnitImport && (
-          <ShopDrawingImportDialog
-            unitType={unitImportType || undefined}
-            onImport={handleUnitShopDrawingImport}
+          <UnitTypeImportDialog
+            onImport={handleUnitImport}
             onClose={() => setShowUnitImport(false)}
           />
+        )}
+
+        {unitImportedCount !== null && (
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-white" style={{ background: 'hsl(142 71% 45%)' }}>
+            ✓ Successfully imported {unitImportedCount} unit type{unitImportedCount !== 1 ? 's' : ''} from shop drawing
+          </div>
         )}
 
         <div className="est-card overflow-hidden">
@@ -85,27 +91,32 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
             <Users size={13} className="flex-shrink-0" />
             Pre-Final Unit Count
 
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex items-center gap-2 flex-wrap">
               {store.unitRows.length > 0 && (
                 <button
                   onClick={() => { if (confirm('Clear all unit count data?')) store.clearUnits(); }}
                   className="flex items-center gap-1 px-2 py-1 rounded text-xs text-muted-foreground hover:text-destructive border border-border hover:border-destructive transition-colors"
-                  title="Clear all unit data"
                 >
                   <RotateCcw size={11} /> Clear
                 </button>
               )}
               <button
-                onClick={() => setShowAddUnit(true)}
+                onClick={() => setShowAddUnit(v => !v)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-border text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Plus size={12} /> Add Manually
+              </button>
+              <button
+                onClick={() => setShowUnitImport(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border transition-colors"
                 style={{ borderColor: 'hsl(var(--primary))', color: 'hsl(var(--primary))' }}
               >
-                <Plus size={12} /> Add Unit Type
+                <FileUp size={12} /> Import Shop Drawing PDF
               </button>
             </div>
           </div>
 
-          {/* Add unit type form */}
+          {/* Manual add row */}
           {showAddUnit && (
             <div className="px-4 py-3 border-b border-border bg-accent/30 flex items-center gap-3 flex-wrap">
               <input
@@ -113,6 +124,13 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                 placeholder="Unit type (e.g. 2BHK)"
                 value={newUnitType}
                 onChange={e => setNewUnitType(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && newUnitType.trim()) {
+                    store.addManualUnitRow(newUnitType.trim(), newUnitCount);
+                    setNewUnitType(''); setNewUnitCount(1); setShowAddUnit(false);
+                  }
+                }}
+                autoFocus
               />
               <input
                 type="number"
@@ -126,19 +144,14 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                 onClick={() => {
                   if (!newUnitType.trim()) return;
                   store.addManualUnitRow(newUnitType.trim(), newUnitCount);
-                  setNewUnitType('');
-                  setNewUnitCount(1);
-                  setShowAddUnit(false);
+                  setNewUnitType(''); setNewUnitCount(1); setShowAddUnit(false);
                 }}
-                className="px-3 py-1 rounded text-xs font-semibold text-white transition-colors"
+                className="px-3 py-1 rounded text-xs font-semibold text-white"
                 style={{ background: 'hsl(var(--primary))' }}
               >
                 Add
               </button>
-              <button
-                onClick={() => setShowAddUnit(false)}
-                className="text-xs text-muted-foreground hover:text-foreground"
-              >
+              <button onClick={() => setShowAddUnit(false)} className="text-xs text-muted-foreground hover:text-foreground">
                 Cancel
               </button>
             </div>
@@ -146,7 +159,7 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
 
           {store.unitRows.length === 0 ? (
             <div className="text-center py-10 text-muted-foreground text-sm">
-              No data yet — add unit types manually or import a shop drawing.
+              No data yet — import a 2020 shop drawing PDF or add unit types manually.
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -199,20 +212,22 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
     );
   }
 
-  // ── SECTION: Cabinet Count ────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION: Pre-Final Cabinet Count
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
-      {showImport && (
+      {showCabinetImport && (
         <ShopDrawingImportDialog
           unitType={importTargetType || undefined}
           onImport={handleCabinetImport}
-          onClose={() => setShowImport(false)}
+          onClose={() => setShowCabinetImport(false)}
         />
       )}
 
-      {importedCount !== null && (
+      {cabinetImportedCount !== null && (
         <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-white" style={{ background: 'hsl(142 71% 45%)' }}>
-          ✓ Successfully imported {importedCount} label{importedCount !== 1 ? 's' : ''} from shop drawing
+          ✓ Successfully imported {cabinetImportedCount} label{cabinetImportedCount !== 1 ? 's' : ''} from shop drawing
           {importTargetType && <span className="opacity-80 ml-1">for "{importTargetType}"</span>}
         </div>
       )}
@@ -227,7 +242,6 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
               <button
                 onClick={() => { if (confirm('Clear all cabinet import data?')) store.clearCabinets(); }}
                 className="flex items-center gap-1 px-2 py-1 rounded text-xs text-muted-foreground hover:text-destructive border border-border hover:border-destructive transition-colors"
-                title="Clear all cabinet data"
               >
                 <RotateCcw size={11} /> Clear
               </button>
@@ -242,12 +256,11 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
               {unitTypes.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
             <button
-              onClick={() => setShowImport(true)}
+              onClick={() => setShowCabinetImport(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border transition-colors"
               style={{ borderColor: 'hsl(var(--primary))', color: 'hsl(var(--primary))' }}
             >
-              <FileUp size={12} />
-              Import Shop Drawing PDF
+              <FileUp size={12} /> Import Shop Drawing PDF
             </button>
           </div>
         </div>
