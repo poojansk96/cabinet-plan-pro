@@ -125,6 +125,9 @@ export default function ProjectDetail() {
           <SummaryPanel project={project} onTabChange={(tab) => setActiveTab(tab as Tab)} />
         </aside>
       </div>
+      <footer className="text-center py-2 text-xs text-muted-foreground border-t bg-card flex-shrink-0">
+        © {new Date().getFullYear()} CabinetTakeoff Pro. All rights reserved.
+      </footer>
     </div>
   );
 }
