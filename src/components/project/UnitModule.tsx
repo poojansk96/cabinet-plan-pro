@@ -283,7 +283,7 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
                     </td>
                     <td className="font-semibold">{unit.unitNumber}</td>
                     <td>{unit.bldg || '—'}</td>
-                    <td>{unit.floor || '—'}</td>
+                    <td>{unit.floor ? (/^\d+$/.test(unit.floor) ? `Floor ${unit.floor}` : unit.floor) : '—'}</td>
                     <td>{unit.type}</td>
                     <td className="text-muted-foreground text-xs">{unit.notes || '—'}</td>
                     <td>
