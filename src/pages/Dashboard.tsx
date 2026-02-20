@@ -167,8 +167,8 @@ export default function Dashboard() {
           </>
         )}
       </main>
-      <footer className="text-center py-3 text-xs text-muted-foreground border-t">
-        © {new Date().getFullYear()} Poojan Khilosiya. All rights reserved.
+      <footer className="text-center py-3 border-t">
+        <span style={{ fontSize: '10px' }} className="text-muted-foreground">© {new Date().getFullYear()} Poojan Khilosiya. All rights reserved.</span>
       </footer>
     </div>
   );
