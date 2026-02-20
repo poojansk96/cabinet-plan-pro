@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { FileUp, Users, LayoutGrid } from 'lucide-react';
-import type { Project, Unit, Cabinet, CabinetType, Room } from '@/types/project';
+import { FileUp, Users, LayoutGrid, Plus, Trash2, RotateCcw } from 'lucide-react';
+import type { Project, Unit, Cabinet } from '@/types/project';
 import ShopDrawingImportDialog, { type LabelRow } from './ShopDrawingImportDialog';
+import { usePrefinalStore } from '@/hooks/usePrefinalStore';
 
 interface Props {
   project: Project;
@@ -15,120 +16,196 @@ interface Props {
   [key: string]: unknown;
 }
 
-export default function PreFinalModule({ project, addCabinet, section = 'units' }: Props) {
+export default function PreFinalModule({ project, section = 'units' }: Props) {
+  const store = usePrefinalStore(project.id);
+
+  // ── Cabinet import state ──────────────────────────────────────────────────
   const [showImport, setShowImport] = useState(false);
   const [importTargetType, setImportTargetType] = useState('');
   const [importedCount, setImportedCount] = useState<number | null>(null);
 
+  // ── Unit import state ─────────────────────────────────────────────────────
+  const [showUnitImport, setShowUnitImport] = useState(false);
+  const [unitImportType, setUnitImportType] = useState('');
+  const [unitImportCount, setUnitImportCount] = useState(1);
+  const [showAddUnit, setShowAddUnit] = useState(false);
+  const [newUnitType, setNewUnitType] = useState('');
+  const [newUnitCount, setNewUnitCount] = useState(1);
+
   const unitTypes = Array.from(new Set(project.units.map(u => u.type)));
 
-  const handleImport = (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[]) => {
-    const targetUnits = importTargetType
-      ? project.units.filter(u => u.type === importTargetType)
-      : project.units;
-
-    targetUnits.forEach(unit => {
-      rows.forEach(row => {
-        const cabinetType: CabinetType =
-          (['Base', 'Wall', 'Tall', 'Vanity'] as string[]).includes(row.type)
-            ? (row.type as CabinetType)
-            : 'Base';
-        addCabinet(project.id, unit.id, {
-          room: (['Kitchen', 'Pantry', 'Laundry', 'Bath', 'Other'] as string[]).includes(row.room)
-            ? (row.room as Room)
-            : 'Other',
-          type: cabinetType,
-          sku: row.sku,
-          width: 0,
-          height: 0,
-          depth: 0,
-          quantity: row.quantity,
-          notes: row.type === 'Accessory' ? 'Accessory' : '',
-        });
-      });
-    });
-
+  // ── Cabinet import handler ─────────────────────────────────────────────────
+  const handleCabinetImport = (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[]) => {
+    store.addCabinetImport(
+      rows.map(r => ({ sku: r.sku, type: r.type, room: r.room, quantity: r.quantity, unitType: importTargetType || 'All' })),
+      importTargetType || 'All'
+    );
     setImportedCount(rows.length);
     setShowImport(false);
     setTimeout(() => setImportedCount(null), 4000);
   };
 
-  // ── Unit count data ────────────────────────────────────────────────────────
-  const unitTypeCounts: Record<string, number> = {};
-  project.units.forEach(u => {
-    unitTypeCounts[u.type] = (unitTypeCounts[u.type] || 0) + 1;
-  });
-  const totalUnits = project.units.length;
+  // ── Unit import handler ────────────────────────────────────────────────────
+  const handleUnitShopDrawingImport = (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[]) => {
+    // Derive unit type from the imported rows' rooms or just use the selected target
+    const targetType = unitImportType || 'Unknown';
+    store.addUnitImport(targetType, unitImportCount);
+    setShowUnitImport(false);
+  };
 
-  // ── Cabinet pivot data ─────────────────────────────────────────────────────
-  const unitTypeKeys = Array.from(new Set(project.units.map(u => u.type)));
-  const allSkus = Array.from(new Set(project.units.flatMap(u => u.cabinets.map(c => c.sku)))).sort();
+  // Cabinet pivot
+  const allUnitTypes = Array.from(new Set(store.cabinetRows.map(r => r.unitType)));
+  const allSkus = Array.from(new Set(store.cabinetRows.map(r => r.sku))).sort();
   const skuTypeQty: Record<string, Record<string, number>> = {};
-  project.units.forEach(u => {
-    u.cabinets.forEach(c => {
-      if (!skuTypeQty[c.sku]) skuTypeQty[c.sku] = {};
-      skuTypeQty[c.sku][u.type] = (skuTypeQty[c.sku][u.type] || 0) + c.quantity;
-    });
+  store.cabinetRows.forEach(r => {
+    if (!skuTypeQty[r.sku]) skuTypeQty[r.sku] = {};
+    skuTypeQty[r.sku][r.unitType] = (skuTypeQty[r.sku][r.unitType] || 0) + r.quantity;
   });
   const skuGrandTotal = (sku: string) =>
     Object.values(skuTypeQty[sku] || {}).reduce((s, n) => s + n, 0);
+  const grandTotal = allSkus.reduce((s, sku) => s + skuGrandTotal(sku), 0);
 
-  if (project.units.length === 0) {
-    return (
-      <div className="text-center py-12 text-muted-foreground text-sm">
-        Add units first, then use the Pre-Final tabs.
-      </div>
-    );
-  }
-
-  // ── Section: Unit Count ────────────────────────────────────────────────────
+  // ── SECTION: Unit Count ───────────────────────────────────────────────────
   if (section === 'units') {
+    const totalUnits = store.unitRows.reduce((s, r) => s + r.count, 0);
+
     return (
-      <div className="est-card overflow-hidden">
-        <div className="est-section-header flex items-center gap-2">
-          <Users size={13} className="flex-shrink-0" />
-          Pre-Final Unit Count
-        </div>
-        <div className="overflow-x-auto">
-          <table className="est-table w-full">
-            <thead>
-              <tr>
-                <th className="text-left">Unit Type</th>
-                <th className="text-right">Count</th>
-                <th className="text-right w-20">% of Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.entries(unitTypeCounts).map(([type, count]) => (
-                <tr key={type}>
-                  <td className="font-medium">{type}</td>
-                  <td className="text-right font-mono">{count}</td>
-                  <td className="text-right text-muted-foreground text-xs">
-                    {totalUnits > 0 ? ((count / totalUnits) * 100).toFixed(1) : 0}%
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="font-bold border-t border-border">
-                <td>Total</td>
-                <td className="text-right font-mono">{totalUnits}</td>
-                <td className="text-right text-muted-foreground text-xs">100%</td>
-              </tr>
-            </tfoot>
-          </table>
+      <div className="space-y-4">
+        {/* Unit import via shop drawing */}
+        {showUnitImport && (
+          <ShopDrawingImportDialog
+            unitType={unitImportType || undefined}
+            onImport={handleUnitShopDrawingImport}
+            onClose={() => setShowUnitImport(false)}
+          />
+        )}
+
+        <div className="est-card overflow-hidden">
+          <div className="est-section-header flex items-center gap-2 flex-wrap">
+            <Users size={13} className="flex-shrink-0" />
+            Pre-Final Unit Count
+
+            <div className="ml-auto flex items-center gap-2">
+              {store.unitRows.length > 0 && (
+                <button
+                  onClick={() => { if (confirm('Clear all unit count data?')) store.clearUnits(); }}
+                  className="flex items-center gap-1 px-2 py-1 rounded text-xs text-muted-foreground hover:text-destructive border border-border hover:border-destructive transition-colors"
+                  title="Clear all unit data"
+                >
+                  <RotateCcw size={11} /> Clear
+                </button>
+              )}
+              <button
+                onClick={() => setShowAddUnit(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border transition-colors"
+                style={{ borderColor: 'hsl(var(--primary))', color: 'hsl(var(--primary))' }}
+              >
+                <Plus size={12} /> Add Unit Type
+              </button>
+            </div>
+          </div>
+
+          {/* Add unit type form */}
+          {showAddUnit && (
+            <div className="px-4 py-3 border-b border-border bg-accent/30 flex items-center gap-3 flex-wrap">
+              <input
+                className="est-input text-xs h-7 w-36"
+                placeholder="Unit type (e.g. 2BHK)"
+                value={newUnitType}
+                onChange={e => setNewUnitType(e.target.value)}
+              />
+              <input
+                type="number"
+                className="est-input text-xs h-7 w-20"
+                placeholder="Count"
+                min={1}
+                value={newUnitCount}
+                onChange={e => setNewUnitCount(Math.max(1, +e.target.value))}
+              />
+              <button
+                onClick={() => {
+                  if (!newUnitType.trim()) return;
+                  store.addManualUnitRow(newUnitType.trim(), newUnitCount);
+                  setNewUnitType('');
+                  setNewUnitCount(1);
+                  setShowAddUnit(false);
+                }}
+                className="px-3 py-1 rounded text-xs font-semibold text-white transition-colors"
+                style={{ background: 'hsl(var(--primary))' }}
+              >
+                Add
+              </button>
+              <button
+                onClick={() => setShowAddUnit(false)}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
+          {store.unitRows.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground text-sm">
+              No data yet — add unit types manually or import a shop drawing.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="est-table w-full">
+                <thead>
+                  <tr>
+                    <th className="text-left">Unit Type</th>
+                    <th className="text-right">Count</th>
+                    <th className="text-right w-20">% of Total</th>
+                    <th className="w-8"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {store.unitRows.map(row => (
+                    <tr key={row.unitType}>
+                      <td className="font-medium">{row.unitType}</td>
+                      <td className="text-right">
+                        <input
+                          type="number"
+                          className="est-input text-xs w-16 text-right ml-auto"
+                          min={1}
+                          value={row.count}
+                          onChange={e => store.updateUnitRow(row.unitType, Math.max(1, +e.target.value))}
+                        />
+                      </td>
+                      <td className="text-right text-muted-foreground text-xs">
+                        {totalUnits > 0 ? ((row.count / totalUnits) * 100).toFixed(1) : 0}%
+                      </td>
+                      <td>
+                        <button onClick={() => store.deleteUnitRow(row.unitType)} className="text-muted-foreground hover:text-destructive transition-colors">
+                          <Trash2 size={13} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="font-bold border-t border-border">
+                    <td>Total</td>
+                    <td className="text-right font-mono">{totalUnits}</td>
+                    <td className="text-right text-muted-foreground text-xs">100%</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     );
   }
 
-  // ── Section: Cabinet Count ─────────────────────────────────────────────────
+  // ── SECTION: Cabinet Count ────────────────────────────────────────────────
   return (
     <div className="space-y-4">
       {showImport && (
         <ShopDrawingImportDialog
           unitType={importTargetType || undefined}
-          onImport={handleImport}
+          onImport={handleCabinetImport}
           onClose={() => setShowImport(false)}
         />
       )}
@@ -136,7 +213,7 @@ export default function PreFinalModule({ project, addCabinet, section = 'units' 
       {importedCount !== null && (
         <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-white" style={{ background: 'hsl(142 71% 45%)' }}>
           ✓ Successfully imported {importedCount} label{importedCount !== 1 ? 's' : ''} from shop drawing
-          {importTargetType && <span className="opacity-80 ml-1">into "{importTargetType}" units</span>}
+          {importTargetType && <span className="opacity-80 ml-1">for "{importTargetType}"</span>}
         </div>
       )}
 
@@ -144,18 +221,26 @@ export default function PreFinalModule({ project, addCabinet, section = 'units' 
         <div className="est-section-header flex items-center gap-2 flex-wrap">
           <LayoutGrid size={13} className="flex-shrink-0" />
           Pre-Final Cabinet Count
+
           <div className="ml-auto flex items-center gap-2 flex-wrap">
-            {unitTypes.length > 0 && (
-              <select
-                className="est-input text-xs h-7 pr-6"
-                value={importTargetType}
-                onChange={e => setImportTargetType(e.target.value)}
-                title="Apply import to units of this type"
+            {store.cabinetRows.length > 0 && (
+              <button
+                onClick={() => { if (confirm('Clear all cabinet import data?')) store.clearCabinets(); }}
+                className="flex items-center gap-1 px-2 py-1 rounded text-xs text-muted-foreground hover:text-destructive border border-border hover:border-destructive transition-colors"
+                title="Clear all cabinet data"
               >
-                <option value="">All unit types</option>
-                {unitTypes.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
+                <RotateCcw size={11} /> Clear
+              </button>
             )}
+            <select
+              className="est-input text-xs h-7 pr-6"
+              value={importTargetType}
+              onChange={e => setImportTargetType(e.target.value)}
+              title="Unit type this drawing belongs to"
+            >
+              <option value="">Select unit type…</option>
+              {unitTypes.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
             <button
               onClick={() => setShowImport(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border transition-colors"
@@ -177,7 +262,7 @@ export default function PreFinalModule({ project, addCabinet, section = 'units' 
               <thead>
                 <tr style={{ height: '120px', verticalAlign: 'bottom' }}>
                   <th className="text-left" style={{ verticalAlign: 'bottom' }}>SKU / Label</th>
-                  {unitTypeKeys.map(type => (
+                  {allUnitTypes.map(type => (
                     <th key={type} style={{ verticalAlign: 'bottom', padding: '4px 6px' }}>
                       <div style={{
                         writingMode: 'vertical-rl',
@@ -200,7 +285,7 @@ export default function PreFinalModule({ project, addCabinet, section = 'units' 
                 {allSkus.map(sku => (
                   <tr key={sku}>
                     <td className="font-mono font-medium">{sku}</td>
-                    {unitTypeKeys.map(type => (
+                    {allUnitTypes.map(type => (
                       <td key={type} className="text-center font-mono">
                         {skuTypeQty[sku]?.[type] ?? ''}
                       </td>
@@ -212,13 +297,11 @@ export default function PreFinalModule({ project, addCabinet, section = 'units' 
               <tfoot>
                 <tr className="font-bold border-t border-border">
                   <td>Total</td>
-                  {unitTypeKeys.map(type => {
+                  {allUnitTypes.map(type => {
                     const colTotal = allSkus.reduce((s, sku) => s + (skuTypeQty[sku]?.[type] || 0), 0);
                     return <td key={type} className="text-center font-mono">{colTotal || ''}</td>;
                   })}
-                  <td className="text-right font-mono">
-                    {allSkus.reduce((s, sku) => s + skuGrandTotal(sku), 0)}
-                  </td>
+                  <td className="text-right font-mono">{grandTotal}</td>
                 </tr>
               </tfoot>
             </table>
