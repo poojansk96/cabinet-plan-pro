@@ -27,13 +27,20 @@ const ROOMS: Room[] = ['Kitchen', 'Pantry', 'Laundry', 'Bath', 'Other'];
 const ALL_TYPES = [...CABINET_TYPES, 'Accessory'];
 
 async function renderPageToBase64(page: any): Promise<string> {
-  const viewport = page.getViewport({ scale: 1.5 });
+  // Use a high base scale so large-format sheets (D/E size) render with enough
+  // resolution for the AI to read small cabinet labels accurately.
+  // Then cap the canvas at 4096px on the long side to avoid memory issues.
+  const MAX_PX = 4096;
+  const baseViewport = page.getViewport({ scale: 1 });
+  const longSide = Math.max(baseViewport.width, baseViewport.height);
+  const scale = Math.min(4, MAX_PX / longSide); // up to 4× but capped at 4096px
+  const viewport = page.getViewport({ scale });
   const canvas = document.createElement('canvas');
   canvas.width = viewport.width;
   canvas.height = viewport.height;
   const ctx = canvas.getContext('2d')!;
   await page.render({ canvasContext: ctx, viewport }).promise;
-  return canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
+  return canvas.toDataURL('image/jpeg', 0.95).split(',')[1];
 }
 
 export default function ShopDrawingImportDialog({ unitType, onImport, onClose }: Props) {
