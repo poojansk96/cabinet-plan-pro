@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Plus, Trash2, Copy, Users, FileUp, Eraser } from 'lucide-react';
 import type { Project, Unit, UnitType } from '@/types/project';
 import PDFImportDialog from './PDFImportDialog';
@@ -18,7 +18,10 @@ interface Props {
   duplicateUnit: (projectId: string, unitId: string) => void;
 }
 
-export default function UnitModule({ project, selectedUnitId, setSelectedUnitId, addUnit, deleteUnit, clearUnits, duplicateUnit }: Props) {
+export default function UnitModule({ project, selectedUnitId, setSelectedUnitId, addUnit, updateUnit, deleteUnit, clearUnits, duplicateUnit }: Props) {
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [noteValue, setNoteValue] = useState('');
+  const noteInputRef = useRef<HTMLInputElement>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(blankForm());
   const [showPDFImport, setShowPDFImport] = useState(false);
@@ -285,7 +288,36 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
                     <td>{unit.bldg || '—'}</td>
                     <td>{unit.floor ? (/^\d+$/.test(unit.floor) ? `Floor ${unit.floor}` : unit.floor) : '—'}</td>
                     <td>{unit.type}</td>
-                    <td className="text-muted-foreground text-xs">{unit.notes || '—'}</td>
+                    <td className="text-muted-foreground text-xs" onClick={e => e.stopPropagation()}>
+                      {editingNoteId === unit.id ? (
+                        <input
+                          ref={noteInputRef}
+                          className="est-input text-xs w-full"
+                          value={noteValue}
+                          placeholder="Add a note…"
+                          onChange={e => setNoteValue(e.target.value)}
+                          onBlur={() => {
+                            updateUnit(project.id, unit.id, { notes: noteValue });
+                            setEditingNoteId(null);
+                          }}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' || e.key === 'Escape') {
+                              updateUnit(project.id, unit.id, { notes: noteValue });
+                              setEditingNoteId(null);
+                            }
+                          }}
+                          autoFocus
+                        />
+                      ) : (
+                        <span
+                          className="cursor-text hover:text-foreground transition-colors"
+                          title="Click to edit note"
+                          onClick={() => { setEditingNoteId(unit.id); setNoteValue(unit.notes || ''); }}
+                        >
+                          {unit.notes || <span className="opacity-40 italic">Add note…</span>}
+                        </span>
+                      )}
+                    </td>
                     <td>
                       <div className="flex items-center gap-1 justify-end">
                         <button
