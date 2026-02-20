@@ -165,12 +165,25 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
             <div className="overflow-x-auto">
               <table className="est-table w-full">
                 <thead>
-                  <tr>
-                    <th className="text-left w-16">Unit #</th>
-                    <th className="text-left">Unit Type</th>
-                    <th className="text-right">Count</th>
-                    <th className="text-right w-20">% of Total</th>
-                    <th className="w-8"></th>
+                  <tr style={{ height: '100px', verticalAlign: 'bottom' }}>
+                    <th className="text-left w-16" style={{ verticalAlign: 'bottom' }}>Unit #</th>
+                    <th style={{ verticalAlign: 'bottom', padding: '4px 6px' }}>
+                      <div style={{
+                        writingMode: 'vertical-rl',
+                        transform: 'rotate(180deg)',
+                        whiteSpace: 'nowrap',
+                        fontWeight: 600,
+                        fontSize: '11px',
+                        height: '90px',
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}>
+                        Unit Type
+                      </div>
+                    </th>
+                    <th className="text-right" style={{ verticalAlign: 'bottom' }}>Count</th>
+                    <th className="text-right w-20" style={{ verticalAlign: 'bottom' }}>% of Total</th>
+                    <th className="w-8" style={{ verticalAlign: 'bottom' }}></th>
                   </tr>
                 </thead>
                 <tbody>
