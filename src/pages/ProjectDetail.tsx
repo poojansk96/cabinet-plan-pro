@@ -100,7 +100,7 @@ export default function ProjectDetail() {
           {TABS.map((tab, i) => (
             <>
               {tab.key === 'prefinal' && (
-                <div key="sep" className="w-px my-1 mx-2 bg-border flex-shrink-0" />
+                <div key="sep" className="w-px my-1 mx-6 bg-border flex-shrink-0" />
               )}
               <button
                 key={tab.key}
