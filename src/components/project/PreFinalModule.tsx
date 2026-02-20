@@ -33,7 +33,7 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
   const [importTargetType, setImportTargetType] = useState('');
   const [cabinetImportedCount, setCabinetImportedCount] = useState<number | null>(null);
 
-  const unitTypes = Array.from(new Set(project.units.map(u => u.type)));
+  
 
   // ── Unit import handler ───────────────────────────────────────────────────
   const handleUnitImport = (rows: { unitNumber: string; unitType: string }[]) => {
@@ -58,17 +58,15 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
     setTimeout(() => setCabinetImportedCount(null), 4000);
   };
 
-  // ── Cabinet pivot ─────────────────────────────────────────────────────────
-  const allCabUnitTypes = Array.from(new Set(store.cabinetRows.map(r => r.unitType)));
+  // ── Cabinet pivot (use unit types from the unit count section) ──────────
+  const cabUnitTypes = store.unitTypes; // horizontal columns from prefinal unit count
   const allSkus = Array.from(new Set(store.cabinetRows.map(r => r.sku))).sort();
-  const skuTypeQty: Record<string, Record<string, number>> = {};
+  // Build SKU → unitType → boolean mapping (1 = connected)
+  const skuTypeMap: Record<string, Set<string>> = {};
   store.cabinetRows.forEach(r => {
-    if (!skuTypeQty[r.sku]) skuTypeQty[r.sku] = {};
-    skuTypeQty[r.sku][r.unitType] = (skuTypeQty[r.sku][r.unitType] || 0) + r.quantity;
+    if (!skuTypeMap[r.sku]) skuTypeMap[r.sku] = new Set();
+    skuTypeMap[r.sku].add(r.unitType);
   });
-  const skuGrandTotal = (sku: string) =>
-    Object.values(skuTypeQty[sku] || {}).reduce((s, n) => s + n, 0);
-  const grandTotal = allSkus.reduce((s, sku) => s + skuGrandTotal(sku), 0);
 
   // ── Unit type totals (count of "1"s per column) ───────────────────────────
   const unitTypeTotal = (type: string) =>
@@ -333,7 +331,7 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
               title="Unit type this drawing belongs to"
             >
               <option value="">Select unit type…</option>
-              {unitTypes.map(t => <option key={t} value={t}>{t}</option>)}
+              {store.unitTypes.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
             <button
               onClick={() => setShowCabinetImport(true)}
@@ -354,8 +352,8 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
             <table className="est-table" style={{ whiteSpace: 'nowrap' }}>
               <thead>
                 <tr style={{ height: '120px', verticalAlign: 'bottom' }}>
-                  <th className="text-left" style={{ verticalAlign: 'bottom' }}>SKU / Label</th>
-                  {allCabUnitTypes.map(type => (
+                  <th className="text-left" style={{ verticalAlign: 'bottom' }}>SKU Name</th>
+                  {cabUnitTypes.map(type => (
                     <th key={type} style={{ verticalAlign: 'bottom', padding: '4px 6px' }}>
                       <div style={{
                         writingMode: 'vertical-rl',
@@ -371,30 +369,29 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                       </div>
                     </th>
                   ))}
-                  <th className="text-right" style={{ verticalAlign: 'bottom', paddingBottom: '6px' }}>Total</th>
                 </tr>
               </thead>
               <tbody>
                 {allSkus.map(sku => (
                   <tr key={sku}>
                     <td className="font-mono font-medium">{sku}</td>
-                    {allCabUnitTypes.map(type => (
-                      <td key={type} className="text-center font-mono">
-                        {skuTypeQty[sku]?.[type] ?? ''}
+                    {cabUnitTypes.map(type => (
+                      <td key={type} className="text-center">
+                        {skuTypeMap[sku]?.has(type) ? (
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-primary text-primary-foreground text-xs font-bold">1</span>
+                        ) : ''}
                       </td>
                     ))}
-                    <td className="text-right font-mono font-semibold">{skuGrandTotal(sku)}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr className="font-bold border-t border-border">
                   <td>Total</td>
-                  {allCabUnitTypes.map(type => {
-                    const colTotal = allSkus.reduce((s, sku) => s + (skuTypeQty[sku]?.[type] || 0), 0);
+                  {cabUnitTypes.map(type => {
+                    const colTotal = allSkus.filter(sku => skuTypeMap[sku]?.has(type)).length;
                     return <td key={type} className="text-center font-mono">{colTotal || ''}</td>;
                   })}
-                  <td className="text-right font-mono">{grandTotal}</td>
                 </tr>
               </tfoot>
             </table>
