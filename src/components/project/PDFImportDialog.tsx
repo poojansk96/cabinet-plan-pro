@@ -418,39 +418,6 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                 </div>
               ) : (
                 <>
-                  {/* Building name banner */}
-                  {(() => {
-                    const noBldg = rows.every(r => !r.bldg.trim());
-                    const someMissingBldg = !noBldg && rows.some(r => !r.bldg.trim());
-                    const allHaveBldg = rows.every(r => r.bldg.trim());
-                    return (
-                      <div className={`flex items-center gap-2 p-3 rounded-lg border ${noBldg ? 'bg-amber-50 border-amber-300' : allHaveBldg ? 'bg-secondary border-border' : 'bg-secondary border-border'}`}>
-                        <div className="flex flex-col gap-0.5 flex-shrink-0">
-                          <span className={`text-xs font-semibold whitespace-nowrap ${noBldg ? 'text-amber-800' : 'text-foreground'}`}>
-                            {noBldg ? '⚠ Building not detected — enter name:' : someMissingBldg ? 'Building (apply to empty rows):' : '🏢 Building detected — apply to all:'}
-                          </span>
-                        </div>
-                        <input
-                          className="est-input text-xs flex-1 min-w-0"
-                          placeholder="e.g. Building A, Bldg 1, North Tower…"
-                          value={bulkBldg}
-                          onChange={e => setBulkBldg(e.target.value)}
-                          autoFocus={noBldg}
-                        />
-                        <button
-                          onClick={() => {
-                            if (!bulkBldg.trim()) return;
-                            setRows(r => r.map(x => ({ ...x, bldg: bulkBldg.trim(), bldgOverridden: true })));
-                          }}
-                          className="px-3 py-1 rounded text-xs font-medium text-white flex-shrink-0"
-                          style={{ background: noBldg ? 'hsl(32 95% 44%)' : 'hsl(var(--primary))' }}
-                        >
-                          Apply to All
-                        </button>
-                      </div>
-                    );
-                  })()}
-
                   <div className="flex items-center gap-3 flex-wrap">
                     <button onClick={() => toggleAll(true)} className="text-xs text-primary hover:underline">Select all</button>
                     <button onClick={() => toggleAll(false)} className="text-xs text-muted-foreground hover:underline">Deselect all</button>
