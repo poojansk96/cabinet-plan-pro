@@ -2,3 +2,7 @@ project_id = "qixukpmsxsynvzugnkxv"
 
 [functions.extract-pdf-units]
 verify_jwt = false
+
+[functions.extract-pdf-labels]
+verify_jwt = false
+

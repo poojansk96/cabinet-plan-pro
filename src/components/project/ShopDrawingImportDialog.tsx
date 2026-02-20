@@ -70,11 +70,38 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
 
       onStatus(`AI reading labels on "${file.name}" page ${p}/${pdf.numPages}…`);
 
-      const aiResponse = await fetch(EDGE_FUNCTION_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pageImage, unitType }),
-      });
+      // Retry helper: try up to 2 times with a 5-minute timeout each attempt
+      const fetchWithRetry = async (body: string, attempts = 2): Promise<Response> => {
+        for (let attempt = 1; attempt <= attempts; attempt++) {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 min
+          try {
+            onStatus(`AI reading labels on "${file.name}" page ${p}/${pdf.numPages}${attempt > 1 ? ` (retry ${attempt - 1})` : ''}…`);
+            const res = await fetch(EDGE_FUNCTION_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body,
+              signal: controller.signal,
+            });
+            clearTimeout(timeoutId);
+            return res;
+          } catch (err: any) {
+            clearTimeout(timeoutId);
+            if (attempt === attempts) throw err;
+            console.warn(`Page ${p} attempt ${attempt} failed (${err.message}), retrying…`);
+            await new Promise(r => setTimeout(r, 2000)); // wait 2s before retry
+          }
+        }
+        throw new Error('All attempts failed');
+      };
+
+      let aiResponse: Response;
+      try {
+        aiResponse = await fetchWithRetry(JSON.stringify({ pageImage, unitType }));
+      } catch (err: any) {
+        console.warn(`Page ${p} of "${file.name}" timed out after retries, skipping`);
+        continue;
+      }
 
       if (!aiResponse.ok) {
         const status = aiResponse.status;
