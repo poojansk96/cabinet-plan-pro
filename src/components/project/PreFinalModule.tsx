@@ -190,6 +190,7 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                   {store.unitRows.map((row, i) => (
                     <tr key={row.unitType}>
                       <td className="text-xs text-muted-foreground">{i + 1}</td>
+                      <td className="font-medium">{row.unitType}</td>
                       <td className="text-right">
                         <input
                           type="number"
