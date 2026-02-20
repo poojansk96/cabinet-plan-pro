@@ -36,8 +36,12 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
   const unitTypes = Array.from(new Set(project.units.map(u => u.type)));
 
   // ── Unit import handler ───────────────────────────────────────────────────
-  const handleUnitImport = (rows: { unitType: string; count: number }[]) => {
-    store.addUnitTypes(rows.map(r => r.unitType));
+  const handleUnitImport = (rows: { unitNumber: string; unitType: string }[]) => {
+    // Extract unique types
+    const types = Array.from(new Set(rows.map(r => r.unitType)));
+    store.addUnitTypes(types);
+    // Add unit numbers with their assignments
+    store.importUnitMappings(rows);
     setUnitImportedCount(rows.length);
     setShowUnitImport(false);
     setTimeout(() => setUnitImportedCount(null), 4000);

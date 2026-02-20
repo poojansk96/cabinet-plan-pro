@@ -26,26 +26,27 @@ serve(async (req) => {
 
     const prompt = `You are an expert at reading 2020 Design shop drawings and residential/commercial architectural drawings.
 
-TASK: Extract all UNIT TYPE labels and their counts from this page.
+TASK: Extract all UNIT NUMBERS and their associated UNIT TYPE from this page.
 
 Look for:
-1. Unit type schedules or legend tables listing unit types with counts (most reliable source)
-2. Floor plan labels identifying unit types — e.g. "TYPE A", "UNIT TYPE 1", "2BHK", "1BHK", "Studio", "Townhouse", "Penthouse", "Suite A", "Plan B", etc.
-3. Elevation title blocks — e.g. "KITCHEN – TYPE A" or "BATH – 2BHK" → unit type is "TYPE A" or "2BHK"
-4. Repeated labels across multiple unit outlines on the same page — each distinct label = one unit type
-5. Title block text identifying the unit type for the whole sheet
+1. Unit schedules or legend tables listing unit numbers with their types (most reliable source)
+2. Floor plan labels showing unit numbers (e.g. "101", "102", "201", "Unit 305") next to or inside unit outlines, with a unit type label nearby (e.g. "TYPE A", "A1-As", "2BHK", "Studio")
+3. Title block text identifying which unit type this sheet belongs to — e.g. "KITCHEN – TYPE A" or "Unit 101 – Type A1-As"
+4. Tables or schedules mapping unit numbers to unit types
+5. Multiple units on the same page — each unit number should be captured with its type
 
 RULES:
-- Extract the unit type name EXACTLY as written on the drawing
-- For count: use the number from a schedule/legend if present; otherwise count how many times that unit type label appears on the page; default 1 if truly unknown
-- Merge duplicate unit types (same label = same type)
-- If this page is a floor plan overview showing multiple units, count each labeled unit
+- Extract the unit NUMBER exactly as written (e.g. "101", "102A", "PH-1")
+- Extract the unit TYPE exactly as written (e.g. "TYPE A", "A1-As", "2BHK", "Studio")
+- Each row should have one unitNumber and one unitType
+- If a page shows a single unit type with multiple unit numbers listed, create one entry per unit number all sharing that type
+- If a schedule shows unit numbers mapped to types, extract each mapping
 - SKIP generic room labels like "Kitchen", "Bath", "Living" — those are rooms, not unit types
-- SKIP cabinet labels like B24, W3036 — those are cabinet SKUs, not unit types
-- If NO unit type information at all, return {"units":[]}
+- SKIP cabinet labels like B24, W3036 — those are cabinet SKUs
+- If NO unit information at all, return {"units":[]}
 
 Return ONLY valid JSON — no markdown, no explanation:
-{"units":[{"unitType":"TYPE A","count":24},{"unitType":"TYPE B","count":12}]}`;
+{"units":[{"unitNumber":"101","unitType":"TYPE A"},{"unitNumber":"102","unitType":"TYPE A"},{"unitNumber":"201","unitType":"TYPE B"}]}`;
 
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -65,7 +66,7 @@ Return ONLY valid JSON — no markdown, no explanation:
           },
         ],
         temperature: 0.1,
-        max_tokens: 2048,
+        max_tokens: 4096,
       }),
     });
 
@@ -79,7 +80,7 @@ Return ONLY valid JSON — no markdown, no explanation:
 
     const aiData = await aiRes.json();
     const content: string = aiData.choices?.[0]?.message?.content ?? "";
-    console.log("AI raw response:", content.slice(0, 600));
+    console.log("AI raw response:", content.slice(0, 800));
 
     let parsed: { units: any[] } = { units: [] };
     try {
@@ -94,10 +95,10 @@ Return ONLY valid JSON — no markdown, no explanation:
     }
 
     const units = (parsed.units ?? [])
-      .filter((u: any) => u.unitType && typeof u.unitType === "string" && u.unitType.trim())
+      .filter((u: any) => u.unitNumber && u.unitType && typeof u.unitNumber === "string" && typeof u.unitType === "string")
       .map((u: any) => ({
+        unitNumber: String(u.unitNumber).trim(),
         unitType: String(u.unitType).trim(),
-        count: Math.max(1, Number(u.count) || 1),
       }));
 
     return new Response(JSON.stringify({ units }), {
