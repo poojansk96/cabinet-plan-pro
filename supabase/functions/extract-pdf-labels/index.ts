@@ -27,24 +27,26 @@ serve(async (req) => {
 
     const prompt = `You are an expert millwork estimator reading a 2020 Design shop drawing / cabinet elevation sheet.
 
-TASK: Extract every cabinet label and accessory label visible on this page.
+TASK: Extract ONLY base cabinets, wall cabinets, and their related accessories/fillers visible on this page.
 
 For each item extract:
-1. SKU / model label exactly as written (e.g. B24, W3036, T84, FIL3, TKRUN96, CM8, etc.)
-2. Cabinet type determined by label prefix and vertical position:
-   BASE    → prefixes B DB SB CB EB or lower row  → default H=34.5, D=24
-   WALL    → prefixes W UB WC UC OH or upper row   → default H=30, D=12
-   TALL    → prefixes T UT TC PT PTC              → default H=84, D=24
-   VANITY  → prefixes V VB VD                     → default H=34.5, D=21
-   ACCESSORY → fillers (FIL), toe kick (TK TKRUN), crown (CM), light rail (LR), panels (FP EP), hardware, etc.
+1. SKU / model label exactly as written (e.g. B24, W3036, BF3, WF330, WF3x30, BFFIL, WFFIL, FIL3, etc.)
+2. Cabinet type determined by label prefix:
+   BASE      → prefixes B DB SB CB EB BF
+   WALL      → prefixes W UB WC UC OH WF
+   ACCESSORY → fillers (FIL BF WF BFFIL WFFIL), toe kick (TK TKRUN), crown (CM), light rail (LR), end panels (EP FP)
 3. Room from elevation title (KITCHEN, BATH, LAUNDRY, PANTRY → capitalize first letter only → Kitchen, Bath etc.)
 4. Quantity — count each distinct label occurrence; same SKU in same room summed
-5. For accessories: set type = "Accessory", record label in sku field exactly
 
 RULES:
-- Read labels EXACTLY as printed — do not invent or guess SKUs
+- ONLY extract Base cabinets, Wall cabinets, and their accessories (fillers, panels, moldings)
+- SKIP Tall cabinets (T UT TC PT PTC prefixes) — do NOT include them
+- SKIP Vanity cabinets (V VB VD prefixes) — do NOT include them
 - SKIP appliances: REF REFRIG DW DISHWASHER RANGE HOOD MICRO OTR OVEN
-- A valid SKU must start with a LETTER
+- SKIP unit numbers, unit type names, call-out addresses, dimension text, notes, and any non-SKU text
+- A valid SKU must start with a LETTER and contain at least one NUMBER (e.g. B24, W3036, BF3, FIL3)
+- Do NOT extract text like "Unit 101", "A1-As", "ELEVATION A", floor labels, or drawing titles as SKUs
+- Read labels EXACTLY as printed — do not invent or guess SKUs
 - If this is a floor plan (top-down, no elevations), return {"items":[]}
 - Do NOT measure dimensions from drawing geometry — dimensions fields are optional
 ${unitType ? `- Unit type context: ${unitType}` : ""}
@@ -101,8 +103,21 @@ Return ONLY valid JSON — no markdown, no explanation:
       console.error("JSON parse failed:", content.slice(0, 500));
     }
 
+    // Filter: must start with letter AND contain a number (real SKU, not labels/titles)
     const items = (parsed.items ?? [])
-      .filter((c: any) => c.sku && /^[A-Za-z]/.test(c.sku))
+      .filter((c: any) => c.sku && /^[A-Za-z]/.test(c.sku) && /\d/.test(c.sku))
+      .filter((c: any) => {
+        const upper = String(c.sku).toUpperCase().trim();
+        // Skip anything that looks like a unit number, type name, or address
+        if (/^UNIT\s/i.test(upper)) return false;
+        if (/^ELEV/i.test(upper)) return false;
+        if (/^FLOOR/i.test(upper)) return false;
+        if (/^TYPE\s/i.test(upper)) return false;
+        // Only allow Base, Wall, Accessory types
+        const t = String(c.type || "").toLowerCase();
+        if (t === "tall" || t === "vanity") return false;
+        return true;
+      })
       .map((c: any) => ({
         sku: String(c.sku).toUpperCase().trim(),
         type: c.type ?? "Base",

@@ -354,7 +354,7 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                 <tr style={{ height: '120px', verticalAlign: 'bottom' }}>
                   <th className="text-left" style={{ verticalAlign: 'bottom' }}>SKU Name</th>
                   {cabUnitTypes.map(type => (
-                    <th key={type} style={{ verticalAlign: 'bottom', padding: '4px 6px' }}>
+                    <th key={type} style={{ verticalAlign: 'bottom', padding: '4px 6px', minWidth: '36px' }}>
                       <div style={{
                         writingMode: 'vertical-rl',
                         transform: 'rotate(180deg)',
@@ -364,6 +364,8 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                         height: '110px',
                         display: 'flex',
                         alignItems: 'center',
+                        overflow: 'visible',
+                        color: 'hsl(var(--foreground))',
                       }}>
                         {type}
                       </div>
