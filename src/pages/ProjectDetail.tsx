@@ -11,7 +11,7 @@ import PreFinalModule from '@/components/project/PreFinalModule';
 import SummaryPanel from '@/components/project/SummaryPanel';
 import EditProjectDialog from '@/components/project/EditProjectDialog';
 
-type Tab = 'units' | 'cabinets' | 'accessories' | 'countertops' | 'summary' | 'prefinal';
+type Tab = 'units' | 'cabinets' | 'accessories' | 'countertops' | 'summary' | 'prefinal-units' | 'prefinal-cabinets';
 
 const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'units', label: 'Units', icon: <Users size={14} /> },
@@ -19,7 +19,8 @@ const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'accessories', label: 'Accessories', icon: <Wrench size={14} /> },
   { key: 'countertops', label: 'Countertops', icon: <Square size={14} /> },
   { key: 'summary', label: 'Summary', icon: <BarChart3 size={14} /> },
-  { key: 'prefinal', label: 'Pre-Final', icon: <ClipboardCheck size={14} /> },
+  { key: 'prefinal-units', label: 'Pre-Final Unit Count', icon: <ClipboardCheck size={14} /> },
+  { key: 'prefinal-cabinets', label: 'Pre-Final Cabinet Count', icon: <ClipboardCheck size={14} /> },
 ];
 
 export default function ProjectDetail() {
@@ -97,9 +98,9 @@ export default function ProjectDetail() {
 
         {/* Tabs */}
         <div className="px-4 flex border-t" style={{ borderColor: 'hsl(var(--border))' }}>
-          {TABS.map((tab, i) => (
+          {TABS.map((tab) => (
             <>
-              {tab.key === 'prefinal' && (
+              {tab.key === 'prefinal-units' && (
                 <div key="sep" className="w-px my-1 mx-12 bg-border flex-shrink-0" />
               )}
               <button
@@ -124,7 +125,8 @@ export default function ProjectDetail() {
             {activeTab === 'accessories' && <AccessoriesModule {...storeProps} />}
             {activeTab === 'countertops' && <CountertopModule {...storeProps} />}
             {activeTab === 'summary' && <SummaryModule {...storeProps} />}
-            {activeTab === 'prefinal' && <PreFinalModule {...storeProps} />}
+            {activeTab === 'prefinal-units' && <PreFinalModule {...storeProps} section="units" />}
+            {activeTab === 'prefinal-cabinets' && <PreFinalModule {...storeProps} section="cabinets" />}
           </div>
         </main>
 
