@@ -166,6 +166,7 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
               <table className="est-table w-full">
                 <thead>
                   <tr>
+                    <th className="text-left w-16">Unit #</th>
                     <th className="text-left">Unit Type</th>
                     <th className="text-right">Count</th>
                     <th className="text-right w-20">% of Total</th>
@@ -173,9 +174,9 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                   </tr>
                 </thead>
                 <tbody>
-                  {store.unitRows.map(row => (
+                  {store.unitRows.map((row, i) => (
                     <tr key={row.unitType}>
-                      <td className="font-medium">{row.unitType}</td>
+                      <td className="text-xs text-muted-foreground">{i + 1}</td>
                       <td className="text-right">
                         <input
                           type="number"
@@ -198,6 +199,7 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                 </tbody>
                 <tfoot>
                   <tr className="font-bold border-t border-border">
+                    <td></td>
                     <td>Total</td>
                     <td className="text-right font-mono">{totalUnits}</td>
                     <td className="text-right text-muted-foreground text-xs">100%</td>
