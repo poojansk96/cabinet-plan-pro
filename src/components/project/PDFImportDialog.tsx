@@ -325,7 +325,6 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
 
               {/* Status + Quote */}
               <div className="text-center space-y-2 max-w-xs">
-                <p className="font-semibold text-sm text-foreground leading-snug">{processingStatus}</p>
                 {progressLabel && (
                   <p className="text-xs text-muted-foreground">{progressLabel}</p>
                 )}
