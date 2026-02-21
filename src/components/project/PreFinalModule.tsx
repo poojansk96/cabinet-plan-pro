@@ -237,27 +237,26 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                   <tr style={{ height: '120px', verticalAlign: 'bottom' }}>
                     <th className="text-left" style={{ verticalAlign: 'bottom' }}>Unit #</th>
                     {store.unitTypes.map(type => (
-                      <th key={type} className="text-center p-0" style={{ verticalAlign: 'bottom', minWidth: '40px' }}>
-                        <div className="flex flex-col items-center gap-1 bg-muted/30 py-2 border-x border-t border-border/50 rounded-t-md mx-0.5">
+                      <th key={type} className="text-center p-0" style={{ verticalAlign: 'bottom', minWidth: '42px' }}>
+                        <div className="flex flex-col items-center gap-1 py-2 mx-0.5 rounded-t" style={{ background: 'hsl(213 72% 35%)', color: '#fff' }}>
                           <div style={{
                             writingMode: 'vertical-rl',
                             transform: 'rotate(180deg)',
                             whiteSpace: 'nowrap',
                             fontWeight: 700,
-                            fontSize: '10px',
-                            height: '100px',
+                            fontSize: '11px',
+                            height: '90px',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            color: 'hsl(var(--foreground))',
-                            letterSpacing: '0.025em',
-                            textTransform: 'uppercase'
+                            letterSpacing: '0.05em',
                           }}>
                             {type}
                           </div>
                           <button
                             onClick={() => store.deleteUnitType(type)}
-                            className="text-muted-foreground hover:text-destructive transition-colors mt-1"
+                            className="transition-colors mt-0.5 opacity-50 hover:opacity-100"
+                            style={{ color: '#fca5a5' }}
                             title={`Remove ${type}`}
                           >
                             <Trash2 size={10} />
@@ -389,22 +388,20 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                 <tr style={{ height: '120px', verticalAlign: 'bottom' }}>
                   <th className="text-left" style={{ verticalAlign: 'bottom' }}>SKU Name</th>
                   {cabUnitTypes.map(type => (
-                    <th key={type} className="text-center p-0" style={{ verticalAlign: 'bottom', minWidth: '40px' }}>
-                      <div className="bg-muted/30 py-4 border-x border-t border-border/50 rounded-t-md mx-0.5" style={{
+                    <th key={type} className="text-center p-0" style={{ verticalAlign: 'bottom', minWidth: '42px' }}>
+                      <div className="mx-0.5 rounded-t py-3" style={{
+                        background: 'hsl(213 72% 35%)',
+                        color: '#fff',
                         writingMode: 'vertical-rl',
                         transform: 'rotate(180deg)',
                         whiteSpace: 'nowrap',
                         fontWeight: 700,
-                        fontSize: '10px',
-                        height: '110px',
+                        fontSize: '11px',
+                        height: '100px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        overflow: 'visible',
-                        color: 'hsl(var(--foreground))',
-                        margin: '0 auto',
-                        letterSpacing: '0.025em',
-                        textTransform: 'uppercase'
+                        letterSpacing: '0.05em',
                       }}>
                         {type}
                       </div>
