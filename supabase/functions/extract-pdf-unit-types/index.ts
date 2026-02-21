@@ -26,35 +26,19 @@ serve(async (req) => {
       });
     }
 
-    const prompt = `You are an expert architectural drawing analyst specializing in reading residential and commercial floor plans and 2020 Design shop drawings. Your job is to extract EVERY unit number and its associated unit type from this page. Missing even one unit is unacceptable.
+    const prompt = `You are an expert architectural drawing analyst. Your job is to extract EVERY unit number and its associated unit type from this page. Missing even one unit is unacceptable.
 
-STEP 1 — CLASSIFY THIS PAGE:
-Determine what type of page this is:
-- "title_page": A cover/title page showing project info, unit schedules, or a list of units
-- "floor_plan": A floor plan view showing unit layouts from above with unit numbers labeled
-- "elevation": A cabinet elevation drawing showing a FRONT VIEW of cabinets on a wall with SKUs and dimensions
-- "other": Any other type of page (notes, details, cover sheets with no unit data)
+IMPORTANT: Treat EVERY page as a floor plan. Do NOT classify any page as "elevation" or "other". Every page you receive is from an architectural floor plan PDF and contains unit data.
 
-STEP 2 — EXTRACT UNIT NUMBERS FROM **EVERY** PAGE TYPE:
+Always set pageType to "floor_plan" in your response.
 
-CRITICAL: You must extract unit numbers from ALL page types, including elevation pages. 
-- On 2020 Design shop drawings, EVERY page has a TITLE BLOCK (usually at the bottom or right side) that contains the unit number/identifier for that page.
-- Even "elevation" pages belong to a specific unit — find the unit number in the title block.
-- The title block typically shows: project name, unit number/ID, room name, page number, date.
-- Common title block unit formats: "01-105", "UNIT 201", "APT 3B", "Suite 105", "#202", or just a number like "105".
-
-WHERE TO FIND UNIT NUMBERS:
-1. **TITLE BLOCK** (bottom or right of page) — ALWAYS check this first. Every 2020 Design page has one.
-2. At DOOR LOCATIONS on floor plans — near doorways, corridors, hallway-facing edges
-3. At the EDGE/BOUNDARY of unit outlines
-4. In unit schedule tables or legends
-5. Near stairwells and elevator lobbies
-
-WHERE TO FIND UNIT TYPES:
-- INSIDE the unit boundary on floor plans (e.g. "Unit A", "Type B", "2BR-A")
-- In schedule/legend tables mapping unit numbers to types
-- In the title block — sometimes the type is listed alongside the unit number
-- If no type is found, set unitType to "" — do NOT skip the unit
+EXTRACTION INSTRUCTIONS:
+1. Scan the ENTIRE page methodically — left to right, top to bottom
+2. Find EVERY unit number and its associated unit type
+3. Check the TITLE BLOCK (bottom or right side) — it often contains unit numbers
+4. Check DOOR LOCATIONS — unit numbers are commonly placed at entry doors, corridors, hallway-facing edges
+5. Check INSIDE unit boundaries — unit type names (e.g. "Unit A", "Type B", "2BR-A") are often written inside
+6. Check unit schedule tables or legends if present
 
 WHAT IS A UNIT NUMBER:
 - A numeric or alphanumeric dwelling identifier: "101", "01-105", "202", "PH-1", "305", "1A", "2B"
@@ -63,17 +47,20 @@ WHAT IS A UNIT NUMBER:
 - NOT cabinet SKUs like "B24", "W3036"
 - NOT room names like "Kitchen", "Bathroom", "Reception", "Restroom"
 
+WHAT IS A UNIT TYPE:
+- A designation like "TYPE A", "Unit A", "2BR-A", "Studio", "A1-AS"
+- Found inside unit boundaries or in schedule tables
+- Room names (Kitchen, Bathroom, Reception, Restroom, Lobby) are NOT unit types — set unitType to "" if only room names are visible
+
 BUILDING NAME:
 - Look for building/tower name in title block, header, or footer
-- If no building name found, use null
+- If not found, use null
 
 CRITICAL RULES:
-- Extract unit numbers from EVERY page — elevation pages have unit numbers in their title blocks
-- On floor plans, extract ALL units visible — scan left to right, top to bottom
+- Extract ALL units from EVERY page — do NOT skip any page
 - Read EVERY digit carefully — "330" not "33", "1201" not "120"
-- Room names like "KITCHEN", "RECEPTION", "RESTROOM", "BATHROOM" are NOT unit types — ignore them as types
-- If a room name is the only label, set unitType to ""
-- Do NOT skip any page without checking the title block for a unit number
+- If no type is found, set unitType to "" — do NOT skip the unit
+- If the same unit number appears multiple times, include it only once
 
 Return ONLY valid JSON — no markdown, no explanation:
 {"pageType":"floor_plan","bldg":"Building A","units":[{"unitNumber":"101","unitType":"TYPE A"},{"unitNumber":"102","unitType":"TYPE A"}]}`;
