@@ -70,6 +70,26 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
     if (!skuCabType[r.sku]) skuCabType[r.sku] = r.type;
   });
 
+  // Group SKUs by cabinet type in display order
+  const CAB_TYPE_ORDER = ['Base', 'Wall', 'Tall', 'Vanity', 'Accessory'];
+  const groupedSkus: { group: string; skus: string[] }[] = (() => {
+    const groups: Record<string, string[]> = {};
+    for (const sku of allSkus) {
+      const t = skuCabType[sku] || 'Other';
+      if (!groups[t]) groups[t] = [];
+      groups[t].push(sku);
+    }
+    const ordered: { group: string; skus: string[] }[] = [];
+    for (const g of CAB_TYPE_ORDER) {
+      if (groups[g]) { ordered.push({ group: g, skus: groups[g] }); delete groups[g]; }
+    }
+    // Any remaining types not in the predefined order
+    for (const [g, skus] of Object.entries(groups)) {
+      ordered.push({ group: g, skus });
+    }
+    return ordered;
+  })();
+
   // ── Unit type totals (count of "1"s per column) ───────────────────────────
   const unitTypeTotal = (type: string) =>
     store.unitNumbers.filter(u => u.assignments[type]).length;
@@ -355,7 +375,6 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
               <thead>
                 <tr style={{ height: '120px', verticalAlign: 'bottom' }}>
                   <th className="text-left" style={{ verticalAlign: 'bottom' }}>SKU Name</th>
-                  <th className="text-left" style={{ verticalAlign: 'bottom' }}>Type</th>
                   {cabUnitTypes.map(type => (
                     <th key={type} style={{ verticalAlign: 'bottom', padding: '4px 6px', minWidth: '36px' }}>
                       <div style={{
@@ -377,24 +396,35 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {allSkus.map(sku => (
-                  <tr key={sku}>
-                    <td className="font-mono font-medium">{sku}</td>
-                    <td className="text-xs text-muted-foreground">{skuCabType[sku] || '—'}</td>
-                    {cabUnitTypes.map(type => (
-                      <td key={type} className="text-center">
-                        {skuTypeMap[sku]?.has(type) ? (
-                          <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-primary text-primary-foreground text-xs font-bold">1</span>
-                        ) : ''}
+                {groupedSkus.map(({ group, skus }) => (
+                  <>
+                    <tr key={`group-${group}`}>
+                      <td
+                        colSpan={1 + cabUnitTypes.length}
+                        className="text-xs font-bold uppercase tracking-wider py-1.5 px-3"
+                        style={{ background: 'hsl(var(--accent))', color: 'hsl(var(--muted-foreground))' }}
+                      >
+                        {group} ({skus.length})
                       </td>
+                    </tr>
+                    {skus.map(sku => (
+                      <tr key={sku}>
+                        <td className="font-mono font-medium">{sku}</td>
+                        {cabUnitTypes.map(type => (
+                          <td key={type} className="text-center">
+                            {skuTypeMap[sku]?.has(type) ? (
+                              <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-primary text-primary-foreground text-xs font-bold">1</span>
+                            ) : ''}
+                          </td>
+                        ))}
+                      </tr>
                     ))}
-                  </tr>
+                  </>
                 ))}
               </tbody>
               <tfoot>
                 <tr className="font-bold border-t border-border">
                   <td>Total</td>
-                  <td></td>
                   {cabUnitTypes.map(type => {
                     const colTotal = allSkus.filter(sku => skuTypeMap[sku]?.has(type)).length;
                     return <td key={type} className="text-center font-mono">{colTotal || ''}</td>;
