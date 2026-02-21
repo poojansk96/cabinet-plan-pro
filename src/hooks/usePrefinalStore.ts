@@ -34,7 +34,16 @@ function loadData(projectId: string): PrefinalData {
         cabinetUnitTypes: parsed.cabinetUnitTypes || [],
       };
     }
-    return { unitTypes: parsed.unitTypes || [], unitNumbers: parsed.unitNumbers || [], cabinetRows: parsed.cabinetRows || [], cabinetUnitTypes: parsed.cabinetUnitTypes || [] };
+    // Deduplicate cabinetUnitTypes (case-insensitive)
+    const rawCabTypes: string[] = parsed.cabinetUnitTypes || [];
+    const seenUpper = new Set<string>();
+    const dedupedCabTypes = rawCabTypes.filter(t => {
+      const u = t.toUpperCase();
+      if (seenUpper.has(u)) return false;
+      seenUpper.add(u);
+      return true;
+    });
+    return { unitTypes: parsed.unitTypes || [], unitNumbers: parsed.unitNumbers || [], cabinetRows: parsed.cabinetRows || [], cabinetUnitTypes: dedupedCabTypes };
   } catch {
     return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [] };
   }
