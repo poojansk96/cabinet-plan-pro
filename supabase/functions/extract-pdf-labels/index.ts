@@ -136,7 +136,19 @@ Return ONLY valid JSON — no markdown, no explanation:
         quantity: Number(c.quantity) || 1,
       }));
 
-    return new Response(JSON.stringify({ items }), {
+    // Deduplicate: combine same SKU+type+room by summing quantities
+    const deduped = new Map<string, { sku: string; type: string; room: string; quantity: number }>();
+    for (const item of items) {
+      const key = `${item.sku}|${item.type}|${item.room}`;
+      const existing = deduped.get(key);
+      if (existing) {
+        existing.quantity += item.quantity;
+      } else {
+        deduped.set(key, { ...item });
+      }
+    }
+
+    return new Response(JSON.stringify({ items: Array.from(deduped.values()) }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
