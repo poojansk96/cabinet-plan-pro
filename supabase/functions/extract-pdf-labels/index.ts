@@ -45,8 +45,8 @@ For each item extract:
 1. SKU / model label exactly as written (e.g. B24, W3036, T84, VB30, BF3, WF330, FIL3, TKRUN96, CM8, etc.)
 2. Cabinet type determined by label prefix:
    BASE      → prefixes B DB SB CB EB
-   WALL      → prefixes W UB WC UC OH
-   TALL      → prefixes T UT TC PT PTC
+   WALL      → prefixes W UB WC OH
+   TALL      → prefixes T UT TC PT PTC UC
    VANITY    → prefixes V VB VD
    ACCESSORY → fillers (FIL BF WF BFFIL WFFIL), toe kick (TK TKRUN), crown (CM), light rail (LR), end panels (EP FP), hardware
 3. Room from elevation title or floor plan room label (KITCHEN, BATH, LAUNDRY, PANTRY → capitalize first letter only)
