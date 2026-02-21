@@ -31,63 +31,49 @@ serve(async (req) => {
 STEP 1 — CLASSIFY THIS PAGE:
 Determine what type of page this is:
 - "title_page": A cover/title page showing project info, unit schedules, or a list of units
-- "floor_plan": A floor plan view showing unit layouts from above with unit numbers labeled. Floor plans show MULTIPLE units on a single floor, with walls, doors, rooms visible from a top-down view.
-- "elevation": A cabinet elevation drawing showing a FRONT VIEW of cabinets on a wall with SKUs and dimensions for a SINGLE room (NOT a top-down view)
+- "floor_plan": A floor plan view showing unit layouts from above with unit numbers labeled
+- "elevation": A cabinet elevation drawing showing a FRONT VIEW of cabinets on a wall with SKUs and dimensions
 - "other": Any other type of page (notes, details, cover sheets with no unit data)
 
-CRITICAL CLASSIFICATION RULES:
-- If you see ANY unit numbers/labels on the page with room layouts from above → "floor_plan"
-- If you see a top-down architectural layout with doors, walls, corridors → "floor_plan"  
-- ONLY classify as "elevation" if the page shows a FRONT VIEW of cabinets (not top-down)
-- When in doubt, ALWAYS choose "floor_plan" — it is BETTER to extract and get empty results than to skip a page
-- EVERY floor of a building has units — do NOT skip any floor plan page
-- Pages showing Floor 1, Floor 2, Floor 3, etc. are ALL floor plans — extract units from ALL of them
-- A page with even a SINGLE unit number visible MUST be classified as "floor_plan" or "title_page"
+STEP 2 — EXTRACT UNIT NUMBERS FROM **EVERY** PAGE TYPE:
 
-IMPORTANT: 
-- If this page is an "elevation" or "other", return {"pageType":"elevation","units":[]} or {"pageType":"other","units":[]}
-- ONLY extract unit numbers and types from "title_page" or "floor_plan" pages
-
-STEP 2 — EXTRACT UNITS (only for title_page or floor_plan):
-
-SYSTEMATIC EXTRACTION PROCESS:
-1. First, scan the ENTIRE page methodically — left to right, top to bottom
-2. Look at EVERY text label visible on the page
-3. For each area that looks like a dwelling unit, find its number AND type
-4. Count the total units you found. Compare against the visual layout — if you see 8 unit outlines but only found 6 numbers, look harder for the missing ones
-5. Check edges, corners, and overlapping text areas for missed labels
+CRITICAL: You must extract unit numbers from ALL page types, including elevation pages. 
+- On 2020 Design shop drawings, EVERY page has a TITLE BLOCK (usually at the bottom or right side) that contains the unit number/identifier for that page.
+- Even "elevation" pages belong to a specific unit — find the unit number in the title block.
+- The title block typically shows: project name, unit number/ID, room name, page number, date.
+- Common title block unit formats: "01-105", "UNIT 201", "APT 3B", "Suite 105", "#202", or just a number like "105".
 
 WHERE TO FIND UNIT NUMBERS:
-- At DOOR LOCATIONS — unit numbers are commonly placed at the entry door, in the corridor/hallway
-- At the EDGE/BOUNDARY of the unit outline, facing the corridor
-- Near stairwells and elevator lobbies
-- In unit schedule tables or legends on the page
-- Sometimes very small text near doorways — zoom in mentally and read carefully
+1. **TITLE BLOCK** (bottom or right of page) — ALWAYS check this first. Every 2020 Design page has one.
+2. At DOOR LOCATIONS on floor plans — near doorways, corridors, hallway-facing edges
+3. At the EDGE/BOUNDARY of unit outlines
+4. In unit schedule tables or legends
+5. Near stairwells and elevator lobbies
 
 WHERE TO FIND UNIT TYPES:
-- INSIDE the unit boundary — centered or near a room label (e.g. "Unit A", "Type B", "2BR-A")
-- In schedule/legend tables that map unit numbers to types
-- Sometimes in the title block area
-
-CRITICAL DISTINCTION: The number at the door/edge = unitNumber. The label inside the unit = unitType. They are DIFFERENT fields.
+- INSIDE the unit boundary on floor plans (e.g. "Unit A", "Type B", "2BR-A")
+- In schedule/legend tables mapping unit numbers to types
+- In the title block — sometimes the type is listed alongside the unit number
+- If no type is found, set unitType to "" — do NOT skip the unit
 
 WHAT IS A UNIT NUMBER:
-- A numeric or alphanumeric identifier: "101", "102", "201", "102A", "PH-1", "305", "1A", "2B"
-- Typically 2-5 characters, mostly numeric
-- NOT type names like "TYPE A", "A1-As", "2BHK", "Studio"
+- A numeric or alphanumeric dwelling identifier: "101", "01-105", "202", "PH-1", "305", "1A", "2B"
+- Can include hyphens or dashes: "01-105", "02-203"
+- NOT type names like "TYPE A", "A1-As", "2BHK"
 - NOT cabinet SKUs like "B24", "W3036"
-- NOT room labels, notes, or page numbers
+- NOT room names like "Kitchen", "Bathroom", "Reception", "Restroom"
 
 BUILDING NAME:
 - Look for building/tower name in title block, header, or footer
-- Examples: "Building A", "Tower 1", "Bldg 2", "North Tower"
 - If no building name found, use null
 
 CRITICAL RULES:
-- Extract EVERY unit on the page — do NOT skip any
+- Extract unit numbers from EVERY page — elevation pages have unit numbers in their title blocks
+- On floor plans, extract ALL units visible — scan left to right, top to bottom
 - Read EVERY digit carefully — "330" not "33", "1201" not "120"
-- If a unit has no type visible, set unitType to "" — do NOT skip the unit
-- If the same unit number appears multiple times, include it only once
+- Room names like "KITCHEN", "RECEPTION", "RESTROOM", "BATHROOM" are NOT unit types — ignore them as types
+- If a room name is the only label, set unitType to ""
+- Do NOT skip any page without checking the title block for a unit number
 
 Return ONLY valid JSON — no markdown, no explanation:
 {"pageType":"floor_plan","bldg":"Building A","units":[{"unitNumber":"101","unitType":"TYPE A"},{"unitNumber":"102","unitType":"TYPE A"}]}`;
@@ -191,13 +177,7 @@ Return ONLY valid JSON — no markdown, no explanation:
     const pageBldg = parsed.bldg || null;
     console.log("Page type:", pageType, "Bldg:", pageBldg);
 
-    // Skip elevation and other pages
-    if (pageType === "elevation" || pageType === "other") {
-      console.log("Skipping page — type:", pageType);
-      return new Response(JSON.stringify({ units: [], pageType, skipped: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // No longer skip any page type — extract unit numbers from all pages including elevations
 
     // Filter: unit numbers must look like actual dwelling unit identifiers
     const isValidUnitNumber = (val: string): boolean => {
@@ -205,7 +185,7 @@ Return ONLY valid JSON — no markdown, no explanation:
       // Allow letter-only unit numbers like "A", "B", "C" (single letters or short alpha)
       // But reject known non-unit labels
       if (/^TYPE\s/i.test(upper)) return false;
-      if (/^(KITCHEN|BATH|LIVING|BEDROOM|MASTER|DINING|LAUNDRY|PANTRY|CLOSET)/i.test(upper)) return false;
+      if (/^(KITCHEN|BATH|LIVING|BEDROOM|MASTER|DINING|LAUNDRY|PANTRY|CLOSET|RECEPTION|RESTROOM|LOBBY|HALLWAY|CORRIDOR|OFFICE|STORAGE|UTILITY|MECHANICAL)/i.test(upper)) return false;
       if (/^(FLOOR|LEVEL|BUILDING|BLDG|TOWER|WING|BLOCK|EAST|WEST|NORTH|SOUTH)/i.test(upper)) return false;
       if (/^(ELEVATION|ELEV)\b/i.test(upper)) return false;
       if (val.length > 10) return false;
@@ -213,13 +193,23 @@ Return ONLY valid JSON — no markdown, no explanation:
       return true;
     };
 
+    // Filter out room names from unitType
+    const ROOM_NAMES = /^(KITCHEN|BATH|BATHROOM|LIVING|BEDROOM|MASTER|DINING|LAUNDRY|PANTRY|CLOSET|RECEPTION|RESTROOM|LOBBY|HALLWAY|CORRIDOR|OFFICE|STORAGE|UTILITY|MECHANICAL|FOYER|ENTRY|GARAGE)$/i;
+
     let units = (parsed.units ?? [])
       .filter((u: any) => u.unitNumber && typeof u.unitNumber === "string")
-      .map((u: any) => ({
-        unitNumber: String(u.unitNumber).trim(),
-        unitType: u.unitType ? String(u.unitType).trim() : "",
-        bldg: String(u.bldg || pageBldg || "").trim() || null,
-      }))
+      .map((u: any) => {
+        let unitType = u.unitType ? String(u.unitType).trim() : "";
+        // Clear room names mistakenly used as unit types
+        if (ROOM_NAMES.test(unitType)) unitType = "";
+        // Also clear if it ends with common room suffixes like "RESTROOM-AS"
+        if (/^(RESTROOM|RECEPTION|LOBBY|OFFICE|BATHROOM)/i.test(unitType)) unitType = "";
+        return {
+          unitNumber: String(u.unitNumber).trim(),
+          unitType,
+          bldg: String(u.bldg || pageBldg || "").trim() || null,
+        };
+      })
       .filter(u => isValidUnitNumber(u.unitNumber));
 
     // Post-processing: check digit count consistency
