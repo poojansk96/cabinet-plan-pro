@@ -81,8 +81,7 @@ Return ONLY valid JSON (no markdown fences, no explanation):
       const tailBlock = pageText.slice(-800);
       const userPrompt = `Analyze this floor plan page (page ${i + 1}).\n\nSHEET TITLE / HEADER AREA (check here first for building name):\n${titleBlock}\n\nFOOTER / TITLE BLOCK:\n${tailBlock}\n\nFULL PAGE TEXT:\n${pageText.slice(0, 8000)}`;
 
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 120000);
+      // No timeout — let AI take as long as needed for large files
 
       let response: Response;
       try {
@@ -98,7 +97,6 @@ Return ONLY valid JSON (no markdown fences, no explanation):
                 ],
                 generationConfig: { temperature: 0.1 },
               }),
-              signal: controller.signal,
             }
           );
         } else {
@@ -113,11 +111,11 @@ Return ONLY valid JSON (no markdown fences, no explanation):
               ],
               temperature: 0.1,
             }),
-            signal: controller.signal,
           });
         }
-      } finally {
-        clearTimeout(timeout);
+      } catch (fetchErr) {
+        console.error(`Page ${i + 1} fetch error:`, fetchErr);
+        continue;
       }
 
       if (!response.ok) {
