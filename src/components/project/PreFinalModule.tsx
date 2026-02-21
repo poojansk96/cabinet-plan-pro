@@ -228,8 +228,8 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                   <tr style={{ height: '120px', verticalAlign: 'bottom' }}>
                     <th className="text-left" style={{ verticalAlign: 'bottom' }}>Unit #</th>
                     {store.unitTypes.map(type => (
-                      <th key={type} style={{ verticalAlign: 'bottom', padding: '4px 6px' }}>
-                        <div className="flex items-end gap-1">
+                      <th key={type} className="text-center" style={{ verticalAlign: 'bottom', padding: '4px 6px' }}>
+                        <div className="flex flex-col items-center gap-1">
                           <div style={{
                             writingMode: 'vertical-rl',
                             transform: 'rotate(180deg)',
@@ -239,12 +239,13 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                             height: '110px',
                             display: 'flex',
                             alignItems: 'center',
+                            justifyContent: 'flex-start',
                           }}>
                             {type}
                           </div>
                           <button
                             onClick={() => store.deleteUnitType(type)}
-                            className="text-muted-foreground hover:text-destructive transition-colors mb-1"
+                            className="text-muted-foreground hover:text-destructive transition-colors"
                             title={`Remove ${type}`}
                           >
                             <Trash2 size={10} />
