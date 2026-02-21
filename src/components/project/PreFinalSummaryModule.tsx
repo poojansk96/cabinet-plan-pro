@@ -12,7 +12,7 @@ interface Props {
 }
 
 // Cabinet type display order
-const CAB_TYPE_ORDER = ['Base', 'Wall', 'Tall', 'Vanity', 'Accessory'];
+const CAB_TYPE_ORDER = ['Wall', 'Base', 'Tall', 'Vanity', 'Accessory'];
 
 function groupSkusByType(cabinetRows: PrefinalCabinetRow[]) {
   const allSkus = Array.from(new Set(cabinetRows.map(r => r.sku))).sort();
