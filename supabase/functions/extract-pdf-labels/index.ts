@@ -50,7 +50,10 @@ For each item extract:
    VANITY    → prefixes V VB VD
    ACCESSORY → fillers (FIL BF WF BFFIL WFFIL), toe kick (TK TKRUN), crown (CM), light rail (LR), end panels (EP FP), hardware
 3. Room from elevation title or floor plan room label (KITCHEN, BATH, LAUNDRY, PANTRY → capitalize first letter only)
-4. Quantity — count each distinct label occurrence; same SKU in same room summed
+4. Quantity — Count the number of VISIBLE CABINET BOXES for each SKU, not just unique labels.
+   If a label like "W3030" appears once but you can see 2 separate cabinet boxes it refers to, the quantity is 2.
+   If the same SKU label appears multiple times in the same room, count each drawn cabinet box and sum them.
+   Always count the actual drawn cabinet rectangles/boxes in the elevation.
 
 RULES:
 - ONLY extract from ELEVATION drawings — do NOT extract cabinet labels from floor plans
