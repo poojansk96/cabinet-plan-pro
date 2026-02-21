@@ -396,6 +396,7 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                       </div>
                     </th>
                   ))}
+                  <th className="text-center font-bold" style={{ verticalAlign: 'bottom', padding: '4px 6px', minWidth: '36px' }}>Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -420,6 +421,7 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                             ) : ''}
                           </td>
                         ))}
+                        <td className="text-center font-mono font-bold">{skuTypeMap[sku]?.size || 0}</td>
                       </tr>
                     ))}
                   </>
@@ -432,6 +434,7 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                     const colTotal = allSkus.filter(sku => skuTypeMap[sku]?.has(type)).length;
                     return <td key={type} className="text-center font-mono">{colTotal || ''}</td>;
                   })}
+                  <td className="text-center font-mono">{allSkus.reduce((sum, sku) => sum + (skuTypeMap[sku]?.size || 0), 0)}</td>
                 </tr>
               </tfoot>
             </table>
