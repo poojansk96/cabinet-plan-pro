@@ -17,15 +17,19 @@ interface Props {
   [key: string]: unknown;
 }
 
-// Normalize unit type names so "TYPE A1 - AS", "A1-AS", "A1 - As", "Type A1-As" all become "A1-AS"
+// Normalize unit type names: preserve "TYPE" prefix if present in original text
+// "TYPE B ADA" → "TYPE B ADA", "TYPE A1 - AS" → "TYPE A1-AS", "A1-AS" stays "A1-AS"
 function normalizeUnitType(raw: string): string {
   let s = raw.trim();
-  // Remove leading "TYPE " prefix (case-insensitive)
+  const hasTypePrefix = /^type\s+/i.test(s);
+  // Remove leading "TYPE " for normalization
   s = s.replace(/^type\s+/i, '');
   // Normalize spaces around hyphens: "A1 - AS" → "A1-AS"
   s = s.replace(/\s*-\s*/g, '-');
   // Uppercase
   s = s.toUpperCase();
+  // Re-add TYPE prefix if it was in the original
+  if (hasTypePrefix) s = 'TYPE ' + s;
   return s;
 }
 
