@@ -86,7 +86,7 @@ Return ONLY valid JSON — no markdown, no explanation:
               { inlineData: { mimeType: "image/jpeg", data: pageImage } },
               { text: prompt },
             ]}],
-            generationConfig: { temperature: 0.1, maxOutputTokens: 4096 },
+            generationConfig: { temperature: 0.1, maxOutputTokens: 16384 },
           }),
         }
       );
@@ -100,7 +100,7 @@ Return ONLY valid JSON — no markdown, no explanation:
             { type: "image_url", image_url: { url: `data:image/jpeg;base64,${pageImage}` } },
             { type: "text", text: prompt },
           ]}],
-          temperature: 0.1, max_tokens: 4096,
+          temperature: 0.1, max_tokens: 16384,
         }),
       });
     }
@@ -121,14 +121,28 @@ Return ONLY valid JSON — no markdown, no explanation:
 
     let parsed: { units: any[]; pageType?: string; bldg?: string } = { units: [] };
     try {
-      const cleaned = content
-        .replace(/^```json\s*/i, "")
-        .replace(/^```\s*/i, "")
-        .replace(/```\s*$/i, "")
-        .trim();
+      // Strip markdown fences (handles multi-line content)
+      let cleaned = content.trim();
+      const fenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (fenceMatch) {
+        cleaned = fenceMatch[1].trim();
+      }
       parsed = JSON.parse(cleaned);
     } catch {
+      // If JSON is truncated, try to salvage partial data
       console.error("JSON parse failed:", content.slice(0, 400));
+      try {
+        let partial = content.trim();
+        const fm = partial.match(/```(?:json)?\s*([\s\S]*)/);
+        if (fm) partial = fm[1].trim();
+        // Remove trailing incomplete object and close arrays
+        partial = partial.replace(/,\s*\{[^}]*$/, '');
+        if (!partial.endsWith(']}')) partial += ']}';
+        parsed = JSON.parse(partial);
+        console.log("Salvaged partial JSON with", (parsed.units ?? []).length, "units");
+      } catch {
+        console.error("Partial salvage also failed");
+      }
     }
 
     const pageType = parsed.pageType || "unknown";
