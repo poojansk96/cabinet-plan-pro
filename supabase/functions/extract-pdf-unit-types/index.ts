@@ -268,29 +268,21 @@ Return ONLY valid JSON:
       })
       .filter(u => isValidUnitNumber(u.unitNumber));
 
-    // Post-processing: check digit count consistency
-    if (units.length >= 2) {
-      const numericUnits = units.filter(u => /^\d+$/.test(u.unitNumber));
-      if (numericUnits.length >= 2) {
-        const lengthCounts: Record<number, number> = {};
-        for (const u of numericUnits) {
-          const len = u.unitNumber.length;
-          lengthCounts[len] = (lengthCounts[len] || 0) + 1;
-        }
-        let maxCount = 0;
-        let dominantLength = 0;
-        for (const [len, count] of Object.entries(lengthCounts)) {
-          if (count > maxCount) {
-            maxCount = count;
-            dominantLength = Number(len);
+    // Post-processing: remove obvious noise (single-digit numbers that are clearly not units)
+    // But do NOT filter by digit length — different floors can have different numbering schemes
+    // e.g. Floor 1: "101"-"108", Floor 2: "201"-"208" are all valid
+    // Only remove single-character pure digits like "1", "2" if there are also multi-digit units
+    if (units.length >= 3) {
+      const hasMultiDigit = units.some(u => /^\d{2,}$/.test(u.unitNumber));
+      if (hasMultiDigit) {
+        units = units.filter(u => {
+          // Remove single-digit numbers (likely floor numbers, not unit numbers)
+          if (/^\d$/.test(u.unitNumber)) {
+            console.log("Filtering out single digit:", u.unitNumber);
+            return false;
           }
-        }
-        if (maxCount > 1 || numericUnits.length > 2) {
-          units = units.filter(u => {
-            if (!/^\d+$/.test(u.unitNumber)) return true;
-            return u.unitNumber.length >= dominantLength;
-          });
-        }
+          return true;
+        });
       }
     }
 
