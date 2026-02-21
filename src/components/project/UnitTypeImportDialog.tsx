@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { FileUp, X, Loader2, CheckCircle, AlertCircle, Sparkles, Trash2, LayoutGrid, FileText, Search } from 'lucide-react';
+import { FileUp, X, Loader2, CheckCircle, AlertCircle, Sparkles, Trash2, LayoutGrid, FileText, Search, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-pdf-unit-types`;
@@ -335,6 +335,44 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
                   <span className="text-muted-foreground ml-2">across {uniqueTypes.length} unit type{uniqueTypes.length !== 1 ? 's' : ''}</span>
                 </div>
               </div>
+
+              {/* Per-floor summary */}
+              {(() => {
+                const floorMap: Record<string, number> = {};
+                for (const r of rows) {
+                  // Derive floor: numeric units use first digit(s) as floor, e.g. "201" → "2", "1201" → "12"
+                  let floor = '?';
+                  const num = r.unitNumber.replace(/[^0-9]/g, '');
+                  if (num.length >= 3) {
+                    floor = num.slice(0, num.length - 2); // e.g. "201"→"2", "1201"→"12"
+                  } else if (num.length === 2) {
+                    floor = num[0];
+                  } else if (num.length === 1) {
+                    floor = num;
+                  }
+                  const label = floor === '?' ? 'Other' : `Floor ${floor}`;
+                  floorMap[label] = (floorMap[label] || 0) + 1;
+                }
+                const floors = Object.entries(floorMap).sort((a, b) => {
+                  const numA = parseInt(a[0].replace(/\D/g, ''));
+                  const numB = parseInt(b[0].replace(/\D/g, ''));
+                  if (isNaN(numA) && isNaN(numB)) return 0;
+                  if (isNaN(numA)) return 1;
+                  if (isNaN(numB)) return -1;
+                  return numA - numB;
+                });
+                return (
+                  <div className="flex flex-wrap gap-2">
+                    {floors.map(([label, count]) => (
+                      <div key={label} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-accent border border-border text-xs">
+                        <Building2 size={12} className="text-primary" />
+                        <span className="font-medium text-foreground">{label}</span>
+                        <span className="text-muted-foreground">— {count} unit{count !== 1 ? 's' : ''}</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
 
               <div className="flex items-center gap-3">
                 <button onClick={() => toggleAll(true)} className="text-xs text-primary hover:underline">Select all</button>
