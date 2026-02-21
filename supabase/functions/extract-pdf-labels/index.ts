@@ -144,12 +144,11 @@ Return ONLY valid JSON — no markdown, no explanation:
         };
       });
 
-    // Deduplicate: combine same SKU+type+room — use MAX quantity (not sum)
-    // because the same cabinet appears in both floor plan and elevation views,
-    // and we want to avoid double-counting.
+    // Deduplicate by SKU+room only (ignore type — AI may assign different types
+    // across floor plan vs elevation for the same cabinet). Use MAX quantity.
     const deduped = new Map<string, { sku: string; type: string; room: string; quantity: number }>();
     for (const item of items) {
-      const key = `${item.sku}|${item.type}|${item.room}`;
+      const key = `${item.sku}|${item.room}`;
       const existing = deduped.get(key);
       if (existing) {
         existing.quantity = Math.max(existing.quantity, item.quantity);
