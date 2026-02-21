@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback } from 'react';
-import { FileUp, X, Loader2, CheckCircle, AlertCircle, Sparkles, Trash2 } from 'lucide-react';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { FileUp, X, Loader2, CheckCircle, AlertCircle, Sparkles, Trash2, LayoutGrid, FileText, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-pdf-unit-types`;
@@ -15,6 +15,24 @@ interface Props {
   onImport: (rows: Omit<UnitMappingRow, 'selected'>[]) => void;
   onClose: () => void;
 }
+
+const QUOTES = [
+  "Measure twice, cut once.",
+  "Great design is born from great planning.",
+  "Every detail matters — especially in kitchens.",
+  "Precision today saves rework tomorrow.",
+  "Good plans shape good results.",
+  "The best spaces begin on paper.",
+  "Form follows function — always.",
+  "Craftsmanship starts with accurate takeoffs.",
+  "A well-planned kitchen is a joy forever.",
+  "Excellence is in the details.",
+  "Build smart. Build right. Build once.",
+  "Your project, perfectly counted.",
+  "Behind every great build is a great plan.",
+  "Think ahead. Cut once. Install right.",
+  "The blueprint is where dreams become structure.",
+];
 
 async function renderPageToBase64(page: any): Promise<string> {
   const MAX_PX = 4096;
@@ -37,8 +55,23 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
   const [rows, setRows] = useState<UnitMappingRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
-  const [processingStatus, setProcessingStatus] = useState('');
+  const [progress, setProgress] = useState(0);
+  const [quoteIndex, setQuoteIndex] = useState(() => Math.floor(Math.random() * QUOTES.length));
+  const [quoteVisible, setQuoteVisible] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Rotate quotes every 4s during processing
+  useEffect(() => {
+    if (step !== 'processing') return;
+    const interval = setInterval(() => {
+      setQuoteVisible(false);
+      setTimeout(() => {
+        setQuoteIndex(i => (i + 1) % QUOTES.length);
+        setQuoteVisible(true);
+      }, 400);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [step]);
 
   const processFiles = async (files: File[]) => {
     const nonPdfs = files.filter(f => !f.type.includes('pdf'));
@@ -47,18 +80,26 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
     setStep('processing');
 
     try {
-      setProcessingStatus('Loading PDF library…');
+      setProgress(8);
       const pdfjsLib = (await import('pdfjs-dist')) as any;
       pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 
       const allMappings: Map<string, UnitMappingRow> = new Map();
 
+      // Count total pages for progress
+      const pdfs: { file: File; pdf: any }[] = [];
+      let totalPages = 0;
       for (const file of files) {
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        pdfs.push({ file, pdf });
+        totalPages += pdf.numPages;
+      }
+      setProgress(10);
 
+      let pagesProcessed = 0;
+      for (const { file, pdf } of pdfs) {
         for (let p = 1; p <= pdf.numPages; p++) {
-          setProcessingStatus(`Scanning "${file.name}" page ${p}/${pdf.numPages} for units…`);
           const page = await pdf.getPage(p);
           const pageImage = await renderPageToBase64(page);
 
@@ -110,6 +151,9 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
             if (!num || !type) continue;
             allMappings.set(num, { unitNumber: num, unitType: type, bldg, selected: true });
           }
+
+          pagesProcessed++;
+          setProgress(10 + Math.round((pagesProcessed / totalPages) * 85));
         }
       }
 
@@ -216,13 +260,57 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
 
           {/* Processing */}
           {step === 'processing' && (
-            <div className="flex flex-col items-center justify-center py-16 gap-4">
-              <div className="relative">
-                <Loader2 size={40} className="animate-spin text-primary" />
-                <Sparkles size={14} className="absolute -top-1 -right-1 text-primary" />
+            <div className="flex flex-col items-center justify-center py-12 gap-6">
+              {/* Pulsing icon cluster */}
+              <div className="relative flex items-center justify-center">
+                <div className="absolute w-20 h-20 rounded-full animate-ping opacity-10" style={{ background: 'hsl(var(--primary))' }} />
+                <div className="relative flex items-center justify-center w-16 h-16 rounded-full" style={{ background: 'hsl(var(--primary) / 0.1)' }}>
+                  <Search size={20} className="text-primary animate-pulse" />
+                  <Sparkles size={11} className="absolute top-1 right-1 text-primary animate-bounce" />
+                  <FileText size={11} className="absolute bottom-1 left-1 text-primary opacity-60" />
+                </div>
               </div>
-              <p className="font-semibold text-sm text-center max-w-sm">{processingStatus}</p>
-              <p className="text-xs text-muted-foreground">Detecting unit numbers and types from drawings…</p>
+
+              {/* Progress bar */}
+              <div className="w-full max-w-xs">
+                <div className="relative h-2 rounded-full overflow-hidden" style={{ background: 'hsl(var(--muted))' }}>
+                  <div
+                    className="absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out"
+                    style={{
+                      width: `${progress}%`,
+                      background: 'linear-gradient(90deg, hsl(var(--primary)), hsl(var(--primary) / 0.7))',
+                      boxShadow: '0 0 8px hsl(var(--primary) / 0.4)',
+                    }}
+                  />
+                  {/* Shimmer */}
+                  <div
+                    className="absolute inset-0 animate-[shimmer_2s_infinite]"
+                    style={{
+                      background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%)',
+                      backgroundSize: '200% 100%',
+                    }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground text-center mt-2">{progress}% complete</p>
+              </div>
+
+              {/* Rotating quote */}
+              <div className="h-10 flex items-center justify-center">
+                <p
+                  className={`text-sm italic text-muted-foreground text-center max-w-sm transition-opacity duration-400 ${quoteVisible ? 'opacity-100' : 'opacity-0'}`}
+                >
+                  "{QUOTES[quoteIndex]}"
+                </p>
+              </div>
+
+              {/* Step dots */}
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span className={progress >= 5 ? 'text-primary font-medium' : ''}>● Loading</span>
+                <span className="text-border">—</span>
+                <span className={progress >= 10 ? 'text-primary font-medium' : ''}>● Scanning</span>
+                <span className="text-border">—</span>
+                <span className={progress >= 95 ? 'text-primary font-medium' : ''}>● Finalizing</span>
+              </div>
             </div>
           )}
 
