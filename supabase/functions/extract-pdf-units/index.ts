@@ -12,8 +12,10 @@ serve(async (req) => {
   }
 
   try {
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const useDirectGemini = !!GEMINI_API_KEY;
+    if (!GEMINI_API_KEY && !LOVABLE_API_KEY) throw new Error("No AI API key configured");
 
     const { pageTexts } = await req.json();
     if (!pageTexts || !Array.isArray(pageTexts)) {
@@ -84,22 +86,36 @@ Return ONLY valid JSON (no markdown fences, no explanation):
 
       let response: Response;
       try {
-        response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-3-flash-preview",
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userPrompt },
-            ],
-            temperature: 0.1,
-          }),
-          signal: controller.signal,
-        });
+        if (useDirectGemini) {
+          response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [
+                  { role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt }] },
+                ],
+                generationConfig: { temperature: 0.1 },
+              }),
+              signal: controller.signal,
+            }
+          );
+        } else {
+          response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "google/gemini-3-flash-preview",
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt },
+              ],
+              temperature: 0.1,
+            }),
+            signal: controller.signal,
+          });
+        }
       } finally {
         clearTimeout(timeout);
       }
@@ -123,7 +139,9 @@ Return ONLY valid JSON (no markdown fences, no explanation):
       }
 
       const aiData = await response.json();
-      const content = aiData.choices?.[0]?.message?.content ?? "";
+      const content = useDirectGemini
+        ? (aiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "")
+        : (aiData.choices?.[0]?.message?.content ?? "");
 
       // Parse JSON from AI response (strip markdown fences if present)
       let parsed: { pageBuilding?: string | null; units: any[] } | null = null;
