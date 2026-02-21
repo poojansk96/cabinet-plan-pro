@@ -7,6 +7,7 @@ const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ext
 export interface UnitMappingRow {
   unitNumber: string;
   unitType: string;
+  bldg: string;
   selected: boolean;
 }
 
@@ -105,9 +106,9 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
           for (const u of (data.units ?? [])) {
             const num = String(u.unitNumber ?? '').trim();
             const type = String(u.unitType ?? '').trim();
+            const bldg = String(u.bldg ?? '').trim();
             if (!num || !type) continue;
-            // Deduplicate by unit number (keep first seen type, or overwrite — last wins)
-            allMappings.set(num, { unitNumber: num, unitType: type, selected: true });
+            allMappings.set(num, { unitNumber: num, unitType: type, bldg, selected: true });
           }
         }
       }
@@ -249,6 +250,7 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
                       <th className="w-8"></th>
                       <th className="text-left">Unit #</th>
                       <th className="text-left">Unit Type</th>
+                      <th className="text-left">Bldg</th>
                       <th className="w-8"></th>
                     </tr>
                   </thead>
@@ -270,6 +272,14 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
                             className="est-input text-xs w-full"
                             value={row.unitType}
                             onChange={e => updateRow(i, { unitType: e.target.value })}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            className="est-input text-xs w-24"
+                            value={row.bldg}
+                            onChange={e => updateRow(i, { bldg: e.target.value })}
+                            placeholder="—"
                           />
                         </td>
                         <td>
