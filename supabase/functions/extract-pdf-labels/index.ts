@@ -58,10 +58,12 @@ Step A: Scan the elevation from LEFT to RIGHT. For EVERY distinct rectangular ca
   - Its approximate horizontal position (e.g. "far left", "left of sink", "center", "right of range", "far right")
   - The SKU label it belongs to (follow leader lines / callout lines from labels to boxes)
 
-Step B: A single text label or callout may point to MULTIPLE adjacent cabinet boxes of the same size. 
-  - Look for vertical dividing lines between adjacent same-width rectangles — each divided section is a SEPARATE cabinet.
-  - Example: One "W3030" label with a leader line, but TWO identical rectangular boxes side by side = quantity 2.
-  - Example: "DB15" label appears once but two identical narrow boxes drawn next to each other = quantity 2.
+Step B: Count each SKU CONSERVATIVELY:
+  - DEFAULT to quantity 1 for each SKU label you see.
+  - Only set quantity > 1 if you can CLEARLY see multiple SEPARATE cabinet boxes that are VISUALLY DISTINCT (with clear vertical dividing lines between them) AND share the same SKU label.
+  - For ACCESSORIES (fillers like WF, BF, WFFIL, BFFIL; toe kick TK/TKRUN; crown CM; light rail LR; end panels EP/FP): ALWAYS default to quantity 1 per label occurrence. Fillers and accessories are almost never duplicated side-by-side.
+  - If a SKU label appears in MULTIPLE separate locations on the elevation (e.g. one on the left wall and one on the right wall), count each occurrence as 1 and list them as SEPARATE entries — the system will merge them.
+  - When in doubt, use quantity 1. It is better to undercount slightly than to overcount.
 
 Step C: Group by SKU + room and count the total distinct physical boxes for the quantity field.
 
