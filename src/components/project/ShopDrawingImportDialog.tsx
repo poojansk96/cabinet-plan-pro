@@ -153,6 +153,15 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
         merged[key] = { ...r };
       }
     }
+    // Extract wall cabinet height from SKU like W3024 → height 24, W1542 → height 42
+    const wallHeight = (sku: string): number => {
+      const m = sku.match(/^W\D*(\d{3,5})/i);
+      if (!m) return 999;
+      const digits = m[1]; // e.g. "3024" or "1542"
+      if (digits.length >= 4) return parseInt(digits.slice(-2), 10); // last 2 digits = height
+      return 999;
+    };
+
     return Object.values(merged).sort((a, b) => {
       const sortPriority = (r: LabelRow): number => {
         const room = r.room?.toLowerCase() ?? '';
@@ -164,14 +173,20 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
         if (isKitchen && type === 'base') return 1;
         if (isKitchen && type === 'tall') return 2;
         if (isKitchen && isAccessory) return 3;
-        if (isKitchen) return 4; // other kitchen types (vanity etc)
+        if (isKitchen) return 4;
         if (isBath && !isAccessory) return 5;
         if (isBath && isAccessory) return 6;
-        return 7; // other rooms
+        return 7;
       };
       const pa = sortPriority(a);
       const pb = sortPriority(b);
       if (pa !== pb) return pa - pb;
+      // Within wall cabinets, sort by height (smaller first)
+      if (a.type?.toLowerCase() === 'wall' && b.type?.toLowerCase() === 'wall') {
+        const ha = wallHeight(a.sku);
+        const hb = wallHeight(b.sku);
+        if (ha !== hb) return ha - hb;
+      }
       return a.sku.localeCompare(b.sku, undefined, { numeric: true });
     });
   };
