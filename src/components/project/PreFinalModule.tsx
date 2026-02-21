@@ -409,7 +409,25 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                       </div>
                     </th>
                   ))}
-                  <th className="text-center font-bold" style={{ verticalAlign: 'bottom', padding: '4px 6px', minWidth: '36px' }}>Total</th>
+                  <th className="text-center" style={{ verticalAlign: 'bottom', padding: '0', minWidth: '42px' }}>
+                    <div style={{
+                      background: 'hsl(215 25% 14%)',
+                      color: '#fff',
+                      fontWeight: 700,
+                      fontSize: '11px',
+                      height: '100px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      writingMode: 'vertical-rl',
+                      transform: 'rotate(180deg)',
+                      letterSpacing: '0.05em',
+                      width: '100%',
+                      borderRadius: '4px 4px 0 0',
+                    }}>
+                      Total
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody>
