@@ -49,11 +49,10 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
 
   // ── Cabinet import handler ────────────────────────────────────────────────
   const handleCabinetImport = (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[], detectedUnitType?: string) => {
-    // Use detected unit type from PDF, or manually selected, or fallback
     const targetType = detectedUnitType || importTargetType || '';
     if (targetType) {
-      // Auto-add the unit type as a column if not already present
-      store.addUnitTypes([targetType]);
+      // Auto-add the unit type as a cabinet column if not already present
+      store.addCabinetUnitTypes([targetType]);
     }
     const finalType = targetType || 'All';
     store.addCabinetImport(
@@ -67,7 +66,7 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
   };
 
   // ── Cabinet pivot (use unit types from the unit count section) ──────────
-  const cabUnitTypes = store.unitTypes; // horizontal columns from prefinal unit count
+  const cabUnitTypes = store.cabinetUnitTypes; // independent columns for cabinet section
   const allSkus = Array.from(new Set(store.cabinetRows.map(r => r.sku))).sort();
   // Build SKU → unitType → quantity mapping
   const skuTypeQty: Record<string, Record<string, number>> = {};
@@ -365,7 +364,7 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
               title="Unit type this drawing belongs to"
             >
               <option value="">Select unit type…</option>
-              {store.unitTypes.map(t => <option key={t} value={t}>{t}</option>)}
+              {store.cabinetUnitTypes.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
             <button
               onClick={() => setShowCabinetImport(true)}

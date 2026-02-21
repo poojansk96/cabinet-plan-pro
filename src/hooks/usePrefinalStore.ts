@@ -17,12 +17,13 @@ interface PrefinalData {
   unitTypes: string[];
   unitNumbers: PrefinalUnitNumber[];
   cabinetRows: PrefinalCabinetRow[];
+  cabinetUnitTypes: string[];
 }
 
 function loadData(projectId: string): PrefinalData {
   try {
     const raw = localStorage.getItem(`prefinal_${projectId}`);
-    if (!raw) return { unitTypes: [], unitNumbers: [], cabinetRows: [] };
+    if (!raw) return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [] };
     const parsed = JSON.parse(raw);
     // Migration: old format had unitRows
     if (parsed.unitRows && !parsed.unitTypes) {
@@ -30,11 +31,12 @@ function loadData(projectId: string): PrefinalData {
         unitTypes: parsed.unitRows.map((r: any) => r.unitType),
         unitNumbers: [],
         cabinetRows: parsed.cabinetRows || [],
+        cabinetUnitTypes: parsed.cabinetUnitTypes || [],
       };
     }
-    return { unitTypes: parsed.unitTypes || [], unitNumbers: parsed.unitNumbers || [], cabinetRows: parsed.cabinetRows || [] };
+    return { unitTypes: parsed.unitTypes || [], unitNumbers: parsed.unitNumbers || [], cabinetRows: parsed.cabinetRows || [], cabinetUnitTypes: parsed.cabinetUnitTypes || [] };
   } catch {
-    return { unitTypes: [], unitNumbers: [], cabinetRows: [] };
+    return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [] };
   }
 }
 
@@ -150,6 +152,29 @@ export function usePrefinalStore(projectId: string) {
     });
   }, [projectId]);
 
+  // ── Cabinet Unit Types (independent columns for cabinet section) ────────
+  const addCabinetUnitTypes = useCallback((types: string[]) => {
+    setData(prev => {
+      const existing = new Set(prev.cabinetUnitTypes);
+      const newTypes = types.filter(t => !existing.has(t));
+      if (!newTypes.length) return prev;
+      const cabinetUnitTypes = [...prev.cabinetUnitTypes, ...newTypes];
+      const next = { ...prev, cabinetUnitTypes };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
+  const deleteCabinetUnitType = useCallback((type: string) => {
+    setData(prev => {
+      const cabinetUnitTypes = prev.cabinetUnitTypes.filter(t => t !== type);
+      const cabinetRows = prev.cabinetRows.filter(r => r.unitType !== type);
+      const next = { ...prev, cabinetUnitTypes, cabinetRows };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
   // ── Cabinet imports ───────────────────────────────────────────────────
   const addCabinetImport = useCallback((rows: Omit<PrefinalCabinetRow, never>[], unitType: string) => {
     setData(prev => {
@@ -161,7 +186,6 @@ export function usePrefinalStore(projectId: string) {
       for (const r of rows) {
         const key = `${r.sku}__${r.room}__${unitType}`;
         if (merged[key]) {
-          // Use max quantity to avoid doubling (floor plan + elevation)
           merged[key].quantity = Math.max(merged[key].quantity, r.quantity);
         } else {
           merged[key] = { ...r, unitType };
@@ -185,13 +209,14 @@ export function usePrefinalStore(projectId: string) {
   }, [commit, data]);
 
   const clearAll = useCallback(() => {
-    commit({ unitTypes: [], unitNumbers: [], cabinetRows: [] });
+    commit({ unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [] });
   }, [commit]);
 
   return {
     unitTypes: data.unitTypes,
     unitNumbers: data.unitNumbers,
     cabinetRows: data.cabinetRows,
+    cabinetUnitTypes: data.cabinetUnitTypes,
     addUnitTypes,
     deleteUnitType,
     addUnitNumber,
@@ -199,6 +224,8 @@ export function usePrefinalStore(projectId: string) {
     deleteUnitNumber,
     toggleAssignment,
     importUnitMappings,
+    addCabinetUnitTypes,
+    deleteCabinetUnitType,
     addCabinetImport,
     clearCabinets,
     clearUnits,
