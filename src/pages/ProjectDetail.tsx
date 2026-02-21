@@ -8,10 +8,11 @@ import AccessoriesModule from '@/components/project/AccessoriesModule';
 import CountertopModule from '@/components/project/CountertopModule';
 import SummaryModule from '@/components/project/SummaryModule';
 import PreFinalModule from '@/components/project/PreFinalModule';
+import PreFinalSummaryModule from '@/components/project/PreFinalSummaryModule';
 import SummaryPanel from '@/components/project/SummaryPanel';
 import EditProjectDialog from '@/components/project/EditProjectDialog';
 
-type Tab = 'units' | 'cabinets' | 'accessories' | 'countertops' | 'summary' | 'prefinal-units' | 'prefinal-cabinets';
+type Tab = 'units' | 'cabinets' | 'accessories' | 'countertops' | 'summary' | 'prefinal-units' | 'prefinal-cabinets' | 'prefinal-summary';
 
 const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'units', label: 'Units', icon: <Users size={14} /> },
@@ -21,6 +22,7 @@ const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'summary', label: 'Summary', icon: <BarChart3 size={14} /> },
   { key: 'prefinal-units', label: 'Pre-Final Unit Count', icon: <ClipboardCheck size={14} /> },
   { key: 'prefinal-cabinets', label: 'Pre-Final Cabinet Count', icon: <ClipboardCheck size={14} /> },
+  { key: 'prefinal-summary', label: 'Pre-Final Summary', icon: <BarChart3 size={14} /> },
 ];
 
 export default function ProjectDetail() {
@@ -127,6 +129,7 @@ export default function ProjectDetail() {
             {activeTab === 'summary' && <SummaryModule {...storeProps} />}
             {activeTab === 'prefinal-units' && <PreFinalModule {...storeProps} section="units" />}
             {activeTab === 'prefinal-cabinets' && <PreFinalModule {...storeProps} section="cabinets" />}
+            {activeTab === 'prefinal-summary' && <PreFinalSummaryModule {...storeProps} />}
           </div>
         </main>
 
