@@ -26,48 +26,61 @@ serve(async (req) => {
       });
     }
 
-    const prompt = `You are reading a 2020 Design shop drawing page. This is a cabinet/countertop elevation or floor plan for a residential unit.
+    const prompt = `You are reading an ARCHITECTURAL FLOOR PLAN page. This shows a top-down view of a building floor with multiple residential/commercial units.
 
-YOUR TASK: Find the UNIT NUMBER on this page. Every page has one.
+YOUR TASK: Find EVERY unit number and unit type on this page. Missing even one unit is unacceptable.
 
-WHERE TO LOOK (in order of priority):
-1. TITLE BLOCK — the information box at the bottom-right or bottom of the page. It contains the unit identifier. Look for text like:
-   - "UNIT 01-105" or "01-105"
-   - "UNIT #201" or "#201"  
-   - "APT 3B" or "Suite 105"
-   - Any alphanumeric code that identifies a dwelling unit (format: XX-XXX, XXX, or similar)
-2. PAGE HEADER — sometimes the unit number appears at the top of the page
-3. NEAR ROOM LABELS — the unit number may appear near "Kitchen", "Master Bath", etc.
-4. FLOOR PLAN LABELS — if this is a floor plan, find ALL unit numbers at doors/corridors
+HOW TO READ AN ARCHITECTURAL FLOOR PLAN:
+- The page shows walls, doors, rooms, corridors, stairs, and elevators from a TOP-DOWN (bird's eye) view
+- Each dwelling unit is a bounded area with rooms inside (kitchen, bedroom, living, bathroom)
+- Multiple units appear on each page, typically 4-12 per floor
+
+WHERE UNIT NUMBERS ARE LOCATED:
+1. AT THE DOOR/ENTRY — unit numbers are placed at or near the entry door, facing the corridor/hallway
+2. AT THE EDGE of the unit boundary — small text along the perimeter
+3. IN THE CORRIDOR — numbers visible in the hallway area near each unit's door
+4. Sometimes inside the unit near the entry
+
+WHERE UNIT TYPES ARE LOCATED:
+1. INSIDE the unit — centered or near a major room label (e.g. "Type A", "Unit A", "2BR-A", "A1-AS")
+2. In a LEGEND or SCHEDULE table on the page
+3. In the TITLE BLOCK — sometimes lists the floor and unit types
 
 WHAT IS A UNIT NUMBER:
-- A dwelling identifier: "01-101", "01-105", "02-201", "03-301", "04-401", "PH-1", "105", "201"
-- Format is often "XX-YYY" where XX = floor/building code, YYY = unit number
-- Can also be simple numbers: "101", "202", "305"
-- NOT cabinet SKUs (B24, W3036, VB24)
-- NOT room names (Kitchen, Master Bath, Living Room)
-- NOT page numbers or sheet numbers (A1, A2, S1)
+- Dwelling identifiers: "101", "102", "201", "305", "01-105", "PH-1", "1A", "2B"
+- Usually 2-5 characters, mostly numeric
+- NOT: cabinet SKUs (B24, W3036), room names (Kitchen, Bath), type names (TYPE A)
 
-UNIT TYPE: If you see a type designation (TYPE A, Unit A, 2BR), include it. Otherwise use "".
+WHAT IS A UNIT TYPE:  
+- Type designation: "TYPE A", "TYPE B", "Unit A", "2BHK", "Studio", "1BR", "A1-AS"
+- If not found, use empty string ""
 
-BUILDING: If you see a building/project name, include it. Otherwise use null.
+BUILDING NAME: Look in title block. If not found, use null.
 
-IMPORTANT: 
-- You MUST find at least one unit number. Every 2020 Design page belongs to a unit.
-- Read ALL text in the title block carefully — the unit number is always there.
-- If multiple units are on the page (floor plan), extract ALL of them.
+SYSTEMATIC SCAN PROCESS:
+1. Identify ALL corridors/hallways on the page
+2. Walk along each corridor and find every door — each door leads to a unit
+3. Read the unit number at each door
+4. Look inside each unit for the type label
+5. Cross-check: count the unit outlines vs unit numbers found. If mismatch, look harder.
+6. Check the title block for floor number and building name
+
+CRITICAL RULES:
+- Extract ALL units — every door in the corridor has a unit number
+- Each floor typically has the SAME number of units — if Floor 2 had 8 units, Floor 3 should too
+- Read every digit carefully — "330" not "33", "1201" not "120"
+- Do NOT skip any unit — check every corridor on the page
+- If you see a schedule/legend, extract ALL entries from it
 
 Return ONLY valid JSON, no markdown:
-{"pageType":"floor_plan","bldg":null,"units":[{"unitNumber":"01-105","unitType":""}]}`;
+{"pageType":"floor_plan","bldg":"Building A","units":[{"unitNumber":"101","unitType":"TYPE A"},{"unitNumber":"102","unitType":"TYPE B"}]}`;
 
-    const fallbackPrompt = `This is a 2020 Design shop drawing. Read the TITLE BLOCK (the information box at the bottom or right side of the page). 
+    const fallbackPrompt = `This is an architectural floor plan. Look at ALL the doors along the corridors/hallways. Each door has a unit number nearby (like "101", "202", "01-105").
 
-Find the UNIT NUMBER — it's a dwelling identifier like "01-105", "02-201", "03-301", "Unit 201", etc.
-
-DO NOT return cabinet SKUs, room names, or page numbers. Return the UNIT/APARTMENT identifier.
+List EVERY unit number you can find on this page. Also check the title block at the bottom for building name and floor info.
 
 Return ONLY valid JSON:
-{"pageType":"floor_plan","bldg":null,"units":[{"unitNumber":"THE_UNIT_NUMBER_YOU_FOUND","unitType":""}]}`;
+{"pageType":"floor_plan","bldg":null,"units":[{"unitNumber":"101","unitType":""},{"unitNumber":"102","unitType":""}]}`;
 
     const aiModel = useDirectGemini ? "gemini-2.5-pro" : "google/gemini-2.5-pro";
 
