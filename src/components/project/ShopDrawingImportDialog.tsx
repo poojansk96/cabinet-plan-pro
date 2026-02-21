@@ -1,9 +1,27 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { FileUp, X, Loader2, CheckCircle, AlertCircle, Sparkles, Trash2, FilePlus, FileText } from 'lucide-react';
 import type { CabinetType, Room } from '@/types/project';
 import { toast } from 'sonner';
 
 const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-pdf-labels`;
+
+const QUOTES = [
+  "Measure twice, cut once.",
+  "Great design is born from great planning.",
+  "Every detail matters — especially in kitchens.",
+  "Precision today saves rework tomorrow.",
+  "Good plans shape good results.",
+  "The best spaces begin on paper.",
+  "Form follows function — always.",
+  "Craftsmanship starts with accurate takeoffs.",
+  "A well-planned kitchen is a joy forever.",
+  "Excellence is in the details.",
+  "Build smart. Build right. Build once.",
+  "Your project, perfectly counted.",
+  "Behind every great build is a great plan.",
+  "Think ahead. Cut once. Install right.",
+  "The blueprint is where dreams become structure.",
+];
 
 export interface LabelRow {
   sku: string;
@@ -65,13 +83,32 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
   const [queuedFiles, setQueuedFiles] = useState<File[]>([]);
   const [filterSource, setFilterSource] = useState<string>('all');
   const [detectedUnitType, setDetectedUnitType] = useState<string | null>(null);
+  const [quoteIndex, setQuoteIndex] = useState(() => Math.floor(Math.random() * QUOTES.length));
+  const [quoteVisible, setQuoteVisible] = useState(true);
+  const [progress, setProgress] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [processedPages, setProcessedPages] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
   const addMoreRef = useRef<HTMLInputElement>(null);
+
+  // Rotate quote every 4 seconds during processing
+  useEffect(() => {
+    if (step !== 'processing') return;
+    const interval = setInterval(() => {
+      setQuoteVisible(false);
+      setTimeout(() => {
+        setQuoteIndex(i => (i + 1) % QUOTES.length);
+        setQuoteVisible(true);
+      }, 400);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [step]);
 
   const processSingleFile = async (
     file: File,
     pdfjsLib: any,
-    onStatus: (msg: string) => void
+    onStatus: (msg: string) => void,
+    onPageDone?: () => void,
   ): Promise<{ rows: LabelRow[]; detectedType: string | null }> => {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -144,6 +181,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
         sourceFile: file.name,
       }));
       allRows.push(...pageRows);
+      onPageDone?.();
     }
     return { rows: allRows, detectedType };
   };
@@ -203,18 +241,35 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
     if (nonPdfs.length) { setError(`Only PDF files supported. Remove: ${nonPdfs.map(f => f.name).join(', ')}`); return; }
     setError(null);
     setStep('processing');
+    setProgress(5);
+    setProcessedPages(0);
 
     try {
       setProcessingStatus('Loading PDF library…');
       const pdfjsLib = (await import('pdfjs-dist')) as any;
       pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 
+      // Count total pages across all files for progress
+      let totalPagesCount = 0;
+      for (const file of files) {
+        const ab = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ab) }).promise;
+        totalPagesCount += pdf.numPages;
+      }
+      setTotalPages(totalPagesCount);
+      setProgress(10);
+
+      let pagesProcessed = 0;
       let allRows: LabelRow[] = [];
       let firstDetectedType: string | null = null;
       for (let i = 0; i < files.length; i++) {
         setProcessingStatus(`Processing file ${i + 1} of ${files.length}: "${files[i].name}"…`);
         try {
-          const result = await processSingleFile(files[i], pdfjsLib, setProcessingStatus);
+          const result = await processSingleFile(files[i], pdfjsLib, setProcessingStatus, () => {
+            pagesProcessed++;
+            setProcessedPages(pagesProcessed);
+            setProgress(10 + Math.round((pagesProcessed / totalPagesCount) * 85));
+          });
           allRows = mergeRows(result.rows, allRows);
           if (!firstDetectedType && result.detectedType) firstDetectedType = result.detectedType;
         } catch (err: any) {
@@ -225,6 +280,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
       }
 
       if (allRows.length === 0) { setError('No cabinet or accessory labels found in any uploaded file.'); setStep('upload'); return; }
+      setProgress(100);
       setRows(allRows);
       if (firstDetectedType) setDetectedUnitType(firstDetectedType);
       setFilterSource('all');
@@ -382,13 +438,74 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
 
           {/* Processing step */}
           {step === 'processing' && (
-            <div className="flex flex-col items-center justify-center py-16 gap-4">
-              <div className="relative">
-                <Loader2 size={40} className="animate-spin text-primary" />
-                <Sparkles size={14} className="absolute -top-1 -right-1 text-primary" />
+            <div className="flex flex-col items-center justify-center py-10 gap-6 px-6 animate-fade-in">
+              {/* Animated icon cluster */}
+              <div className="relative flex items-center justify-center w-20 h-20">
+                {/* Pulsing ring */}
+                <span className="absolute inset-0 rounded-full opacity-20 animate-[ping_1.8s_cubic-bezier(0,0,0.2,1)_infinite]" style={{ background: 'hsl(var(--primary))' }} />
+                <span className="absolute inset-2 rounded-full opacity-10 animate-[ping_1.8s_cubic-bezier(0,0,0.2,1)_0.4s_infinite]" style={{ background: 'hsl(var(--primary))' }} />
+                {/* Core circle */}
+                <span className="absolute inset-3 rounded-full" style={{ background: 'hsl(var(--primary)/0.12)' }} />
+                <Loader2 size={32} className="animate-spin relative z-10" style={{ color: 'hsl(var(--primary))' }} />
+                <Sparkles size={13} className="absolute top-2 right-2 z-20 animate-pulse" style={{ color: 'hsl(var(--primary))' }} />
               </div>
-              <p className="font-semibold text-sm text-center max-w-sm">{processingStatus}</p>
-              <p className="text-xs text-muted-foreground">Reading labels from shop drawings…</p>
+
+              {/* Status + Quote */}
+              <div className="text-center space-y-2 max-w-xs">
+                <p
+                  className="text-xs italic text-muted-foreground/80 transition-opacity duration-400 mt-2 px-2"
+                  style={{ opacity: quoteVisible ? 1 : 0, transition: 'opacity 0.4s ease' }}
+                >
+                  "{QUOTES[quoteIndex]}"
+                </p>
+              </div>
+
+              {/* Progress bar */}
+              <div className="w-full max-w-sm space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground font-medium">Progress</span>
+                  <span className="font-bold tabular-nums" style={{ color: 'hsl(var(--primary))' }}>{progress}%</span>
+                </div>
+                {/* Track */}
+                <div className="relative w-full h-3 rounded-full overflow-hidden" style={{ background: 'hsl(var(--secondary))' }}>
+                  {/* Shimmer layer */}
+                  <div
+                    className="absolute inset-0 -translate-x-full animate-[shimmer_1.6s_ease-in-out_infinite]"
+                    style={{
+                      background: 'linear-gradient(90deg, transparent 0%, hsl(var(--primary)/0.25) 50%, transparent 100%)',
+                      width: '60%',
+                    }}
+                  />
+                  {/* Fill */}
+                  <div
+                    className="h-full rounded-full transition-all duration-700 ease-out relative overflow-hidden"
+                    style={{
+                      width: `${progress}%`,
+                      background: 'linear-gradient(90deg, hsl(var(--primary)/0.8) 0%, hsl(var(--primary)) 60%, hsl(var(--primary)/0.9) 100%)',
+                    }}
+                  >
+                    {/* Inner shine */}
+                    <span className="absolute inset-0 rounded-full" style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.18) 0%, transparent 60%)' }} />
+                  </div>
+                </div>
+
+                {/* Step dots */}
+                <div className="flex justify-between items-center pt-1">
+                  {['Read PDF', 'Extract pages', 'AI analysis', 'Build list'].map((label, idx) => {
+                    const stepThreshold = [5, 10, 30, 95][idx];
+                    const done = progress >= stepThreshold + 10;
+                    const active = progress >= stepThreshold && !done;
+                    return (
+                      <div key={label} className="flex flex-col items-center gap-1">
+                        <div className={`w-2 h-2 rounded-full transition-all duration-500 ${done ? 'scale-110' : active ? 'scale-125 animate-pulse' : 'opacity-30'}`}
+                          style={{ background: done || active ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))' }}
+                        />
+                        <span className={`text-[9px] font-medium transition-colors duration-300 ${done || active ? 'text-primary' : 'text-muted-foreground opacity-50'}`}>{label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )}
 
