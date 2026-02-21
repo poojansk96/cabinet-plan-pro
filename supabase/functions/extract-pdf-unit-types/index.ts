@@ -26,40 +26,48 @@ serve(async (req) => {
       });
     }
 
-    const prompt = `Extract ALL unit numbers and unit types from this architectural floor plan page.
+    const prompt = `You are reading a 2020 Design shop drawing page. This is a cabinet/countertop elevation or floor plan for a residential unit.
 
-INSTRUCTIONS:
-1. Scan the ENTIRE page — left to right, top to bottom
-2. Find EVERY unit number visible anywhere on the page
-3. Check the TITLE BLOCK (bottom or right side of page) — it almost always contains a unit number/identifier
-4. Check near DOORS and CORRIDORS — unit numbers are placed at entry doors
-5. Check INSIDE unit boundaries — unit type names (e.g. "Unit A", "Type B") are written inside
-6. Check schedule tables or legends if present
+YOUR TASK: Find the UNIT NUMBER on this page. Every page has one.
 
-UNIT NUMBER = dwelling identifier like "101", "01-105", "202", "PH-1", "305", "1A", "2B", "03-201"
-NOT a unit number: cabinet SKUs (B24, W3036), room names (Kitchen, Bathroom), type names (TYPE A)
+WHERE TO LOOK (in order of priority):
+1. TITLE BLOCK — the information box at the bottom-right or bottom of the page. It contains the unit identifier. Look for text like:
+   - "UNIT 01-105" or "01-105"
+   - "UNIT #201" or "#201"  
+   - "APT 3B" or "Suite 105"
+   - Any alphanumeric code that identifies a dwelling unit (format: XX-XXX, XXX, or similar)
+2. PAGE HEADER — sometimes the unit number appears at the top of the page
+3. NEAR ROOM LABELS — the unit number may appear near "Kitchen", "Master Bath", etc.
+4. FLOOR PLAN LABELS — if this is a floor plan, find ALL unit numbers at doors/corridors
 
-UNIT TYPE = designation like "TYPE A", "Unit A", "2BR-A", "Studio", "A1-AS"
-NOT a unit type: room names (Kitchen, Bathroom, Reception, Restroom)
-If no type found, use empty string ""
+WHAT IS A UNIT NUMBER:
+- A dwelling identifier: "01-101", "01-105", "02-201", "03-301", "04-401", "PH-1", "105", "201"
+- Format is often "XX-YYY" where XX = floor/building code, YYY = unit number
+- Can also be simple numbers: "101", "202", "305"
+- NOT cabinet SKUs (B24, W3036, VB24)
+- NOT room names (Kitchen, Master Bath, Living Room)
+- NOT page numbers or sheet numbers (A1, A2, S1)
 
-BUILDING NAME = building/tower name from title block. If not found, use null.
+UNIT TYPE: If you see a type designation (TYPE A, Unit A, 2BR), include it. Otherwise use "".
 
-RULES:
-- Do NOT return empty units array — every page has at least one unit number somewhere (check the title block!)
-- Read every digit carefully — "330" not "33"
-- Include each unique unit number only once
+BUILDING: If you see a building/project name, include it. Otherwise use null.
+
+IMPORTANT: 
+- You MUST find at least one unit number. Every 2020 Design page belongs to a unit.
+- Read ALL text in the title block carefully — the unit number is always there.
+- If multiple units are on the page (floor plan), extract ALL of them.
+
+Return ONLY valid JSON, no markdown:
+{"pageType":"floor_plan","bldg":null,"units":[{"unitNumber":"01-105","unitType":""}]}`;
+
+    const fallbackPrompt = `This is a 2020 Design shop drawing. Read the TITLE BLOCK (the information box at the bottom or right side of the page). 
+
+Find the UNIT NUMBER — it's a dwelling identifier like "01-105", "02-201", "03-301", "Unit 201", etc.
+
+DO NOT return cabinet SKUs, room names, or page numbers. Return the UNIT/APARTMENT identifier.
 
 Return ONLY valid JSON:
-{"pageType":"floor_plan","bldg":"Building A","units":[{"unitNumber":"101","unitType":"TYPE A"}]}`;
-
-    // Fallback prompt for retry when AI returns no units
-    const fallbackPrompt = `Look at this architectural drawing page. Find the UNIT NUMBER in the title block (usually at the bottom or right side of the page). The title block contains project info and a unit identifier like "01-105", "03-201", "Unit 202", etc.
-
-Also look for any unit type designation near the unit number.
-
-Return ONLY valid JSON:
-{"pageType":"floor_plan","bldg":null,"units":[{"unitNumber":"THE_UNIT_NUMBER","unitType":""}]}`;
+{"pageType":"floor_plan","bldg":null,"units":[{"unitNumber":"THE_UNIT_NUMBER_YOU_FOUND","unitType":""}]}`;
 
     const aiModel = useDirectGemini ? "gemini-2.5-pro" : "google/gemini-2.5-pro";
 
