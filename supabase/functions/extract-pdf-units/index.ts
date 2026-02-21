@@ -82,7 +82,7 @@ Return ONLY valid JSON (no markdown fences, no explanation):
       const userPrompt = `Analyze this floor plan page (page ${i + 1}).\n\nSHEET TITLE / HEADER AREA (check here first for building name):\n${titleBlock}\n\nFOOTER / TITLE BLOCK:\n${tailBlock}\n\nFULL PAGE TEXT:\n${pageText.slice(0, 8000)}`;
 
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 25000);
+      const timeout = setTimeout(() => controller.abort(), 120000);
 
       let response: Response;
       try {
