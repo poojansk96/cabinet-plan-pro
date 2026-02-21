@@ -153,7 +153,27 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
         merged[key] = { ...r };
       }
     }
-    return Object.values(merged).sort((a, b) => a.sku.localeCompare(b.sku, undefined, { numeric: true }));
+    return Object.values(merged).sort((a, b) => {
+      const sortPriority = (r: LabelRow): number => {
+        const room = r.room?.toLowerCase() ?? '';
+        const type = r.type?.toLowerCase() ?? '';
+        const isKitchen = room === 'kitchen';
+        const isBath = room === 'bath';
+        const isAccessory = type === 'accessory';
+        if (isKitchen && type === 'wall') return 0;
+        if (isKitchen && type === 'base') return 1;
+        if (isKitchen && type === 'tall') return 2;
+        if (isKitchen && isAccessory) return 3;
+        if (isKitchen) return 4; // other kitchen types (vanity etc)
+        if (isBath && !isAccessory) return 5;
+        if (isBath && isAccessory) return 6;
+        return 7; // other rooms
+      };
+      const pa = sortPriority(a);
+      const pb = sortPriority(b);
+      if (pa !== pb) return pa - pb;
+      return a.sku.localeCompare(b.sku, undefined, { numeric: true });
+    });
   };
 
   const doProcessFiles = async (files: File[]) => {
