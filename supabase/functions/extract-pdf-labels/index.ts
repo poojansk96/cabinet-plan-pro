@@ -25,7 +25,9 @@ serve(async (req) => {
       });
     }
 
-    const prompt = `You are an expert millwork estimator reading a 2020 Design shop drawing / cabinet elevation sheet.
+    const prompt = `You are an expert millwork estimator reading a 2020 Design shop drawing page.
+
+This page may be a FLOOR PLAN (top-down view) or an ELEVATION drawing (front view). Both views show cabinet labels — extract from BOTH.
 
 TASK: Extract ALL cabinets (Base, Wall, Tall, Vanity) and cabinet-related accessories visible on this page.
 
@@ -37,11 +39,11 @@ For each item extract:
    TALL      → prefixes T UT TC PT PTC
    VANITY    → prefixes V VB VD
    ACCESSORY → fillers (FIL BF WF BFFIL WFFIL), toe kick (TK TKRUN), crown (CM), light rail (LR), end panels (EP FP), hardware
-3. Room from elevation title (KITCHEN, BATH, LAUNDRY, PANTRY → capitalize first letter only → Kitchen, Bath etc.)
+3. Room from elevation title or floor plan room label (KITCHEN, BATH, LAUNDRY, PANTRY → capitalize first letter only)
 4. Quantity — count each distinct label occurrence; same SKU in same room summed
 
 RULES:
-- Extract ALL cabinet types: Base, Wall, Tall, Vanity, and their accessories
+- Extract from BOTH floor plans AND elevations — cabinet labels appear in both views
 - A valid cabinet SKU must start with a LETTER and contain at least one NUMBER (e.g. B24, W3036, T84, VB30, FIL3)
 - SKIP appliances: REF REFRIG DW DISHWASHER RANGE HOOD MICRO OTR OVEN
 - SKIP these NON-SKU items — they are NOT cabinets:
@@ -53,7 +55,7 @@ RULES:
   * Dimension text (e.g. "24"", "36 1/2"")
   * Page numbers or sheet references
 - Read labels EXACTLY as printed — do not invent or guess SKUs
-- If this is a floor plan (top-down, no elevations), return {"items":[]}
+- If NO cabinet SKUs are readable on this page, return {"items":[]}
 ${unitType ? `- Unit type context: ${unitType}` : ""}
 
 Return ONLY valid JSON — no markdown, no explanation:
