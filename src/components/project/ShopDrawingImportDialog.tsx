@@ -27,14 +27,27 @@ const ROOMS: Room[] = ['Kitchen', 'Pantry', 'Laundry', 'Bath', 'Other'];
 const ALL_TYPES = [...CABINET_TYPES, 'Accessory'];
 
 async function renderPageToBase64(page: any): Promise<string> {
-  // Use a high base scale so large-format sheets (D/E size) render with enough
-  // resolution for the AI to read small cabinet labels accurately.
-  // Then cap the canvas at 4096px on the long side to avoid memory issues.
   const MAX_PX = 4096;
   const baseViewport = page.getViewport({ scale: 1 });
   const longSide = Math.max(baseViewport.width, baseViewport.height);
-  const scale = Math.min(4, MAX_PX / longSide); // up to 4× but capped at 4096px
+  const scale = Math.min(4, MAX_PX / longSide);
   const viewport = page.getViewport({ scale });
+
+  // Use OffscreenCanvas when available — it works even when the tab is
+  // in the background or minimised, unlike a regular DOM canvas.
+  if (typeof OffscreenCanvas !== 'undefined') {
+    const canvas = new OffscreenCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
+    const ctx = canvas.getContext('2d')!;
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.95 });
+    const buf = await blob.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
+  }
+
+  // Fallback for older browsers
   const canvas = document.createElement('canvas');
   canvas.width = viewport.width;
   canvas.height = viewport.height;
@@ -144,7 +157,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
     return Object.values(merged).sort((a, b) => a.sku.localeCompare(b.sku, undefined, { numeric: true }));
   };
 
-  const processFiles = async (files: File[]) => {
+  const doProcessFiles = async (files: File[]) => {
     const nonPdfs = files.filter(f => !f.type.includes('pdf'));
     if (nonPdfs.length) { setError(`Only PDF files supported. Remove: ${nonPdfs.map(f => f.name).join(', ')}`); return; }
     setError(null);
@@ -179,7 +192,16 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
     }
   };
 
-  const addMoreFiles = async (files: File[]) => {
+  // Wrap in a Web Lock so the browser won't freeze/discard this tab while processing
+  const processFiles = async (files: File[]) => {
+    if (navigator.locks) {
+      await navigator.locks.request('shop-drawing-processing', () => doProcessFiles(files));
+    } else {
+      await doProcessFiles(files);
+    }
+  };
+
+  const doAddMoreFiles = async (files: File[]) => {
     setStep('processing');
     try {
       const pdfjsLib = (await import('pdfjs-dist')) as any;
@@ -197,6 +219,14 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
     } catch (err) {
       toast.error('Failed to process additional files.');
       setStep('review');
+    }
+  };
+
+  const addMoreFiles = async (files: File[]) => {
+    if (navigator.locks) {
+      await navigator.locks.request('shop-drawing-processing', () => doAddMoreFiles(files));
+    } else {
+      await doAddMoreFiles(files);
     }
   };
 
