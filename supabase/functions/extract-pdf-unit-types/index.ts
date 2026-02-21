@@ -66,7 +66,11 @@ Look for:
 
 CRITICAL RULES:
 - unitNumber MUST be a dwelling unit identifier — can be numeric ("101", "202", "PH-1") OR letter-based ("A", "B", "C", "Unit A", "Unit B")
-- unitType should be the type designation like "TYPE A", "A1-As", "2BHK", "Studio" — BUT if no type is found or it's unclear, set unitType to "" (empty string). Do NOT skip units just because they lack a type.
+- unitType should be the type designation. Type names can appear in many forms:
+  * Standard: "TYPE A", "A1-As", "2BHK", "Studio", "1BR"
+  * Named as "Unit X": If the plan labels types as "Unit A", "Unit B", "Unit C" etc., use those as the unitType (e.g. unitType: "Unit A")
+  * If a schedule or legend maps unit numbers to type names, use exactly what is written
+  * If no type is found or it's unclear, set unitType to "" (empty string). Do NOT skip units just because they lack a type.
 - bldg should be the building/tower name if found, or null
 - Read EVERY digit carefully — do not truncate (e.g. "330" not "33")
 - If NO valid unit numbers found, return {"pageType":"title_page","units":[]}
