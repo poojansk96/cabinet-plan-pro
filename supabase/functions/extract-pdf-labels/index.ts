@@ -27,32 +27,37 @@ serve(async (req) => {
 
     const prompt = `You are an expert millwork estimator reading a 2020 Design shop drawing / cabinet elevation sheet.
 
-TASK: Extract ONLY base cabinets, wall cabinets, and their related accessories/fillers visible on this page.
+TASK: Extract ALL cabinets (Base, Wall, Tall, Vanity) and cabinet-related accessories visible on this page.
 
 For each item extract:
-1. SKU / model label exactly as written (e.g. B24, W3036, BF3, WF330, WF3x30, BFFIL, WFFIL, FIL3, etc.)
+1. SKU / model label exactly as written (e.g. B24, W3036, T84, VB30, BF3, WF330, FIL3, TKRUN96, CM8, etc.)
 2. Cabinet type determined by label prefix:
-   BASE      → prefixes B DB SB CB EB BF
-   WALL      → prefixes W UB WC UC OH WF
-   ACCESSORY → fillers (FIL BF WF BFFIL WFFIL), toe kick (TK TKRUN), crown (CM), light rail (LR), end panels (EP FP)
+   BASE      → prefixes B DB SB CB EB
+   WALL      → prefixes W UB WC UC OH
+   TALL      → prefixes T UT TC PT PTC
+   VANITY    → prefixes V VB VD
+   ACCESSORY → fillers (FIL BF WF BFFIL WFFIL), toe kick (TK TKRUN), crown (CM), light rail (LR), end panels (EP FP), hardware
 3. Room from elevation title (KITCHEN, BATH, LAUNDRY, PANTRY → capitalize first letter only → Kitchen, Bath etc.)
 4. Quantity — count each distinct label occurrence; same SKU in same room summed
 
 RULES:
-- ONLY extract Base cabinets, Wall cabinets, and their accessories (fillers, panels, moldings)
-- SKIP Tall cabinets (T UT TC PT PTC prefixes) — do NOT include them
-- SKIP Vanity cabinets (V VB VD prefixes) — do NOT include them
+- Extract ALL cabinet types: Base, Wall, Tall, Vanity, and their accessories
+- A valid cabinet SKU must start with a LETTER and contain at least one NUMBER (e.g. B24, W3036, T84, VB30, FIL3)
 - SKIP appliances: REF REFRIG DW DISHWASHER RANGE HOOD MICRO OTR OVEN
-- SKIP unit numbers, unit type names, call-out addresses, dimension text, notes, and any non-SKU text
-- A valid SKU must start with a LETTER and contain at least one NUMBER (e.g. B24, W3036, BF3, FIL3)
-- Do NOT extract text like "Unit 101", "A1-As", "ELEVATION A", floor labels, or drawing titles as SKUs
+- SKIP these NON-SKU items — they are NOT cabinets:
+  * Unit numbers (e.g. "Unit 101", "101", "201")
+  * Unit type names (e.g. "A1-As", "Type A", "2BHK")
+  * Call-out addresses or bubble references (e.g. "A1", "1A", "A", circled numbers)
+  * Elevation titles (e.g. "ELEVATION A", "WALL A")
+  * Floor labels, building names, drawing titles, notes
+  * Dimension text (e.g. "24"", "36 1/2"")
+  * Page numbers or sheet references
 - Read labels EXACTLY as printed — do not invent or guess SKUs
 - If this is a floor plan (top-down, no elevations), return {"items":[]}
-- Do NOT measure dimensions from drawing geometry — dimensions fields are optional
 ${unitType ? `- Unit type context: ${unitType}` : ""}
 
 Return ONLY valid JSON — no markdown, no explanation:
-{"items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1},{"sku":"W3036","type":"Wall","room":"Kitchen","quantity":2}]}`;
+{"items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1},{"sku":"W3036","type":"Wall","room":"Kitchen","quantity":2},{"sku":"T84","type":"Tall","room":"Kitchen","quantity":1}]}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -108,14 +113,13 @@ Return ONLY valid JSON — no markdown, no explanation:
       .filter((c: any) => c.sku && /^[A-Za-z]/.test(c.sku) && /\d/.test(c.sku))
       .filter((c: any) => {
         const upper = String(c.sku).toUpperCase().trim();
-        // Skip anything that looks like a unit number, type name, or address
-        if (/^UNIT\s/i.test(upper)) return false;
+        // Skip anything that looks like a unit number, type name, or call-out address
+        if (/^UNIT\b/i.test(upper)) return false;
         if (/^ELEV/i.test(upper)) return false;
         if (/^FLOOR/i.test(upper)) return false;
         if (/^TYPE\s/i.test(upper)) return false;
-        // Only allow Base, Wall, Accessory types
-        const t = String(c.type || "").toLowerCase();
-        if (t === "tall" || t === "vanity") return false;
+        if (/^WALL\s+[A-Z]$/i.test(upper)) return false; // "WALL A" title, not a cabinet
+        if (/^[A-Z]\d*-[A-Z]/i.test(upper) && upper.length <= 6) return false; // call-out like "A1-As"
         return true;
       })
       .map((c: any) => ({
