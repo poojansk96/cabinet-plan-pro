@@ -112,7 +112,7 @@ Return ONLY valid JSON — no markdown, no explanation:
 
     // Filter: must start with letter AND contain a number (real SKU, not labels/titles)
     // Appliance prefixes to reject
-    const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW|DDW|DISHWASHER|DISH|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP)/i;
+    const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP)/i;
 
     const items = (parsed.items ?? [])
       .filter((c: any) => c.sku && /^[A-Za-z]/.test(c.sku) && /\d/.test(c.sku))
@@ -126,7 +126,7 @@ Return ONLY valid JSON — no markdown, no explanation:
         if (/^FLOOR/i.test(upper)) return false;
         if (/^TYPE\s/i.test(upper)) return false;
         if (/^WALL\s+[A-Z]$/i.test(upper)) return false; // "WALL A" title, not a cabinet
-        if (/^[A-Z]\d*-[A-Z]/i.test(upper) && upper.length <= 6) return false; // call-out like "A1-As"
+        if (/^[A-Z]\d?-[A-Z]/i.test(upper) && upper.length <= 4) return false; // call-out like "A1-B" but not cabinet SKUs like "B15-L"
         return true;
       })
       .map((c: any) => {
