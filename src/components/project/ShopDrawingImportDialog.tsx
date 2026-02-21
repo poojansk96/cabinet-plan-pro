@@ -142,13 +142,12 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
   };
 
   const mergeRows = (incoming: LabelRow[], existing: LabelRow[] = []): LabelRow[] => {
-    // Deduplicate by SKU+type+room (ignoring source page/file) — floor plan & elevation
-    // data are combined, taking the MAX quantity to avoid doubling
+    // Deduplicate by SKU+room only (ignore type — AI may classify differently
+    // across floor plan vs elevation). Take MAX quantity to avoid doubling.
     const merged: Record<string, LabelRow> = {};
     for (const r of [...existing, ...incoming]) {
-      const key = `${r.sku}__${r.type}__${r.room}`;
+      const key = `${r.sku}__${r.room}`;
       if (merged[key]) {
-        // Take max quantity — same cabinet seen in floor plan + elevation shouldn't double
         merged[key].quantity = Math.max(merged[key].quantity, r.quantity);
       } else {
         merged[key] = { ...r };
