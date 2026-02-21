@@ -129,12 +129,20 @@ Return ONLY valid JSON — no markdown, no explanation:
         if (/^[A-Z]\d*-[A-Z]/i.test(upper) && upper.length <= 6) return false; // call-out like "A1-As"
         return true;
       })
-      .map((c: any) => ({
-        sku: String(c.sku).toUpperCase().trim(),
-        type: c.type ?? "Base",
-        room: c.room ?? "Kitchen",
-        quantity: Number(c.quantity) || 1,
-      }));
+      .map((c: any) => {
+        // Normalize type to title case (e.g. "ACCESSORY" → "Accessory", "base" → "Base")
+        const rawType = String(c.type ?? "Base").trim();
+        const normalizedType = rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase();
+        // Normalize room to title case
+        const rawRoom = String(c.room ?? "Kitchen").trim();
+        const normalizedRoom = rawRoom.charAt(0).toUpperCase() + rawRoom.slice(1).toLowerCase();
+        return {
+          sku: String(c.sku).toUpperCase().trim(),
+          type: normalizedType,
+          room: normalizedRoom,
+          quantity: Number(c.quantity) || 1,
+        };
+      });
 
     // Deduplicate: combine same SKU+type+room by summing quantities
     const deduped = new Map<string, { sku: string; type: string; room: string; quantity: number }>();
