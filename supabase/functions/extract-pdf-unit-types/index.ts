@@ -28,22 +28,29 @@ serve(async (req) => {
 
 TASK: Extract all UNIT NUMBERS and their associated UNIT TYPE from this page.
 
+WHAT IS A UNIT NUMBER:
+- A unit number is a numeric or alphanumeric identifier for a residential/commercial unit (apartment, condo, suite)
+- Examples of VALID unit numbers: "101", "102", "201", "102A", "PH-1", "305", "1A", "2B"
+- Unit numbers are typically short (1-5 characters), mostly numeric, and identify a physical dwelling unit
+
+WHAT IS NOT A UNIT NUMBER (DO NOT extract these as unitNumber):
+- Type names like "TYPE A", "A1-As", "2BHK", "Studio", "1 Bedroom" — these are unit TYPES, not numbers
+- Call-out addresses like "A1-As", "B2-Cs", "C3" that identify drawing references
+- Room labels like "Kitchen", "Bath", "Living Room"
+- Cabinet SKUs like "B24", "W3036", "VB24"
+- Notes, annotations, or drawing titles
+- Building/floor/wing labels
+
 Look for:
-1. Unit schedules or legend tables listing unit numbers with their types (most reliable source)
-2. Floor plan labels showing unit numbers (e.g. "101", "102", "201", "Unit 305") next to or inside unit outlines, with a unit type label nearby (e.g. "TYPE A", "A1-As", "2BHK", "Studio")
-3. Title block text identifying which unit type this sheet belongs to — e.g. "KITCHEN – TYPE A" or "Unit 101 – Type A1-As"
-4. Tables or schedules mapping unit numbers to unit types
-5. Multiple units on the same page — each unit number should be captured with its type
+1. Unit schedules or legend tables listing unit numbers with their types
+2. Floor plan labels showing unit numbers (e.g. "101", "102") inside or near unit outlines
+3. Title block text like "KITCHEN – TYPE A" with unit numbers listed nearby
 
 RULES:
-- Extract the unit NUMBER exactly as written (e.g. "101", "102A", "PH-1")
-- Extract the unit TYPE exactly as written (e.g. "TYPE A", "A1-As", "2BHK", "Studio")
-- Each row should have one unitNumber and one unitType
-- If a page shows a single unit type with multiple unit numbers listed, create one entry per unit number all sharing that type
-- If a schedule shows unit numbers mapped to types, extract each mapping
-- SKIP generic room labels like "Kitchen", "Bath", "Living" — those are rooms, not unit types
-- SKIP cabinet labels like B24, W3036 — those are cabinet SKUs
-- If NO unit information at all, return {"units":[]}
+- unitNumber MUST be a dwelling unit identifier — primarily numeric like "101", "202", "PH-1", "305A"
+- unitType should be the type designation like "TYPE A", "A1-As", "2BHK", "Studio"
+- Do NOT put type names or call-out addresses in the unitNumber field
+- If NO valid unit numbers found, return {"units":[]}
 
 Return ONLY valid JSON — no markdown, no explanation:
 {"units":[{"unitNumber":"101","unitType":"TYPE A"},{"unitNumber":"102","unitType":"TYPE A"},{"unitNumber":"201","unitType":"TYPE B"}]}`;
@@ -94,12 +101,26 @@ Return ONLY valid JSON — no markdown, no explanation:
       console.error("JSON parse failed:", content.slice(0, 400));
     }
 
+    // Filter: unit numbers must look like actual dwelling unit identifiers
+    const isValidUnitNumber = (val: string): boolean => {
+      const upper = val.toUpperCase();
+      if (!/\d/.test(val)) return false;
+      if (/^[A-Z]{1,2}\d{2,4}$/i.test(val)) return false; // cabinet SKUs
+      if (/^TYPE\s/i.test(upper)) return false;
+      if (/^[A-Z]\d+-[A-Z]/i.test(val) && val.length <= 6) return false; // call-outs
+      if (/^(KITCHEN|BATH|LIVING|BEDROOM|MASTER|DINING|LAUNDRY|PANTRY|CLOSET)/i.test(upper)) return false;
+      if (/^(FLOOR|LEVEL|BUILDING|BLDG|TOWER|WING|BLOCK|EAST|WEST|NORTH|SOUTH)/i.test(upper)) return false;
+      if (val.length > 10) return false;
+      return true;
+    };
+
     const units = (parsed.units ?? [])
       .filter((u: any) => u.unitNumber && u.unitType && typeof u.unitNumber === "string" && typeof u.unitType === "string")
       .map((u: any) => ({
         unitNumber: String(u.unitNumber).trim(),
         unitType: String(u.unitType).trim(),
-      }));
+      }))
+      .filter(u => isValidUnitNumber(u.unitNumber));
 
     return new Response(JSON.stringify({ units }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
