@@ -115,7 +115,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
     // ── Sheet 2: Pre-Final Cabinet Count ────────────────────────────
     const wsCabs = wb.addWorksheet('Pre-Final Cabinet Count');
-    const cabTypes = store.unitTypes;
+    const cabTypes = store.cabinetUnitTypes;
     wsCabs.columns = [
       { width: 18 },
       ...cabTypes.map(() => ({ width: 6 })),
@@ -256,20 +256,20 @@ export default function PreFinalSummaryModule({ project }: Props) {
         if (y > pageH - 100) { doc.addPage(); y = 40; }
         y = sectionHeader('PRE-FINAL CABINET COUNT', y);
 
-        const cabHead = ['SKU Name', ...store.unitTypes, 'Total'];
+        const cabHead = ['SKU Name', ...store.cabinetUnitTypes, 'Total'];
         const cabBody: string[][] = [];
 
         groupedSkus.forEach(({ group, skus }) => {
           // Group header row
-          cabBody.push([`▸ ${group} (${skus.length})`, ...store.unitTypes.map(() => ''), '']);
+          cabBody.push([`▸ ${group} (${skus.length})`, ...store.cabinetUnitTypes.map(() => ''), '']);
           skus.forEach(sku => {
-            const flags = store.unitTypes.map(t => skuTypeMap[sku]?.has(t) ? '1' : '');
+            const flags = store.cabinetUnitTypes.map(t => skuTypeMap[sku]?.has(t) ? '1' : '');
             const rowTotal = skuTypeMap[sku]?.size || 0;
             cabBody.push([sku, ...flags, String(rowTotal)]);
           });
         });
 
-        const cabColTotals = store.unitTypes.map(t => String(allSkus.filter(sku => skuTypeMap[sku]?.has(t)).length));
+        const cabColTotals = store.cabinetUnitTypes.map(t => String(allSkus.filter(sku => skuTypeMap[sku]?.has(t)).length));
         const cabGrandTotal = allSkus.reduce((sum, sku) => sum + (skuTypeMap[sku]?.size || 0), 0);
         cabBody.push(['TOTAL', ...cabColTotals, String(cabGrandTotal)]);
 
