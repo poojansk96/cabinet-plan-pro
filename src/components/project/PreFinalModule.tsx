@@ -17,6 +17,18 @@ interface Props {
   [key: string]: unknown;
 }
 
+// Normalize unit type names so "TYPE A1 - AS", "A1-AS", "A1 - As", "Type A1-As" all become "A1-AS"
+function normalizeUnitType(raw: string): string {
+  let s = raw.trim();
+  // Remove leading "TYPE " prefix (case-insensitive)
+  s = s.replace(/^type\s+/i, '');
+  // Normalize spaces around hyphens: "A1 - AS" → "A1-AS"
+  s = s.replace(/\s*-\s*/g, '-');
+  // Uppercase
+  s = s.toUpperCase();
+  return s;
+}
+
 export default function PreFinalModule({ project, section = 'units' }: Props) {
   const store = usePrefinalStore(project.id);
 
@@ -37,19 +49,22 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
 
   // ── Unit import handler ───────────────────────────────────────────────────
   const handleUnitImport = (rows: { unitNumber: string; unitType: string }[]) => {
+    // Normalize unit type names before importing
+    const normalized = rows.map(r => ({ ...r, unitType: normalizeUnitType(r.unitType) }));
     // Extract unique types
-    const types = Array.from(new Set(rows.map(r => r.unitType)));
+    const types = Array.from(new Set(normalized.map(r => r.unitType)));
     store.addUnitTypes(types);
     // Add unit numbers with their assignments
-    store.importUnitMappings(rows);
-    setUnitImportedCount(rows.length);
+    store.importUnitMappings(normalized);
+    setUnitImportedCount(normalized.length);
     setShowUnitImport(false);
     setTimeout(() => setUnitImportedCount(null), 4000);
   };
 
   // ── Cabinet import handler ────────────────────────────────────────────────
   const handleCabinetImport = (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[], detectedUnitType?: string) => {
-    const targetType = detectedUnitType || importTargetType || '';
+    const rawType = detectedUnitType || importTargetType || '';
+    const targetType = rawType ? normalizeUnitType(rawType) : '';
     if (targetType) {
       // Auto-add the unit type as a cabinet column if not already present
       store.addCabinetUnitTypes([targetType]);
@@ -61,7 +76,7 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
     );
     setCabinetImportedCount(rows.length);
     setShowCabinetImport(false);
-    if (detectedUnitType) setImportTargetType(detectedUnitType);
+    if (targetType) setImportTargetType(targetType);
     setTimeout(() => setCabinetImportedCount(null), 4000);
   };
 
