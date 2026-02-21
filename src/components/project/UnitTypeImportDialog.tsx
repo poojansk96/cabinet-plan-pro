@@ -38,14 +38,16 @@ async function renderPageToBase64(page: any): Promise<string> {
   const MAX_PX = 4096;
   const baseViewport = page.getViewport({ scale: 1 });
   const longSide = Math.max(baseViewport.width, baseViewport.height);
-  const scale = Math.min(4, MAX_PX / longSide);
+  // Use higher scale (up to 5) for better title block readability
+  const scale = Math.min(5, MAX_PX / longSide);
   const viewport = page.getViewport({ scale });
   const canvas = document.createElement('canvas');
   canvas.width = viewport.width;
   canvas.height = viewport.height;
   const ctx = canvas.getContext('2d')!;
   await page.render({ canvasContext: ctx, viewport }).promise;
-  return canvas.toDataURL('image/jpeg', 0.95).split(',')[1];
+  // Use higher quality JPEG for better text clarity
+  return canvas.toDataURL('image/jpeg', 0.98).split(',')[1];
 }
 
 type Step = 'upload' | 'processing' | 'review';
@@ -150,7 +152,10 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
           if (data.error === 'rate_limit') { toast.error('AI rate limit reached.'); setStep('upload'); return; }
           if (data.error === 'credits') { toast.error('AI credits exhausted.'); setStep('upload'); return; }
 
-          for (const u of (data.units ?? [])) {
+          const pageUnits = data.units ?? [];
+          console.log(`Page ${p}/${pdf.numPages} of "${file.name}": found ${pageUnits.length} unit(s)`, pageUnits);
+
+          for (const u of pageUnits) {
             const num = String(u.unitNumber ?? '').trim();
             const type = String(u.unitType ?? '').trim();
             const bldg = String(u.bldg ?? '').trim();
