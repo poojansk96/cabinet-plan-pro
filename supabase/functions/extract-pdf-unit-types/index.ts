@@ -65,8 +65,8 @@ Look for:
 4. Building/tower identifiers in headers or title blocks
 
 CRITICAL RULES:
-- unitNumber MUST be a dwelling unit identifier — primarily numeric like "101", "202", "PH-1"
-- unitType should be the type designation like "TYPE A", "A1-As", "2BHK", "Studio"
+- unitNumber MUST be a dwelling unit identifier — can be numeric ("101", "202", "PH-1") OR letter-based ("A", "B", "C", "Unit A", "Unit B")
+- unitType should be the type designation like "TYPE A", "A1-As", "2BHK", "Studio" — BUT if no type is found or it's unclear, set unitType to "" (empty string). Do NOT skip units just because they lack a type.
 - bldg should be the building/tower name if found, or null
 - Read EVERY digit carefully — do not truncate (e.g. "330" not "33")
 - If NO valid unit numbers found, return {"pageType":"title_page","units":[]}
@@ -160,22 +160,22 @@ Return ONLY valid JSON — no markdown, no explanation:
     // Filter: unit numbers must look like actual dwelling unit identifiers
     const isValidUnitNumber = (val: string): boolean => {
       const upper = val.toUpperCase();
-      if (!/\d/.test(val)) return false;
-      if (/^[A-Z]{1,2}\d{2,4}$/i.test(val)) return false;
+      // Allow letter-only unit numbers like "A", "B", "C" (single letters or short alpha)
+      // But reject known non-unit labels
       if (/^TYPE\s/i.test(upper)) return false;
-      if (/^[A-Z]\d+-[A-Z]/i.test(val) && val.length <= 6) return false;
       if (/^(KITCHEN|BATH|LIVING|BEDROOM|MASTER|DINING|LAUNDRY|PANTRY|CLOSET)/i.test(upper)) return false;
       if (/^(FLOOR|LEVEL|BUILDING|BLDG|TOWER|WING|BLOCK|EAST|WEST|NORTH|SOUTH)/i.test(upper)) return false;
+      if (/^(ELEVATION|ELEV)\b/i.test(upper)) return false;
       if (val.length > 10) return false;
-      if (val.length < 2) return false;
+      if (val.length < 1) return false;
       return true;
     };
 
     let units = (parsed.units ?? [])
-      .filter((u: any) => u.unitNumber && u.unitType && typeof u.unitNumber === "string" && typeof u.unitType === "string")
+      .filter((u: any) => u.unitNumber && typeof u.unitNumber === "string")
       .map((u: any) => ({
         unitNumber: String(u.unitNumber).trim(),
-        unitType: String(u.unitType).trim(),
+        unitType: u.unitType ? String(u.unitType).trim() : "",
         bldg: String(u.bldg || pageBldg || "").trim() || null,
       }))
       .filter(u => isValidUnitNumber(u.unitNumber));
