@@ -16,7 +16,7 @@ export interface LabelRow {
 
 interface Props {
   unitType?: string;
-  onImport: (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[]) => void;
+  onImport: (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[], detectedUnitType?: string) => void;
   onClose: () => void;
 }
 
@@ -64,6 +64,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
   const [processingStatus, setProcessingStatus] = useState('');
   const [queuedFiles, setQueuedFiles] = useState<File[]>([]);
   const [filterSource, setFilterSource] = useState<string>('all');
+  const [detectedUnitType, setDetectedUnitType] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const addMoreRef = useRef<HTMLInputElement>(null);
 

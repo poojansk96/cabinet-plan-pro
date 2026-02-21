@@ -29,8 +29,14 @@ serve(async (req) => {
 
 This page may be a FLOOR PLAN (top-down view) or an ELEVATION drawing (front view). Both views show cabinet labels — extract from BOTH.
 
-TASK: Extract ALL cabinets (Base, Wall, Tall, Vanity) and cabinet-related accessories visible on this page.
+TASK 1 — DETECT UNIT TYPE NAME:
+Look at the drawing's title block, header, footer, or prominent labels for the UNIT TYPE NAME.
+This is typically something like "A1", "A1-As", "A2", "B1", "2BHK", "1BR", "Type A", "Studio", etc.
+It usually appears in the title block or as a prominent label at the top of the drawing.
+Do NOT confuse unit type with unit numbers (e.g. "101", "201") or elevation labels (e.g. "Elevation A").
+If you cannot determine the unit type, return null for unitTypeName.
 
+TASK 2 — EXTRACT CABINETS:
 For each item extract:
 1. SKU / model label exactly as written (e.g. B24, W3036, T84, VB30, BF3, WF330, FIL3, TKRUN96, CM8, etc.)
 2. Cabinet type determined by label prefix:
@@ -55,11 +61,11 @@ RULES:
   * Dimension text (e.g. "24"", "36 1/2"")
   * Page numbers or sheet references
 - Read labels EXACTLY as printed — do not invent or guess SKUs
-- If NO cabinet SKUs are readable on this page, return {"items":[]}
+- If NO cabinet SKUs are readable on this page, return {"unitTypeName":null,"items":[]}
 ${unitType ? `- Unit type context: ${unitType}` : ""}
 
 Return ONLY valid JSON — no markdown, no explanation:
-{"items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1},{"sku":"W3036","type":"Wall","room":"Kitchen","quantity":2},{"sku":"T84","type":"Tall","room":"Kitchen","quantity":1}]}`;
+{"unitTypeName":"A1","items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1},{"sku":"W3036","type":"Wall","room":"Kitchen","quantity":2}]}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -98,7 +104,7 @@ Return ONLY valid JSON — no markdown, no explanation:
     const content: string = aiData.choices?.[0]?.message?.content ?? "";
     console.log("AI raw response:", content.slice(0, 800));
 
-    let parsed: { items: any[] } = { items: [] };
+    let parsed: { items: any[]; unitTypeName?: string | null } = { items: [] };
     try {
       const cleaned = content
         .replace(/^```json\s*/i, "")
@@ -109,6 +115,8 @@ Return ONLY valid JSON — no markdown, no explanation:
     } catch {
       console.error("JSON parse failed:", content.slice(0, 500));
     }
+
+    const detectedUnitType = parsed.unitTypeName ?? null;
 
     // Filter: must start with letter AND contain a number (real SKU, not labels/titles)
     // Appliance prefixes to reject
@@ -157,7 +165,7 @@ Return ONLY valid JSON — no markdown, no explanation:
       }
     }
 
-    return new Response(JSON.stringify({ items: Array.from(deduped.values()) }), {
+    return new Response(JSON.stringify({ items: Array.from(deduped.values()), unitTypeName: detectedUnitType }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
