@@ -72,10 +72,11 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
     file: File,
     pdfjsLib: any,
     onStatus: (msg: string) => void
-  ): Promise<LabelRow[]> => {
+  ): Promise<{ rows: LabelRow[]; detectedType: string | null }> => {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const allRows: LabelRow[] = [];
+    let detectedType: string | null = null;
 
     for (let p = 1; p <= pdf.numPages; p++) {
       onStatus(`Rendering "${file.name}" page ${p}/${pdf.numPages}…`);
@@ -129,6 +130,11 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
       if (data.error === 'rate_limit') throw new Error('rate_limit');
       if (data.error === 'credits') throw new Error('credits');
 
+      // Capture detected unit type from AI
+      if (data.unitTypeName && !detectedType) {
+        detectedType = data.unitTypeName;
+      }
+
       const pageRows = (data.items ?? []).map((c: any) => ({
         sku: c.sku,
         type: c.type,
@@ -139,7 +145,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
       }));
       allRows.push(...pageRows);
     }
-    return allRows;
+    return { rows: allRows, detectedType };
   };
 
   const mergeRows = (incoming: LabelRow[], existing: LabelRow[] = []): LabelRow[] => {
@@ -204,11 +210,13 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
       pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 
       let allRows: LabelRow[] = [];
+      let firstDetectedType: string | null = null;
       for (let i = 0; i < files.length; i++) {
         setProcessingStatus(`Processing file ${i + 1} of ${files.length}: "${files[i].name}"…`);
         try {
-          const fileRows = await processSingleFile(files[i], pdfjsLib, setProcessingStatus);
-          allRows = mergeRows(fileRows, allRows);
+          const result = await processSingleFile(files[i], pdfjsLib, setProcessingStatus);
+          allRows = mergeRows(result.rows, allRows);
+          if (!firstDetectedType && result.detectedType) firstDetectedType = result.detectedType;
         } catch (err: any) {
           if (err.message === 'rate_limit') { toast.error('AI rate limit reached. Try again shortly.'); setStep('upload'); return; }
           if (err.message === 'credits') { toast.error('AI credits exhausted.'); setStep('upload'); return; }
@@ -218,6 +226,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
 
       if (allRows.length === 0) { setError('No cabinet or accessory labels found in any uploaded file.'); setStep('upload'); return; }
       setRows(allRows);
+      if (firstDetectedType) setDetectedUnitType(firstDetectedType);
       setFilterSource('all');
       setStep('review');
     } catch (err) {
@@ -245,8 +254,9 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
       for (const file of files) {
         setProcessingStatus(`Processing "${file.name}"…`);
         try {
-          const r = await processSingleFile(file, pdfjsLib, setProcessingStatus);
-          newRows = mergeRows(r, newRows);
+          const result = await processSingleFile(file, pdfjsLib, setProcessingStatus);
+          newRows = mergeRows(result.rows, newRows);
+          if (result.detectedType && !detectedUnitType) setDetectedUnitType(result.detectedType);
         } catch (err: any) { toast.error(`Skipped "${file.name}": ${err.message}`); }
       }
       setRows(prev => mergeRows(newRows, prev));
@@ -290,7 +300,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
   const handleImport = () => {
     const selected = rows.filter(r => r.selected).map(({ selected: _, sourceFile: __, ...rest }) => rest);
     if (selected.length === 0) return;
-    onImport(selected);
+    onImport(selected, detectedUnitType ?? undefined);
   };
 
   const sourceFiles = Array.from(new Set(rows.map(r => r.sourceFile ?? 'Unknown')));
