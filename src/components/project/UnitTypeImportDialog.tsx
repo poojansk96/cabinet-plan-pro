@@ -154,7 +154,7 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
             const num = String(u.unitNumber ?? '').trim();
             const type = String(u.unitType ?? '').trim();
             const bldg = String(u.bldg ?? '').trim();
-            if (!num || !type) continue;
+            if (!num) continue;
             allMappings.set(num, { unitNumber: num, unitType: type, bldg, selected: true });
           }
 
