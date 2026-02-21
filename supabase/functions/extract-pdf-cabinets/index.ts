@@ -56,35 +56,57 @@ ${unitType ? `- Unit type context: ${unitType}` : ""}
 Return ONLY valid JSON — no markdown fences, no explanation:
 {"cabinets":[{"sku":"B24","type":"Base","room":"Kitchen","width":24,"height":34,"depth":24,"quantity":1}]}`;
 
-    let response: Response;
-    if (useDirectGemini) {
-      response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts: [
-              { inlineData: { mimeType: "image/jpeg", data: pageImage } },
-              { text: prompt },
-            ]}],
-            generationConfig: { temperature: 0.1, maxOutputTokens: 4096 },
-          }),
+    let response: Response | null = null;
+    const MAX_RETRIES = 3;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        if (useDirectGemini) {
+          response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ role: "user", parts: [
+                  { inlineData: { mimeType: "image/jpeg", data: pageImage } },
+                  { text: prompt },
+                ]}],
+                generationConfig: { temperature: 0.1, maxOutputTokens: 4096 },
+              }),
+            }
+          );
+        } else {
+          response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-flash",
+              messages: [{ role: "user", content: [
+                { type: "image_url", image_url: { url: `data:image/jpeg;base64,${pageImage}` } },
+                { type: "text", text: prompt },
+              ]}],
+              temperature: 0.1, max_tokens: 4096,
+            }),
+          });
         }
-      );
-    } else {
-      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [{ role: "user", content: [
-            { type: "image_url", image_url: { url: `data:image/jpeg;base64,${pageImage}` } },
-            { type: "text", text: prompt },
-          ]}],
-          temperature: 0.1, max_tokens: 4096,
-        }),
-      });
+      } catch (fetchErr) {
+        console.error(`AI fetch error (attempt ${attempt + 1}):`, fetchErr);
+        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
+        throw fetchErr;
+      }
+
+      if (response.status === 503 || response.status === 500) {
+        const errText = await response.text();
+        console.warn(`AI unavailable (${response.status}), attempt ${attempt + 1}/${MAX_RETRIES}:`, errText.slice(0, 200));
+        response = null;
+        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
+        return new Response(JSON.stringify({ error: "AI model temporarily unavailable. Please try again in a moment.", cabinets: [] }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      break;
+    }
+
+    if (!response) {
+      return new Response(JSON.stringify({ error: "AI model temporarily unavailable. Please try again in a moment.", cabinets: [] }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (!response.ok) {

@@ -103,7 +103,7 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
           const page = await pdf.getPage(p);
           const pageImage = await renderPageToBase64(page);
 
-          const fetchWithRetry = async (attempts = 2): Promise<Response> => {
+          const fetchWithRetry = async (attempts = 3): Promise<Response> => {
             for (let attempt = 1; attempt <= attempts; attempt++) {
               const controller = new AbortController();
               const tid = setTimeout(() => controller.abort(), 5 * 60 * 1000);
@@ -115,6 +115,12 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
                   signal: controller.signal,
                 });
                 clearTimeout(tid);
+                // Retry on 503 (model unavailable) and 500
+                if ((res.status === 503 || res.status === 500) && attempt < attempts) {
+                  console.warn(`Page ${p} attempt ${attempt}: AI unavailable (${res.status}), retrying in ${3 * attempt}s…`);
+                  await new Promise(r => setTimeout(r, 3000 * attempt));
+                  continue;
+                }
                 return res;
               } catch (err: any) {
                 clearTimeout(tid);
