@@ -200,6 +200,15 @@ export function usePrefinalStore(projectId: string) {
     });
   }, [projectId]);
 
+  const deleteCabinetRow = useCallback((sku: string) => {
+    setData(prev => {
+      const cabinetRows = prev.cabinetRows.filter(r => r.sku !== sku);
+      const next = { ...prev, cabinetRows };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
   const clearCabinets = useCallback(() => {
     commit({ ...data, cabinetRows: [] });
   }, [commit, data]);
@@ -227,6 +236,7 @@ export function usePrefinalStore(projectId: string) {
     addCabinetUnitTypes,
     deleteCabinetUnitType,
     addCabinetImport,
+    deleteCabinetRow,
     clearCabinets,
     clearUnits,
     clearAll,

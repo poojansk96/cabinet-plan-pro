@@ -442,6 +442,7 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                       Total
                     </div>
                   </th>
+                  <th className="w-8" style={{ verticalAlign: 'bottom' }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -449,7 +450,7 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                   <>
                     <tr key={`group-${group}`}>
                       <td
-                        colSpan={2 + cabUnitTypes.length}
+                        colSpan={3 + cabUnitTypes.length}
                         className="text-xs font-bold uppercase tracking-wider py-1.5 px-3"
                         style={{ background: 'hsl(var(--accent))', color: 'hsl(var(--muted-foreground))' }}
                       >
@@ -472,6 +473,15 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                             );
                           })}
                           <td className="text-center font-mono font-bold">{rowTotal || ''}</td>
+                          <td>
+                            <button
+                              onClick={() => { if (confirm(`Delete SKU "${sku}"?`)) store.deleteCabinetRow(sku); }}
+                              className="text-muted-foreground hover:text-destructive transition-colors"
+                              title={`Delete ${sku}`}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </td>
                         </tr>
                       );
                     })}
@@ -488,6 +498,7 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                   <td className="text-center font-mono">
                     {allSkus.reduce((sum, sku) => sum + cabUnitTypes.reduce((s, t) => s + (skuTypeQty[sku]?.[t] || 0), 0), 0)}
                   </td>
+                  <td></td>
                 </tr>
               </tfoot>
             </table>
