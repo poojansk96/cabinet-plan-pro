@@ -237,24 +237,27 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                   <tr style={{ height: '120px', verticalAlign: 'bottom' }}>
                     <th className="text-left" style={{ verticalAlign: 'bottom' }}>Unit #</th>
                     {store.unitTypes.map(type => (
-                      <th key={type} className="text-center" style={{ verticalAlign: 'bottom', padding: '4px 6px' }}>
-                        <div className="flex flex-col items-center gap-1">
+                      <th key={type} className="text-center p-0" style={{ verticalAlign: 'bottom', minWidth: '40px' }}>
+                        <div className="flex flex-col items-center gap-1 bg-muted/30 py-2 border-x border-t border-border/50 rounded-t-md mx-0.5">
                           <div style={{
                             writingMode: 'vertical-rl',
                             transform: 'rotate(180deg)',
                             whiteSpace: 'nowrap',
-                            fontWeight: 600,
-                            fontSize: '11px',
-                            height: '110px',
+                            fontWeight: 700,
+                            fontSize: '10px',
+                            height: '100px',
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'flex-start',
+                            justifyContent: 'center',
+                            color: 'hsl(var(--foreground))',
+                            letterSpacing: '0.025em',
+                            textTransform: 'uppercase'
                           }}>
                             {type}
                           </div>
                           <button
                             onClick={() => store.deleteUnitType(type)}
-                            className="text-muted-foreground hover:text-destructive transition-colors"
+                            className="text-muted-foreground hover:text-destructive transition-colors mt-1"
                             title={`Remove ${type}`}
                           >
                             <Trash2 size={10} />
@@ -386,20 +389,22 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                 <tr style={{ height: '120px', verticalAlign: 'bottom' }}>
                   <th className="text-left" style={{ verticalAlign: 'bottom' }}>SKU Name</th>
                   {cabUnitTypes.map(type => (
-                    <th key={type} className="text-center" style={{ verticalAlign: 'bottom', padding: '4px 6px', minWidth: '36px' }}>
-                      <div style={{
+                    <th key={type} className="text-center p-0" style={{ verticalAlign: 'bottom', minWidth: '40px' }}>
+                      <div className="bg-muted/30 py-4 border-x border-t border-border/50 rounded-t-md mx-0.5" style={{
                         writingMode: 'vertical-rl',
                         transform: 'rotate(180deg)',
                         whiteSpace: 'nowrap',
-                        fontWeight: 600,
-                        fontSize: '11px',
+                        fontWeight: 700,
+                        fontSize: '10px',
                         height: '110px',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'flex-start',
+                        justifyContent: 'center',
                         overflow: 'visible',
                         color: 'hsl(var(--foreground))',
                         margin: '0 auto',
+                        letterSpacing: '0.025em',
+                        textTransform: 'uppercase'
                       }}>
                         {type}
                       </div>
