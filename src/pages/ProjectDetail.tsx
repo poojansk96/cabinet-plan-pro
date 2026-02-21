@@ -133,10 +133,12 @@ export default function ProjectDetail() {
           </div>
         </main>
 
-        {/* Sticky Summary Panel */}
-        <aside className="w-56 flex-shrink-0 hidden lg:block summary-panel overflow-auto">
-          <SummaryPanel project={project} onTabChange={(tab) => setActiveTab(tab as Tab)} />
-        </aside>
+        {/* Sticky Summary Panel — hidden on Pre-Final tabs */}
+        {!activeTab.startsWith('prefinal') && (
+          <aside className="w-56 flex-shrink-0 hidden lg:block summary-panel overflow-auto">
+            <SummaryPanel project={project} onTabChange={(tab) => setActiveTab(tab as Tab)} />
+          </aside>
+        )}
       </div>
       <footer className="text-center py-2 border-t bg-card flex-shrink-0">
         <span style={{ fontSize: '10px' }} className="text-muted-foreground">© {new Date().getFullYear()} Poojan Khilosiya. All rights reserved.</span>
