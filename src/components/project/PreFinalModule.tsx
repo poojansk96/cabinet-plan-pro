@@ -61,12 +61,13 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
   // ── Cabinet pivot (use unit types from the unit count section) ──────────
   const cabUnitTypes = store.unitTypes; // horizontal columns from prefinal unit count
   const allSkus = Array.from(new Set(store.cabinetRows.map(r => r.sku))).sort();
-  // Build SKU → unitType → boolean mapping (1 = connected)
-  const skuTypeMap: Record<string, Set<string>> = {};
+  // Build SKU → unitType → quantity mapping
+  const skuTypeQty: Record<string, Record<string, number>> = {};
   const skuCabType: Record<string, string> = {};
   store.cabinetRows.forEach(r => {
-    if (!skuTypeMap[r.sku]) skuTypeMap[r.sku] = new Set();
-    skuTypeMap[r.sku].add(r.unitType);
+    if (!skuTypeQty[r.sku]) skuTypeQty[r.sku] = {};
+    // Use max quantity (same dedup logic as import)
+    skuTypeQty[r.sku][r.unitType] = Math.max(skuTypeQty[r.sku][r.unitType] || 0, r.quantity);
     if (!skuCabType[r.sku]) skuCabType[r.sku] = r.type;
   });
 
@@ -411,19 +412,25 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                         {group} ({skus.length})
                       </td>
                     </tr>
-                    {skus.map(sku => (
-                      <tr key={sku}>
-                        <td className="font-mono font-medium">{sku}</td>
-                        {cabUnitTypes.map(type => (
-                          <td key={type} className="text-center">
-                            {skuTypeMap[sku]?.has(type) ? (
-                              <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-primary text-primary-foreground text-xs font-bold">1</span>
-                            ) : ''}
-                          </td>
-                        ))}
-                        <td className="text-center font-mono font-bold">{skuTypeMap[sku]?.size || 0}</td>
-                      </tr>
-                    ))}
+                    {skus.map(sku => {
+                      const rowTotal = cabUnitTypes.reduce((sum, t) => sum + (skuTypeQty[sku]?.[t] || 0), 0);
+                      return (
+                        <tr key={sku}>
+                          <td className="font-mono font-medium">{sku}</td>
+                          {cabUnitTypes.map(type => {
+                            const qty = skuTypeQty[sku]?.[type] || 0;
+                            return (
+                              <td key={type} className="text-center">
+                                {qty > 0 ? (
+                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-primary text-primary-foreground text-xs font-bold">{qty}</span>
+                                ) : ''}
+                              </td>
+                            );
+                          })}
+                          <td className="text-center font-mono font-bold">{rowTotal || ''}</td>
+                        </tr>
+                      );
+                    })}
                   </>
                 ))}
               </tbody>
@@ -431,10 +438,12 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                 <tr className="font-bold border-t border-border">
                   <td>Total</td>
                   {cabUnitTypes.map(type => {
-                    const colTotal = allSkus.filter(sku => skuTypeMap[sku]?.has(type)).length;
+                    const colTotal = allSkus.reduce((sum, sku) => sum + (skuTypeQty[sku]?.[type] || 0), 0);
                     return <td key={type} className="text-center font-mono">{colTotal || ''}</td>;
                   })}
-                  <td className="text-center font-mono">{allSkus.reduce((sum, sku) => sum + (skuTypeMap[sku]?.size || 0), 0)}</td>
+                  <td className="text-center font-mono">
+                    {allSkus.reduce((sum, sku) => sum + cabUnitTypes.reduce((s, t) => s + (skuTypeQty[sku]?.[t] || 0), 0), 0)}
+                  </td>
                 </tr>
               </tfoot>
             </table>

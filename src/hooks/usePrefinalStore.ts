@@ -155,13 +155,17 @@ export function usePrefinalStore(projectId: string) {
     setData(prev => {
       const merged: Record<string, PrefinalCabinetRow> = {};
       for (const r of prev.cabinetRows) {
-        const key = `${r.sku}__${r.type}__${r.room}__${r.unitType}`;
+        const key = `${r.sku}__${r.room}__${r.unitType}`;
         merged[key] = { ...r };
       }
       for (const r of rows) {
-        const key = `${r.sku}__${r.type}__${r.room}__${unitType}`;
-        if (merged[key]) merged[key].quantity += r.quantity;
-        else merged[key] = { ...r, unitType };
+        const key = `${r.sku}__${r.room}__${unitType}`;
+        if (merged[key]) {
+          // Use max quantity to avoid doubling (floor plan + elevation)
+          merged[key].quantity = Math.max(merged[key].quantity, r.quantity);
+        } else {
+          merged[key] = { ...r, unitType };
+        }
       }
       const cabinetRows = Object.values(merged).sort((a, b) =>
         a.sku.localeCompare(b.sku, undefined, { numeric: true })
