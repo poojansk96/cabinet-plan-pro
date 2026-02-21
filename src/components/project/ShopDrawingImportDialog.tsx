@@ -191,7 +191,8 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
     // across floor plan vs elevation). Take MAX quantity to avoid doubling.
     const merged: Record<string, LabelRow> = {};
     for (const r of [...existing, ...incoming]) {
-      const key = `${r.sku}__${r.room}`;
+      const normSku = r.sku.toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+      const key = `${normSku}__${r.room}`;
       if (merged[key]) {
         merged[key].quantity = Math.max(merged[key].quantity, r.quantity);
       } else {

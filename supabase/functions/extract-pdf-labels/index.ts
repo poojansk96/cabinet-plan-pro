@@ -160,7 +160,8 @@ Return ONLY valid JSON — no markdown, no explanation:
         const rawRoom = String(c.room ?? "Kitchen").trim();
         const normalizedRoom = rawRoom.charAt(0).toUpperCase() + rawRoom.slice(1).toLowerCase();
         return {
-          sku: String(c.sku).toUpperCase().trim(),
+          // Normalize SKU: uppercase, trim, remove spaces around hyphens
+          sku: String(c.sku).toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, ''),
           type: normalizedType,
           room: normalizedRoom,
           quantity: Number(c.quantity) || 1,
