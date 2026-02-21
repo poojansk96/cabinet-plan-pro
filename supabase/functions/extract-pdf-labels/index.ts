@@ -111,10 +111,15 @@ Return ONLY valid JSON — no markdown, no explanation:
     }
 
     // Filter: must start with letter AND contain a number (real SKU, not labels/titles)
+    // Appliance prefixes to reject
+    const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW|DISHWASHER|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT)/i;
+
     const items = (parsed.items ?? [])
       .filter((c: any) => c.sku && /^[A-Za-z]/.test(c.sku) && /\d/.test(c.sku))
       .filter((c: any) => {
         const upper = String(c.sku).toUpperCase().trim();
+        // Skip appliances
+        if (APPLIANCE_RE.test(upper)) return false;
         // Skip anything that looks like a unit number, type name, or call-out address
         if (/^UNIT\b/i.test(upper)) return false;
         if (/^ELEV/i.test(upper)) return false;
