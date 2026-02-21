@@ -94,7 +94,7 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
   });
 
   // Group SKUs by cabinet type in display order
-  const CAB_TYPE_ORDER = ['Base', 'Wall', 'Tall', 'Vanity', 'Accessory'];
+  const CAB_TYPE_ORDER = ['Wall', 'Base', 'Tall', 'Vanity', 'Accessory'];
   const groupedSkus: { group: string; skus: string[] }[] = (() => {
     const groups: Record<string, string[]> = {};
     for (const sku of allSkus) {
