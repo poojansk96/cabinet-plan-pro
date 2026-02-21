@@ -31,9 +31,16 @@ serve(async (req) => {
 STEP 1 — CLASSIFY THIS PAGE:
 First, determine what type of page this is:
 - "title_page": A cover/title page showing project info, unit schedules, or a list of units
-- "floor_plan": A floor plan view showing unit layouts from above with unit numbers labeled
-- "elevation": A cabinet elevation drawing showing detailed cabinet layouts, SKUs, dimensions for a specific room
-- "other": Any other type of page
+- "floor_plan": A floor plan view showing unit layouts from above with unit numbers labeled. Floor plans show MULTIPLE units on a single floor, with walls, doors, rooms visible from a top-down view.
+- "elevation": A cabinet elevation drawing showing a FRONT VIEW of cabinets on a wall with SKUs and dimensions for a SINGLE room (NOT a top-down view)
+- "other": Any other type of page (notes, details, cover sheets with no unit data)
+
+CRITICAL CLASSIFICATION RULES:
+- If you see MULTIPLE unit numbers/labels on the page with room layouts from above → "floor_plan"
+- If you see a top-down architectural layout with doors, walls, corridors → "floor_plan"
+- ONLY classify as "elevation" if the page shows a FRONT VIEW of cabinets (not top-down)
+- When in doubt between floor_plan and other types, choose "floor_plan" — better to extract and filter than miss units
+- EVERY floor of a building has units — do NOT skip any floor plan page
 
 IMPORTANT: 
 - If this page is an "elevation" or "other", return {"pageType":"elevation","units":[]} or {"pageType":"other","units":[]}
