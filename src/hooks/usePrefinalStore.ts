@@ -93,6 +93,28 @@ export function usePrefinalStore(projectId: string) {
     });
   }, [projectId]);
 
+  const renameUnitType = useCallback((oldName: string, newName: string) => {
+    if (!newName.trim() || oldName === newName) return;
+    setData(prev => {
+      const unitTypes = prev.unitTypes.map(t => t === oldName ? newName : t);
+      const unitNumbers = prev.unitNumbers.map(u => {
+        const assignments = { ...u.assignments };
+        if (oldName in assignments) {
+          assignments[newName] = assignments[oldName];
+          delete assignments[oldName];
+        }
+        return { ...u, assignments };
+      });
+      const cabinetRows = prev.cabinetRows.map(r =>
+        r.unitType === oldName ? { ...r, unitType: newName } : r
+      );
+      const cabinetUnitTypes = prev.cabinetUnitTypes.map(t => t === oldName ? newName : t);
+      const next = { ...prev, unitTypes, unitNumbers, cabinetRows, cabinetUnitTypes };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
   // ── Unit Numbers (rows) ───────────────────────────────────────────────
   const addUnitNumber = useCallback((name: string, bldg: string = '') => {
     setData(prev => {
@@ -247,6 +269,7 @@ export function usePrefinalStore(projectId: string) {
     cabinetUnitTypes: data.cabinetUnitTypes,
     addUnitTypes,
     deleteUnitType,
+    renameUnitType,
     addUnitNumber,
     updateUnitNumberName,
     updateUnitNumberBldg,
