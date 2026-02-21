@@ -63,6 +63,9 @@ Look for:
 2. Floor plan labels showing unit numbers inside or near unit outlines
 3. Title block text with unit numbers listed nearby
 4. Building/tower identifiers in headers or title blocks
+5. Unit numbers at DOOR LOCATIONS — on architectural floor plans, unit numbers are often placed at the entry door or at the edge/boundary of a unit, NOT inside. Look near doorways, corridors, and hallway-facing edges.
+6. Unit TYPE NAMES INSIDE the unit — the type designation (e.g. "Unit A", "Type B", "2BR-A") is often written INSIDE the unit boundary, in the center or near a room label. Do NOT confuse the type name inside the unit with the unit number.
+7. IMPORTANT DISTINCTION: The number at the door/edge = unitNumber. The label inside the unit = unitType. They are different fields.
 
 CRITICAL RULES:
 - unitNumber MUST be a dwelling unit identifier — can be numeric ("101", "202", "PH-1") OR letter-based ("A", "B", "C", "Unit A", "Unit B")
