@@ -63,9 +63,11 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
   const allSkus = Array.from(new Set(store.cabinetRows.map(r => r.sku))).sort();
   // Build SKU → unitType → boolean mapping (1 = connected)
   const skuTypeMap: Record<string, Set<string>> = {};
+  const skuCabType: Record<string, string> = {};
   store.cabinetRows.forEach(r => {
     if (!skuTypeMap[r.sku]) skuTypeMap[r.sku] = new Set();
     skuTypeMap[r.sku].add(r.unitType);
+    if (!skuCabType[r.sku]) skuCabType[r.sku] = r.type;
   });
 
   // ── Unit type totals (count of "1"s per column) ───────────────────────────
@@ -353,6 +355,7 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
               <thead>
                 <tr style={{ height: '120px', verticalAlign: 'bottom' }}>
                   <th className="text-left" style={{ verticalAlign: 'bottom' }}>SKU Name</th>
+                  <th className="text-left" style={{ verticalAlign: 'bottom' }}>Type</th>
                   {cabUnitTypes.map(type => (
                     <th key={type} style={{ verticalAlign: 'bottom', padding: '4px 6px', minWidth: '36px' }}>
                       <div style={{
@@ -377,6 +380,7 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                 {allSkus.map(sku => (
                   <tr key={sku}>
                     <td className="font-mono font-medium">{sku}</td>
+                    <td className="text-xs text-muted-foreground">{skuCabType[sku] || '—'}</td>
                     {cabUnitTypes.map(type => (
                       <td key={type} className="text-center">
                         {skuTypeMap[sku]?.has(type) ? (
@@ -390,6 +394,7 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
               <tfoot>
                 <tr className="font-bold border-t border-border">
                   <td>Total</td>
+                  <td></td>
                   {cabUnitTypes.map(type => {
                     const colTotal = allSkus.filter(sku => skuTypeMap[sku]?.has(type)).length;
                     return <td key={type} className="text-center font-mono">{colTotal || ''}</td>;
