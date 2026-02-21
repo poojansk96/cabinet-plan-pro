@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { FileUp, Users, LayoutGrid, Plus, Trash2, RotateCcw } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { FileUp, Users, LayoutGrid, Plus, Trash2, RotateCcw, Pencil } from 'lucide-react';
 import type { Project, Unit, Cabinet } from '@/types/project';
 import ShopDrawingImportDialog, { type LabelRow } from './ShopDrawingImportDialog';
 import UnitTypeImportDialog from './UnitTypeImportDialog';
@@ -42,6 +42,8 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
   const [newUnitType, setNewUnitType] = useState('');
   const [newUnitNumber, setNewUnitNumber] = useState('');
   const [showAddUnitNumber, setShowAddUnitNumber] = useState(false);
+  const [editingType, setEditingType] = useState<string | null>(null);
+  const [editingTypeValue, setEditingTypeValue] = useState('');
   const [unitImportedCount, setUnitImportedCount] = useState<number | null>(null);
 
   // ── Cabinet Count state ───────────────────────────────────────────────────
@@ -286,20 +288,44 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                     {store.unitTypes.map(type => (
                       <th key={type} className="text-center" style={{ verticalAlign: 'bottom', padding: '0', minWidth: '42px' }}>
                         <div className="flex flex-col items-center gap-1 py-2" style={{ background: 'hsl(213 72% 35%)', color: '#fff', borderRadius: '4px 4px 0 0', width: '100%' }}>
-                          <div style={{
-                            writingMode: 'vertical-rl',
-                            transform: 'rotate(180deg)',
-                            whiteSpace: 'nowrap',
-                            fontWeight: 700,
-                            fontSize: '11px',
-                            height: '90px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            letterSpacing: '0.05em',
-                          }}>
-                            {type}
-                          </div>
+                          {editingType === type ? (
+                            <input
+                              className="bg-white/20 text-white text-[11px] font-bold border border-white/40 rounded px-1 py-0.5 w-full text-center outline-none"
+                              style={{ maxWidth: '38px' }}
+                              value={editingTypeValue}
+                              onChange={e => setEditingTypeValue(e.target.value)}
+                              onBlur={() => {
+                                if (editingTypeValue.trim() && editingTypeValue.trim() !== type) {
+                                  store.renameUnitType(type, editingTypeValue.trim());
+                                }
+                                setEditingType(null);
+                              }}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                if (e.key === 'Escape') setEditingType(null);
+                              }}
+                              autoFocus
+                            />
+                          ) : (
+                            <div
+                              onDoubleClick={() => { setEditingType(type); setEditingTypeValue(type); }}
+                              className="cursor-pointer"
+                              title="Double-click to rename"
+                              style={{
+                                writingMode: 'vertical-rl',
+                                transform: 'rotate(180deg)',
+                                whiteSpace: 'nowrap',
+                                fontWeight: 700,
+                                fontSize: '11px',
+                                height: '90px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                letterSpacing: '0.05em',
+                              }}>
+                              {type}
+                            </div>
+                          )}
                           <button
                             onClick={() => store.deleteUnitType(type)}
                             className="transition-colors mt-0.5 opacity-50 hover:opacity-100"
