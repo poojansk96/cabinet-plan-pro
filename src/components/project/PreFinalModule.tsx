@@ -90,6 +90,38 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
     if (!skuCabType[r.sku]) skuCabType[r.sku] = r.type;
   });
 
+  // Parse SKU dimensions: e.g. W1230 → width=12, height=30; W3024 → width=30, height=24
+  const parseSkuDims = (sku: string): { width: number; height: number } => {
+    const match = sku.replace(/\s/g, '').match(/^[A-Za-z]+(\d+)/);
+    if (!match) return { width: 0, height: 0 };
+    const digits = match[1];
+    if (digits.length === 4) return { width: Number(digits.slice(0, 2)), height: Number(digits.slice(2, 4)) };
+    if (digits.length === 3) return { width: Number(digits.slice(0, 1)), height: Number(digits.slice(1, 3)) };
+    if (digits.length === 2) return { width: Number(digits), height: 0 };
+    return { width: Number(digits), height: 0 };
+  };
+
+  // Sort SKUs within a group based on cabinet type
+  const sortSkusForGroup = (skus: string[], group: string): string[] => {
+    if (group === 'Wall') {
+      // Sort by height ascending (last 2 digits), then by width
+      return [...skus].sort((a, b) => {
+        const da = parseSkuDims(a), db = parseSkuDims(b);
+        if (da.height !== db.height) return da.height - db.height;
+        return da.width - db.width;
+      });
+    }
+    if (group === 'Base') {
+      // Sort by width (size) ascending
+      return [...skus].sort((a, b) => {
+        const da = parseSkuDims(a), db = parseSkuDims(b);
+        if (da.width !== db.width) return da.width - db.width;
+        return da.height - db.height;
+      });
+    }
+    return skus; // default: keep alphabetical from allSkus
+  };
+
   // Group SKUs by cabinet type in display order
   const CAB_TYPE_ORDER = ['Wall', 'Base', 'Tall', 'Vanity', 'Accessory'];
   const groupedSkus: { group: string; skus: string[] }[] = (() => {
@@ -101,11 +133,10 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
     }
     const ordered: { group: string; skus: string[] }[] = [];
     for (const g of CAB_TYPE_ORDER) {
-      if (groups[g]) { ordered.push({ group: g, skus: groups[g] }); delete groups[g]; }
+      if (groups[g]) { ordered.push({ group: g, skus: sortSkusForGroup(groups[g], g) }); delete groups[g]; }
     }
-    // Any remaining types not in the predefined order
     for (const [g, skus] of Object.entries(groups)) {
-      ordered.push({ group: g, skus });
+      ordered.push({ group: g, skus: sortSkusForGroup(skus, g) });
     }
     return ordered;
   })();
