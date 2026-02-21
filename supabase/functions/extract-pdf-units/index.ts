@@ -83,40 +83,55 @@ Return ONLY valid JSON (no markdown fences, no explanation):
 
       // No timeout — let AI take as long as needed for large files
 
-      let response: Response;
-      try {
-        if (useDirectGemini) {
-          response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-            {
+      let response: Response | null = null;
+      const MAX_RETRIES = 3;
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+          if (useDirectGemini) {
+            response = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  contents: [
+                    { role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt }] },
+                  ],
+                  generationConfig: { temperature: 0.1 },
+                }),
+              }
+            );
+          } else {
+            response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
               body: JSON.stringify({
-                contents: [
-                  { role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt }] },
+                model: "google/gemini-3-flash-preview",
+                messages: [
+                  { role: "system", content: systemPrompt },
+                  { role: "user", content: userPrompt },
                 ],
-                generationConfig: { temperature: 0.1 },
+                temperature: 0.1,
               }),
-            }
-          );
-        } else {
-          response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-            method: "POST",
-            headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              model: "google/gemini-3-flash-preview",
-              messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: userPrompt },
-              ],
-              temperature: 0.1,
-            }),
-          });
+            });
+          }
+        } catch (fetchErr) {
+          console.error(`Page ${i + 1} fetch error (attempt ${attempt + 1}):`, fetchErr);
+          if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
+          break;
         }
-      } catch (fetchErr) {
-        console.error(`Page ${i + 1} fetch error:`, fetchErr);
-        continue;
+
+        if (response && (response.status === 503 || response.status === 500)) {
+          const errText = await response.text();
+          console.warn(`Page ${i + 1} AI unavailable (${response.status}), attempt ${attempt + 1}/${MAX_RETRIES}:`, errText.slice(0, 200));
+          response = null;
+          if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
+          break;
+        }
+        break; // success or non-retryable error
       }
+
+      if (!response) { console.error(`Page ${i + 1}: all AI retries exhausted`); continue; }
 
       if (!response.ok) {
         if (response.status === 429) {
@@ -133,7 +148,7 @@ Return ONLY valid JSON (no markdown fences, no explanation):
         }
         const errText = await response.text();
         console.error("AI gateway error:", response.status, errText);
-        continue; // Skip this page on error, don't fail everything
+        continue;
       }
 
       const aiData = await response.json();
