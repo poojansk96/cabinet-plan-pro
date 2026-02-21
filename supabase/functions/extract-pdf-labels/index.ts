@@ -112,7 +112,7 @@ Return ONLY valid JSON — no markdown, no explanation:
 
     // Filter: must start with letter AND contain a number (real SKU, not labels/titles)
     // Appliance prefixes to reject
-    const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW|DISHWASHER|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT)/i;
+    const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW|DDW|DISHWASHER|DISH|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP)/i;
 
     const items = (parsed.items ?? [])
       .filter((c: any) => c.sku && /^[A-Za-z]/.test(c.sku) && /\d/.test(c.sku))
