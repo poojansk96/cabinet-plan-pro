@@ -48,13 +48,21 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
   };
 
   // ── Cabinet import handler ────────────────────────────────────────────────
-  const handleCabinetImport = (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[]) => {
+  const handleCabinetImport = (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[], detectedUnitType?: string) => {
+    // Use detected unit type from PDF, or manually selected, or fallback
+    const targetType = detectedUnitType || importTargetType || '';
+    if (targetType) {
+      // Auto-add the unit type as a column if not already present
+      store.addUnitTypes([targetType]);
+    }
+    const finalType = targetType || 'All';
     store.addCabinetImport(
-      rows.map(r => ({ sku: r.sku, type: r.type, room: r.room, quantity: r.quantity, unitType: importTargetType || 'All' })),
-      importTargetType || 'All'
+      rows.map(r => ({ sku: r.sku, type: r.type, room: r.room, quantity: r.quantity, unitType: finalType })),
+      finalType
     );
     setCabinetImportedCount(rows.length);
     setShowCabinetImport(false);
+    if (detectedUnitType) setImportTargetType(detectedUnitType);
     setTimeout(() => setCabinetImportedCount(null), 4000);
   };
 
