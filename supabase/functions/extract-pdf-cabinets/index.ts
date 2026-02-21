@@ -39,8 +39,8 @@ Look at every cabinet box visible in this elevation drawing and extract:
 4. Depth in real-world inches — use default unless labeled
 5. Cabinet type from its vertical position and SKU prefix:
    BASE  → lower row, prefixes B DB SB CB EB  → default H=34.5", D=24"
-   WALL  → upper/wall-hung row, prefixes W UB OH WC UC → default H=30", D=12"
-   TALL  → floor-to-ceiling column, prefixes T UT TC PT PTC → default H=84", D=24"
+   WALL  → upper/wall-hung row, prefixes W UB OH WC → default H=30", D=12"
+   TALL  → floor-to-ceiling column, prefixes T UT TC PT PTC UC → default H=84", D=24"
    VANITY→ bathroom base, prefixes V VB VD → default H=34.5", D=21"
 6. Room from elevation title text (KITCHEN, BATH, LAUNDRY, PANTRY → capitalize first letter only)
 7. Quantity — count each unique cabinet box; if the same SKU repeats sum the quantity
