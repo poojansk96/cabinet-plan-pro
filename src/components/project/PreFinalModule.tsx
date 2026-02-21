@@ -237,8 +237,8 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                   <tr style={{ height: '120px', verticalAlign: 'bottom' }}>
                     <th className="text-left" style={{ verticalAlign: 'bottom' }}>Unit #</th>
                     {store.unitTypes.map(type => (
-                      <th key={type} className="text-center p-0" style={{ verticalAlign: 'bottom', minWidth: '42px' }}>
-                        <div className="flex flex-col items-center gap-1 py-2 mx-0.5 rounded-t" style={{ background: 'hsl(213 72% 35%)', color: '#fff' }}>
+                      <th key={type} className="text-center" style={{ verticalAlign: 'bottom', padding: '0', minWidth: '42px' }}>
+                        <div className="flex flex-col items-center gap-1 py-2" style={{ background: 'hsl(213 72% 35%)', color: '#fff', borderRadius: '4px 4px 0 0', width: '100%' }}>
                           <div style={{
                             writingMode: 'vertical-rl',
                             transform: 'rotate(180deg)',
@@ -388,8 +388,8 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                 <tr style={{ height: '120px', verticalAlign: 'bottom' }}>
                   <th className="text-left" style={{ verticalAlign: 'bottom' }}>SKU Name</th>
                   {cabUnitTypes.map(type => (
-                    <th key={type} className="text-center p-0" style={{ verticalAlign: 'bottom', minWidth: '42px' }}>
-                      <div className="mx-0.5 rounded-t py-3" style={{
+                    <th key={type} className="text-center" style={{ verticalAlign: 'bottom', padding: '0', minWidth: '42px' }}>
+                      <div style={{
                         background: 'hsl(213 72% 35%)',
                         color: '#fff',
                         writingMode: 'vertical-rl',
@@ -402,6 +402,8 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                         alignItems: 'center',
                         justifyContent: 'center',
                         letterSpacing: '0.05em',
+                        width: '100%',
+                        borderRadius: '4px 4px 0 0',
                       }}>
                         {type}
                       </div>
