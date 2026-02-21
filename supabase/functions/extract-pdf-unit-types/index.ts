@@ -26,44 +26,40 @@ serve(async (req) => {
       });
     }
 
-    const prompt = `You are an expert architectural drawing analyst. Your job is to extract EVERY unit number and its associated unit type from this page. Missing even one unit is unacceptable.
+    const prompt = `Extract ALL unit numbers and unit types from this architectural floor plan page.
 
-IMPORTANT: Treat EVERY page as a floor plan. Do NOT classify any page as "elevation" or "other". Every page you receive is from an architectural floor plan PDF and contains unit data.
+INSTRUCTIONS:
+1. Scan the ENTIRE page — left to right, top to bottom
+2. Find EVERY unit number visible anywhere on the page
+3. Check the TITLE BLOCK (bottom or right side of page) — it almost always contains a unit number/identifier
+4. Check near DOORS and CORRIDORS — unit numbers are placed at entry doors
+5. Check INSIDE unit boundaries — unit type names (e.g. "Unit A", "Type B") are written inside
+6. Check schedule tables or legends if present
 
-Always set pageType to "floor_plan" in your response.
+UNIT NUMBER = dwelling identifier like "101", "01-105", "202", "PH-1", "305", "1A", "2B", "03-201"
+NOT a unit number: cabinet SKUs (B24, W3036), room names (Kitchen, Bathroom), type names (TYPE A)
 
-EXTRACTION INSTRUCTIONS:
-1. Scan the ENTIRE page methodically — left to right, top to bottom
-2. Find EVERY unit number and its associated unit type
-3. Check the TITLE BLOCK (bottom or right side) — it often contains unit numbers
-4. Check DOOR LOCATIONS — unit numbers are commonly placed at entry doors, corridors, hallway-facing edges
-5. Check INSIDE unit boundaries — unit type names (e.g. "Unit A", "Type B", "2BR-A") are often written inside
-6. Check unit schedule tables or legends if present
+UNIT TYPE = designation like "TYPE A", "Unit A", "2BR-A", "Studio", "A1-AS"
+NOT a unit type: room names (Kitchen, Bathroom, Reception, Restroom)
+If no type found, use empty string ""
 
-WHAT IS A UNIT NUMBER:
-- A numeric or alphanumeric dwelling identifier: "101", "01-105", "202", "PH-1", "305", "1A", "2B"
-- Can include hyphens or dashes: "01-105", "02-203"
-- NOT type names like "TYPE A", "A1-As", "2BHK"
-- NOT cabinet SKUs like "B24", "W3036"
-- NOT room names like "Kitchen", "Bathroom", "Reception", "Restroom"
+BUILDING NAME = building/tower name from title block. If not found, use null.
 
-WHAT IS A UNIT TYPE:
-- A designation like "TYPE A", "Unit A", "2BR-A", "Studio", "A1-AS"
-- Found inside unit boundaries or in schedule tables
-- Room names (Kitchen, Bathroom, Reception, Restroom, Lobby) are NOT unit types — set unitType to "" if only room names are visible
+RULES:
+- Do NOT return empty units array — every page has at least one unit number somewhere (check the title block!)
+- Read every digit carefully — "330" not "33"
+- Include each unique unit number only once
 
-BUILDING NAME:
-- Look for building/tower name in title block, header, or footer
-- If not found, use null
+Return ONLY valid JSON:
+{"pageType":"floor_plan","bldg":"Building A","units":[{"unitNumber":"101","unitType":"TYPE A"}]}`;
 
-CRITICAL RULES:
-- Extract ALL units from EVERY page — do NOT skip any page
-- Read EVERY digit carefully — "330" not "33", "1201" not "120"
-- If no type is found, set unitType to "" — do NOT skip the unit
-- If the same unit number appears multiple times, include it only once
+    // Fallback prompt for retry when AI returns no units
+    const fallbackPrompt = `Look at this architectural drawing page. Find the UNIT NUMBER in the title block (usually at the bottom or right side of the page). The title block contains project info and a unit identifier like "01-105", "03-201", "Unit 202", etc.
 
-Return ONLY valid JSON — no markdown, no explanation:
-{"pageType":"floor_plan","bldg":"Building A","units":[{"unitNumber":"101","unitType":"TYPE A"},{"unitNumber":"102","unitType":"TYPE A"}]}`;
+Also look for any unit type designation near the unit number.
+
+Return ONLY valid JSON:
+{"pageType":"floor_plan","bldg":null,"units":[{"unitNumber":"THE_UNIT_NUMBER","unitType":""}]}`;
 
     const aiModel = useDirectGemini ? "gemini-2.5-pro" : "google/gemini-2.5-pro";
 
@@ -160,11 +156,63 @@ Return ONLY valid JSON — no markdown, no explanation:
       }
     }
 
-    const pageType = parsed.pageType || "unknown";
+    const pageType = parsed.pageType || "floor_plan";
     const pageBldg = parsed.bldg || null;
-    console.log("Page type:", pageType, "Bldg:", pageBldg);
+    console.log("Page type:", pageType, "Bldg:", pageBldg, "Units found:", (parsed.units ?? []).length);
 
-    // No longer skip any page type — extract unit numbers from all pages including elevations
+    // If AI returned 0 units, retry with a simpler fallback prompt focused on title block
+    if ((parsed.units ?? []).length === 0) {
+      console.log("No units found, retrying with fallback prompt...");
+      let fallbackRes: Response | null = null;
+      try {
+        if (useDirectGemini) {
+          fallbackRes = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${aiModel}:generateContent?key=${GEMINI_API_KEY}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ role: "user", parts: [
+                  { inlineData: { mimeType: "image/jpeg", data: pageImage } },
+                  { text: fallbackPrompt },
+                ]}],
+                generationConfig: { temperature: 0.2, maxOutputTokens: 4096 },
+              }),
+            }
+          );
+        } else {
+          fallbackRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: aiModel,
+              messages: [{ role: "user", content: [
+                { type: "image_url", image_url: { url: `data:image/jpeg;base64,${pageImage}` } },
+                { type: "text", text: fallbackPrompt },
+              ]}],
+              temperature: 0.2, max_tokens: 4096,
+            }),
+          });
+        }
+        if (fallbackRes && fallbackRes.ok) {
+          const fbData = await fallbackRes.json();
+          const fbContent: string = useDirectGemini
+            ? (fbData.candidates?.[0]?.content?.parts?.[0]?.text ?? "")
+            : (fbData.choices?.[0]?.message?.content ?? "");
+          console.log("Fallback AI response:", fbContent.slice(0, 400));
+          let fbCleaned = fbContent.trim();
+          const fbFence = fbCleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
+          if (fbFence) fbCleaned = fbFence[1].trim();
+          try {
+            const fbParsed = JSON.parse(fbCleaned);
+            if ((fbParsed.units ?? []).length > 0) {
+              parsed = fbParsed;
+              console.log("Fallback found", parsed.units.length, "units");
+            }
+          } catch { console.error("Fallback JSON parse failed"); }
+        }
+      } catch (e) { console.error("Fallback retry failed:", e); }
+    }
 
     // Filter: unit numbers must look like actual dwelling unit identifiers
     const isValidUnitNumber = (val: string): boolean => {
