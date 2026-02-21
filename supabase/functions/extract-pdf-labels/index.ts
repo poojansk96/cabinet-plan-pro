@@ -29,7 +29,9 @@ serve(async (req) => {
 
     const prompt = `You are an expert millwork estimator reading a 2020 Design shop drawing page.
 
-This page may be a FLOOR PLAN (top-down view) or an ELEVATION drawing (front view). Both views show cabinet labels — extract from BOTH.
+This page may be a FLOOR PLAN (top-down view) or an ELEVATION drawing (front view).
+
+IMPORTANT: If this page is a FLOOR PLAN (top-down/plan view), return {"unitTypeName":null,"items":[]} immediately. Only extract cabinets from ELEVATION drawings (front/side views showing cabinet boxes with height).
 
 TASK 1 — DETECT UNIT TYPE NAME:
 Look at the drawing's title block, header, footer, or prominent labels for the UNIT TYPE NAME.
@@ -38,7 +40,7 @@ It usually appears in the title block or as a prominent label at the top of the 
 Do NOT confuse unit type with unit numbers (e.g. "101", "201") or elevation labels (e.g. "Elevation A").
 If you cannot determine the unit type, return null for unitTypeName.
 
-TASK 2 — EXTRACT CABINETS:
+TASK 2 — EXTRACT CABINETS (ELEVATIONS ONLY):
 For each item extract:
 1. SKU / model label exactly as written (e.g. B24, W3036, T84, VB30, BF3, WF330, FIL3, TKRUN96, CM8, etc.)
 2. Cabinet type determined by label prefix:
@@ -51,7 +53,7 @@ For each item extract:
 4. Quantity — count each distinct label occurrence; same SKU in same room summed
 
 RULES:
-- Extract from BOTH floor plans AND elevations — cabinet labels appear in both views
+- ONLY extract from ELEVATION drawings — do NOT extract cabinet labels from floor plans
 - A valid cabinet SKU must start with a LETTER and contain at least one NUMBER (e.g. B24, W3036, T84, VB30, FIL3)
 - SKIP appliances: REF REFRIG DW DISHWASHER RANGE HOOD MICRO OTR OVEN
 - SKIP these NON-SKU items — they are NOT cabinets:
