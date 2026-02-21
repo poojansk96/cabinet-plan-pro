@@ -155,8 +155,8 @@ export function usePrefinalStore(projectId: string) {
   // ── Cabinet Unit Types (independent columns for cabinet section) ────────
   const addCabinetUnitTypes = useCallback((types: string[]) => {
     setData(prev => {
-      const existing = new Set(prev.cabinetUnitTypes);
-      const newTypes = types.filter(t => !existing.has(t));
+      const existingUpper = new Set(prev.cabinetUnitTypes.map(t => t.toUpperCase()));
+      const newTypes = types.filter(t => !existingUpper.has(t.toUpperCase()));
       if (!newTypes.length) return prev;
       const cabinetUnitTypes = [...prev.cabinetUnitTypes, ...newTypes];
       const next = { ...prev, cabinetUnitTypes };
