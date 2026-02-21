@@ -50,14 +50,20 @@ For each item extract:
    VANITY    → prefixes V VB VD
    ACCESSORY → fillers (FIL BF WF BFFIL WFFIL), toe kick (TK TKRUN), crown (CM), light rail (LR), end panels (EP FP), hardware
 3. Room from elevation title or floor plan room label (KITCHEN, BATH, LAUNDRY, PANTRY → capitalize first letter only)
-4. Quantity — THIS IS CRITICAL:
-   - Count the number of VISIBLE CABINET BOXES (drawn rectangles) for each SKU, NOT just the number of text labels.
-   - A single label/callout line may point to MULTIPLE cabinet boxes. Look carefully at the drawing.
-   - Example: If you see one "W3030" label with a leader line, but there are TWO identical rectangular cabinet boxes side by side, the quantity is 2.
-   - Example: If "DB15" label appears once but two identical narrow boxes are drawn next to each other, quantity is 2.
-   - Look at the PHYSICAL DRAWN BOXES in the elevation — count each separate cabinet rectangle individually.
-   - Same-width adjacent boxes with the same label or connected by a single callout = multiple quantity.
-   - When in doubt, count the number of distinct vertical division lines between cabinet boxes of the same width.
+
+COUNTING METHOD — THIS IS THE MOST CRITICAL STEP:
+Before producing the final JSON, you MUST perform a careful visual scan of the elevation drawing:
+
+Step A: Scan the elevation from LEFT to RIGHT. For EVERY distinct rectangular cabinet box you see drawn, note:
+  - Its approximate horizontal position (e.g. "far left", "left of sink", "center", "right of range", "far right")
+  - The SKU label it belongs to (follow leader lines / callout lines from labels to boxes)
+
+Step B: A single text label or callout may point to MULTIPLE adjacent cabinet boxes of the same size. 
+  - Look for vertical dividing lines between adjacent same-width rectangles — each divided section is a SEPARATE cabinet.
+  - Example: One "W3030" label with a leader line, but TWO identical rectangular boxes side by side = quantity 2.
+  - Example: "DB15" label appears once but two identical narrow boxes drawn next to each other = quantity 2.
+
+Step C: Group by SKU + room and count the total distinct physical boxes for the quantity field.
 
 RULES:
 - ONLY extract from ELEVATION drawings — do NOT extract cabinet labels from floor plans
@@ -75,13 +81,13 @@ RULES:
 - If NO cabinet SKUs are readable on this page, return {"unitTypeName":null,"items":[]}
 ${unitType ? `- Unit type context: ${unitType}` : ""}
 
-Return ONLY valid JSON — no markdown, no explanation:
+Return ONLY valid JSON — no markdown, no explanation, no reasoning text:
 {"unitTypeName":"A1","items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1},{"sku":"W3036","type":"Wall","room":"Kitchen","quantity":2}]}`;
 
     let response: Response;
     if (useDirectGemini) {
       response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -90,7 +96,7 @@ Return ONLY valid JSON — no markdown, no explanation:
               { inlineData: { mimeType: "image/jpeg", data: pageImage } },
               { text: prompt },
             ]}],
-            generationConfig: { temperature: 0.1, maxOutputTokens: 4096 },
+            generationConfig: { temperature: 0.2, maxOutputTokens: 8192 },
           }),
         }
       );
@@ -99,12 +105,12 @@ Return ONLY valid JSON — no markdown, no explanation:
         method: "POST",
         headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: "google/gemini-2.5-pro",
           messages: [{ role: "user", content: [
             { type: "image_url", image_url: { url: `data:image/jpeg;base64,${pageImage}` } },
             { type: "text", text: prompt },
           ]}],
-          temperature: 0.1, max_tokens: 4096,
+          temperature: 0.2, max_tokens: 8192,
         }),
       });
     }
@@ -125,11 +131,31 @@ Return ONLY valid JSON — no markdown, no explanation:
 
     let parsed: { items: any[]; unitTypeName?: string | null } = { items: [] };
     try {
-      const cleaned = content
+      // Strip markdown fences
+      let cleaned = content
         .replace(/^```json\s*/i, "")
         .replace(/^```\s*/i, "")
         .replace(/```\s*$/i, "")
         .trim();
+      
+      // If the model produced chain-of-thought text before JSON, find the last JSON object
+      const lastBrace = cleaned.lastIndexOf('}');
+      if (lastBrace !== -1) {
+        // Find the matching opening brace for the top-level JSON object
+        let depth = 0;
+        let startIdx = -1;
+        for (let i = lastBrace; i >= 0; i--) {
+          if (cleaned[i] === '}') depth++;
+          else if (cleaned[i] === '{') {
+            depth--;
+            if (depth === 0) { startIdx = i; break; }
+          }
+        }
+        if (startIdx !== -1) {
+          cleaned = cleaned.substring(startIdx, lastBrace + 1);
+        }
+      }
+      
       parsed = JSON.parse(cleaned);
     } catch {
       console.error("JSON parse failed:", content.slice(0, 500));
