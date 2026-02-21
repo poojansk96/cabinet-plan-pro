@@ -404,7 +404,7 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                   <>
                     <tr key={`group-${group}`}>
                       <td
-                        colSpan={1 + cabUnitTypes.length}
+                        colSpan={2 + cabUnitTypes.length}
                         className="text-xs font-bold uppercase tracking-wider py-1.5 px-3"
                         style={{ background: 'hsl(var(--accent))', color: 'hsl(var(--muted-foreground))' }}
                       >
