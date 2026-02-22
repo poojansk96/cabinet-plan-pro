@@ -29,11 +29,18 @@ UNIT TYPES TO DETECT:
 1. Residential: "Unit 101", "Apt 3B", "A-101", "B204", "101A", "#201"
 2. Common areas with cabinet content: Laundry rooms → "LAUNDRY-1", Community kitchens → "COMM-KITCHEN", Community rooms → "COMMUNITY ROOM 115", Pantries → "PANTRY-A", Clubhouses → "CLUBHOUSE", Leasing offices → "LEASING-OFFICE", Fitness rooms → "FITNESS-1"
 
+IMPORTANT - WHAT TO IGNORE:
+- NEVER treat sheet/drawing numbers (e.g. "A-101.00", "A-102.00", "A-220") as unit numbers. These appear in title blocks next to "DRAWING NO:" or "SHEET:".
+- NEVER extract units from reference tables like "UFAS APARTMENT LOCATIONS" or unit schedules. These tables list units from OTHER floors for cross-reference. Only extract units that are DRAWN on the actual floor plan with their unit number label near a door or within a room boundary.
+- Ignore construction legend codes (C1, C2, D1, D2, etc.) — these are specification notes, not units.
+
 RULES:
+- Only include units whose number appears ON THE FLOOR PLAN DRAWING itself (near doors, corridors, or inside room boundaries), NOT in reference tables or schedules
 - Only include spaces where cabinet/countertop signals appear near that space on the plan
 - If unsure whether a space has cabinets, use kitchenConfidence "maybe"
-- Unit type: capture FULL type name exactly as written (e.g. "Type A5 - 2 Bedroom Corner Unit"). Never abbreviate.
+- Unit type: capture FULL type name exactly as written (e.g. "Type A5 - 2 Bedroom Corner Unit"). Never abbreviate. The "UNIT A", "UNIT B" etc. labels near units on the plan are unit TYPE names, not unit numbers.
 - Floor: normalize word numbers ("First Floor" → "1", "Second" → "2", "Ground" → "G", "Basement" → "B1"). Keep letter-based levels as-is: "Level A" → "A", "Level B" → "B", "Level C" → "C", etc.
+- When a page shows TWO floor plans (e.g. "Level A" and "1st Floor"), extract units from BOTH plans. Match each unit to its correct floor based on which plan section it appears in.
 - Building: always inherit pageBuilding if unit has no specific building label
 
 Return ONLY valid JSON (no markdown fences, no explanation):
