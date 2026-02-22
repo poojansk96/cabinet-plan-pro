@@ -33,7 +33,7 @@ RULES:
 - Only include spaces where cabinet/countertop signals appear near that space on the plan
 - If unsure whether a space has cabinets, use kitchenConfidence "maybe"
 - Unit type: capture FULL type name exactly as written (e.g. "Type A5 - 2 Bedroom Corner Unit"). Never abbreviate.
-- Floor: normalize word numbers ("First Floor" → "1", "Second" → "2", "Ground" → "G", "Basement" → "B1")
+- Floor: normalize word numbers ("First Floor" → "1", "Second" → "2", "Ground" → "G", "Basement" → "B1"). Keep letter-based levels as-is: "Level A" → "A", "Level B" → "B", "Level C" → "C", etc.
 - Building: always inherit pageBuilding if unit has no specific building label
 
 Return ONLY valid JSON (no markdown fences, no explanation):
