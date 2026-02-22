@@ -9,4 +9,7 @@ verify_jwt = false
 [functions.extract-pdf-unit-types]
 verify_jwt = false
 
+[functions.extract-pdf-countertops]
+verify_jwt = false
+
 

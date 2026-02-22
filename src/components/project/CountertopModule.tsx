@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Plus, Trash2, Square } from 'lucide-react';
+import { Plus, Trash2, Square, FileText } from 'lucide-react';
 import type { Project, Unit, CountertopSection } from '@/types/project';
 import { calcCountertopSqft, calcUnitCountertopTotal } from '@/lib/calculations';
+import CountertopPDFImportDialog from './CountertopPDFImportDialog';
 
 interface Props {
   project: Project;
@@ -27,6 +28,13 @@ const blankCT = (): Omit<CountertopSection, 'id'> => ({
 export default function CountertopModule({ project, selectedUnit, setSelectedUnitId, addCountertop, updateCountertop, deleteCountertop }: Props) {
   const [form, setForm] = useState(blankCT());
   const [showForm, setShowForm] = useState(false);
+  const [showPDFImport, setShowPDFImport] = useState(false);
+
+  const handlePDFImport = (sections: Omit<CountertopSection, 'id'>[]) => {
+    if (!selectedUnit) return;
+    sections.forEach(s => addCountertop(project.id, selectedUnit.id, s));
+    setShowPDFImport(false);
+  };
 
   const handleAdd = () => {
     if (!selectedUnit || !form.label.trim()) return;
@@ -42,6 +50,7 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
 
   return (
     <div className="space-y-4">
+      {showPDFImport && <CountertopPDFImportDialog onImport={handlePDFImport} onClose={() => setShowPDFImport(false)} />}
       {/* Header */}
       <div className="flex items-center gap-2 flex-wrap">
         <Square size={16} className="text-primary flex-shrink-0" />
@@ -59,9 +68,17 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
           ))}
         </select>
         <button
+          onClick={() => setShowPDFImport(true)}
+          disabled={!selectedUnit}
+          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-primary text-primary hover:bg-primary/10 disabled:opacity-50"
+        >
+          <FileText size={12} />
+          PDF Import
+        </button>
+        <button
           onClick={() => setShowForm(!showForm)}
           disabled={!selectedUnit}
-          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium text-white disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium text-white disabled:opacity-50"
           style={{ background: 'hsl(var(--primary))' }}
         >
           <Plus size={12} />
