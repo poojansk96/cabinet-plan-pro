@@ -129,7 +129,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
       let detectedUnits: DetectedUnit[] = res.detectedUnits;
 
       const aiController = new AbortController();
-      const aiTimeout = setTimeout(() => aiController.abort(), 120000); // 2 min max
+      const aiTimeout = setTimeout(() => aiController.abort(), 300000); // 5 min max
       let aiResponse: Response;
       try {
         aiResponse = await fetch(EDGE_FUNCTION_URL, {
