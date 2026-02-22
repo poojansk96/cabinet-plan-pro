@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { Plus, Trash2, Copy, Users, FileUp, Eraser } from 'lucide-react';
 import type { Project, Unit, UnitType } from '@/types/project';
 import PDFImportDialog from './PDFImportDialog';
@@ -19,9 +19,26 @@ interface Props {
 }
 
 export default function UnitModule({ project, selectedUnitId, setSelectedUnitId, addUnit, updateUnit, deleteUnit, clearUnits, duplicateUnit }: Props) {
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [noteValue, setNoteValue] = useState('');
-  const noteInputRef = useRef<HTMLInputElement>(null);
+  const [editingCell, setEditingCell] = useState<{ id: string; field: 'unitNumber' | 'bldg' | 'floor' | 'type' | 'notes' } | null>(null);
+  const [cellValue, setCellValue] = useState('');
+
+  const startEditing = (id: string, field: typeof editingCell extends null ? never : NonNullable<typeof editingCell>['field'], value: string) => {
+    setEditingCell({ id, field });
+    setCellValue(value);
+  };
+
+  const commitEdit = () => {
+    if (!editingCell) return;
+    const { id, field } = editingCell;
+    updateUnit(project.id, id, { [field]: cellValue });
+    setEditingCell(null);
+  };
+
+  const handleCellKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === 'Escape') {
+      commitEdit();
+    }
+  };
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(blankForm());
   const [showPDFImport, setShowPDFImport] = useState(false);
@@ -284,40 +301,41 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
                         className="cursor-pointer"
                       />
                     </td>
-                    <td className="font-semibold">{unit.unitNumber}</td>
-                    <td>{unit.bldg || '—'}</td>
-                    <td>{unit.floor ? (/^\d+$/.test(unit.floor) ? `Floor ${unit.floor}` : unit.floor) : '—'}</td>
-                    <td>{unit.type}</td>
-                    <td className="text-muted-foreground text-xs" onClick={e => e.stopPropagation()}>
-                      {editingNoteId === unit.id ? (
-                        <input
-                          ref={noteInputRef}
-                          className="est-input text-xs w-full"
-                          value={noteValue}
-                          placeholder="Add a note…"
-                          onChange={e => setNoteValue(e.target.value)}
-                          onBlur={() => {
-                            updateUnit(project.id, unit.id, { notes: noteValue });
-                            setEditingNoteId(null);
-                          }}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter' || e.key === 'Escape') {
-                              updateUnit(project.id, unit.id, { notes: noteValue });
-                              setEditingNoteId(null);
-                            }
-                          }}
-                          autoFocus
-                        />
-                      ) : (
-                        <span
-                          className="cursor-text hover:text-foreground transition-colors"
-                          title="Click to edit note"
-                          onClick={() => { setEditingNoteId(unit.id); setNoteValue(unit.notes || ''); }}
+                    {(['unitNumber', 'bldg', 'floor', 'type', 'notes'] as const).map(field => {
+                      const isEditing = editingCell?.id === unit.id && editingCell?.field === field;
+                      let display: React.ReactNode = unit[field] || '—';
+                      if (field === 'floor' && unit.floor) {
+                        display = /^\d+$/.test(unit.floor) ? `Floor ${unit.floor}` : unit.floor;
+                      }
+                      if (field === 'unitNumber') {
+                        display = <span className="font-semibold">{unit.unitNumber}</span>;
+                      }
+                      if (field === 'notes' && !unit.notes) {
+                        display = <span className="opacity-40 italic">Add note…</span>;
+                      }
+                      return (
+                        <td
+                          key={field}
+                          className={field === 'notes' ? 'text-muted-foreground text-xs' : ''}
+                          onClick={e => { e.stopPropagation(); startEditing(unit.id, field, unit[field] || ''); }}
                         >
-                          {unit.notes || <span className="opacity-40 italic">Add note…</span>}
-                        </span>
-                      )}
-                    </td>
+                          {isEditing ? (
+                            <input
+                              className="est-input text-xs w-full"
+                              value={cellValue}
+                              onChange={e => setCellValue(e.target.value)}
+                              onBlur={commitEdit}
+                              onKeyDown={handleCellKeyDown}
+                              autoFocus
+                            />
+                          ) : (
+                            <span className="cursor-text hover:text-foreground transition-colors" title={`Click to edit`}>
+                              {display}
+                            </span>
+                          )}
+                        </td>
+                      );
+                    })}
                     <td>
                       <div className="flex items-center gap-1 justify-end">
                         <button
