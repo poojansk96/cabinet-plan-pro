@@ -22,6 +22,7 @@ RULE: If you find ANY building identifier anywhere on the page, set pageBuilding
 
 STEP 2 — FIND UNITS WITH CABINETS/COUNTERTOPS:
 Identify all spaces (residential units and common areas) that have cabinet or countertop content nearby.
+Use BOTH the floor plan image (if provided) AND the extracted text to find units. The image may show room labels that the text extraction missed.
 
 CABINET/COUNTERTOP SIGNALS: cabinet, counter, CT, countertop, DW, sink, refrigerator, kitchen, kitch, range, cooktop, dishwasher, microwave, upper cab, lower cab, base cab, lin ft, linear ft, granite, marble, quartz, laminate, undermount, island, peninsula, vanity, lav, laundry tub, washer, dryer, W/D, folding counter, community room, fitness, clubhouse, leasing office, toilet, restroom, bathroom, bath
 
@@ -70,25 +71,35 @@ serve(async (req) => {
 
     const body = await req.json();
     
-    // Support single-page mode: { pageText, pageIndex }
     const pageText = body.pageText as string | undefined;
+    const pageImage = body.pageImage as string | undefined; // base64 JPEG data URL
     const pageIndex = (body.pageIndex as number) ?? 0;
     
-    if (!pageText || typeof pageText !== "string") {
-      return new Response(JSON.stringify({ error: "pageText required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    if (pageText.trim().length < 20) {
+    if ((!pageText || pageText.trim().length < 20) && !pageImage) {
       return new Response(JSON.stringify({ units: [] }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const titleBlock = pageText.slice(0, 1500);
-    const tailBlock = pageText.slice(-800);
-    const userPrompt = `Analyze this floor plan page (page ${pageIndex + 1}).\n\nSHEET TITLE / HEADER AREA (check here first for building name):\n${titleBlock}\n\nFOOTER / TITLE BLOCK:\n${tailBlock}\n\nFULL PAGE TEXT:\n${pageText.slice(0, 8000)}`;
+    const titleBlock = (pageText ?? "").slice(0, 1500);
+    const tailBlock = (pageText ?? "").slice(-800);
+    const userPrompt = `Analyze this floor plan page (page ${pageIndex + 1}).\n\nSHEET TITLE / HEADER AREA (check here first for building name):\n${titleBlock}\n\nFOOTER / TITLE BLOCK:\n${tailBlock}\n\nFULL PAGE TEXT:\n${(pageText ?? "").slice(0, 8000)}`;
+
+    // Build parts for the AI request
+    const parts: any[] = [];
+    
+    // Add image if provided (for direct Gemini)
+    if (pageImage && useDirectGemini) {
+      // pageImage is "data:image/jpeg;base64,..." - extract the base64 part
+      const base64Data = pageImage.replace(/^data:image\/\w+;base64,/, "");
+      parts.push({
+        inlineData: {
+          mimeType: "image/jpeg",
+          data: base64Data,
+        }
+      });
+    }
+    parts.push({ text: systemPrompt + "\n\n" + userPrompt });
 
     let response: Response | null = null;
     const MAX_RETRIES = 3;
@@ -103,12 +114,22 @@ serve(async (req) => {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }],
+                contents: [{ role: "user", parts }],
                 generationConfig: { temperature: 0.1 },
               }),
             }
           );
         } else {
+          // Lovable gateway: use OpenAI-compatible format with image URL
+          const userContent: any[] = [];
+          if (pageImage) {
+            userContent.push({
+              type: "image_url",
+              image_url: { url: pageImage },
+            });
+          }
+          userContent.push({ type: "text", text: userPrompt });
+          
           response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
             headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -116,7 +137,7 @@ serve(async (req) => {
               model: "google/gemini-2.5-flash",
               messages: [
                 { role: "system", content: systemPrompt },
-                { role: "user", content: userPrompt },
+                { role: "user", content: userContent },
               ],
               temperature: 0.1,
             }),
@@ -163,7 +184,6 @@ serve(async (req) => {
       const cleaned = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       parsed = JSON.parse(cleaned);
     } catch {
-      // Try to find JSON object in response
       const match = content.match(/\{[\s\S]*"units"\s*:\s*\[[\s\S]*\]\s*\}/);
       if (match) {
         try { parsed = JSON.parse(match[0]); } catch {}
@@ -185,7 +205,7 @@ serve(async (req) => {
       kitchenConfidence: u.kitchenConfidence ?? "maybe",
     })).filter((u: any) => u.unitNumber.length > 0);
 
-    console.log(`Page ${pageIndex + 1}: found ${units.length} units`);
+    console.log(`Page ${pageIndex + 1}: found ${units.length} units (image: ${!!pageImage})`);
 
     return new Response(JSON.stringify({ units }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

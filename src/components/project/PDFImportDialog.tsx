@@ -96,9 +96,9 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
       const { extractUnitsFromPDF } = await import('@/lib/pdfExtractor');
       const res = await extractUnitsFromPDF(file);
       setResult(res);
-      setProgress(20);
+      setProgress(10);
 
-      // Step 2: Re-extract page texts for AI
+      // Step 2: Re-extract page texts AND render page images for AI
       setProcessingStatus('Preparing pages for AI analysis…');
       const arrayBuffer = await file.arrayBuffer();
       const pdfjsLib = (await import('pdfjs-dist')) as any;
@@ -109,15 +109,33 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       const totalPages = pdf.numPages;
       const pageTexts: string[] = [];
+      const pageImages: string[] = [];
+      
       for (let p = 1; p <= totalPages; p++) {
         const page = await pdf.getPage(p);
+        
+        // Extract text
         const content = await page.getTextContent();
         const text = content.items
           .filter((item: any) => 'str' in item)
           .map((item: any) => item.str)
           .join(' ');
         pageTexts.push(text);
-        setProgress(20 + Math.round((p / totalPages) * 20));
+        
+        // Render page to image
+        const scale = 3;
+        const viewport = page.getViewport({ scale });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext('2d')!;
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.75);
+        pageImages.push(imageDataUrl);
+        canvas.width = 0;
+        canvas.height = 0;
+        
+        setProgress(10 + Math.round((p / totalPages) * 30));
         setProgressLabel(`Reading page ${p} of ${totalPages}`);
       }
 
@@ -126,13 +144,15 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
       setProgress(45);
       setProgressLabel('AI analyzing…');
       
-      const CONCURRENCY = 3;
+      const CONCURRENCY = 2; // Reduced from 3 since images are larger
       const allUnits: Record<string, any> = {};
       let pagesProcessed = 0;
       
       const processPage = async (pageIndex: number): Promise<void> => {
         const pageText = pageTexts[pageIndex];
-        if (!pageText || pageText.trim().length < 20) {
+        const pageImage = pageImages[pageIndex];
+        // Skip only if no text AND no image
+        if ((!pageText || pageText.trim().length < 20) && !pageImage) {
           pagesProcessed++;
           return;
         }
@@ -143,7 +163,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
             const resp = await fetch(EDGE_FUNCTION_URL, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ pageText, pageIndex }),
+              body: JSON.stringify({ pageText: pageText || '', pageImage, pageIndex }),
             });
             
             if (resp.status === 429) {
