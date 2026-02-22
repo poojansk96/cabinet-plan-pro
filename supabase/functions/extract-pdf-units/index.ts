@@ -6,33 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  try {
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    const useDirectGemini = !!GEMINI_API_KEY;
-    if (!GEMINI_API_KEY && !LOVABLE_API_KEY) throw new Error("No AI API key configured");
-
-    const { pageTexts } = await req.json();
-    if (!pageTexts || !Array.isArray(pageTexts)) {
-      return new Response(JSON.stringify({ error: "pageTexts array required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Process pages in batches to stay within token limits
-    const allUnits: Record<string, any> = {};
-
-    for (let i = 0; i < pageTexts.length; i++) {
-      const pageText = pageTexts[i];
-      if (!pageText || pageText.trim().length < 20) continue;
-
-      const systemPrompt = `You are an expert architectural drawing reader specializing in residential construction floor plans.
+const systemPrompt = `You are an expert architectural drawing reader specializing in residential construction floor plans.
 
 STEP 1 — FIND THE BUILDING NAME FIRST (most important):
 Scan every word of the page text for a building identifier. Building names appear in many forms:
@@ -76,136 +50,137 @@ Return ONLY valid JSON (no markdown fences, no explanation):
   ]
 }`;
 
-      // Send title block, tail, and full text — building names often appear in sheet titles/headers
-      const titleBlock = pageText.slice(0, 1500);
-      const tailBlock = pageText.slice(-800);
-      const userPrompt = `Analyze this floor plan page (page ${i + 1}).\n\nSHEET TITLE / HEADER AREA (check here first for building name):\n${titleBlock}\n\nFOOTER / TITLE BLOCK:\n${tailBlock}\n\nFULL PAGE TEXT:\n${pageText.slice(0, 8000)}`;
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
 
-      // No timeout — let AI take as long as needed for large files
+  try {
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const useDirectGemini = !!GEMINI_API_KEY;
+    if (!GEMINI_API_KEY && !LOVABLE_API_KEY) throw new Error("No AI API key configured");
 
-      let response: Response | null = null;
-      const MAX_RETRIES = 3;
-      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-        try {
-          if (useDirectGemini) {
-            response = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  contents: [
-                    { role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt }] },
-                  ],
-                  generationConfig: { temperature: 0.1 },
-                }),
-              }
-            );
-          } else {
-            response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-              method: "POST",
-              headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-              body: JSON.stringify({
-                model: "google/gemini-2.5-flash",
-                messages: [
-                  { role: "system", content: systemPrompt },
-                  { role: "user", content: userPrompt },
-                ],
-                temperature: 0.1,
-              }),
-            });
-          }
-        } catch (fetchErr) {
-          console.error(`Page ${i + 1} fetch error (attempt ${attempt + 1}):`, fetchErr);
-          if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
-          break;
-        }
+    const body = await req.json();
+    
+    // Support single-page mode: { pageText, pageIndex }
+    const pageText = body.pageText as string | undefined;
+    const pageIndex = (body.pageIndex as number) ?? 0;
+    
+    if (!pageText || typeof pageText !== "string") {
+      return new Response(JSON.stringify({ error: "pageText required" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-        if (response && (response.status === 503 || response.status === 500)) {
-          const errText = await response.text();
-          console.warn(`Page ${i + 1} AI unavailable (${response.status}), attempt ${attempt + 1}/${MAX_RETRIES}:`, errText.slice(0, 200));
-          response = null;
-          if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
-          break;
-        }
-        break; // success or non-retryable error
-      }
+    if (pageText.trim().length < 20) {
+      return new Response(JSON.stringify({ units: [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-      if (!response) { console.error(`Page ${i + 1}: all AI retries exhausted`); continue; }
+    const titleBlock = pageText.slice(0, 1500);
+    const tailBlock = pageText.slice(-800);
+    const userPrompt = `Analyze this floor plan page (page ${pageIndex + 1}).\n\nSHEET TITLE / HEADER AREA (check here first for building name):\n${titleBlock}\n\nFOOTER / TITLE BLOCK:\n${tailBlock}\n\nFULL PAGE TEXT:\n${pageText.slice(0, 8000)}`;
 
-      if (!response.ok) {
-        if (response.status === 429) {
-          return new Response(
-            JSON.stringify({ error: "Rate limit exceeded. Please try again shortly." }),
-            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        if (response.status === 402) {
-          return new Response(
-            JSON.stringify({ error: "AI usage limit reached. Please add credits in Settings → Workspace → Usage." }),
-            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        const errText = await response.text();
-        console.error("AI gateway error:", response.status, errText);
-        continue;
-      }
+    let response: Response | null = null;
+    const MAX_RETRIES = 3;
+    const apiKey = (useDirectGemini ? GEMINI_API_KEY : LOVABLE_API_KEY)!;
 
-      const aiData = await response.json();
-      const content = useDirectGemini
-        ? (aiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "")
-        : (aiData.choices?.[0]?.message?.content ?? "");
-
-      // Parse JSON from AI response (strip markdown fences if present)
-      let parsed: { pageBuilding?: string | null; units: any[] } | null = null;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        const cleaned = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-        parsed = JSON.parse(cleaned);
-      } catch {
-        console.error("Failed to parse AI response for page", i + 1, content);
-        continue;
+        if (useDirectGemini) {
+          response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }],
+                generationConfig: { temperature: 0.1 },
+              }),
+            }
+          );
+        } else {
+          response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-flash",
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt },
+              ],
+              temperature: 0.1,
+            }),
+          });
+        }
+      } catch (fetchErr) {
+        console.error(`Page ${pageIndex + 1} fetch error (attempt ${attempt + 1}):`, fetchErr);
+        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
+        break;
       }
 
-      if (!parsed?.units) continue;
+      if (response && (response.status === 503 || response.status === 500)) {
+        console.warn(`Page ${pageIndex + 1} AI unavailable (${response.status}), attempt ${attempt + 1}`);
+        response = null;
+        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
+        break;
+      }
+      if (response && response.status === 429) {
+        return new Response(JSON.stringify({ error: "rate_limit" }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (response && response.status === 402) {
+        return new Response(JSON.stringify({ error: "credits" }), {
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      break;
+    }
 
-      // Page-level building fallback: if AI identified one building for the whole page
-      const pageBuilding = parsed.pageBuilding ?? null;
+    if (!response || !response.ok) {
+      return new Response(JSON.stringify({ units: [] }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-      for (const unit of parsed.units) {
-        const key = (unit.unitNumber ?? "").trim().toUpperCase();
-        if (!key || key.length < 1) continue;
+    const aiData = await response.json();
+    const content = useDirectGemini
+      ? (aiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "")
+      : (aiData.choices?.[0]?.message?.content ?? "");
 
-        // Resolve building: unit-level takes priority, then page-level
-        const bldg = unit.detectedBldg ?? pageBuilding ?? null;
-
-        const existing = allUnits[key];
-        if (!existing) {
-          allUnits[key] = {
-            unitNumber: key,
-            detectedType: unit.detectedType ?? null,
-            detectedFloor: unit.detectedFloor ?? null,
-            detectedBldg: bldg,
-            rawMatch: key,
-            page: i + 1,
-            confidence: "high" as const,
-            kitchenConfidence: unit.kitchenConfidence ?? "maybe",
-          };
-        } else {
-          if (!existing.detectedType && unit.detectedType) existing.detectedType = unit.detectedType;
-          if (!existing.detectedFloor && unit.detectedFloor) existing.detectedFloor = unit.detectedFloor;
-          if (!existing.detectedBldg && bldg) existing.detectedBldg = bldg;
-          if (existing.kitchenConfidence === "maybe" && unit.kitchenConfidence === "yes") {
-            existing.kitchenConfidence = "yes";
-          }
-        }
+    let parsed: { pageBuilding?: string | null; units: any[] } | null = null;
+    try {
+      const cleaned = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      parsed = JSON.parse(cleaned);
+    } catch {
+      // Try to find JSON object in response
+      const match = content.match(/\{[\s\S]*"units"\s*:\s*\[[\s\S]*\]\s*\}/);
+      if (match) {
+        try { parsed = JSON.parse(match[0]); } catch {}
+      }
+      if (!parsed) {
+        console.error("Failed to parse AI response for page", pageIndex + 1, content.slice(0, 300));
+        return new Response(JSON.stringify({ units: [] }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
     }
 
-    const detectedUnits = Object.values(allUnits).sort((a: any, b: any) =>
-      a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true })
-    );
+    const pageBuilding = parsed.pageBuilding ?? null;
+    const units = (parsed.units ?? []).map((u: any) => ({
+      unitNumber: (u.unitNumber ?? "").trim(),
+      detectedType: u.detectedType ?? null,
+      detectedFloor: u.detectedFloor ?? null,
+      detectedBldg: u.detectedBldg ?? pageBuilding ?? null,
+      kitchenConfidence: u.kitchenConfidence ?? "maybe",
+    })).filter((u: any) => u.unitNumber.length > 0);
 
-    return new Response(JSON.stringify({ detectedUnits }), {
+    console.log(`Page ${pageIndex + 1}: found ${units.length} units`);
+
+    return new Response(JSON.stringify({ units }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {

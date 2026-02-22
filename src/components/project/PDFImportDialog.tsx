@@ -96,9 +96,9 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
       const { extractUnitsFromPDF } = await import('@/lib/pdfExtractor');
       const res = await extractUnitsFromPDF(file);
       setResult(res);
-      setProgress(30);
+      setProgress(20);
 
-      // Step 2: Re-extract page texts for AI (pdfjs already loaded)
+      // Step 2: Re-extract page texts for AI
       setProcessingStatus('Preparing pages for AI analysis…');
       const arrayBuffer = await file.arrayBuffer();
       const pdfjsLib = (await import('pdfjs-dist')) as any;
@@ -117,51 +117,104 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
           .map((item: any) => item.str)
           .join(' ');
         pageTexts.push(text);
-        // Progress 30→60 during page extraction
-        setProgress(30 + Math.round((p / totalPages) * 30));
+        setProgress(20 + Math.round((p / totalPages) * 20));
         setProgressLabel(`Reading page ${p} of ${totalPages}`);
       }
 
-      // Step 3: Call AI edge function
-      setProcessingStatus('AI is analyzing floor plans for units with cabinets/countertops…');
-      setProgress(65);
+      // Step 3: Call AI per page (avoid edge function timeout)
+      setProcessingStatus('AI is analyzing floor plans…');
+      setProgress(45);
       setProgressLabel('AI analyzing…');
-      let detectedUnits: DetectedUnit[] = res.detectedUnits;
-
-      const aiController = new AbortController();
-      const aiTimeout = setTimeout(() => aiController.abort(), 600000); // 10 min max
-      let aiResponse: Response;
-      try {
-        aiResponse = await fetch(EDGE_FUNCTION_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pageTexts }),
-          signal: aiController.signal,
-        });
-      } catch (fetchErr: any) {
-        clearTimeout(aiTimeout);
-        if (fetchErr?.name === 'AbortError') {
-          toast.warning('AI analysis timed out. Using standard detection.');
-          aiResponse = new Response(null, { status: 408 });
-        } else {
-          throw fetchErr;
+      
+      const CONCURRENCY = 3;
+      const allUnits: Record<string, any> = {};
+      let pagesProcessed = 0;
+      
+      const processPage = async (pageIndex: number): Promise<void> => {
+        const pageText = pageTexts[pageIndex];
+        if (!pageText || pageText.trim().length < 20) {
+          pagesProcessed++;
+          return;
         }
-      } finally {
-        clearTimeout(aiTimeout);
+        
+        const MAX_RETRIES = 3;
+        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+          try {
+            const resp = await fetch(EDGE_FUNCTION_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ pageText, pageIndex }),
+            });
+            
+            if (resp.status === 429) {
+              toast.error('AI rate limit — waiting 30s before retry…');
+              await new Promise(r => setTimeout(r, 30000));
+              continue;
+            }
+            if (resp.status === 402) {
+              toast.error('AI credits exhausted. Please add credits.');
+              return;
+            }
+            if (resp.status === 503 || resp.status === 500) {
+              if (attempt < MAX_RETRIES - 1) {
+                await new Promise(r => setTimeout(r, 3000 * (attempt + 1)));
+                continue;
+              }
+              console.error(`Page ${pageIndex + 1}: AI failed after retries`);
+              return;
+            }
+            if (!resp.ok) {
+              console.error(`Page ${pageIndex + 1}: AI error ${resp.status}`);
+              return;
+            }
+            
+            const data = await resp.json();
+            if (data.units && Array.isArray(data.units)) {
+              for (const unit of data.units) {
+                const key = (unit.unitNumber ?? '').trim().toUpperCase();
+                if (!key) continue;
+                const existing = allUnits[key];
+                if (!existing) {
+                  allUnits[key] = { ...unit, unitNumber: key, page: pageIndex + 1, confidence: 'high', kitchenConfidence: unit.kitchenConfidence ?? 'maybe' };
+                } else {
+                  if (!existing.detectedType && unit.detectedType) existing.detectedType = unit.detectedType;
+                  if (!existing.detectedFloor && unit.detectedFloor) existing.detectedFloor = unit.detectedFloor;
+                  if (!existing.detectedBldg && unit.detectedBldg) existing.detectedBldg = unit.detectedBldg;
+                  if (existing.kitchenConfidence === 'maybe' && unit.kitchenConfidence === 'yes') existing.kitchenConfidence = 'yes';
+                }
+              }
+            }
+            break; // success
+          } catch (err) {
+            if (attempt < MAX_RETRIES - 1) {
+              await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+              continue;
+            }
+            console.error(`Page ${pageIndex + 1} error:`, err);
+          }
+        }
+        pagesProcessed++;
+        setProgress(45 + Math.round((pagesProcessed / totalPages) * 45));
+        setProgressLabel(`AI analyzed page ${pagesProcessed} of ${totalPages}`);
+      };
+      
+      // Process pages in batches of CONCURRENCY
+      for (let i = 0; i < pageTexts.length; i += CONCURRENCY) {
+        const batch = [];
+        for (let j = i; j < Math.min(i + CONCURRENCY, pageTexts.length); j++) {
+          batch.push(processPage(j));
+        }
+        await Promise.all(batch);
       }
-
-      if (aiResponse.ok) {
-        const aiData = await aiResponse.json();
-        if (aiData.detectedUnits && aiData.detectedUnits.length > 0) {
-          detectedUnits = aiData.detectedUnits;
-          setUsedAI(true);
-        }
-      } else if (aiResponse.status === 429) {
-        toast.error('AI rate limit reached. Using standard detection instead.');
-      } else if (aiResponse.status === 402) {
-        toast.error('AI credits exhausted. Using standard detection instead.');
+      
+      const detectedUnits = Object.values(allUnits).sort((a: any, b: any) =>
+        a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true })
+      );
+      
+      if (detectedUnits.length > 0) {
+        setUsedAI(true);
       } else {
-        toast.warning('AI analysis unavailable. Using standard detection.');
+        toast.warning('AI could not detect units on these pages. Check if this is a floor plan PDF.');
       }
 
       setProgress(95);
