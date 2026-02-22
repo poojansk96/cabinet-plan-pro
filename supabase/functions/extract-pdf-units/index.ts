@@ -23,11 +23,11 @@ RULE: If you find ANY building identifier anywhere on the page, set pageBuilding
 STEP 2 — FIND UNITS WITH CABINETS/COUNTERTOPS:
 Identify all spaces (residential units and common areas) that have cabinet or countertop content nearby.
 
-CABINET/COUNTERTOP SIGNALS: cabinet, counter, CT, countertop, DW, sink, refrigerator, kitchen, kitch, range, cooktop, dishwasher, microwave, upper cab, lower cab, base cab, lin ft, linear ft, granite, marble, quartz, laminate, undermount, island, peninsula, vanity, lav, laundry tub, washer, dryer, W/D, folding counter
+CABINET/COUNTERTOP SIGNALS: cabinet, counter, CT, countertop, DW, sink, refrigerator, kitchen, kitch, range, cooktop, dishwasher, microwave, upper cab, lower cab, base cab, lin ft, linear ft, granite, marble, quartz, laminate, undermount, island, peninsula, vanity, lav, laundry tub, washer, dryer, W/D, folding counter, community room, fitness, clubhouse, leasing office
 
 UNIT TYPES TO DETECT:
 1. Residential: "Unit 101", "Apt 3B", "A-101", "B204", "101A", "#201"
-2. Common areas with cabinet content: Laundry rooms → "LAUNDRY-1", Community kitchens → "COMM-KITCHEN", Pantries → "PANTRY-A", Clubhouses → "CLUBHOUSE", Leasing offices → "LEASING-OFFICE"
+2. Common areas with cabinet content: Laundry rooms → "LAUNDRY-1", Community kitchens → "COMM-KITCHEN", Community rooms → "COMMUNITY ROOM 115", Pantries → "PANTRY-A", Clubhouses → "CLUBHOUSE", Leasing offices → "LEASING-OFFICE", Fitness rooms → "FITNESS-1"
 
 RULES:
 - Only include spaces where cabinet/countertop signals appear near that space on the plan
