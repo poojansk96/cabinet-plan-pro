@@ -36,13 +36,13 @@ function loadData(projectId: string): PrefinalData {
         cabinetUnitTypes: parsed.cabinetUnitTypes || [],
       };
     }
-    // Deduplicate cabinetUnitTypes (case-insensitive)
+    // Deduplicate cabinetUnitTypes (normalize: strip TYPE prefix, uppercase, collapse hyphens)
     const rawCabTypes: string[] = parsed.cabinetUnitTypes || [];
-    const seenUpper = new Set<string>();
+    const seenNorm = new Set<string>();
     const dedupedCabTypes = rawCabTypes.filter(t => {
-      const u = t.toUpperCase();
-      if (seenUpper.has(u)) return false;
-      seenUpper.add(u);
+      const key = t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s*-\s*/g, '-').trim();
+      if (seenNorm.has(key)) return false;
+      seenNorm.add(key);
       return true;
     });
     const unitNumbers = (parsed.unitNumbers || []).map((u: any) => ({ ...u, floor: u.floor || '' }));
@@ -208,8 +208,14 @@ export function usePrefinalStore(projectId: string) {
   // ── Cabinet Unit Types (independent columns for cabinet section) ────────
   const addCabinetUnitTypes = useCallback((types: string[]) => {
     setData(prev => {
-      const existingUpper = new Set(prev.cabinetUnitTypes.map(t => t.toUpperCase()));
-      const newTypes = types.filter(t => !existingUpper.has(t.toUpperCase()));
+      const normalizeKey = (t: string) => t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s*-\s*/g, '-').trim();
+      const existingKeys = new Set(prev.cabinetUnitTypes.map(t => normalizeKey(t)));
+      const newTypes = types.filter(t => {
+        const key = normalizeKey(t);
+        if (!key || existingKeys.has(key)) return false;
+        existingKeys.add(key);
+        return true;
+      });
       if (!newTypes.length) return prev;
       const cabinetUnitTypes = [...prev.cabinetUnitTypes, ...newTypes];
       const next = { ...prev, cabinetUnitTypes };
