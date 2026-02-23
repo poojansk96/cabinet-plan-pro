@@ -242,6 +242,31 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
           </button>
         </div>
       ) : (
+        <>
+          {/* Floor-wise unit totals */}
+          {(() => {
+            const floorCounts: Record<string, number> = {};
+            for (const u of project.units) {
+              const fl = u.floor ? (/^\d+$/.test(u.floor) ? `Floor ${u.floor}` : u.floor) : 'Unassigned';
+              floorCounts[fl] = (floorCounts[fl] || 0) + 1;
+            }
+            const sortedFloors = Object.entries(floorCounts).sort((a, b) => {
+              const na = parseFloat(a[0].replace(/^Floor\s*/i, '')) || 0;
+              const nb = parseFloat(b[0].replace(/^Floor\s*/i, '')) || 0;
+              if (na !== nb) return na - nb;
+              return a[0].localeCompare(b[0], undefined, { numeric: true });
+            });
+            return (
+              <div className="flex flex-wrap gap-2">
+                {sortedFloors.map(([fl, count]) => (
+                  <span key={fl} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-accent border border-border text-foreground">
+                    {fl}: <strong>{count}</strong> unit{count !== 1 ? 's' : ''}
+                  </span>
+                ))}
+              </div>
+            );
+          })()}
+
         <div className="est-card overflow-hidden">
           {/* Bulk action bar */}
           {someSelected && (
@@ -363,6 +388,7 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       {/* Clear all units */}
