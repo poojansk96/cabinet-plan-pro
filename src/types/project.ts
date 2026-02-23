@@ -42,7 +42,7 @@ export interface CountertopSection {
   splashHeight?: number;  // inches (optional backsplash height)
   sideSplash?: number;    // inches (optional sidesplash)
   isIsland: boolean;
-  addWaste: boolean;    // 3% waste
+  addWaste: boolean;    // 5% waste
 }
 
 export interface Unit {
