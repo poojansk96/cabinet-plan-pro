@@ -10,6 +10,9 @@ interface Props {
 export default function SummaryPanel({ project, activeTab }: Props) {
   const summary = calcProjectSummary(project);
   const isUnitsTab = activeTab === 'units';
+  const isCountertopsTab = activeTab === 'countertops';
+  const hideCabinets = isUnitsTab || isCountertopsTab;
+  const hideAccessories = isUnitsTab || isCountertopsTab;
 
   const row = (label: string, value: string | number) => (
     <div key={label} className="flex justify-between items-center py-1.5 border-b" style={{ borderColor: 'hsl(var(--sidebar-border))' }}>
@@ -26,11 +29,11 @@ export default function SummaryPanel({ project, activeTab }: Props) {
 
       <div className="space-y-0">
         {row('Units', summary.totalUnits)}
-        {!isUnitsTab && row('Total Cabinets', summary.totalCabinets)}
-        {!isUnitsTab && row('Base Cabinets', summary.totalBase)}
-        {!isUnitsTab && row('Wall Cabinets', summary.totalWall)}
-        {!isUnitsTab && row('Tall Cabinets', summary.totalTall)}
-        {!isUnitsTab && row('Unique SKUs', summary.skuSummary.length)}
+        {!hideCabinets && row('Total Cabinets', summary.totalCabinets)}
+        {!hideCabinets && row('Base Cabinets', summary.totalBase)}
+        {!hideCabinets && row('Wall Cabinets', summary.totalWall)}
+        {!hideCabinets && row('Tall Cabinets', summary.totalTall)}
+        {!hideCabinets && row('Unique SKUs', summary.skuSummary.length)}
       </div>
 
       {!isUnitsTab && (
@@ -45,7 +48,7 @@ export default function SummaryPanel({ project, activeTab }: Props) {
         </>
       )}
 
-      {!isUnitsTab && (
+      {!hideAccessories && (
         <>
           <div className="text-xs font-bold uppercase tracking-widest mt-4 mb-2" style={{ color: 'hsl(var(--sidebar-primary))' }}>
             Accessories
