@@ -95,7 +95,7 @@ export function exportProjectPDF(project: Project) {
     { label: 'Total Units', value: String(summary.totalUnits) },
     { label: 'Total Cabinets', value: String(summary.totalCabinets) },
     { label: 'Unique SKUs', value: String(summary.skuSummary.length) },
-    { label: 'CT Total Sqft', value: summary.totalCountertopSqft.toFixed(1) },
+    { label: 'CT Total Sqft', value: String(summary.totalCountertopSqft) },
   ];
   stats.forEach((s, i) => {
     const x = margin + i * (cardW + 4);
@@ -168,7 +168,7 @@ export function exportProjectPDF(project: Project) {
         String(c.wall),
         String(c.tall),
         String(fillers),
-        sqft.toFixed(1),
+        sqft.toFixed(0),
       ];
     });
 
@@ -180,7 +180,7 @@ export function exportProjectPDF(project: Project) {
       String(summary.totalWall),
       String(summary.totalTall),
       String(summary.accessorySummary.totalFillers),
-      summary.totalCountertopSqft.toFixed(1),
+      String(summary.totalCountertopSqft),
     ]);
 
     autoTable(doc, {
@@ -286,10 +286,10 @@ export function exportProjectPDF(project: Project) {
     const ctRows: string[][] = [];
     project.units.forEach(u => {
       u.countertops.forEach(ct => {
-        const effectiveDepth = ct.depth + (ct.splashHeight ?? 0);
+        const effectiveDepth = ct.depth + (ct.splashHeight ?? 0) + (ct.sideSplash ?? 0);
         const sqft = ((ct.length * effectiveDepth) / 144);
         const withWaste = ct.addWaste ? sqft * 1.03 : sqft;
-        const rounded = Math.ceil(withWaste * 2) / 2;
+        const rounded = Math.ceil(withWaste);
         ctRows.push([
           `#${u.unitNumber}`,
           ct.label,
@@ -297,7 +297,7 @@ export function exportProjectPDF(project: Project) {
           `${ct.depth}"`,
           ct.isIsland ? 'Island' : 'Perimeter',
           ct.addWaste ? 'Yes' : 'No',
-          rounded.toFixed(1),
+          String(rounded),
         ]);
       });
     });
@@ -305,7 +305,7 @@ export function exportProjectPDF(project: Project) {
     // Grand total row
     ctRows.push([
       'TOTAL', '', '', '', '', '',
-      summary.totalCountertopSqft.toFixed(1),
+      String(summary.totalCountertopSqft),
     ]);
 
     autoTable(doc, {

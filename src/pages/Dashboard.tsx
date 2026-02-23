@@ -50,7 +50,7 @@ function ProjectCard({ project, onDelete }: { project: Project; onDelete: (id: s
             <div className="text-xs text-muted-foreground">Cabinets</div>
           </div>
           <div className="text-center py-2 rounded bg-secondary">
-            <div className="text-lg font-bold text-primary">{summary.totalCountertopSqft.toFixed(1)}</div>
+            <div className="text-lg font-bold text-primary">{summary.totalCountertopSqft}</div>
             <div className="text-xs text-muted-foreground">CT Sqft</div>
           </div>
         </div>

@@ -255,7 +255,7 @@ export default function CountertopPDFImportDialog({ onImport, onClose }: Props) 
                         <th>Room</th>
                         <th className="text-right">Length"</th>
                         <th className="text-right">Depth"</th>
-                        <th className="text-right">Splash"</th>
+                        <th className="text-right">Backsplash"</th>
                         <th className="text-center">Island</th>
                         <th className="text-right">Sqft</th>
                         <th></th>
@@ -264,7 +264,7 @@ export default function CountertopPDFImportDialog({ onImport, onClose }: Props) 
                     <tbody>
                       {rows.map((row, idx) => {
                         const effectiveDepth = row.depth + (row.splashHeight ?? 0);
-                        const sqft = Math.ceil(((row.length * effectiveDepth) / 144) * 2) / 2;
+                        const sqft = Math.ceil((row.length * effectiveDepth) / 144);
                         return (
                           <tr key={idx} className={!row.selected ? 'opacity-50' : ''}>
                             <td>
@@ -282,7 +282,7 @@ export default function CountertopPDFImportDialog({ onImport, onClose }: Props) 
                             </td>
                             <td className="text-right">{row.splashHeight ?? '—'}</td>
                             <td className="text-center">{row.isIsland ? '✓' : '—'}</td>
-                            <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{sqft.toFixed(1)}</td>
+                            <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{sqft}</td>
                             <td>
                               <button onClick={() => deleteRow(idx)} className="p-1 hover:text-destructive text-muted-foreground"><Trash2 size={12} /></button>
                             </td>

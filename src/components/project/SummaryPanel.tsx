@@ -42,7 +42,7 @@ export default function SummaryPanel({ project, activeTab }: Props) {
             Countertops
           </div>
           <div className="rounded-lg p-3 text-center mb-3" style={{ background: 'hsl(var(--primary))' }}>
-            <div className="text-2xl font-bold text-white">{summary.totalCountertopSqft.toFixed(1)}</div>
+            <div className="text-2xl font-bold text-white">{summary.totalCountertopSqft}</div>
             <div className="text-xs text-white/70 font-medium">Total Sqft</div>
           </div>
         </>

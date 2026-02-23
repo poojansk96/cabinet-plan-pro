@@ -143,10 +143,10 @@ export default function SummaryModule({ project }: Props) {
     styleHeader(wsCt.addRow(['Unit #', 'Type', 'Building', 'Floor', 'CT Sqft']));
     project.units.forEach(u => {
       const sqft = calcUnitCountertopTotal(u);
-      wsCt.addRow([u.unitNumber, u.type, u.bldg || '', fmtFloor(u.floor || ''), +sqft.toFixed(1)]);
+      wsCt.addRow([u.unitNumber, u.type, u.bldg || '', fmtFloor(u.floor || ''), sqft]);
     });
     wsCt.addRow([]);
-    const ctTotRow = wsCt.addRow(['TOTAL', '', '', '', +summary.totalCountertopSqft.toFixed(1)]);
+    const ctTotRow = wsCt.addRow(['TOTAL', '', '', '', summary.totalCountertopSqft]);
     ctTotRow.font = { bold: true };
 
     // ── Download ──────────────────────────────────────────────────
@@ -201,7 +201,7 @@ export default function SummaryModule({ project }: Props) {
           <div className="stat-label">Total Cabinets</div>
         </div>
         <div className="stat-card">
-          <div className="stat-value">{summary.totalCountertopSqft.toFixed(1)}</div>
+          <div className="stat-value">{summary.totalCountertopSqft}</div>
           <div className="stat-label">CT Sqft</div>
         </div>
         <div className="stat-card">
@@ -258,7 +258,7 @@ export default function SummaryModule({ project }: Props) {
                     <td className="text-right">{c.wall}</td>
                     <td className="text-right">{c.tall}</td>
                     <td className="text-right">{fillers}</td>
-                    <td className="text-right font-medium">{sqft.toFixed(1)}</td>
+                    <td className="text-right font-medium">{sqft}</td>
                   </tr>
                 );
               })}
@@ -271,7 +271,7 @@ export default function SummaryModule({ project }: Props) {
                 <td className="px-3 py-1.5 text-sm text-right">{summary.totalWall}</td>
                 <td className="px-3 py-1.5 text-sm text-right">{summary.totalTall}</td>
                 <td className="px-3 py-1.5 text-sm text-right">{summary.accessorySummary.totalFillers}</td>
-                <td className="px-3 py-1.5 text-sm text-right">{summary.totalCountertopSqft.toFixed(1)}</td>
+                <td className="px-3 py-1.5 text-sm text-right">{summary.totalCountertopSqft}</td>
               </tr>
             </tfoot>
           </table>
