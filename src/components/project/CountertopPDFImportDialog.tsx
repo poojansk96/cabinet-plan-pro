@@ -263,7 +263,8 @@ export default function CountertopPDFImportDialog({ onImport, onClose }: Props) 
                     </thead>
                     <tbody>
                       {rows.map((row, idx) => {
-                        const sqft = Math.ceil(((row.length * row.depth) / 144) * 2) / 2;
+                        const effectiveDepth = row.depth + (row.splashHeight ?? 0);
+                        const sqft = Math.ceil(((row.length * effectiveDepth) / 144) * 2) / 2;
                         return (
                           <tr key={idx} className={!row.selected ? 'opacity-50' : ''}>
                             <td>

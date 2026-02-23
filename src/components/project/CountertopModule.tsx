@@ -160,8 +160,8 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
 
       {/* Formula info */}
       <div className="text-xs text-muted-foreground bg-secondary rounded px-3 py-2 border border-border">
-        📐 <strong>Formula:</strong> (Length × Depth) ÷ 144 = sq ft &nbsp;|&nbsp;
-        Default depth: 25.5" &nbsp;|&nbsp; +10% waste option available &nbsp;|&nbsp; Rounded to nearest 0.5 sqft
+        📐 <strong>Formula:</strong> (Length × (Depth + Splash)) ÷ 144 = sq ft &nbsp;|&nbsp;
+        Default depth: 25.5" &nbsp;|&nbsp; +3% waste option available &nbsp;|&nbsp; Rounded to nearest 0.5 sqft
       </div>
 
       {/* Stats */}
@@ -217,7 +217,7 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
               </label>
             </div>
             <div className="flex flex-col gap-1">
-              <label className="block text-xs font-medium text-muted-foreground">+10% Waste?</label>
+              <label className="block text-xs font-medium text-muted-foreground">+3% Waste?</label>
               <label className="flex items-center gap-1.5 h-7 cursor-pointer text-xs">
                 <input type="checkbox" checked={form.addWaste} onChange={e => setForm(f => ({ ...f, addWaste: e.target.checked }))} />
                 Add waste
@@ -250,7 +250,7 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
                   <th className="text-right">Depth"</th>
                   <th className="text-right">Splash"</th>
                   <th className="text-center">Island</th>
-                  <th className="text-center">+10%</th>
+                  <th className="text-center">+3%</th>
                   <th className="text-right">Sqft</th>
                   <th></th>
                 </tr>
