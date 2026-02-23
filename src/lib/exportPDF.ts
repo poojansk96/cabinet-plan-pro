@@ -307,7 +307,7 @@ export function exportProjectPDF(project: Project) {
 
     autoTable(doc, {
       startY: y,
-      head: [['Unit #', 'Label', 'Length', 'Depth', 'Tag', '+3% Waste', 'Sqft']],
+      head: [['Unit #', 'Label', 'Length', 'Depth', 'Tag', '+5% Waste', 'Sqft']],
       body: ctRows,
       margin: { left: margin, right: margin },
       styles: { fontSize: 8, cellPadding: 4, textColor: TEXT_DARK, lineColor: [220, 228, 240], lineWidth: 0.5 },
