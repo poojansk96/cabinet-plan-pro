@@ -80,6 +80,13 @@ IMPORTANT - WHAT TO IGNORE:
 - NEVER treat unit TYPE labels as unit NUMBERS. Labels like "UNIT A", "UNIT B", "UNIT C", "UNIT D", "UNIT E", "UNIT F", "UNIT G", "UNIT H", "UNIT I", "UNIT J", "UNIT K", "UNIT L", "UNIT M", "UNIT N", "UNIT P" are TYPE designations, NOT unit numbers. The actual unit numbers are the numeric identifiers near doors (e.g. "1-01", "1-02", "A-08", "2-05", "3-11", "4-06", "5-01"). When you see "UNIT A" next to room "1-01", that means unitNumber="1-01" and detectedType="Unit A".
 - Ignore construction note codes like D30-D79, C1-C55 — these are work item references in construction legends, NOT unit numbers or room identifiers.
 
+VERIFICATION PASS — DO NOT SKIP:
+After your initial scan, do a SECOND pass over the entire floor plan to verify completeness:
+- Re-examine EVERY corner and edge of the drawing. Units near edges, corners, or stairwells are commonly missed.
+- Count the total unit number labels you see on the plan. If your extracted list has FEWER units than visible labels, you missed some — go back and find them.
+- Pay special attention to units whose labels may be small, rotated, partially obscured, or positioned far from their door. Example: "A-03" might appear as a tiny label near the boundary.
+- If a unit number is visible ANYWHERE on the floor plan drawing (not in tables), and the corresponding space has cabinets/countertops, it MUST be in your output.
+
 RULES:
 - Only include units whose number appears ON THE FLOOR PLAN DRAWING itself (near doors, corridors, or inside room boundaries), NOT in reference tables or schedules. EXCEPTION: if a space has visible cabinets/countertops but no unit number label, include it with unitNumber "?".
 - ONLY include units where you can VISUALLY SEE cabinet rectangles, countertop lines, or appliance symbols DRAWN INSIDE that unit's floor plan boundary. If the unit interior is blank/empty — skip it.
