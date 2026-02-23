@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 export interface PrefinalUnitNumber {
   name: string;
   bldg: string;
+  floor: string;
   assignments: Record<string, boolean>; // unitType -> true/false
 }
 
@@ -44,7 +45,8 @@ function loadData(projectId: string): PrefinalData {
       seenUpper.add(u);
       return true;
     });
-    return { unitTypes: parsed.unitTypes || [], unitNumbers: parsed.unitNumbers || [], cabinetRows: parsed.cabinetRows || [], cabinetUnitTypes: dedupedCabTypes };
+    const unitNumbers = (parsed.unitNumbers || []).map((u: any) => ({ ...u, floor: u.floor || '' }));
+    return { unitTypes: parsed.unitTypes || [], unitNumbers, cabinetRows: parsed.cabinetRows || [], cabinetUnitTypes: dedupedCabTypes };
   } catch {
     return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [] };
   }
@@ -116,9 +118,18 @@ export function usePrefinalStore(projectId: string) {
   }, [projectId]);
 
   // ── Unit Numbers (rows) ───────────────────────────────────────────────
-  const addUnitNumber = useCallback((name: string, bldg: string = '') => {
+  const addUnitNumber = useCallback((name: string, bldg: string = '', floor: string = '') => {
     setData(prev => {
-      const unitNumbers = [...prev.unitNumbers, { name, bldg, assignments: {} }];
+      const unitNumbers = [...prev.unitNumbers, { name, bldg, floor, assignments: {} }];
+      const next = { ...prev, unitNumbers };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
+  const updateUnitNumberFloor = useCallback((index: number, floor: string) => {
+    setData(prev => {
+      const unitNumbers = prev.unitNumbers.map((u, i) => i === index ? { ...u, floor } : u);
       const next = { ...prev, unitNumbers };
       saveData(projectId, next);
       return next;
@@ -167,7 +178,7 @@ export function usePrefinalStore(projectId: string) {
   }, [projectId]);
 
   // ── Import unit mappings (unit# → type with "1" assignment) ────────────
-  const importUnitMappings = useCallback((mappings: { unitNumber: string; unitType: string; bldg?: string }[]) => {
+  const importUnitMappings = useCallback((mappings: { unitNumber: string; unitType: string; bldg?: string; floor?: string }[]) => {
     setData(prev => {
       const existingNames = new Set(prev.unitNumbers.map(u => u.name));
       const newUnits: PrefinalUnitNumber[] = [];
@@ -178,12 +189,13 @@ export function usePrefinalStore(projectId: string) {
             prev.unitNumbers[idx] = {
               ...prev.unitNumbers[idx],
               bldg: m.bldg || prev.unitNumbers[idx].bldg || '',
+              floor: m.floor || prev.unitNumbers[idx].floor || '',
               assignments: { ...prev.unitNumbers[idx].assignments, [m.unitType]: true },
             };
           }
         } else {
           existingNames.add(m.unitNumber);
-          newUnits.push({ name: m.unitNumber, bldg: m.bldg || '', assignments: { [m.unitType]: true } });
+          newUnits.push({ name: m.unitNumber, bldg: m.bldg || '', floor: m.floor || '', assignments: { [m.unitType]: true } });
         }
       }
       const unitNumbers = [...prev.unitNumbers, ...newUnits];
@@ -273,6 +285,7 @@ export function usePrefinalStore(projectId: string) {
     addUnitNumber,
     updateUnitNumberName,
     updateUnitNumberBldg,
+    updateUnitNumberFloor,
     deleteUnitNumber,
     toggleAssignment,
     importUnitMappings,

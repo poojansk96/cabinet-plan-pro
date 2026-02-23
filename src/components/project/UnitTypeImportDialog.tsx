@@ -8,6 +8,7 @@ export interface UnitMappingRow {
   unitNumber: string;
   unitType: string;
   bldg: string;
+  floor: string;
   selected: boolean;
 }
 
@@ -159,8 +160,9 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
             const num = String(u.unitNumber ?? '').trim();
             const type = String(u.unitType ?? '').trim();
             const bldg = String(u.bldg ?? '').trim();
+            const floor = String(u.floor ?? '').trim();
             if (!num) continue;
-            allMappings.set(num, { unitNumber: num, unitType: type, bldg, selected: true });
+            allMappings.set(num, { unitNumber: num, unitType: type, bldg, floor, selected: true });
           }
 
           pagesProcessed++;
