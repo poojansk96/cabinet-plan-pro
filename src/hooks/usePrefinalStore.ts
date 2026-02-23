@@ -36,17 +36,26 @@ function loadData(projectId: string): PrefinalData {
         cabinetUnitTypes: parsed.cabinetUnitTypes || [],
       };
     }
-    // Deduplicate cabinetUnitTypes (normalize: strip TYPE prefix, uppercase, collapse all whitespace & hyphens)
+    // Normalize + deduplicate cabinetUnitTypes
     const rawCabTypes: string[] = parsed.cabinetUnitTypes || [];
     const seenNorm = new Set<string>();
-    const dedupedCabTypes = rawCabTypes.filter(t => {
-      const key = t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '').trim();
-      if (seenNorm.has(key)) return false;
+    const dedupedCabTypes: string[] = [];
+    for (const t of rawCabTypes) {
+      // Normalize the stored value: uppercase, collapse spaces around hyphens
+      let normalized = t.trim().toUpperCase().replace(/\s*-\s*/g, '-');
+      // Strip "TYPE " prefix for dedup key
+      const key = normalized.replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '');
+      if (!key || seenNorm.has(key)) continue;
       seenNorm.add(key);
-      return true;
-    });
+      dedupedCabTypes.push(normalized);
+    }
+    // Also normalize cabinetRows unitType values to match
+    const cabinetRows = (parsed.cabinetRows || []).map((r: any) => ({
+      ...r,
+      unitType: r.unitType ? r.unitType.trim().toUpperCase().replace(/\s*-\s*/g, '-') : r.unitType,
+    }));
     const unitNumbers = (parsed.unitNumbers || []).map((u: any) => ({ ...u, floor: u.floor || '' }));
-    return { unitTypes: parsed.unitTypes || [], unitNumbers, cabinetRows: parsed.cabinetRows || [], cabinetUnitTypes: dedupedCabTypes };
+    return { unitTypes: parsed.unitTypes || [], unitNumbers, cabinetRows, cabinetUnitTypes: dedupedCabTypes };
   } catch {
     return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [] };
   }
