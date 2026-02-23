@@ -2,11 +2,11 @@ import type { Cabinet, CountertopSection, Unit, Project, ProjectSummary, Cabinet
 
 // Countertop square footage calculation
 export function calcCountertopSqft(ct: CountertopSection): number {
-  const effectiveDepth = ct.depth + (ct.splashHeight ?? 0);
+  const effectiveDepth = ct.depth + (ct.splashHeight ?? 0) + (ct.sideSplash ?? 0);
   const raw = (ct.length * effectiveDepth) / 144;
   const withWaste = ct.addWaste ? raw * 1.03 : raw;
-  // Round to nearest 0.5
-  return Math.ceil(withWaste * 2) / 2;
+  // Round up to whole number
+  return Math.ceil(withWaste);
 }
 
 export function calcUnitCountertopTotal(unit: Unit): number {
@@ -92,7 +92,7 @@ export function calcProjectSummary(project: Project): ProjectSummary {
     totalTall,
     totalVanity,
     skuSummary: buildSkuSummary(allCabinets),
-    totalCountertopSqft: Math.ceil(totalCountertopSqft * 2) / 2,
+    totalCountertopSqft: Math.ceil(totalCountertopSqft),
     accessorySummary,
   };
 }

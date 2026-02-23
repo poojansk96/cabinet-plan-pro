@@ -39,9 +39,10 @@ export interface CountertopSection {
   label: string;
   length: number;       // inches
   depth: number;        // inches (default 25.5)
-  splashHeight?: number;  // inches (optional)
+  splashHeight?: number;  // inches (optional backsplash height)
+  sideSplash?: number;    // inches (optional sidesplash)
   isIsland: boolean;
-  addWaste: boolean;    // 10% waste
+  addWaste: boolean;    // 3% waste
 }
 
 export interface Unit {

@@ -21,6 +21,7 @@ const blankCT = (): Omit<CountertopSection, 'id'> => ({
   length: 96,
   depth: DEFAULT_DEPTH,
   splashHeight: undefined,
+  sideSplash: undefined,
   isIsland: false,
   addWaste: false,
 });
@@ -160,8 +161,8 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
 
       {/* Formula info */}
       <div className="text-xs text-muted-foreground bg-secondary rounded px-3 py-2 border border-border">
-        📐 <strong>Formula:</strong> (Length × (Depth + Splash)) ÷ 144 = sq ft &nbsp;|&nbsp;
-        Default depth: 25.5" &nbsp;|&nbsp; +3% waste option available &nbsp;|&nbsp; Rounded to nearest 0.5 sqft
+        📐 <strong>Formula:</strong> (Length × (Depth + Backsplash + Sidesplash)) ÷ 144 = sq ft &nbsp;|&nbsp;
+        Default depth: 25.5" &nbsp;|&nbsp; +3% waste option available &nbsp;|&nbsp; Rounded up to whole sqft
       </div>
 
       {/* Stats */}
@@ -172,15 +173,15 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
             <div className="stat-label">Sections</div>
           </div>
           <div className="stat-card text-center">
-            <div className="stat-value">{typeSqft.toFixed(1)}</div>
+            <div className="stat-value">{typeSqft}</div>
             <div className="stat-label">Per Unit Sqft</div>
           </div>
           <div className="stat-card text-center">
-            <div className="stat-value">{(typeSqft * typeUnitCount).toFixed(1)}</div>
+            <div className="stat-value">{typeSqft * typeUnitCount}</div>
             <div className="stat-label">Type Total ({typeUnitCount} units)</div>
           </div>
           <div className="stat-card text-center">
-            <div className="stat-value">{projectTotal.toFixed(1)}</div>
+            <div className="stat-value">{projectTotal}</div>
             <div className="stat-label">Project Total Sqft</div>
           </div>
         </div>
@@ -192,7 +193,7 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
           <div className="text-xs text-muted-foreground mb-2">
             Adding to all <strong>{typeUnitCount}</strong> unit(s) of type <strong>{activeType}</strong>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 items-end">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 items-end">
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Label *</label>
               <input className="est-input w-full" value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} placeholder="e.g. Perimeter L1" autoFocus />
@@ -206,8 +207,12 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
               <input type="number" className="est-input w-full" value={form.depth} min={1} step={0.5} onChange={e => setForm(f => ({ ...f, depth: +e.target.value }))} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Splash H (in)</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Backsplash H (in)</label>
               <input type="number" className="est-input w-full" value={form.splashHeight ?? ''} min={0} onChange={e => setForm(f => ({ ...f, splashHeight: +e.target.value || undefined }))} placeholder="opt." />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Sidesplash (in)</label>
+              <input type="number" className="est-input w-full" value={form.sideSplash ?? ''} min={0} onChange={e => setForm(f => ({ ...f, sideSplash: +e.target.value || undefined }))} placeholder="opt." />
             </div>
             <div className="flex flex-col gap-1">
               <label className="block text-xs font-medium text-muted-foreground">Island?</label>
@@ -248,7 +253,8 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
                   <th>Label</th>
                   <th className="text-right">Length"</th>
                   <th className="text-right">Depth"</th>
-                  <th className="text-right">Splash"</th>
+                  <th className="text-right">Backsplash"</th>
+                  <th className="text-right">Sidesplash"</th>
                   <th className="text-center">Island</th>
                   <th className="text-center">+3%</th>
                   <th className="text-right">Sqft</th>
@@ -279,6 +285,7 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
                       />
                     </td>
                     <td className="text-right">{ct.splashHeight ?? '—'}</td>
+                    <td className="text-right">{ct.sideSplash ?? '—'}</td>
                     <td className="text-center">
                       {ct.isIsland ? <span className="badge-tall">Island</span> : <span className="text-muted-foreground text-xs">—</span>}
                     </td>
@@ -291,7 +298,7 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
                       />
                     </td>
                     <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>
-                      {calcCountertopSqft(ct).toFixed(1)}
+                      {calcCountertopSqft(ct)}
                     </td>
                     <td>
                       <button
@@ -306,13 +313,13 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
               </tbody>
               <tfoot>
                 <tr style={{ background: 'hsl(var(--secondary))', fontWeight: 600 }}>
-                  <td colSpan={6} className="px-3 py-1.5 text-sm">PER UNIT TOTAL</td>
-                  <td className="px-3 py-1.5 text-sm text-right" style={{ color: 'hsl(var(--primary))' }}>{typeSqft.toFixed(1)} sqft</td>
+                  <td colSpan={7} className="px-3 py-1.5 text-sm">PER UNIT TOTAL</td>
+                  <td className="px-3 py-1.5 text-sm text-right" style={{ color: 'hsl(var(--primary))' }}>{typeSqft} sqft</td>
                   <td></td>
                 </tr>
                 <tr style={{ background: 'hsl(var(--secondary))', fontWeight: 600 }}>
-                  <td colSpan={6} className="px-3 py-1.5 text-sm">TYPE TOTAL ({typeUnitCount} units × {typeSqft.toFixed(1)} sqft)</td>
-                  <td className="px-3 py-1.5 text-sm text-right" style={{ color: 'hsl(var(--primary))' }}>{(typeSqft * typeUnitCount).toFixed(1)} sqft</td>
+                  <td colSpan={7} className="px-3 py-1.5 text-sm">TYPE TOTAL ({typeUnitCount} units × {typeSqft} sqft)</td>
+                  <td className="px-3 py-1.5 text-sm text-right" style={{ color: 'hsl(var(--primary))' }}>{typeSqft * typeUnitCount} sqft</td>
                   <td></td>
                 </tr>
               </tfoot>
@@ -353,10 +360,10 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
                     <td className="font-medium">{g.type}</td>
                     <td className="text-xs text-muted-foreground">{g.unitNumbers.join(', ')}</td>
                     <td className="text-right">{repUnit.countertops.length}</td>
-                    <td className="text-right">{perUnitSqft.toFixed(1)}</td>
+                    <td className="text-right">{perUnitSqft}</td>
                     <td className="text-right">{g.units.length}</td>
                     <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>
-                      {(perUnitSqft * g.units.length).toFixed(1)}
+                      {perUnitSqft * g.units.length}
                     </td>
                   </tr>
                 );
@@ -365,7 +372,7 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
             <tfoot>
               <tr style={{ background: 'hsl(var(--secondary))', fontWeight: 600 }}>
                 <td colSpan={5} className="px-3 py-1.5 text-sm">PROJECT TOTAL</td>
-                <td className="px-3 py-1.5 text-sm text-right" style={{ color: 'hsl(var(--primary))' }}>{projectTotal.toFixed(1)} sqft</td>
+                <td className="px-3 py-1.5 text-sm text-right" style={{ color: 'hsl(var(--primary))' }}>{projectTotal} sqft</td>
               </tr>
             </tfoot>
           </table>
