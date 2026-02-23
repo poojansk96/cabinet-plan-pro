@@ -285,6 +285,7 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                   <tr style={{ height: '120px', verticalAlign: 'bottom' }}>
                     <th className="text-left" style={{ verticalAlign: 'bottom' }}>Unit #</th>
                     <th className="text-left" style={{ verticalAlign: 'bottom' }}>Bldg</th>
+                    <th className="text-left" style={{ verticalAlign: 'bottom' }}>Floor</th>
                     {store.unitTypes.map(type => (
                       <th key={type} className="text-center" style={{ verticalAlign: 'bottom', padding: '0', minWidth: '42px' }}>
                         <div className="flex flex-col items-center gap-1 py-2" style={{ background: 'hsl(213 72% 35%)', color: '#fff', borderRadius: '4px 4px 0 0', width: '100%' }}>
@@ -343,7 +344,7 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                 <tbody>
                   {store.unitNumbers.length === 0 ? (
                     <tr>
-                      <td colSpan={store.unitTypes.length + 3} className="text-center text-muted-foreground text-xs py-6">
+                      <td colSpan={store.unitTypes.length + 4} className="text-center text-muted-foreground text-xs py-6">
                         No unit numbers added yet — click "Add Unit #" to start assigning units to types.
                       </td>
                     </tr>
@@ -362,6 +363,14 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                             className="est-input text-xs w-20"
                             value={unit.bldg || ''}
                             onChange={e => store.updateUnitNumberBldg(i, e.target.value)}
+                            placeholder="—"
+                          />
+                        </td>
+                        <td>
+                          <input
+                            className="est-input text-xs w-16"
+                            value={unit.floor || ''}
+                            onChange={e => store.updateUnitNumberFloor(i, e.target.value)}
                             placeholder="—"
                           />
                         </td>
@@ -391,6 +400,7 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                 <tfoot>
                   <tr className="font-bold border-t border-border">
                     <td>Total</td>
+                    <td></td>
                     <td></td>
                     {store.unitTypes.map(type => (
                       <td key={type} className="text-center font-mono">{unitTypeTotal(type) || ''}</td>

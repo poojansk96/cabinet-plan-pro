@@ -24,10 +24,11 @@ WHERE TO LOOK FOR UNIT TYPE:
 - The unit type is NOT an elevation label (ELEVATION A, WALL A, etc.)
 - The unit type is NOT a sheet number or page number
 
-ALSO LOOK FOR UNIT NUMBERS:
+ALSO LOOK FOR UNIT NUMBERS AND FLOOR:
 - Sometimes 2020 drawings list which specific unit numbers use this type
 - These appear as "UNITS: 101, 102, 201" or "APPLICABLE UNITS" or similar
 - Unit numbers are typically apartment/suite numbers like "101", "A502", "PH-1"
+- Try to detect the FLOOR for each unit from the unit number pattern (e.g. "201" → floor "2", "A502" → floor "5") or from labels like "2ND FLOOR", "LEVEL 3", etc.
 
 CRITICAL RULES:
 - Focus on finding the UNIT TYPE NAME — this is the most important extraction
@@ -39,7 +40,7 @@ CRITICAL RULES:
 - Read text carefully: "A1-3BR" not "A1-38R"
 
 Return ONLY valid JSON, no other text:
-{"bldg":"Building Name or null","units":[{"unitNumber":"101","unitType":"TYPE A1"},{"unitNumber":"102","unitType":"TYPE A1"}]}`;
+{"bldg":"Building Name or null","units":[{"unitNumber":"101","unitType":"TYPE A1","floor":"1"},{"unitNumber":"201","unitType":"TYPE A1","floor":"2"}]}`;
 
 function extractJSON(text: string): { units: any[]; bldg?: string } {
   // Try markdown fences
@@ -84,6 +85,7 @@ function cleanUnits(rawUnits: any[], pageBldg: string | null) {
         unitNumber: String(u.unitNumber).trim(),
         unitType,
         bldg: String(u.bldg || pageBldg || "BLDG 1").trim(),
+        floor: String(u.floor || "").trim() || null,
       };
     })
     .filter(u => isValidUnitNumber(u.unitNumber));
