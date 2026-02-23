@@ -83,9 +83,26 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
   const sortedUnits = [...project.units].sort((a, b) => {
     const bldgCmp = numericAsc(a.bldg || '', b.bldg || '');
     if (bldgCmp !== 0) return bldgCmp;
-    // Floor sort: numeric floors first in order, then alpha floors
-    const floorCmp = (a.floor || '').localeCompare(b.floor || '', undefined, { numeric: true, sensitivity: 'base' });
-    if (floorCmp !== 0) return floorCmp;
+    // Floor sort: empty floors go last, then numeric ascending, then alpha ascending
+    const flA = a.floor || '';
+    const flB = b.floor || '';
+    if (flA === '' && flB !== '') return 1;
+    if (flA !== '' && flB === '') return -1;
+    // Try numeric comparison first
+    const nA = parseFloat(flA);
+    const nB = parseFloat(flB);
+    const aIsNum = !isNaN(nA);
+    const bIsNum = !isNaN(nB);
+    if (aIsNum && bIsNum) {
+      if (nA !== nB) return nA - nB;
+    } else if (aIsNum && !bIsNum) {
+      return -1; // numbers before letters
+    } else if (!aIsNum && bIsNum) {
+      return 1;
+    } else {
+      const flCmp = flA.localeCompare(flB, undefined, { numeric: true, sensitivity: 'base' });
+      if (flCmp !== 0) return flCmp;
+    }
     return numericAsc(a.unitNumber, b.unitNumber);
   });
 
