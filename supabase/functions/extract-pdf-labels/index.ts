@@ -52,21 +52,20 @@ For each item extract:
 3. Room from elevation title or floor plan room label (KITCHEN, BATH, LAUNDRY, PANTRY → capitalize first letter only)
 
 COUNTING METHOD — THIS IS THE MOST CRITICAL STEP:
-You MUST carefully count every distinct cabinet box in the elevation. Do NOT just count labels — count the actual rectangular boxes drawn.
+Before producing the final JSON, you MUST perform a careful visual scan of the elevation drawing:
 
 Step A: Scan the elevation from LEFT to RIGHT. For EVERY distinct rectangular cabinet box you see drawn, note:
-  - Its approximate horizontal position (e.g. "far left", "left-center", "left of sink", "center", "right of range", "far right")
+  - Its approximate horizontal position (e.g. "far left", "left of sink", "center", "right of range", "far right")
   - The SKU label it belongs to (follow leader lines / callout lines from labels to boxes)
-  - Whether the label points to ONE box or MULTIPLE adjacent boxes of the same width
 
-Step B: Count ACCURATELY — do not undercount:
-  - A single SKU label often points to MULTIPLE adjacent identical cabinet boxes (e.g. two W3030 boxes side by side). Count each distinct rectangular box separately.
-  - Look for vertical dividing lines between adjacent boxes — each rectangle separated by a vertical line is a separate cabinet, even if they share one label/callout.
-  - If two or more identical-width rectangles sit next to each other under the same SKU label, the quantity equals the number of rectangles, NOT 1.
-  - For ACCESSORIES (fillers WF/BF/WFFIL/BFFIL, toe kick TK/TKRUN, crown CM, light rail LR, end panels EP/FP): default to quantity 1 per label unless you clearly see multiples.
-  - If a SKU label appears in MULTIPLE separate locations on the elevation, list them as SEPARATE entries — the system will merge them.
+Step B: Count each SKU CONSERVATIVELY:
+  - DEFAULT to quantity 1 for each SKU label you see.
+  - Only set quantity > 1 if you can CLEARLY see multiple SEPARATE cabinet boxes that are VISUALLY DISTINCT (with clear vertical dividing lines between them) AND share the same SKU label.
+  - For ACCESSORIES (fillers like WF, BF, WFFIL, BFFIL; toe kick TK/TKRUN; crown CM; light rail LR; end panels EP/FP): ALWAYS default to quantity 1 per label occurrence. Fillers and accessories are almost never duplicated side-by-side.
+  - If a SKU label appears in MULTIPLE separate locations on the elevation (e.g. one on the left wall and one on the right wall), count each occurrence as 1 and list them as SEPARATE entries — the system will merge them.
+  - When in doubt, use quantity 1. It is better to undercount slightly than to overcount.
 
-Step C: Group by SKU + room and set quantity to the total number of distinct physical boxes you counted.
+Step C: Group by SKU + room and count the total distinct physical boxes for the quantity field.
 
 RULES:
 - ONLY extract from ELEVATION drawings — do NOT extract cabinet labels from floor plans
