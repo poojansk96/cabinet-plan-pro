@@ -66,7 +66,7 @@ These spaces virtually NEVER have cabinets or countertops. Do NOT include them e
 
 UNIT TYPES TO DETECT:
 1. Residential: "Unit 101", "Apt 3B", "A-101", "B204", "101A", "#201"
-2. Common areas with cabinet content: Laundry rooms → "LAUNDRY-1", Community kitchens → "COMM-KITCHEN", Community rooms → "COMMUNITY ROOM 115", Pantries → "PANTRY-A", Clubhouses → "CLUBHOUSE", Leasing offices → "LEASING-OFFICE", Fitness rooms → "FITNESS-1", Toilets/Restrooms → "TOILET-C", Public bathrooms → "RESTROOM-1"
+2. Common areas with cabinet content: Laundry rooms → "LAUNDRY-1", Community kitchens → "COMM-KITCHEN", Community rooms → "COMMUNITY ROOM 115", Pantries → "PANTRY-A", Clubhouses → "CLUBHOUSE", Leasing offices → "LEASING-OFFICE", Fitness rooms → "FITNESS-1", Toilets/Restrooms → "TOILET-C", Public bathrooms → "RESTROOM-1", Break rooms/Breakrooms → "BREAKROOM-1", Kitchenettes → "KITCHENETTE-1", Staff rooms → "STAFF-ROOM-1", Lounges with kitchenettes → "LOUNGE-1"
 
 IMPORTANT - WHAT TO IGNORE:
 - NEVER treat sheet/drawing numbers (e.g. "A-101.00", "A-102.00", "A-220") as unit numbers. These appear in title blocks next to "DRAWING NO:" or "SHEET:".
