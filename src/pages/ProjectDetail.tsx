@@ -14,15 +14,18 @@ import EditProjectDialog from '@/components/project/EditProjectDialog';
 
 type Tab = 'units' | 'cabinets' | 'accessories' | 'countertops' | 'summary' | 'prefinal-units' | 'prefinal-cabinets' | 'prefinal-summary';
 
-const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
+const TAKEOFF_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'units', label: 'Units', icon: <Users size={14} /> },
   { key: 'cabinets', label: 'Cabinets', icon: <Layers size={14} /> },
   { key: 'accessories', label: 'Accessories', icon: <Wrench size={14} /> },
   { key: 'countertops', label: 'Countertops', icon: <Square size={14} /> },
   { key: 'summary', label: 'Summary', icon: <BarChart3 size={14} /> },
-  { key: 'prefinal-units', label: 'Pre-Final Unit Count', icon: <ClipboardCheck size={14} /> },
-  { key: 'prefinal-cabinets', label: 'Pre-Final Cabinet Count', icon: <ClipboardCheck size={14} /> },
-  { key: 'prefinal-summary', label: 'Pre-Final Summary', icon: <BarChart3 size={14} /> },
+];
+
+const PREFINAL_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
+  { key: 'prefinal-units', label: 'Unit Count', icon: <ClipboardCheck size={14} /> },
+  { key: 'prefinal-cabinets', label: 'Cabinet Count', icon: <ClipboardCheck size={14} /> },
+  { key: 'prefinal-summary', label: 'Summary', icon: <BarChart3 size={14} /> },
 ];
 
 export default function ProjectDetail() {
@@ -99,22 +102,38 @@ export default function ProjectDetail() {
         </div>
 
         {/* Tabs */}
-        <div className="px-4 flex border-t" style={{ borderColor: 'hsl(var(--border))' }}>
-          {TABS.map((tab) => (
-            <>
-              {tab.key === 'prefinal-units' && (
-                <div key="sep" className="w-px my-1 mx-12 bg-border flex-shrink-0" />
-              )}
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`module-tab flex items-center gap-1.5 mr-1 ${activeTab === tab.key ? 'active' : ''}`}
-              >
-                {tab.icon}
-                {tab.label}
-              </button>
-            </>
-          ))}
+        <div className="px-4 flex items-end border-t gap-0" style={{ borderColor: 'hsl(var(--border))' }}>
+          <div className="flex flex-col">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground px-1 pt-1">Takeoff Section</span>
+            <div className="flex">
+              {TAKEOFF_TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`module-tab flex items-center gap-1.5 mr-1 ${activeTab === tab.key ? 'active' : ''}`}
+                >
+                  {tab.icon}
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="w-px my-1 mx-6 bg-border flex-shrink-0 self-stretch" />
+          <div className="flex flex-col">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground px-1 pt-1">Prefinal Section</span>
+            <div className="flex">
+              {PREFINAL_TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`module-tab flex items-center gap-1.5 mr-1 ${activeTab === tab.key ? 'active' : ''}`}
+                >
+                  {tab.icon}
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </header>
 
