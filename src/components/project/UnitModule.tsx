@@ -79,13 +79,13 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
     return isNaN(n) ? Infinity : n;
   };
 
-  // Sort all units: bldg → floor (numeric) → unit number (ascending)
+  // Sort all units: bldg → floor (ascending: numeric then alpha) → unit number (ascending)
   const sortedUnits = [...project.units].sort((a, b) => {
     const bldgCmp = numericAsc(a.bldg || '', b.bldg || '');
     if (bldgCmp !== 0) return bldgCmp;
-    const fa = floorVal(a.floor || '');
-    const fb = floorVal(b.floor || '');
-    if (fa !== fb) return fa - fb;
+    // Floor sort: numeric floors first in order, then alpha floors
+    const floorCmp = (a.floor || '').localeCompare(b.floor || '', undefined, { numeric: true, sensitivity: 'base' });
+    if (floorCmp !== 0) return floorCmp;
     return numericAsc(a.unitNumber, b.unitNumber);
   });
 
