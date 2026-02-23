@@ -286,8 +286,12 @@ export function exportProjectPDF(project: Project) {
     const ctRows: string[][] = [];
     project.units.forEach(u => {
       u.countertops.forEach(ct => {
-        const effectiveDepth = ct.depth + (ct.splashHeight ?? 0) + (ct.sideSplash ?? 0);
-        const sqft = ((ct.length * effectiveDepth) / 144);
+        const effectiveDepth = ct.depth + (ct.splashHeight ?? 0);
+        const baseSqft = (ct.length * effectiveDepth) / 144;
+        const sideSplashSqft = (ct.sideSplash ?? 0) > 0 && (ct.splashHeight ?? 0) > 0
+          ? ((ct.depth * (ct.splashHeight ?? 0)) / 144) * (ct.sideSplash ?? 0)
+          : 0;
+        const sqft = baseSqft + sideSplashSqft;
         const withWaste = ct.addWaste ? sqft * 1.03 : sqft;
         const rounded = Math.ceil(withWaste);
         ctRows.push([

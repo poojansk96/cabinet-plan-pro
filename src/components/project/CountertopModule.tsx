@@ -161,7 +161,7 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
 
       {/* Formula info */}
       <div className="text-xs text-muted-foreground bg-secondary rounded px-3 py-2 border border-border">
-        📐 <strong>Formula:</strong> (Length × (Depth + Backsplash + Sidesplash)) ÷ 144 = sq ft &nbsp;|&nbsp;
+        📐 <strong>Formula:</strong> (Length × (Depth + Backsplash Height)) ÷ 144 + Sidesplash Qty × (Depth × Backsplash Height) ÷ 144 = sq ft &nbsp;|&nbsp;
         Default depth: 25.5" &nbsp;|&nbsp; +3% waste option available &nbsp;|&nbsp; Rounded up to whole sqft
       </div>
 
@@ -207,11 +207,11 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
               <input type="number" className="est-input w-full" value={form.depth} min={1} step={0.5} onChange={e => setForm(f => ({ ...f, depth: +e.target.value }))} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Backsplash H (in)</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Backsplash Height (in)</label>
               <input type="number" className="est-input w-full" value={form.splashHeight ?? ''} min={0} onChange={e => setForm(f => ({ ...f, splashHeight: +e.target.value || undefined }))} placeholder="opt." />
             </div>
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Sidesplash (in)</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Sidesplash Qty</label>
               <input type="number" className="est-input w-full" value={form.sideSplash ?? ''} min={0} onChange={e => setForm(f => ({ ...f, sideSplash: +e.target.value || undefined }))} placeholder="opt." />
             </div>
             <div className="flex flex-col gap-1">
@@ -253,8 +253,8 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
                   <th>Label</th>
                   <th className="text-right">Length"</th>
                   <th className="text-right">Depth"</th>
-                  <th className="text-right">Backsplash"</th>
-                  <th className="text-right">Sidesplash"</th>
+                  <th className="text-right">Backsplash Height"</th>
+                  <th className="text-right">Sidesplash Qty</th>
                   <th className="text-center">Island</th>
                   <th className="text-center">+3%</th>
                   <th className="text-right">Sqft</th>
