@@ -46,10 +46,14 @@ function groupSkusByType(cabinetRows: PrefinalCabinetRow[]) {
   const allSkus = Array.from(new Set(cabinetRows.map(r => r.sku))).sort();
   const skuCabType: Record<string, string> = {};
   const skuTypeMap: Record<string, Set<string>> = {};
+  // Build SKU → unitType → quantity mapping (max qty per sku+unitType)
+  const skuTypeQty: Record<string, Record<string, number>> = {};
   cabinetRows.forEach(r => {
     if (!skuTypeMap[r.sku]) skuTypeMap[r.sku] = new Set();
     skuTypeMap[r.sku].add(r.unitType);
     if (!skuCabType[r.sku]) skuCabType[r.sku] = r.type;
+    if (!skuTypeQty[r.sku]) skuTypeQty[r.sku] = {};
+    skuTypeQty[r.sku][r.unitType] = Math.max(skuTypeQty[r.sku][r.unitType] || 0, r.quantity);
   });
 
   const groups: Record<string, string[]> = {};
@@ -65,7 +69,7 @@ function groupSkusByType(cabinetRows: PrefinalCabinetRow[]) {
   for (const [g, skus] of Object.entries(groups)) {
     ordered.push({ group: g, skus: sortSkusForGroup(skus, g) });
   }
-  return { allSkus, skuCabType, skuTypeMap, groupedSkus: ordered };
+  return { allSkus, skuCabType, skuTypeMap, skuTypeQty, groupedSkus: ordered };
 }
 
 // ─── PDF Brand colors ───
@@ -82,7 +86,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
   const store = usePrefinalStore(project.id);
   const [pdfLoading, setPdfLoading] = useState(false);
 
-  const { allSkus, skuCabType, skuTypeMap, groupedSkus } = groupSkusByType(store.cabinetRows);
+  const { allSkus, skuCabType, skuTypeMap, skuTypeQty, groupedSkus } = groupSkusByType(store.cabinetRows);
 
   const unitTypeTotal = (type: string) =>
     store.unitNumbers.filter(u => u.assignments[type]).length;
@@ -173,9 +177,12 @@ export default function PreFinalSummaryModule({ project }: Props) {
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAEAEA' } };
       });
       skus.forEach(sku => {
-        const flags = cabTypes.map(t => skuTypeMap[sku]?.has(t) ? 1 : '');
-        const rowTotal = skuTypeMap[sku]?.size || 0;
-        const row = wsCabs.addRow([sku, ...flags, rowTotal]);
+        const qtys = cabTypes.map(t => {
+          const qty = skuTypeQty[sku]?.[t] || 0;
+          return qty > 0 ? qty : '';
+        });
+        const rowTotal = cabTypes.reduce((sum, t) => sum + (skuTypeQty[sku]?.[t] || 0), 0);
+        const row = wsCabs.addRow([sku, ...qtys, rowTotal]);
         row.eachCell((cell, colNumber) => {
           if (colNumber > 1) cell.alignment = { horizontal: 'center', vertical: 'middle' };
         });
@@ -183,8 +190,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
     });
 
     wsCabs.addRow([]);
-    const cabColTotals = cabTypes.map(t => allSkus.filter(sku => skuTypeMap[sku]?.has(t)).length);
-    const cabGrandTotal = allSkus.reduce((sum, sku) => sum + (skuTypeMap[sku]?.size || 0), 0);
+    const cabColTotals = cabTypes.map(t => allSkus.reduce((sum, sku) => sum + (skuTypeQty[sku]?.[t] || 0), 0));
+    const cabGrandTotal = allSkus.reduce((sum, sku) => sum + cabTypes.reduce((s, t) => s + (skuTypeQty[sku]?.[t] || 0), 0), 0);
     const cabTotRow = wsCabs.addRow([`TOTAL (${allSkus.length})`, ...cabColTotals, cabGrandTotal]);
     cabTotRow.eachCell((cell, colNumber) => {
       cell.font = { bold: true };
@@ -291,14 +298,17 @@ export default function PreFinalSummaryModule({ project }: Props) {
           // Group header row
           cabBody.push([`▸ ${group} (${skus.length})`, ...store.cabinetUnitTypes.map(() => ''), '']);
           skus.forEach(sku => {
-            const flags = store.cabinetUnitTypes.map(t => skuTypeMap[sku]?.has(t) ? '1' : '');
-            const rowTotal = skuTypeMap[sku]?.size || 0;
-            cabBody.push([sku, ...flags, String(rowTotal)]);
+            const qtys = store.cabinetUnitTypes.map(t => {
+              const qty = skuTypeQty[sku]?.[t] || 0;
+              return qty > 0 ? String(qty) : '';
+            });
+            const rowTotal = store.cabinetUnitTypes.reduce((sum, t) => sum + (skuTypeQty[sku]?.[t] || 0), 0);
+            cabBody.push([sku, ...qtys, String(rowTotal)]);
           });
         });
 
-        const cabColTotals = store.cabinetUnitTypes.map(t => String(allSkus.filter(sku => skuTypeMap[sku]?.has(t)).length));
-        const cabGrandTotal = allSkus.reduce((sum, sku) => sum + (skuTypeMap[sku]?.size || 0), 0);
+        const cabColTotals = store.cabinetUnitTypes.map(t => String(allSkus.reduce((sum, sku) => sum + (skuTypeQty[sku]?.[t] || 0), 0)));
+        const cabGrandTotal = allSkus.reduce((sum, sku) => sum + store.cabinetUnitTypes.reduce((s, t) => s + (skuTypeQty[sku]?.[t] || 0), 0), 0);
         cabBody.push(['TOTAL', ...cabColTotals, String(cabGrandTotal)]);
 
         // Track group header indices for styling

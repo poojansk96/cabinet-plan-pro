@@ -173,8 +173,8 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
       if (data.error === 'rate_limit') throw new Error('rate_limit');
       if (data.error === 'credits') throw new Error('credits');
 
-      // Capture detected unit type from AI
-      if (data.unitTypeName && !detectedType) {
+      // Capture detected unit type from AI — only from the first page (title/floor plan)
+      if (data.unitTypeName && !detectedType && p === 1) {
         detectedType = data.unitTypeName;
       }
 
