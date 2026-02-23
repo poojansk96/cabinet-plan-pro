@@ -49,6 +49,15 @@ WHAT DOES NOT COUNT (do NOT use these alone as evidence):
 - Dimension lines
 - General notes or legends
 
+SPACES TO ALWAYS EXCLUDE (even if they have a label):
+- Trash rooms, garbage rooms, refuse rooms, trash chutes, dumpster rooms
+- Mechanical rooms, electrical rooms, telecom rooms, server rooms
+- Elevator shafts, elevator machine rooms
+- Stairwells, exit stairs
+- Storage closets (unless they clearly show cabinet/countertop drawings)
+- Janitor closets, custodial closets
+These spaces virtually NEVER have cabinets or countertops. Do NOT include them even if they appear on the plan.
+
 UNIT TYPES TO DETECT:
 1. Residential: "Unit 101", "Apt 3B", "A-101", "B204", "101A", "#201"
 2. Common areas with cabinet content: Laundry rooms → "LAUNDRY-1", Community kitchens → "COMM-KITCHEN", Community rooms → "COMMUNITY ROOM 115", Pantries → "PANTRY-A", Clubhouses → "CLUBHOUSE", Leasing offices → "LEASING-OFFICE", Fitness rooms → "FITNESS-1", Toilets/Restrooms → "TOILET-C", Public bathrooms → "RESTROOM-1"

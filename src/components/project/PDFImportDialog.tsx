@@ -287,10 +287,14 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
       }));
 
       const sortedRows = [...initialRows].sort((a, b) => {
+        // Floor ascending (numeric first, then alpha)
         const fa = parseFloat(a.floor) || 0;
         const fb = parseFloat(b.floor) || 0;
         if (fa !== fb) return fa - fb;
-        return a.floor.localeCompare(b.floor, undefined, { numeric: true });
+        const floorCmp = a.floor.localeCompare(b.floor, undefined, { numeric: true });
+        if (floorCmp !== 0) return floorCmp;
+        // Unit number ascending within same floor
+        return a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true });
       });
       setRows(sortedRows);
 
@@ -511,6 +515,30 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                   )}
                 </div>
               </div>
+
+              {/* Floor-wise unit count summary */}
+              {rows.length > 0 && (() => {
+                const floorCounts: Record<string, number> = {};
+                for (const r of rows) {
+                  const fl = r.floor ? (/^\d+$/.test(r.floor) ? `Floor ${r.floor}` : r.floor) : 'Unassigned';
+                  floorCounts[fl] = (floorCounts[fl] || 0) + 1;
+                }
+                const sortedFloors = Object.entries(floorCounts).sort((a, b) => {
+                  const na = parseFloat(a[0].replace(/^Floor\s*/i, '')) || 0;
+                  const nb = parseFloat(b[0].replace(/^Floor\s*/i, '')) || 0;
+                  if (na !== nb) return na - nb;
+                  return a[0].localeCompare(b[0], undefined, { numeric: true });
+                });
+                return (
+                  <div className="flex flex-wrap gap-2">
+                    {sortedFloors.map(([fl, count]) => (
+                      <span key={fl} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-accent border border-border text-foreground">
+                        {fl}: <strong>{count}</strong> unit{count !== 1 ? 's' : ''}
+                      </span>
+                    ))}
+                  </div>
+                );
+              })()}
 
               {rows.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground text-sm">
