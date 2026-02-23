@@ -57,13 +57,15 @@ Before producing the final JSON, you MUST perform a careful visual scan of the e
 Step A: Scan the elevation from LEFT to RIGHT. For EVERY distinct rectangular cabinet box you see drawn, note:
   - Its approximate horizontal position (e.g. "far left", "left of sink", "center", "right of range", "far right")
   - The SKU label it belongs to (follow leader lines / callout lines from labels to boxes)
+  - Count the number of physically SEPARATE cabinet boxes that belong to each label
 
-Step B: Count each SKU CONSERVATIVELY:
-  - DEFAULT to quantity 1 for each SKU label you see.
-  - Only set quantity > 1 if you can CLEARLY see multiple SEPARATE cabinet boxes that are VISUALLY DISTINCT (with clear vertical dividing lines between them) AND share the same SKU label.
-  - For ACCESSORIES (fillers like WF, BF, WFFIL, BFFIL; toe kick TK/TKRUN; crown CM; light rail LR; end panels EP/FP): ALWAYS default to quantity 1 per label occurrence. Fillers and accessories are almost never duplicated side-by-side.
-  - If a SKU label appears in MULTIPLE separate locations on the elevation (e.g. one on the left wall and one on the right wall), count each occurrence as 1 and list them as SEPARATE entries — the system will merge them.
-  - When in doubt, use quantity 1. It is better to undercount slightly than to overcount.
+Step B: Count each SKU ACCURATELY:
+  - Count the actual number of SEPARATE rectangular cabinet boxes drawn for each SKU label.
+  - In 2020 Design shop drawings, when a SKU label has MULTIPLE identical cabinets, they are drawn as adjacent rectangles with clear vertical dividing lines between them. A single label may point to 2 or 3 side-by-side boxes — count EACH box as 1 unit.
+  - Look for "xN" or "(2)" or similar multiplier notation near labels — this indicates the quantity.
+  - If you see two adjacent boxes of the same width under one SKU label, the quantity is 2. Three boxes = quantity 3.
+  - For ACCESSORIES (fillers like WF, BF, WFFIL, BFFIL; toe kick TK/TKRUN; crown CM; light rail LR; end panels EP/FP): default to quantity 1 per label occurrence unless multiple are clearly drawn.
+  - If a SKU label appears in MULTIPLE separate locations on the elevation (e.g. one on the left wall and one on the right wall), count each occurrence separately and list them as SEPARATE entries — the system will merge them.
 
 Step C: Group by SKU + room and count the total distinct physical boxes for the quantity field.
 
