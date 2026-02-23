@@ -24,33 +24,6 @@ export default function SummaryPanel({ project }: Props) {
 
       <div className="space-y-0">
         {row('Units', summary.totalUnits)}
-        {row('Total Cabinets', summary.totalCabinets)}
-        {row('Base Cabinets', summary.totalBase)}
-        {row('Wall Cabinets', summary.totalWall)}
-        {row('Tall Cabinets', summary.totalTall)}
-        {row('Unique SKUs', summary.skuSummary.length)}
-      </div>
-
-      <div className="text-xs font-bold uppercase tracking-widest mt-4 mb-2" style={{ color: 'hsl(var(--sidebar-primary))' }}>
-        Countertops
-      </div>
-
-      <div className="rounded-lg p-3 text-center mb-3" style={{ background: 'hsl(var(--primary))' }}>
-        <div className="text-2xl font-bold text-white">{summary.totalCountertopSqft.toFixed(1)}</div>
-        <div className="text-xs text-white/70 font-medium">Total Sqft</div>
-      </div>
-
-      <div className="text-xs font-bold uppercase tracking-widest mt-4 mb-2" style={{ color: 'hsl(var(--sidebar-primary))' }}>
-        Accessories
-      </div>
-
-      <div className="space-y-0">
-        {row('Fillers', summary.accessorySummary.totalFillers)}
-        {row('Panels', summary.accessorySummary.totalPanels)}
-        {row('Toe Kick LF', summary.accessorySummary.totalToeKickLF.toFixed(1))}
-        {row('Crown LF', summary.accessorySummary.totalCrownLF.toFixed(1))}
-        {row('Light Rail LF', summary.accessorySummary.totalLightRailLF.toFixed(1))}
-        {row('Hardware', summary.accessorySummary.totalHardware)}
       </div>
 
       {Object.keys(summary.unitsByType).length > 0 && (
