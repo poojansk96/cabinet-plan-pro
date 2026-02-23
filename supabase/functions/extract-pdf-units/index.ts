@@ -57,7 +57,7 @@ WHAT DOES NOT COUNT (do NOT use these alone as evidence):
 
 SPACES TO ALWAYS EXCLUDE (even if they have a label):
 - Trash rooms, garbage rooms, refuse rooms, trash chutes, dumpster rooms
-- Mechanical rooms, electrical rooms, telecom rooms, server rooms
+- Mechanical rooms, electrical rooms, telecom rooms, server rooms, MECH, ELEC, MEC, ELE
 - Elevator shafts, elevator machine rooms
 - Stairwells, exit stairs
 - Storage closets (unless they clearly show cabinet/countertop drawings)
