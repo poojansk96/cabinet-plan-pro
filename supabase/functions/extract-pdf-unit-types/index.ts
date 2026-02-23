@@ -83,7 +83,7 @@ function cleanUnits(rawUnits: any[], pageBldg: string | null) {
       return {
         unitNumber: String(u.unitNumber).trim(),
         unitType,
-        bldg: String(u.bldg || pageBldg || "").trim() || null,
+        bldg: String(u.bldg || pageBldg || "BLDG 1").trim(),
       };
     })
     .filter(u => isValidUnitNumber(u.unitNumber));
