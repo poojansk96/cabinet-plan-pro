@@ -20,13 +20,19 @@ Scan every word of the page text for a building identifier. Building names appea
 
 RULE: If you find ANY building identifier anywhere on the page, set pageBuilding to it and apply to ALL units on that page unless a unit clearly has a different building label.
 
-STEP 2 — FIND UNITS THAT VISUALLY HAVE CABINETS AND/OR COUNTERTOPS:
-Look at the floor plan IMAGE carefully. Only include a unit if you can VISUALLY SEE one or more of the following DRAWN INSIDE that unit's boundary:
+STEP 2 — FIND EVERY UNIT THAT VISUALLY HAS CABINETS AND/OR COUNTERTOPS:
+Scan the ENTIRE floor plan IMAGE methodically — do NOT skip any area. For EVERY enclosed room/space on the plan, check if it contains cabinets or countertops. Only include a unit if you can VISUALLY SEE one or more of the following DRAWN INSIDE that unit's boundary:
 - Cabinet rectangles (base cabinets, wall cabinets, vanity cabinets) — these appear as rectangular blocks along walls
 - Countertop lines — continuous lines running along cabinet tops, L-shapes, U-shapes, or island shapes
 - Kitchen appliance symbols: sink (circle or oval in counter), refrigerator (rectangle), range/cooktop, dishwasher (DW), microwave
 - Bathroom vanity cabinets with sink symbols
 - Laundry cabinets or folding counters
+
+CRITICAL — DO NOT SKIP ANY UNIT:
+- Scan the plan LEFT to RIGHT, TOP to BOTTOM. Check EVERY enclosed space.
+- If you see cabinets/countertops drawn inside a space, include it — even if you cannot find a unit number or type label for it.
+- For spaces with visible cabinets/countertops but NO unit number label: set unitNumber to "?" and include it. These will be flagged for manual review.
+- For spaces with visible cabinets/countertops but NO type label: set detectedType to "?" (unknown).
 
 CRITICAL — DO NOT INCLUDE UNITS THAT ARE BLANK OR EMPTY:
 - If a unit space on the plan shows ONLY walls, doors, and windows with NO cabinet rectangles, NO counter lines, and NO appliance symbols visible inside it — DO NOT include that unit.
@@ -68,24 +74,31 @@ IMPORTANT - WHAT TO IGNORE:
 - Ignore construction legend codes (C1, C2, D1, D2, etc.) — these are specification notes, not units.
 
 RULES:
-- Only include units whose number appears ON THE FLOOR PLAN DRAWING itself (near doors, corridors, or inside room boundaries), NOT in reference tables or schedules
+- Only include units whose number appears ON THE FLOOR PLAN DRAWING itself (near doors, corridors, or inside room boundaries), NOT in reference tables or schedules. EXCEPTION: if a space has visible cabinets/countertops but no unit number label, include it with unitNumber "?".
 - ONLY include units where you can VISUALLY SEE cabinet rectangles, countertop lines, or appliance symbols DRAWN INSIDE that unit's floor plan boundary. If the unit interior is blank/empty — skip it.
 - kitchenConfidence "yes" = clearly visible cabinets/countertops drawn inside the unit. "maybe" = you see some indicators but are not fully certain.
+
+TYPE DETECTION — READ CAREFULLY:
 - detectedType is MANDATORY for every unit — always provide it, never leave it null:
-  * For RESIDENTIAL units: look for a TYPE label near the unit on the plan (e.g. "Type A5", "TYPE A1-3BR", "UNIT TYPE: B2"). The "UNIT A", "UNIT B" labels are type names. If a type label like "A1", "B2", "TYPE C" appears inside or near the unit boundary, use it as detectedType.
+  * For RESIDENTIAL units: look for a TYPE label VERY CLOSE to the unit on the plan (e.g. "Type A5", "TYPE A1-3BR", "UNIT TYPE: B2"). The label must be clearly associated with THAT specific unit — do not guess or copy a type from a nearby unit.
+  * READ the type label character by character. Common misreads: "E" vs "F", "I" vs "1", "B" vs "8", "D" vs "O". Zoom in mentally and be precise.
+  * If you cannot find a type label clearly associated with the unit, set detectedType to "?" rather than guessing.
   * For COMMON AREAS: use the space/room name as the type (e.g. "Laundry", "Community Room", "Clubhouse", "Leasing Office", "Fitness", "Pantry", "Restroom").
-  * If you truly cannot determine a type, use the room function visible on the plan (e.g. "Kitchen", "Bathroom", "Utility").
 - Floor: normalize word numbers ("First Floor" → "1", "Second" → "2", "Ground" → "G", "Basement" → "B1"). Keep letter-based levels as-is: "Level A" → "A", "Level B" → "B", "Level C" → "C", etc.
 - When a page shows TWO floor plans (e.g. "Level A" and "1st Floor"), extract units from BOTH plans. Match each unit to its correct floor based on which plan section it appears in.
 - Building: always inherit pageBuilding if unit has no specific building label
+
+UNLABELED UNITS:
+- If you see a space with clearly drawn cabinets/countertops but NO unit number visible anywhere near it, still include it with unitNumber "?" and add a sequential suffix like "?-1", "?-2" to distinguish multiple unlabeled units on the same page.
+- If you see cabinets/countertops but cannot read the type label clearly, use detectedType "?".
 
 Return ONLY valid JSON (no markdown fences, no explanation):
 {
   "pageBuilding": "East Building" | null,
   "units": [
     {
-      "unitNumber": "101",
-      "detectedType": "Type A - 2 Bedroom" | null,
+      "unitNumber": "101" | "?-1",
+      "detectedType": "Type A - 2 Bedroom" | "?" | null,
       "detectedFloor": "1" | null,
       "detectedBldg": "East Building" | null,
       "kitchenConfidence": "yes" | "maybe"
