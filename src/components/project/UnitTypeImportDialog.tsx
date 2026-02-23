@@ -106,13 +106,14 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         pdfs.push({ file, pdf });
-        totalPages += pdf.numPages;
+        totalPages += 1; // Only processing first page of each PDF
       }
       setProgress(10);
 
       let pagesProcessed = 0;
       for (const { file, pdf } of pdfs) {
-        for (let p = 1; p <= pdf.numPages; p++) {
+        // Only process the first page of each shop drawing
+        for (let p = 1; p <= Math.min(1, pdf.numPages); p++) {
           const page = await pdf.getPage(p);
           const pageImage = await renderPageToBase64(page);
 
