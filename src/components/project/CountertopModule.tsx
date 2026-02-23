@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Plus, Trash2, Square, FileText } from 'lucide-react';
 import type { Project, Unit, CountertopSection } from '@/types/project';
 import { calcCountertopSqft, calcUnitCountertopTotal } from '@/lib/calculations';
@@ -25,27 +25,97 @@ const blankCT = (): Omit<CountertopSection, 'id'> => ({
   addWaste: false,
 });
 
+interface TypeGroup {
+  type: string;
+  units: Unit[];
+  unitNumbers: string[];
+}
+
 export default function CountertopModule({ project, selectedUnit, setSelectedUnitId, addCountertop, updateCountertop, deleteCountertop }: Props) {
   const [form, setForm] = useState(blankCT());
   const [showForm, setShowForm] = useState(false);
   const [showPDFImport, setShowPDFImport] = useState(false);
+  const [selectedType, setSelectedType] = useState<string | null>(null);
+
+  // Group units by type
+  const typeGroups = useMemo<TypeGroup[]>(() => {
+    const map = new Map<string, Unit[]>();
+    project.units.forEach(u => {
+      const existing = map.get(u.type) || [];
+      existing.push(u);
+      map.set(u.type, existing);
+    });
+    return Array.from(map.entries()).map(([type, units]) => ({
+      type,
+      units,
+      unitNumbers: units.map(u => `#${u.unitNumber}`),
+    }));
+  }, [project.units]);
+
+  // Auto-select first type if none selected
+  const activeType = selectedType && typeGroups.some(g => g.type === selectedType)
+    ? selectedType
+    : typeGroups[0]?.type ?? null;
+
+  const activeGroup = typeGroups.find(g => g.type === activeType);
+  // Use first unit of the type as the representative
+  const representativeUnit = activeGroup?.units[0];
 
   const handlePDFImport = (sections: Omit<CountertopSection, 'id'>[]) => {
-    if (!selectedUnit) return;
-    sections.forEach(s => addCountertop(project.id, selectedUnit.id, s));
+    if (!representativeUnit || !activeGroup) return;
+    // Add to all units of this type
+    activeGroup.units.forEach(unit => {
+      sections.forEach(s => addCountertop(project.id, unit.id, s));
+    });
     setShowPDFImport(false);
   };
 
   const handleAdd = () => {
-    if (!selectedUnit || !form.label.trim()) return;
-    addCountertop(project.id, selectedUnit.id, form);
+    if (!representativeUnit || !activeGroup || !form.label.trim()) return;
+    // Add to all units of this type
+    activeGroup.units.forEach(unit => {
+      addCountertop(project.id, unit.id, form);
+    });
     setForm(blankCT());
   };
 
-  const countertops = selectedUnit?.countertops ?? [];
-  const totalSqft = selectedUnit ? calcUnitCountertopTotal(selectedUnit) : 0;
+  const handleUpdate = (ctId: string, data: Partial<CountertopSection>) => {
+    if (!activeGroup) return;
+    // Find the countertop label to match across units
+    const refCt = representativeUnit?.countertops.find(c => c.id === ctId);
+    if (!refCt) return;
+    // Update in representative unit directly
+    updateCountertop(project.id, representativeUnit!.id, ctId, data);
+    // Update matching countertops in other units of same type (match by label + index position)
+    const refIndex = representativeUnit!.countertops.findIndex(c => c.id === ctId);
+    activeGroup.units.slice(1).forEach(unit => {
+      const matching = unit.countertops[refIndex];
+      if (matching) {
+        updateCountertop(project.id, unit.id, matching.id, data);
+      }
+    });
+  };
 
-  // Project grand total
+  const handleDelete = (ctId: string) => {
+    if (!activeGroup || !representativeUnit) return;
+    const refIndex = representativeUnit.countertops.findIndex(c => c.id === ctId);
+    if (!window.confirm('Delete this section from all units of this type?')) return;
+    // Delete from representative
+    deleteCountertop(project.id, representativeUnit.id, ctId);
+    // Delete matching from other units
+    activeGroup.units.slice(1).forEach(unit => {
+      const matching = unit.countertops[refIndex];
+      if (matching) {
+        deleteCountertop(project.id, unit.id, matching.id);
+      }
+    });
+  };
+
+  const countertops = representativeUnit?.countertops ?? [];
+  const typeSqft = representativeUnit ? calcUnitCountertopTotal(representativeUnit) : 0;
+  const typeUnitCount = activeGroup?.units.length ?? 0;
+
+  // Project grand total (all units)
   const projectTotal = project.units.reduce((s, u) => s + calcUnitCountertopTotal(u), 0);
 
   return (
@@ -56,20 +126,22 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
         <Square size={16} className="text-primary flex-shrink-0" />
         <span className="font-semibold text-sm">Countertop Takeoff</span>
         <span className="text-muted-foreground text-xs">|</span>
-        <span className="text-xs text-muted-foreground">Unit:</span>
+        <span className="text-xs text-muted-foreground">Type:</span>
         <select
           className="est-input"
-          value={selectedUnit?.id ?? ''}
-          onChange={e => setSelectedUnitId(e.target.value)}
+          value={activeType ?? ''}
+          onChange={e => setSelectedType(e.target.value)}
         >
-          {project.units.length === 0 && <option>No units</option>}
-          {project.units.map(u => (
-            <option key={u.id} value={u.id}>#{u.unitNumber} ({u.type})</option>
+          {typeGroups.length === 0 && <option>No types</option>}
+          {typeGroups.map(g => (
+            <option key={g.type} value={g.type}>
+              {g.type} ({g.unitNumbers.join(', ')})
+            </option>
           ))}
         </select>
         <button
           onClick={() => setShowPDFImport(true)}
-          disabled={!selectedUnit}
+          disabled={!representativeUnit}
           className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-primary text-primary hover:bg-primary/10 disabled:opacity-50"
         >
           <FileText size={12} />
@@ -77,7 +149,7 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
         </button>
         <button
           onClick={() => setShowForm(!showForm)}
-          disabled={!selectedUnit}
+          disabled={!representativeUnit}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium text-white disabled:opacity-50"
           style={{ background: 'hsl(var(--primary))' }}
         >
@@ -93,15 +165,19 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
       </div>
 
       {/* Stats */}
-      {selectedUnit && (
-        <div className="grid grid-cols-3 gap-2">
+      {representativeUnit && activeGroup && (
+        <div className="grid grid-cols-4 gap-2">
           <div className="stat-card text-center">
             <div className="stat-value">{countertops.length}</div>
             <div className="stat-label">Sections</div>
           </div>
           <div className="stat-card text-center">
-            <div className="stat-value">{totalSqft.toFixed(1)}</div>
-            <div className="stat-label">Unit Total Sqft</div>
+            <div className="stat-value">{typeSqft.toFixed(1)}</div>
+            <div className="stat-label">Per Unit Sqft</div>
+          </div>
+          <div className="stat-card text-center">
+            <div className="stat-value">{(typeSqft * typeUnitCount).toFixed(1)}</div>
+            <div className="stat-label">Type Total ({typeUnitCount} units)</div>
           </div>
           <div className="stat-card text-center">
             <div className="stat-value">{projectTotal.toFixed(1)}</div>
@@ -111,8 +187,11 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
       )}
 
       {/* Add form */}
-      {showForm && selectedUnit && (
+      {showForm && representativeUnit && (
         <div className="est-card p-3">
+          <div className="text-xs text-muted-foreground mb-2">
+            Adding to all <strong>{typeUnitCount}</strong> unit(s) of type <strong>{activeType}</strong>
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 items-end">
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Label *</label>
@@ -153,10 +232,10 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
       )}
 
       {/* Countertop table */}
-      {selectedUnit ? (
+      {representativeUnit && activeGroup ? (
         <div className="est-card overflow-hidden">
           <div className="est-section-header">
-            Countertop Sections — Unit #{selectedUnit.unitNumber}
+            Countertop Sections — {activeType} ({activeGroup.unitNumbers.join(', ')})
           </div>
           {countertops.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm">
@@ -186,7 +265,7 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
                         className="est-input w-16 text-right"
                         value={ct.length}
                         min={1}
-                        onChange={e => updateCountertop(project.id, selectedUnit.id, ct.id, { length: +e.target.value })}
+                        onChange={e => handleUpdate(ct.id, { length: +e.target.value })}
                       />
                     </td>
                     <td className="text-right">
@@ -196,7 +275,7 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
                         value={ct.depth}
                         min={1}
                         step={0.5}
-                        onChange={e => updateCountertop(project.id, selectedUnit.id, ct.id, { depth: +e.target.value })}
+                        onChange={e => handleUpdate(ct.id, { depth: +e.target.value })}
                       />
                     </td>
                     <td className="text-right">{ct.splashHeight ?? '—'}</td>
@@ -207,7 +286,7 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
                       <input
                         type="checkbox"
                         checked={ct.addWaste}
-                        onChange={e => updateCountertop(project.id, selectedUnit.id, ct.id, { addWaste: e.target.checked })}
+                        onChange={e => handleUpdate(ct.id, { addWaste: e.target.checked })}
                         className="cursor-pointer"
                       />
                     </td>
@@ -216,7 +295,7 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
                     </td>
                     <td>
                       <button
-                        onClick={() => { if (window.confirm('Delete?')) deleteCountertop(project.id, selectedUnit.id, ct.id); }}
+                        onClick={() => handleDelete(ct.id)}
                         className="p-1 hover:text-destructive text-muted-foreground"
                       >
                         <Trash2 size={12} />
@@ -227,8 +306,13 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
               </tbody>
               <tfoot>
                 <tr style={{ background: 'hsl(var(--secondary))', fontWeight: 600 }}>
-                  <td colSpan={6} className="px-3 py-1.5 text-sm">UNIT TOTAL</td>
-                  <td className="px-3 py-1.5 text-sm text-right" style={{ color: 'hsl(var(--primary))' }}>{totalSqft.toFixed(1)} sqft</td>
+                  <td colSpan={6} className="px-3 py-1.5 text-sm">PER UNIT TOTAL</td>
+                  <td className="px-3 py-1.5 text-sm text-right" style={{ color: 'hsl(var(--primary))' }}>{typeSqft.toFixed(1)} sqft</td>
+                  <td></td>
+                </tr>
+                <tr style={{ background: 'hsl(var(--secondary))', fontWeight: 600 }}>
+                  <td colSpan={6} className="px-3 py-1.5 text-sm">TYPE TOTAL ({typeUnitCount} units × {typeSqft.toFixed(1)} sqft)</td>
+                  <td className="px-3 py-1.5 text-sm text-right" style={{ color: 'hsl(var(--primary))' }}>{(typeSqft * typeUnitCount).toFixed(1)} sqft</td>
                   <td></td>
                 </tr>
               </tfoot>
@@ -237,42 +321,50 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
         </div>
       ) : (
         <div className="text-center py-12 text-muted-foreground text-sm">
-          Add units first, then select a unit to add countertop sections.
+          Add units first, then select a type to add countertop sections.
         </div>
       )}
 
-      {/* All units breakdown */}
-      {project.units.length > 0 && (
+      {/* All types breakdown */}
+      {typeGroups.length > 0 && (
         <div className="est-card overflow-hidden">
-          <div className="est-section-header">Project Countertop Summary</div>
+          <div className="est-section-header">Project Countertop Summary (by Type)</div>
           <table className="est-table">
             <thead>
               <tr>
-                <th>Unit #</th>
                 <th>Type</th>
+                <th>Units</th>
                 <th className="text-right">Sections</th>
-                <th className="text-right">Total Sqft</th>
+                <th className="text-right">Per Unit Sqft</th>
+                <th className="text-right"># Units</th>
+                <th className="text-right">Type Total Sqft</th>
               </tr>
             </thead>
             <tbody>
-              {project.units.map(u => (
-                <tr
-                  key={u.id}
-                  className={`cursor-pointer ${u.id === selectedUnit?.id ? '!bg-accent' : ''}`}
-                  onClick={() => setSelectedUnitId(u.id)}
-                >
-                  <td className="font-medium">#{u.unitNumber}</td>
-                  <td>{u.type}</td>
-                  <td className="text-right">{u.countertops.length}</td>
-                  <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>
-                    {calcUnitCountertopTotal(u).toFixed(1)}
-                  </td>
-                </tr>
-              ))}
+              {typeGroups.map(g => {
+                const repUnit = g.units[0];
+                const perUnitSqft = calcUnitCountertopTotal(repUnit);
+                return (
+                  <tr
+                    key={g.type}
+                    className={`cursor-pointer ${g.type === activeType ? '!bg-accent' : ''}`}
+                    onClick={() => setSelectedType(g.type)}
+                  >
+                    <td className="font-medium">{g.type}</td>
+                    <td className="text-xs text-muted-foreground">{g.unitNumbers.join(', ')}</td>
+                    <td className="text-right">{repUnit.countertops.length}</td>
+                    <td className="text-right">{perUnitSqft.toFixed(1)}</td>
+                    <td className="text-right">{g.units.length}</td>
+                    <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>
+                      {(perUnitSqft * g.units.length).toFixed(1)}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
             <tfoot>
               <tr style={{ background: 'hsl(var(--secondary))', fontWeight: 600 }}>
-                <td colSpan={3} className="px-3 py-1.5 text-sm">PROJECT TOTAL</td>
+                <td colSpan={5} className="px-3 py-1.5 text-sm">PROJECT TOTAL</td>
                 <td className="px-3 py-1.5 text-sm text-right" style={{ color: 'hsl(var(--primary))' }}>{projectTotal.toFixed(1)} sqft</td>
               </tr>
             </tfoot>
