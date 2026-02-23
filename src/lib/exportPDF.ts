@@ -286,8 +286,9 @@ export function exportProjectPDF(project: Project) {
     const ctRows: string[][] = [];
     project.units.forEach(u => {
       u.countertops.forEach(ct => {
-        const sqft = ((ct.length * ct.depth) / 144);
-        const withWaste = ct.addWaste ? sqft * 1.1 : sqft;
+        const effectiveDepth = ct.depth + (ct.splashHeight ?? 0);
+        const sqft = ((ct.length * effectiveDepth) / 144);
+        const withWaste = ct.addWaste ? sqft * 1.03 : sqft;
         const rounded = Math.ceil(withWaste * 2) / 2;
         ctRows.push([
           `#${u.unitNumber}`,
@@ -309,7 +310,7 @@ export function exportProjectPDF(project: Project) {
 
     autoTable(doc, {
       startY: y,
-      head: [['Unit #', 'Label', 'Length', 'Depth', 'Tag', '+10% Waste', 'Sqft']],
+      head: [['Unit #', 'Label', 'Length', 'Depth', 'Tag', '+3% Waste', 'Sqft']],
       body: ctRows,
       margin: { left: margin, right: margin },
       styles: { fontSize: 8, cellPadding: 4, textColor: TEXT_DARK, lineColor: [220, 228, 240], lineWidth: 0.5 },
