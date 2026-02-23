@@ -148,7 +148,7 @@ export default function ProjectDetail() {
             {activeTab === 'countertops' && <CountertopModule {...storeProps} />}
             {activeTab === 'summary' && <SummaryModule {...storeProps} />}
             {activeTab === 'prefinal-units' && <PreFinalModule key="prefinal-units" {...storeProps} section="units" />}
-            {activeTab === 'prefinal-mismatch' && <PreFinalModule key="prefinal-mismatch" {...storeProps} section="units" />}
+            {activeTab === 'prefinal-mismatch' && <PreFinalModule key="prefinal-mismatch" {...storeProps} section="mismatch" />}
             {activeTab === 'prefinal-cabinets' && <PreFinalModule key="prefinal-cabinets" {...storeProps} section="cabinets" />}
             {activeTab === 'prefinal-summary' && <PreFinalSummaryModule {...storeProps} />}
           </div>

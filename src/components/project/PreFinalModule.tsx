@@ -13,7 +13,7 @@ interface Props {
   addCabinet: (projectId: string, unitId: string, data: Omit<Cabinet, 'id'>) => Cabinet;
   updateCabinet: (projectId: string, unitId: string, cabinetId: string, data: Partial<Cabinet>) => void;
   deleteCabinet: (projectId: string, unitId: string, cabinetId: string) => void;
-  section?: 'units' | 'cabinets';
+  section?: 'units' | 'cabinets' | 'mismatch';
   [key: string]: unknown;
 }
 
@@ -34,7 +34,7 @@ function normalizeUnitType(raw: string): string {
 }
 
 export default function PreFinalModule({ project, section = 'units' }: Props) {
-  const store = usePrefinalStore(project.id);
+  const store = usePrefinalStore(section === 'mismatch' ? `${project.id}_mismatch` : project.id);
 
   // ── Unit Count state ──────────────────────────────────────────────────────
   const [showUnitImport, setShowUnitImport] = useState(false);
@@ -154,7 +154,7 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
   // ─────────────────────────────────────────────────────────────────────────
   // SECTION: Pre-Final Unit Count
   // ─────────────────────────────────────────────────────────────────────────
-  if (section === 'units') {
+  if (section === 'units' || section === 'mismatch') {
     return (
       <div className="space-y-4">
         {showUnitImport && (
