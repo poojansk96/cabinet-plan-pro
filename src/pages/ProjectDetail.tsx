@@ -157,7 +157,7 @@ export default function ProjectDetail() {
         {/* Sticky Summary Panel — hidden on Pre-Final tabs */}
         {!activeTab.startsWith('prefinal') && (
           <aside className="w-56 flex-shrink-0 hidden lg:block summary-panel overflow-auto">
-            <SummaryPanel project={project} onTabChange={(tab) => setActiveTab(tab as Tab)} />
+            <SummaryPanel project={project} activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab as Tab)} />
           </aside>
         )}
       </div>
