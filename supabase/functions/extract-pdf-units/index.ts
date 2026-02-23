@@ -39,7 +39,10 @@ RULES:
 - Only include units whose number appears ON THE FLOOR PLAN DRAWING itself (near doors, corridors, or inside room boundaries), NOT in reference tables or schedules
 - Only include spaces where cabinet/countertop signals appear near that space on the plan
 - If unsure whether a space has cabinets, use kitchenConfidence "maybe"
-- Unit type: capture FULL type name exactly as written (e.g. "Type A5 - 2 Bedroom Corner Unit"). Never abbreviate. The "UNIT A", "UNIT B" etc. labels near units on the plan are unit TYPE names, not unit numbers.
+- detectedType is MANDATORY for every unit — always provide it, never leave it null:
+  * For RESIDENTIAL units: look for a TYPE label near the unit on the plan (e.g. "Type A5", "TYPE A1-3BR", "UNIT TYPE: B2"). The "UNIT A", "UNIT B" labels are type names. If a type label like "A1", "B2", "TYPE C" appears inside or near the unit boundary, use it as detectedType.
+  * For COMMON AREAS: use the space/room name as the type (e.g. "Laundry", "Community Room", "Clubhouse", "Leasing Office", "Fitness", "Pantry", "Restroom").
+  * If you truly cannot determine a type, use the room function visible on the plan (e.g. "Kitchen", "Bathroom", "Utility").
 - Floor: normalize word numbers ("First Floor" → "1", "Second" → "2", "Ground" → "G", "Basement" → "B1"). Keep letter-based levels as-is: "Level A" → "A", "Level B" → "B", "Level C" → "C", etc.
 - When a page shows TWO floor plans (e.g. "Level A" and "1st Floor"), extract units from BOTH plans. Match each unit to its correct floor based on which plan section it appears in.
 - Building: always inherit pageBuilding if unit has no specific building label
