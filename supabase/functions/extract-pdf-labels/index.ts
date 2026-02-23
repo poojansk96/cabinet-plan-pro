@@ -34,11 +34,11 @@ This page may be a FLOOR PLAN / TITLE PAGE (top-down view or cover page) or an E
 TASK 1 — DETECT UNIT TYPE NAME (FLOOR PLAN / TITLE PAGE ONLY):
 If this is a FLOOR PLAN or TITLE PAGE (top-down/plan view, cover sheet, or first page with a layout):
 - Look at the drawing's title block, header, footer, or prominent labels for the UNIT TYPE NAME.
-- This is typically something like "A1", "A2", "B1", "2BHK", "1BR", "Type A", "Studio", etc.
+- This is typically something like "A1", "A1-As", "A2", "B1", "2BHK", "1BR", "Type A", "Studio", etc.
 - It usually appears in the title block or as a prominent label at the top of the drawing.
 - Do NOT confuse unit type with unit numbers (e.g. "101", "201") or elevation labels (e.g. "Elevation A").
-- Do NOT include suffixes like "-As", "-Mirror", "-Rev" in the unit type name. Just the base type (e.g. "A1" not "A1-As").
-- Return the unit type name and an empty items array: {"unitTypeName":"A1","items":[]}
+- Return the EXACT unit type name as written on the drawing (including suffixes like "-As", "-Mirror" if present).
+- Return the unit type name and an empty items array: {"unitTypeName":"A1-As","items":[]}
 
 If this is an ELEVATION drawing (front/side view showing cabinet boxes):
 - Set unitTypeName to null. Do NOT extract the unit type from elevation pages.
