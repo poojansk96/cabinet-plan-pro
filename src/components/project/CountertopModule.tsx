@@ -284,8 +284,26 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
                         onChange={e => handleUpdate(ct.id, { depth: +e.target.value })}
                       />
                     </td>
-                    <td className="text-right">{ct.splashHeight ?? '—'}</td>
-                    <td className="text-right">{ct.sideSplash ?? '—'}</td>
+                    <td className="text-right">
+                      <input
+                        type="number"
+                        className="est-input w-16 text-right"
+                        value={ct.splashHeight ?? ''}
+                        min={0}
+                        onChange={e => handleUpdate(ct.id, { splashHeight: +e.target.value || undefined })}
+                        placeholder="—"
+                      />
+                    </td>
+                    <td className="text-right">
+                      <input
+                        type="number"
+                        className="est-input w-16 text-right"
+                        value={ct.sideSplash ?? ''}
+                        min={0}
+                        onChange={e => handleUpdate(ct.id, { sideSplash: +e.target.value || undefined })}
+                        placeholder="—"
+                      />
+                    </td>
                     <td className="text-center">
                       {ct.isIsland ? <span className="badge-tall">Island</span> : <span className="text-muted-foreground text-xs">—</span>}
                     </td>
