@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { BarChart3, Download, FileText, Loader2 } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import type { Project, Unit } from '@/types/project';
-import { calcProjectSummary, calcUnitCabinetTotals, calcUnitCountertopTotal } from '@/lib/calculations';
+import { calcProjectSummary, calcUnitCabinetTotals, calcUnitCountertopTotal, calcCountertopSqft } from '@/lib/calculations';
 import { exportProjectPDF } from '@/lib/exportPDF';
 
 interface Props {
@@ -114,40 +114,57 @@ export default function SummaryModule({ project }: Props) {
       if (colNumber > 3) cell.alignment = { horizontal: 'center' };
     });
 
-    // ── Sheet 3: SKU Summary ───────────────────────────────────────
-    const wsSku = wb.addWorksheet('SKU Summary');
-    wsSku.columns = [
-      { width: 18 }, { width: 10 }, { width: 8 }, { width: 8 }, { width: 8 }, { width: 30 }, { width: 10 },
-    ];
-    styleHeader(wsSku.addRow(['SKU', 'Type', 'Width"', 'Height"', 'Depth"', 'Rooms', 'Total Qty']));
-    summary.skuSummary.forEach(s =>
-      wsSku.addRow([s.sku, s.type, s.width, s.height, s.depth, s.rooms.join(', '), s.totalQty])
-    );
-
-    // ── Sheet 4: Accessories ───────────────────────────────────────
-    const wsAcc = wb.addWorksheet('Accessories');
-    wsAcc.columns = [{ width: 20 }, { width: 12 }, { width: 8 }];
-    styleHeader(wsAcc.addRow(['Item', 'Quantity', 'Unit']));
-    [
-      ['Fillers', summary.accessorySummary.totalFillers, 'pcs'],
-      ['Finished Panels', summary.accessorySummary.totalPanels, 'pcs'],
-      ['Toe Kick', summary.accessorySummary.totalToeKickLF, 'LF'],
-      ['Crown Molding', summary.accessorySummary.totalCrownLF, 'LF'],
-      ['Light Rail', summary.accessorySummary.totalLightRailLF, 'LF'],
-      ['Hardware', summary.accessorySummary.totalHardware, 'pcs'],
-    ].forEach(r => wsAcc.addRow(r));
-
-    // ── Sheet 5: Countertops ───────────────────────────────────────
+    // ── Sheet 3: Countertops by Unit Type ────────────────────────
     const wsCt = wb.addWorksheet('Countertops');
-    wsCt.columns = [{ width: 10 }, { width: 24 }, { width: 14 }, { width: 8 }, { width: 10 }];
-    styleHeader(wsCt.addRow(['Unit #', 'Type', 'Building', 'Floor', 'CT Sqft']));
+    wsCt.columns = [
+      { width: 20 }, { width: 22 }, { width: 10 }, { width: 10 },
+      { width: 14 }, { width: 14 }, { width: 10 }, { width: 10 }, { width: 10 },
+    ];
+    styleHeader(wsCt.addRow(['Unit Type (Qty)', 'Label', 'Length"', 'Depth"', 'Backsplash Ht"', 'Sidesplash Qty', 'Tag', '+5% Waste', 'Sqft']));
+
+    // Group units by type
+    const typeMap = new Map<string, typeof project.units>();
     project.units.forEach(u => {
-      const sqft = calcUnitCountertopTotal(u);
-      wsCt.addRow([u.unitNumber, u.type, u.bldg || '', fmtFloor(u.floor || ''), sqft]);
+      const arr = typeMap.get(u.type) || [];
+      arr.push(u);
+      typeMap.set(u.type, arr);
     });
+
+    typeMap.forEach((units, type) => {
+      const rep = units[0];
+      const unitCount = units.length;
+      if (rep.countertops.length === 0) return;
+
+      rep.countertops.forEach(ct => {
+        const sqft = calcCountertopSqft(ct);
+        wsCt.addRow([
+          `${type} (x${unitCount})`,
+          ct.label,
+          ct.length,
+          ct.depth,
+          ct.splashHeight ?? 0,
+          ct.sideSplash ?? 0,
+          ct.isIsland ? 'Island' : 'Perimeter',
+          ct.addWaste ? 'Yes' : 'No',
+          sqft,
+        ]);
+      });
+
+      // Subtotal row
+      const typeSqft = calcUnitCountertopTotal(rep) * unitCount;
+      const subRow = wsCt.addRow(['', '', '', '', '', '', '', `Subtotal (×${unitCount})`, typeSqft]);
+      subRow.eachCell(cell => {
+        cell.font = { bold: true };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
+      });
+    });
+
     wsCt.addRow([]);
-    const ctTotRow = wsCt.addRow(['TOTAL', '', '', '', summary.totalCountertopSqft]);
-    ctTotRow.font = { bold: true };
+    const ctTotRow = wsCt.addRow(['GRAND TOTAL', '', '', '', '', '', '', '', summary.totalCountertopSqft]);
+    ctTotRow.eachCell(cell => {
+      cell.font = { bold: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F0' } };
+    });
 
     // ── Download ──────────────────────────────────────────────────
     const buffer = await wb.xlsx.writeBuffer();

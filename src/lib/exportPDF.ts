@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import type { Project } from '@/types/project';
-import { calcProjectSummary, calcUnitCabinetTotals, calcUnitCountertopTotal, calcCountertopSqft } from '@/lib/calculations';
+import type { Project, Unit } from '@/types/project';
+import { calcProjectSummary, calcUnitCountertopTotal, calcCountertopSqft } from '@/lib/calculations';
 
 // Brand colors
 const BLUE_DARK = [22, 60, 110] as [number, number, number];
@@ -12,10 +12,6 @@ const GRAY_MID = [180, 188, 200] as [number, number, number];
 const WHITE = [255, 255, 255] as [number, number, number];
 const TEXT_DARK = [20, 30, 48] as [number, number, number];
 const TEXT_MID = [80, 95, 115] as [number, number, number];
-
-function hexColor(rgb: [number, number, number]) {
-  return rgb.map(v => v.toString(16).padStart(2, '0')).join('');
-}
 
 export function exportProjectPDF(project: Project) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
@@ -90,11 +86,10 @@ export function exportProjectPDF(project: Project) {
   y += 85;
 
   // ─── SUMMARY STAT CARDS ───
-  const cardW = (contentW - 12) / 4;
+  const cardW = (contentW - 8) / 3;
   const stats = [
     { label: 'Total Units', value: String(summary.totalUnits) },
-    { label: 'Total Cabinets', value: String(summary.totalCabinets) },
-    { label: 'Unique SKUs', value: String(summary.skuSummary.length) },
+    { label: 'Unit Types', value: String(Object.keys(summary.unitsByType).length) },
     { label: 'CT Total Sqft', value: String(summary.totalCountertopSqft) },
   ];
   stats.forEach((s, i) => {
@@ -117,30 +112,6 @@ export function exportProjectPDF(project: Project) {
 
   y += 62;
 
-  // ─── CABINET BREAKDOWN CARDS ───
-  const cStats = [
-    { label: 'Base', value: summary.totalBase },
-    { label: 'Wall', value: summary.totalWall },
-    { label: 'Tall', value: summary.totalTall },
-    { label: 'Vanity', value: summary.totalVanity },
-  ];
-  const cCardW = (contentW - 12) / 4;
-  cStats.forEach((s, i) => {
-    const x = margin + i * (cCardW + 4);
-    doc.setFillColor(...BLUE_LIGHT);
-    doc.roundedRect(x, y, cCardW, 32, 3, 3, 'F');
-    doc.setFontSize(13);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...BLUE_DARK);
-    doc.text(String(s.value), x + cCardW / 2, y + 16, { align: 'center' });
-    doc.setFontSize(6.5);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...TEXT_MID);
-    doc.text(`${s.label.toUpperCase()} CABINETS`, x + cCardW / 2, y + 27, { align: 'center' });
-  });
-
-  y += 44;
-
   // ─── SECTION HEADER helper ───
   const sectionHeader = (title: string, yPos: number) => {
     doc.setFillColor(...BLUE_DARK);
@@ -152,179 +123,91 @@ export function exportProjectPDF(project: Project) {
     return yPos + 24;
   };
 
-  // ─── UNIT BREAKDOWN TABLE ───
-  if (project.units.length > 0) {
-    y = sectionHeader('UNIT BREAKDOWN', y);
-
-    const unitRows = project.units.map(u => {
-      const c = calcUnitCabinetTotals(u);
-      const sqft = calcUnitCountertopTotal(u);
-      const fillers = u.accessories.filter(a => a.type === 'Filler').reduce((s, a) => s + a.quantity, 0);
-      return [
-        `#${u.unitNumber}`,
-        u.type,
-        String(c.total),
-        String(c.base),
-        String(c.wall),
-        String(c.tall),
-        String(fillers),
-        sqft.toFixed(0),
-      ];
-    });
-
-    // Totals row
-    unitRows.push([
-      'TOTAL', '',
-      String(summary.totalCabinets),
-      String(summary.totalBase),
-      String(summary.totalWall),
-      String(summary.totalTall),
-      String(summary.accessorySummary.totalFillers),
-      String(summary.totalCountertopSqft),
-    ]);
-
-    autoTable(doc, {
-      startY: y,
-      head: [['Unit #', 'Type', 'Cabinets', 'Base', 'Wall', 'Tall', 'Fillers', 'CT Sqft']],
-      body: unitRows,
-      margin: { left: margin, right: margin },
-      styles: { fontSize: 8, cellPadding: 4, textColor: TEXT_DARK, lineColor: [220, 228, 240], lineWidth: 0.5 },
-      headStyles: { fillColor: BLUE_MID, textColor: WHITE, fontStyle: 'bold', fontSize: 7.5 },
-      alternateRowStyles: { fillColor: GRAY_LIGHT },
-      didParseCell: (data) => {
-        if (data.row.index === unitRows.length - 1) {
-          data.cell.styles.fontStyle = 'bold';
-          data.cell.styles.fillColor = BLUE_LIGHT;
-          data.cell.styles.textColor = BLUE_DARK;
-        }
-      },
-    });
-
-    y = (doc as any).lastAutoTable.finalY + 14;
-  }
-
-  // ─── SKU SUMMARY TABLE ───
-  if (summary.skuSummary.length > 0) {
-    // Check if we need a new page
-    if (y > pageH - 200) {
-      doc.addPage();
-      y = 40;
-    }
-
-    y = sectionHeader('SKU SUMMARY — ALL UNITS', y);
-
-    const skuRows = summary.skuSummary.map(s => [
-      s.sku,
-      s.type,
-      `${s.width}"`,
-      `${s.height}"`,
-      `${s.depth}"`,
-      s.rooms.join(', '),
-      String(s.totalQty),
-    ]);
-
-    autoTable(doc, {
-      startY: y,
-      head: [['SKU', 'Type', 'Width', 'Height', 'Depth', 'Rooms', 'Total Qty']],
-      body: skuRows,
-      margin: { left: margin, right: margin },
-      styles: { fontSize: 8, cellPadding: 4, textColor: TEXT_DARK, lineColor: [220, 228, 240], lineWidth: 0.5, font: 'courier' },
-      headStyles: { fillColor: BLUE_MID, textColor: WHITE, fontStyle: 'bold', fontSize: 7.5, font: 'helvetica' },
-      alternateRowStyles: { fillColor: GRAY_LIGHT },
-      columnStyles: {
-        0: { fontStyle: 'bold', cellWidth: 70 },
-        6: { fontStyle: 'bold', halign: 'right' },
-      },
-    });
-
-    y = (doc as any).lastAutoTable.finalY + 14;
-  }
-
-  // ─── ACCESSORIES TABLE ───
-  if (y > pageH - 200) {
-    doc.addPage();
-    y = 40;
-  }
-
-  y = sectionHeader('ACCESSORIES SUMMARY', y);
-
-  const accRows = [
-    ['Fillers', String(summary.accessorySummary.totalFillers), 'pcs'],
-    ['Finished Panels', String(summary.accessorySummary.totalPanels), 'pcs'],
-    ['Toe Kick', summary.accessorySummary.totalToeKickLF.toFixed(1), 'Linear Feet'],
-    ['Crown Molding', summary.accessorySummary.totalCrownLF.toFixed(1), 'Linear Feet'],
-    ['Light Rail', summary.accessorySummary.totalLightRailLF.toFixed(1), 'Linear Feet'],
-    ['Hardware', String(summary.accessorySummary.totalHardware), 'pcs'],
-  ];
-
-  autoTable(doc, {
-    startY: y,
-    head: [['Item', 'Quantity', 'Unit']],
-    body: accRows,
-    margin: { left: margin, right: margin },
-    styles: { fontSize: 8, cellPadding: 4, textColor: TEXT_DARK, lineColor: [220, 228, 240], lineWidth: 0.5 },
-    headStyles: { fillColor: BLUE_MID, textColor: WHITE, fontStyle: 'bold', fontSize: 7.5 },
-    alternateRowStyles: { fillColor: GRAY_LIGHT },
-    columnStyles: {
-      1: { fontStyle: 'bold', halign: 'right' },
-      2: { textColor: TEXT_MID },
-    },
-    tableWidth: contentW / 2,
+  // ─── COUNTERTOP SUMMARY — BY UNIT TYPE ───
+  // Group units by type
+  const typeMap = new Map<string, Unit[]>();
+  project.units.forEach(u => {
+    const arr = typeMap.get(u.type) || [];
+    arr.push(u);
+    typeMap.set(u.type, arr);
   });
 
-  y = (doc as any).lastAutoTable.finalY + 14;
+  const hasCountertops = project.units.some(u => u.countertops.length > 0);
 
-  // ─── COUNTERTOP SUMMARY ───
-  if (y > pageH - 200) {
-    doc.addPage();
-    y = 40;
-  }
+  if (hasCountertops) {
+    y = sectionHeader('COUNTERTOP SUMMARY — BY UNIT TYPE', y);
 
-  y = sectionHeader('COUNTERTOP SUMMARY — BY UNIT', y);
-
-  if (project.units.some(u => u.countertops.length > 0)) {
     const ctRows: string[][] = [];
-    project.units.forEach(u => {
-      u.countertops.forEach(ct => {
-        const rounded = calcCountertopSqft(ct);
+    let grandTotal = 0;
+
+    typeMap.forEach((units, type) => {
+      const representative = units[0];
+      const unitCount = units.length;
+      if (representative.countertops.length === 0) return;
+
+      // Type header row
+      const typeSqft = calcUnitCountertopTotal(representative);
+      const typeTotalSqft = typeSqft * unitCount;
+      grandTotal += typeTotalSqft;
+
+      representative.countertops.forEach(ct => {
+        const sqft = calcCountertopSqft(ct);
         ctRows.push([
-          `#${u.unitNumber}`,
+          `${type} (x${unitCount})`,
           ct.label,
           `${ct.length}"`,
           `${ct.depth}"`,
+          `${ct.splashHeight ?? 0}"`,
+          String(ct.sideSplash ?? 0),
           ct.isIsland ? 'Island' : 'Perimeter',
           ct.addWaste ? 'Yes' : 'No',
-          String(rounded),
+          String(sqft),
         ]);
       });
+
+      // Per-type subtotal
+      ctRows.push([
+        '', '', '', '', '', '', '', `Subtotal (×${unitCount})`,
+        String(typeTotalSqft),
+      ]);
     });
 
     // Grand total row
     ctRows.push([
-      'TOTAL', '', '', '', '', '',
+      'GRAND TOTAL', '', '', '', '', '', '', '',
       String(summary.totalCountertopSqft),
     ]);
 
     autoTable(doc, {
       startY: y,
-      head: [['Unit #', 'Label', 'Length', 'Depth', 'Tag', '+5% Waste', 'Sqft']],
+      head: [['Unit Type (Qty)', 'Label', 'Length', 'Depth', 'Backsplash Ht', 'Sidesplash Qty', 'Tag', '+5% Waste', 'Sqft']],
       body: ctRows,
       margin: { left: margin, right: margin },
-      styles: { fontSize: 8, cellPadding: 4, textColor: TEXT_DARK, lineColor: [220, 228, 240], lineWidth: 0.5 },
-      headStyles: { fillColor: BLUE_MID, textColor: WHITE, fontStyle: 'bold', fontSize: 7.5 },
+      styles: { fontSize: 7.5, cellPadding: 3.5, textColor: TEXT_DARK, lineColor: [220, 228, 240], lineWidth: 0.5 },
+      headStyles: { fillColor: BLUE_MID, textColor: WHITE, fontStyle: 'bold', fontSize: 7 },
       alternateRowStyles: { fillColor: GRAY_LIGHT },
       didParseCell: (data) => {
-        if (data.row.index === ctRows.length - 1) {
+        const rowIdx = data.row.index;
+        const rowData = ctRows[rowIdx];
+        // Subtotal rows
+        if (rowData && rowData[7]?.startsWith('Subtotal')) {
           data.cell.styles.fontStyle = 'bold';
           data.cell.styles.fillColor = BLUE_LIGHT;
           data.cell.styles.textColor = BLUE_DARK;
         }
+        // Grand total row
+        if (rowIdx === ctRows.length - 1) {
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.fillColor = BLUE_DARK;
+          data.cell.styles.textColor = WHITE;
+        }
       },
-      columnStyles: { 6: { fontStyle: 'bold', halign: 'right' } },
+      columnStyles: { 8: { fontStyle: 'bold', halign: 'right' } },
     });
 
     y = (doc as any).lastAutoTable.finalY + 14;
   } else {
+    y = sectionHeader('COUNTERTOP SUMMARY', y);
     doc.setFontSize(8);
     doc.setTextColor(...TEXT_MID);
     doc.text('No countertop sections recorded.', margin + 10, y + 10);
