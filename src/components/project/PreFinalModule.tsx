@@ -84,7 +84,16 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
   };
 
   // ── Cabinet pivot (use unit types from the unit count section) ──────────
-  const cabUnitTypes = store.cabinetUnitTypes; // independent columns for cabinet section
+  // Deduplicate cabinet unit types at render time (safety net)
+  const cabUnitTypes = (() => {
+    const seen = new Set<string>();
+    return store.cabinetUnitTypes.filter(t => {
+      const key = t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '').trim();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  })();
   const allSkus = Array.from(new Set(store.cabinetRows.map(r => r.sku))).sort();
   // Build SKU → unitType → quantity mapping
   const skuTypeQty: Record<string, Record<string, number>> = {};
