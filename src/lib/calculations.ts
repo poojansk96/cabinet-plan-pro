@@ -2,14 +2,12 @@ import type { Cabinet, CountertopSection, Unit, Project, ProjectSummary, Cabinet
 
 // Countertop square footage calculation
 export function calcCountertopSqft(ct: CountertopSection): number {
-  const effectiveDepth = ct.depth + (ct.splashHeight ?? 0);
-  const baseSqft = (ct.length * effectiveDepth) / 144;
+  const effectiveLength = ct.addWaste ? ct.length * 1.03 : ct.length;
+  const baseSqft = (effectiveLength * (ct.depth + (ct.splashHeight ?? 0))) / 144;
   const sideSplashSqft = (ct.sideSplash ?? 0) > 0 && (ct.splashHeight ?? 0) > 0
     ? ((ct.depth * (ct.splashHeight ?? 0)) / 144) * (ct.sideSplash ?? 0)
     : 0;
-  const raw = baseSqft + sideSplashSqft;
-  const withWaste = ct.addWaste ? raw * 1.03 : raw;
-  return Math.ceil(withWaste);
+  return Math.ceil(baseSqft + sideSplashSqft);
 }
 
 export function calcUnitCountertopTotal(unit: Unit): number {
