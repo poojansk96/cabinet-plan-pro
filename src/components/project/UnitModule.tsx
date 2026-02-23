@@ -257,12 +257,15 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
               return a[0].localeCompare(b[0], undefined, { numeric: true });
             });
             return (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {sortedFloors.map(([fl, count]) => (
                   <span key={fl} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-accent border border-border text-foreground">
                     {fl}: <strong>{count}</strong> unit{count !== 1 ? 's' : ''}
                   </span>
                 ))}
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-primary/10 border border-primary/20 text-primary">
+                  Total: <strong>{project.units.length}</strong> unit{project.units.length !== 1 ? 's' : ''}
+                </span>
               </div>
             );
           })()}
