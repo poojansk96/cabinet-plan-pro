@@ -64,14 +64,21 @@ SPACES TO ALWAYS EXCLUDE (even if they have a label):
 - Janitor closets, custodial closets
 These spaces virtually NEVER have cabinets or countertops. Do NOT include them even if they appear on the plan.
 
+UNIT NUMBERS vs UNIT TYPES — CRITICAL DISTINCTION:
+- Unit NUMBERS are unique identifiers for individual apartments/spaces, typically numeric or alphanumeric with numbers: "101", "1-01", "A-08", "2-05", "3B", "B204", "#201". They appear near doors or inside room boundaries.
+- Unit TYPES are category labels describing the layout/design: "Unit A", "Unit B", "UNIT TYPE 1.1B", "Type A5", "Studio", "1 BR", "2 BR". Multiple apartments can share the same type.
+- NEVER use a type label (like "A", "B", "C", "D", "E", "J", "K", "M") as unitNumber. Always find the actual numeric/alphanumeric identifier for each apartment.
+
 UNIT TYPES TO DETECT:
-1. Residential: "Unit 101", "Apt 3B", "A-101", "B204", "101A", "#201"
+1. Residential: "Unit 101", "Apt 3B", "A-101", "B204", "101A", "#201", "1-01", "1-02", "A-08"
 2. Common areas with cabinet content: Laundry rooms → "LAUNDRY-1", Community kitchens → "COMM-KITCHEN", Community rooms → "COMMUNITY ROOM 115", Pantries → "PANTRY-A", Clubhouses → "CLUBHOUSE", Leasing offices → "LEASING-OFFICE", Fitness rooms → "FITNESS-1", Toilets/Restrooms → "TOILET-C", Public bathrooms → "RESTROOM-1", Break rooms/Breakrooms → "BREAKROOM-1", Kitchenettes → "KITCHENETTE-1", Staff rooms → "STAFF-ROOM-1", Lounges with kitchenettes → "LOUNGE-1"
 
 IMPORTANT - WHAT TO IGNORE:
 - NEVER treat sheet/drawing numbers (e.g. "A-101.00", "A-102.00", "A-220") as unit numbers. These appear in title blocks next to "DRAWING NO:" or "SHEET:".
 - NEVER extract units from reference tables like "UFAS APARTMENT LOCATIONS" or unit schedules. These tables list units from OTHER floors for cross-reference. Only extract units that are DRAWN on the actual floor plan with their unit number label near a door or within a room boundary.
 - Ignore construction legend codes (C1, C2, D1, D2, etc.) — these are specification notes, not units.
+- NEVER treat unit TYPE labels as unit NUMBERS. Labels like "UNIT A", "UNIT B", "UNIT C", "UNIT D", "UNIT E", "UNIT F", "UNIT G", "UNIT H", "UNIT I", "UNIT J", "UNIT K", "UNIT L", "UNIT M", "UNIT N", "UNIT P" are TYPE designations, NOT unit numbers. The actual unit numbers are the numeric identifiers near doors (e.g. "1-01", "1-02", "A-08", "2-05", "3-11", "4-06", "5-01"). When you see "UNIT A" next to room "1-01", that means unitNumber="1-01" and detectedType="Unit A".
+- Ignore construction note codes like D30-D79, C1-C55 — these are work item references in construction legends, NOT unit numbers or room identifiers.
 
 RULES:
 - Only include units whose number appears ON THE FLOOR PLAN DRAWING itself (near doors, corridors, or inside room boundaries), NOT in reference tables or schedules. EXCEPTION: if a space has visible cabinets/countertops but no unit number label, include it with unitNumber "?".
