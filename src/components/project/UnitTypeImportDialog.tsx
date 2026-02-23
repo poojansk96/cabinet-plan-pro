@@ -10,6 +10,15 @@ export interface UnitMappingRow {
   bldg: string;
   floor: string;
   selected: boolean;
+  conflict?: string; // description of cross-page mismatch
+}
+
+interface PageSighting {
+  unitType: string;
+  bldg: string;
+  floor: string;
+  page: number;
+  file: string;
 }
 
 interface Props {
@@ -87,7 +96,8 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
       const pdfjsLib = (await import('pdfjs-dist')) as any;
       pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 
-      const allMappings: Map<string, UnitMappingRow> = new Map();
+      // Track every sighting of each unit across pages
+      const sightings: Map<string, PageSighting[]> = new Map();
 
       // Count total pages for progress
       const pdfs: { file: File; pdf: any }[] = [];
@@ -118,7 +128,6 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
                   signal: controller.signal,
                 });
                 clearTimeout(tid);
-                // Retry on 503 (model unavailable) and 500
                 if ((res.status === 503 || res.status === 500) && attempt < attempts) {
                   console.warn(`Page ${p} attempt ${attempt}: AI unavailable (${res.status}), retrying in ${3 * attempt}s…`);
                   await new Promise(r => setTimeout(r, 3000 * attempt));
@@ -162,7 +171,9 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
             const bldg = String(u.bldg ?? '').trim();
             const floor = String(u.floor ?? '').trim();
             if (!num) continue;
-            allMappings.set(num, { unitNumber: num, unitType: type, bldg, floor, selected: true });
+            const arr = sightings.get(num) || [];
+            arr.push({ unitType: type, bldg, floor, page: p, file: file.name });
+            sightings.set(num, arr);
           }
 
           pagesProcessed++;
@@ -170,9 +181,44 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
         }
       }
 
-      const result = Array.from(allMappings.values()).sort((a, b) =>
-        a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true })
-      );
+      // Build rows with cross-page conflict detection
+      const result: UnitMappingRow[] = [];
+      for (const [unitNumber, pages] of sightings) {
+        // Use the last sighting as the "primary" value (most detailed page usually comes later)
+        const primary = pages[pages.length - 1];
+        let conflict: string | undefined;
+
+        // Check for mismatches across pages
+        const uniqueTypes = [...new Set(pages.map(p => p.unitType).filter(Boolean))];
+        const uniqueBldgs = [...new Set(pages.map(p => p.bldg).filter(Boolean))];
+        const uniqueFloors = [...new Set(pages.map(p => p.floor).filter(Boolean))];
+
+        const mismatches: string[] = [];
+        if (uniqueTypes.length > 1) {
+          mismatches.push(`Type: ${uniqueTypes.map((t, i) => `"${t}" (pg ${pages.filter(p => p.unitType === t).map(p => p.page).join(',')})`).join(' vs ')}`);
+        }
+        if (uniqueBldgs.length > 1) {
+          mismatches.push(`Bldg: ${uniqueBldgs.map((b) => `"${b}" (pg ${pages.filter(p => p.bldg === b).map(p => p.page).join(',')})`).join(' vs ')}`);
+        }
+        if (uniqueFloors.length > 1) {
+          mismatches.push(`Floor: ${uniqueFloors.map((f) => `"${f}" (pg ${pages.filter(p => p.floor === f).map(p => p.page).join(',')})`).join(' vs ')}`);
+        }
+
+        if (mismatches.length > 0) {
+          conflict = mismatches.join('; ');
+        }
+
+        result.push({
+          unitNumber,
+          unitType: primary.unitType,
+          bldg: primary.bldg,
+          floor: primary.floor,
+          selected: true,
+          conflict,
+        });
+      }
+
+      result.sort((a, b) => a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true }));
 
       if (result.length === 0) {
         setError('No unit numbers or types detected. The drawing may not contain unit schedules or labels.');
@@ -338,15 +384,38 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
                 </div>
               </div>
 
+              {/* Cross-page conflict warning */}
+              {(() => {
+                const conflictRows = rows.filter(r => r.conflict);
+                if (!conflictRows.length) return null;
+                return (
+                  <div className="p-3 rounded-lg border border-yellow-500/50 bg-yellow-500/10 space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-yellow-700 dark:text-yellow-400">
+                      <AlertCircle size={16} />
+                      <span>{conflictRows.length} unit{conflictRows.length !== 1 ? 's' : ''} with cross-page mismatches</span>
+                    </div>
+                    <div className="text-xs text-yellow-700/80 dark:text-yellow-400/80 space-y-1 max-h-32 overflow-auto">
+                      {conflictRows.map(r => (
+                        <p key={r.unitNumber}>
+                          <strong>{r.unitNumber}:</strong> {r.conflict}
+                        </p>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-yellow-600/70 dark:text-yellow-400/60">
+                      The same unit was read differently on different pages. Review highlighted rows below and correct as needed.
+                    </p>
+                  </div>
+                );
+              })()}
+
               {/* Per-floor summary */}
               {(() => {
                 const floorMap: Record<string, number> = {};
                 for (const r of rows) {
-                  // Derive floor: numeric units use first digit(s) as floor, e.g. "201" → "2", "1201" → "12"
                   let floor = '?';
                   const num = r.unitNumber.replace(/[^0-9]/g, '');
                   if (num.length >= 3) {
-                    floor = num.slice(0, num.length - 2); // e.g. "201"→"2", "1201"→"12"
+                    floor = num.slice(0, num.length - 2);
                   } else if (num.length === 2) {
                     floor = num[0];
                   } else if (num.length === 1) {
@@ -395,16 +464,19 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
                   </thead>
                   <tbody>
                     {rows.map((row, i) => (
-                      <tr key={i} className={!row.selected ? 'opacity-40' : ''}>
+                      <tr key={i} className={`${!row.selected ? 'opacity-40' : ''} ${row.conflict ? 'bg-yellow-500/10' : ''}`} title={row.conflict || undefined}>
                         <td>
                           <input type="checkbox" checked={row.selected} onChange={e => updateRow(i, { selected: e.target.checked })} className="cursor-pointer" />
                         </td>
                         <td>
-                          <input
-                            className="est-input text-xs w-24"
-                            value={row.unitNumber}
-                            onChange={e => updateRow(i, { unitNumber: e.target.value })}
-                          />
+                          <div className="flex items-center gap-1">
+                            {row.conflict && <AlertCircle size={12} className="text-yellow-500 flex-shrink-0" />}
+                            <input
+                              className="est-input text-xs w-24"
+                              value={row.unitNumber}
+                              onChange={e => updateRow(i, { unitNumber: e.target.value })}
+                            />
+                          </div>
                         </td>
                         <td>
                           <input
