@@ -24,7 +24,7 @@ const TAKEOFF_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
 
 const PREFINAL_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'prefinal-units', label: 'Unit Count', icon: <ClipboardCheck size={14} /> },
-  { key: 'prefinal-mismatch', label: 'Unit Count - Mismatch', icon: <ClipboardCheck size={14} /> },
+  { key: 'prefinal-mismatch', label: 'Unit - Mismatch', icon: <ClipboardCheck size={14} /> },
   { key: 'prefinal-cabinets', label: 'Cabinet Count', icon: <ClipboardCheck size={14} /> },
   { key: 'prefinal-summary', label: 'Summary', icon: <BarChart3 size={14} /> },
 ];
