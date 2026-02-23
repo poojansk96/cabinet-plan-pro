@@ -227,6 +227,35 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
         await Promise.all(batch);
       }
       
+      // Normalize building names: unify variations of the same building name
+      const normalizeBldgKey = (b: string) =>
+        b.toUpperCase().replace(/\b(BLDG|BUILDING|BLD)\b\.?\s*/g, '').replace(/[^A-Z0-9]/g, '').trim();
+
+      const bldgCounts: Record<string, Record<string, number>> = {};
+      for (const u of Object.values(allUnits) as any[]) {
+        const raw = (u.detectedBldg ?? '').trim();
+        if (!raw) continue;
+        const key = normalizeBldgKey(raw);
+        if (!key) continue;
+        if (!bldgCounts[key]) bldgCounts[key] = {};
+        bldgCounts[key][raw] = (bldgCounts[key][raw] || 0) + 1;
+      }
+      // For each normalized key, pick the most common variant
+      const bldgCanonical: Record<string, string> = {};
+      for (const [key, variants] of Object.entries(bldgCounts)) {
+        const best = Object.entries(variants).sort((a, b) => b[1] - a[1])[0][0];
+        bldgCanonical[key] = best;
+      }
+      // Apply canonical building names
+      for (const u of Object.values(allUnits) as any[]) {
+        const raw = (u.detectedBldg ?? '').trim();
+        if (!raw) continue;
+        const key = normalizeBldgKey(raw);
+        if (key && bldgCanonical[key]) {
+          u.detectedBldg = bldgCanonical[key];
+        }
+      }
+
       const detectedUnits = Object.values(allUnits).sort((a: any, b: any) =>
         a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true })
       );
