@@ -83,9 +83,16 @@ IMPORTANT - WHAT TO IGNORE:
 VERIFICATION PASS — DO NOT SKIP:
 After your initial scan, do a SECOND pass over the entire floor plan to verify completeness:
 - Re-examine EVERY corner and edge of the drawing. Units near edges, corners, or stairwells are commonly missed.
-- Count the total unit number labels you see on the plan. If your extracted list has FEWER units than visible labels, you missed some — go back and find them.
 - Pay special attention to units whose labels may be small, rotated, partially obscured, or positioned far from their door. Example: "A-03" might appear as a tiny label near the boundary.
 - If a unit number is visible ANYWHERE on the floor plan drawing (not in tables), and the corresponding space has cabinets/countertops, it MUST be in your output.
+- HOWEVER: During verification, do NOT add units just because you see a label. You MUST ALSO confirm that cabinet rectangles, countertop lines, or appliance symbols are VISUALLY DRAWN INSIDE that unit's boundary. A unit label alone is NEVER sufficient evidence.
+
+CRITICAL — BLANK UNIT FILTERING (FINAL CHECK):
+- Before finalizing your output, review EACH unit in your list one more time.
+- For EACH unit, ask: "Can I ACTUALLY SEE drawn cabinet rectangles, countertop lines, or appliance symbols INSIDE this unit's floor plan boundary?"
+- If the answer is NO — if the unit interior shows ONLY walls, doors, windows, dimension lines, or empty space — REMOVE that unit from your output immediately.
+- Units like bedrooms, living rooms, closets, corridors, and any space without physically drawn cabinetry MUST be excluded even if they have a unit number label on the plan.
+- When in doubt, EXCLUDE. It is far better to miss a unit than to include a blank one.
 
 RULES:
 - Only include units whose number appears ON THE FLOOR PLAN DRAWING itself (near doors, corridors, or inside room boundaries), NOT in reference tables or schedules. EXCEPTION: if a space has visible cabinets/countertops but no unit number label, include it with unitNumber "?".
