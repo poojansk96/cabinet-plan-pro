@@ -36,33 +36,42 @@ function loadData(projectId: string): PrefinalData {
         cabinetUnitTypes: parsed.cabinetUnitTypes || [],
       };
     }
-    // Normalize + deduplicate cabinetUnitTypes
-    const rawCabTypes: string[] = parsed.cabinetUnitTypes || [];
-    const seenNorm = new Set<string>();
-    const dedupedCabTypes: string[] = [];
-    for (const t of rawCabTypes) {
-      // Normalize the stored value: uppercase, collapse spaces around hyphens
-      let normalized = t.trim().toUpperCase().replace(/\s*-\s*/g, '-');
-      // Strip "TYPE " prefix for dedup key
-      const key = normalized.replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '');
-      if (!key || seenNorm.has(key)) continue;
-      seenNorm.add(key);
-      dedupedCabTypes.push(normalized);
-    }
-    // Also normalize cabinetRows unitType values to match
     const cabinetRows = (parsed.cabinetRows || []).map((r: any) => ({
       ...r,
-      unitType: r.unitType ? r.unitType.trim().toUpperCase().replace(/\s*-\s*/g, '-') : r.unitType,
+      unitType: r.unitType ? normalizeCabType(r.unitType) : r.unitType,
     }));
     const unitNumbers = (parsed.unitNumbers || []).map((u: any) => ({ ...u, floor: u.floor || '' }));
-    return { unitTypes: parsed.unitTypes || [], unitNumbers, cabinetRows, cabinetUnitTypes: dedupedCabTypes };
+    return { unitTypes: parsed.unitTypes || [], unitNumbers, cabinetRows, cabinetUnitTypes: dedupCabTypes(parsed.cabinetUnitTypes || []) };
   } catch {
     return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [] };
   }
 }
 
+function normalizeCabType(t: string): string {
+  return t.trim().toUpperCase().replace(/\s*-\s*/g, '-');
+}
+
+function cabTypeKey(t: string): string {
+  return normalizeCabType(t).replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '');
+}
+
+function dedupCabTypes(types: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const t of types) {
+    const normalized = normalizeCabType(t);
+    const key = cabTypeKey(normalized);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    result.push(normalized);
+  }
+  return result;
+}
+
 function saveData(projectId: string, data: PrefinalData) {
-  localStorage.setItem(`prefinal_${projectId}`, JSON.stringify(data));
+  // Always deduplicate cabinetUnitTypes before saving
+  const cleaned = { ...data, cabinetUnitTypes: dedupCabTypes(data.cabinetUnitTypes) };
+  localStorage.setItem(`prefinal_${projectId}`, JSON.stringify(cleaned));
 }
 
 export function usePrefinalStore(projectId: string) {
@@ -217,14 +226,15 @@ export function usePrefinalStore(projectId: string) {
   // ── Cabinet Unit Types (independent columns for cabinet section) ────────
   const addCabinetUnitTypes = useCallback((types: string[]) => {
     setData(prev => {
-      const normalizeKey = (t: string) => t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '').trim();
-      const existingKeys = new Set(prev.cabinetUnitTypes.map(t => normalizeKey(t)));
-      const newTypes = types.filter(t => {
-        const key = normalizeKey(t);
-        if (!key || existingKeys.has(key)) return false;
-        existingKeys.add(key);
-        return true;
-      });
+      const existingKeys = new Set(prev.cabinetUnitTypes.map(t => cabTypeKey(t)));
+      const newTypes = types
+        .map(t => normalizeCabType(t))
+        .filter(t => {
+          const key = cabTypeKey(t);
+          if (!key || existingKeys.has(key)) return false;
+          existingKeys.add(key);
+          return true;
+        });
       if (!newTypes.length) return prev;
       const cabinetUnitTypes = [...prev.cabinetUnitTypes, ...newTypes];
       const next = { ...prev, cabinetUnitTypes };
@@ -234,9 +244,10 @@ export function usePrefinalStore(projectId: string) {
   }, [projectId]);
 
   const deleteCabinetUnitType = useCallback((type: string) => {
+    const typeKey = cabTypeKey(type);
     setData(prev => {
-      const cabinetUnitTypes = prev.cabinetUnitTypes.filter(t => t !== type);
-      const cabinetRows = prev.cabinetRows.filter(r => r.unitType !== type);
+      const cabinetUnitTypes = prev.cabinetUnitTypes.filter(t => cabTypeKey(t) !== typeKey);
+      const cabinetRows = prev.cabinetRows.filter(r => cabTypeKey(r.unitType) !== typeKey);
       const next = { ...prev, cabinetUnitTypes, cabinetRows };
       saveData(projectId, next);
       return next;
