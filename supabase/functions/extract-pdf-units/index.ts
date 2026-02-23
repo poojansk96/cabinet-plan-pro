@@ -20,11 +20,34 @@ Scan every word of the page text for a building identifier. Building names appea
 
 RULE: If you find ANY building identifier anywhere on the page, set pageBuilding to it and apply to ALL units on that page unless a unit clearly has a different building label.
 
-STEP 2 — FIND UNITS WITH CABINETS/COUNTERTOPS:
-Identify all spaces (residential units and common areas) that have cabinet or countertop content nearby.
-Use BOTH the floor plan image (if provided) AND the extracted text to find units. The image may show room labels that the text extraction missed.
+STEP 2 — FIND UNITS THAT VISUALLY HAVE CABINETS AND/OR COUNTERTOPS:
+Look at the floor plan IMAGE carefully. Only include a unit if you can VISUALLY SEE one or more of the following DRAWN INSIDE that unit's boundary:
+- Cabinet rectangles (base cabinets, wall cabinets, vanity cabinets) — these appear as rectangular blocks along walls
+- Countertop lines — continuous lines running along cabinet tops, L-shapes, U-shapes, or island shapes
+- Kitchen appliance symbols: sink (circle or oval in counter), refrigerator (rectangle), range/cooktop, dishwasher (DW), microwave
+- Bathroom vanity cabinets with sink symbols
+- Laundry cabinets or folding counters
 
-CABINET/COUNTERTOP SIGNALS: cabinet, counter, CT, countertop, DW, sink, refrigerator, kitchen, kitch, range, cooktop, dishwasher, microwave, upper cab, lower cab, base cab, lin ft, linear ft, granite, marble, quartz, laminate, undermount, island, peninsula, vanity, lav, laundry tub, washer, dryer, W/D, folding counter, community room, fitness, clubhouse, leasing office, toilet, restroom, bathroom, bath
+CRITICAL — DO NOT INCLUDE UNITS THAT ARE BLANK OR EMPTY:
+- If a unit space on the plan shows ONLY walls, doors, and windows with NO cabinet rectangles, NO counter lines, and NO appliance symbols visible inside it — DO NOT include that unit.
+- A unit label existing on the plan is NOT enough. You must SEE actual cabinet/countertop/appliance drawings INSIDE that unit.
+- Bedrooms, living rooms, closets, and hallways that have NO cabinets or countertops must be EXCLUDED even if they have a unit number label.
+- When in doubt, EXCLUDE the unit. It is better to miss a unit than to include a blank one.
+
+WHAT COUNTS AS CABINET/COUNTERTOP EVIDENCE (must be VISUALLY drawn):
+- Rectangular blocks along walls (cabinets)
+- L-shaped or U-shaped counter lines
+- Sink symbols (circles/ovals inside counters)
+- Appliance rectangles (fridge, range, DW)
+- Vanity with sink in bathrooms
+- Island or peninsula shapes
+
+WHAT DOES NOT COUNT (do NOT use these alone as evidence):
+- Just the word "kitchen" or "bath" in text without visible cabinet drawings
+- Room labels alone
+- Door swings or window marks
+- Dimension lines
+- General notes or legends
 
 UNIT TYPES TO DETECT:
 1. Residential: "Unit 101", "Apt 3B", "A-101", "B204", "101A", "#201"
@@ -37,8 +60,8 @@ IMPORTANT - WHAT TO IGNORE:
 
 RULES:
 - Only include units whose number appears ON THE FLOOR PLAN DRAWING itself (near doors, corridors, or inside room boundaries), NOT in reference tables or schedules
-- Only include spaces where cabinet/countertop signals appear near that space on the plan
-- If unsure whether a space has cabinets, use kitchenConfidence "maybe"
+- ONLY include units where you can VISUALLY SEE cabinet rectangles, countertop lines, or appliance symbols DRAWN INSIDE that unit's floor plan boundary. If the unit interior is blank/empty — skip it.
+- kitchenConfidence "yes" = clearly visible cabinets/countertops drawn inside the unit. "maybe" = you see some indicators but are not fully certain.
 - detectedType is MANDATORY for every unit — always provide it, never leave it null:
   * For RESIDENTIAL units: look for a TYPE label near the unit on the plan (e.g. "Type A5", "TYPE A1-3BR", "UNIT TYPE: B2"). The "UNIT A", "UNIT B" labels are type names. If a type label like "A1", "B2", "TYPE C" appears inside or near the unit boundary, use it as detectedType.
   * For COMMON AREAS: use the space/room name as the type (e.g. "Laundry", "Community Room", "Clubhouse", "Leasing Office", "Fitness", "Pantry", "Restroom").
