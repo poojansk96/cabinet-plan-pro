@@ -90,24 +90,35 @@ export default function SummaryModule({ project }: Props) {
     const wsUnit = wb.addWorksheet('Unit Count');
     const uniqueTypes = Array.from(new Set(project.units.map(u => u.type).filter(Boolean))).sort();
 
-    // Set column widths: Unit#, Building, Floor fixed; each type column narrow (rotated text)
+    const allBorders: Partial<ExcelJS.Borders> = {
+      top: { style: 'thin', color: { argb: 'FF999999' } },
+      bottom: { style: 'thin', color: { argb: 'FF999999' } },
+      left: { style: 'thin', color: { argb: 'FF999999' } },
+      right: { style: 'thin', color: { argb: 'FF999999' } },
+    };
+
+    // Set column widths: blank col A, then Unit#, Building, Floor, types
     wsUnit.columns = [
+      { width: 3 },
       { width: 12 },
       { width: 16 },
       { width: 10 },
       ...uniqueTypes.map(() => ({ width: 6 })),
     ];
 
-    // Header row
-    const unitHeaderRow = wsUnit.addRow(['Unit #', 'Building', 'Floor', ...uniqueTypes]);
-    unitHeaderRow.height = 120; // tall row to show rotated text
+    // Blank row 1
+    wsUnit.addRow([]);
+
+    // Header row (starting from col B)
+    const unitHeaderRow = wsUnit.addRow(['', 'Unit #', 'Building', 'Floor', ...uniqueTypes]);
+    unitHeaderRow.height = 120;
     unitHeaderRow.eachCell((cell, colNumber) => {
+      if (colNumber <= 1) return;
       cell.font = { bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F0' } };
-      cell.border = { bottom: { style: 'thin', color: { argb: 'FF999999' } } };
+      cell.border = allBorders;
       cell.alignment = { vertical: 'bottom', wrapText: false };
-      // Rotate type name columns 90 degrees
-      if (colNumber > 3) {
+      if (colNumber > 4) {
         cell.alignment = { textRotation: 90, vertical: 'bottom', horizontal: 'center' };
       }
     });
@@ -115,9 +126,11 @@ export default function SummaryModule({ project }: Props) {
     // Data rows
     project.units.forEach(u => {
       const typeFlags = uniqueTypes.map(t => (u.type === t ? 1 : ''));
-      const dataRow = wsUnit.addRow([u.unitNumber, u.bldg || '', fmtFloor(u.floor || ''), ...typeFlags]);
+      const dataRow = wsUnit.addRow(['', u.unitNumber, u.bldg || '', fmtFloor(u.floor || ''), ...typeFlags]);
       dataRow.eachCell((cell, colNumber) => {
-        if (colNumber > 3) {
+        if (colNumber <= 1) return;
+        cell.border = allBorders;
+        if (colNumber > 4) {
           cell.alignment = { horizontal: 'center', vertical: 'middle' };
         }
       });
@@ -126,11 +139,13 @@ export default function SummaryModule({ project }: Props) {
     // Empty row then total
     wsUnit.addRow([]);
     const typeCounts = uniqueTypes.map(t => project.units.filter(u => u.type === t).length);
-    const unitTotRow = wsUnit.addRow([`TOTAL (${project.units.length})`, '', '', ...typeCounts]);
+    const unitTotRow = wsUnit.addRow(['', `TOTAL (${project.units.length})`, '', '', ...typeCounts]);
     unitTotRow.eachCell((cell, colNumber) => {
+      if (colNumber <= 1) return;
       cell.font = { bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
-      if (colNumber > 3) cell.alignment = { horizontal: 'center' };
+      cell.border = allBorders;
+      if (colNumber > 4) cell.alignment = { horizontal: 'center' };
     });
 
     // ── Sheet 3: Countertops by Unit Type ────────────────────────
