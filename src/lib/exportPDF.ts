@@ -141,15 +141,13 @@ export function exportProjectPDF(project: Project) {
     let grandTotal = 0;
 
     typeMap.forEach((units, type) => {
-      const representative = units[0];
       const unitCount = units.length;
-      if (representative.countertops.length === 0) return;
+      // Collect ALL unique countertop sections across all units of this type
+      const allCts = units.flatMap(u => u.countertops);
+      if (allCts.length === 0) return;
 
-      // Type header row
-      const typeSqft = calcUnitCountertopTotal(representative);
-      const typeTotalSqft = typeSqft * unitCount;
-      grandTotal += typeTotalSqft;
-
+      // Use representative unit's countertops as the template display
+      const representative = units[0];
       representative.countertops.forEach(ct => {
         const sqft = calcCountertopSqft(ct);
         ctRows.push([
@@ -165,7 +163,27 @@ export function exportProjectPDF(project: Project) {
         ]);
       });
 
-      // Per-type subtotal
+      // Check for extra countertops in other units not present in representative
+      units.slice(1).forEach(u => {
+        u.countertops.slice(representative.countertops.length).forEach(ct => {
+          const sqft = calcCountertopSqft(ct);
+          ctRows.push([
+            `${type} — #${u.unitNumber}`,
+            ct.label,
+            `${ct.length}"`,
+            `${ct.depth}"`,
+            `${ct.splashHeight ?? 0}"`,
+            String(ct.sideSplash ?? 0),
+            ct.isIsland ? 'Island' : 'Perimeter',
+            ct.addWaste ? 'Yes' : 'No',
+            String(sqft),
+          ]);
+        });
+      });
+
+      // Per-type subtotal using actual sqft from all units
+      const typeTotalSqft = units.reduce((s, u) => s + calcUnitCountertopTotal(u), 0);
+      grandTotal += typeTotalSqft;
       ctRows.push([
         '', '', '', '', '', '', '', `Subtotal (×${unitCount})`,
         String(typeTotalSqft),

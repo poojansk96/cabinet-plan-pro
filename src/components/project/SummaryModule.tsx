@@ -131,10 +131,11 @@ export default function SummaryModule({ project }: Props) {
     });
 
     typeMap.forEach((units, type) => {
-      const rep = units[0];
       const unitCount = units.length;
-      if (rep.countertops.length === 0) return;
+      const allCts = units.flatMap(u => u.countertops);
+      if (allCts.length === 0) return;
 
+      const rep = units[0];
       rep.countertops.forEach(ct => {
         const sqft = calcCountertopSqft(ct);
         wsCt.addRow([
@@ -150,8 +151,26 @@ export default function SummaryModule({ project }: Props) {
         ]);
       });
 
-      // Subtotal row
-      const typeSqft = calcUnitCountertopTotal(rep) * unitCount;
+      // Extra countertops in non-representative units
+      units.slice(1).forEach(u => {
+        u.countertops.slice(rep.countertops.length).forEach(ct => {
+          const sqft = calcCountertopSqft(ct);
+          wsCt.addRow([
+            `${type} — #${u.unitNumber}`,
+            ct.label,
+            ct.length,
+            ct.depth,
+            ct.splashHeight ?? 0,
+            ct.sideSplash ?? 0,
+            ct.isIsland ? 'Island' : 'Perimeter',
+            ct.addWaste ? 'Yes' : 'No',
+            sqft,
+          ]);
+        });
+      });
+
+      // Subtotal using actual data from all units
+      const typeSqft = units.reduce((s, u) => s + calcUnitCountertopTotal(u), 0);
       const subRow = wsCt.addRow(['', '', '', '', '', '', '', `Subtotal (×${unitCount})`, typeSqft]);
       subRow.eachCell(cell => {
         cell.font = { bold: true };
