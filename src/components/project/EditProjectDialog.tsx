@@ -55,6 +55,15 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
     laminateSubstrateCustom:    rawSpecs?.laminateSubstrateCustom    ?? '',
     laminateColor:              rawSpecs?.laminateColor              ?? '',
     laminateColorCustom:        rawSpecs?.laminateColorCustom        ?? '',
+    vanityCountertops:          rawSpecs?.vanityCountertops          ?? '',
+    vanityManufacturer:         rawSpecs?.vanityManufacturer         ?? '',
+    vanityManufacturerCustom:   rawSpecs?.vanityManufacturerCustom   ?? '',
+    vanityColor:                rawSpecs?.vanityColor                ?? '',
+    vanityColorCustom:          rawSpecs?.vanityColorCustom          ?? '',
+    vanityLaminateSubstrate:    rawSpecs?.vanityLaminateSubstrate    ?? '',
+    vanityLaminateSubstrateCustom: rawSpecs?.vanityLaminateSubstrateCustom ?? '',
+    vanityLaminateColor:        rawSpecs?.vanityLaminateColor        ?? '',
+    vanityLaminateColorCustom:  rawSpecs?.vanityLaminateColorCustom  ?? '',
     handlesAndHardware:         rawSpecs?.handlesAndHardware         ?? '',
     handlesCustom:              rawSpecs?.handlesCustom              ?? '',
     tax:                        rawSpecs?.tax                        ?? '',
@@ -105,6 +114,8 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
           const val = e.target.value;
           if (key === 'countertops') {
             setSpecs(s => ({ ...s, countertops: val, countertopManufacturer: '', countertopManufacturerCustom: '', countertopColor: '', countertopColorCustom: '', laminateSubstrate: '', laminateSubstrateCustom: '', laminateColor: '', laminateColorCustom: '' }));
+          } else if (key === 'vanityCountertops') {
+            setSpecs(s => ({ ...s, vanityCountertops: val, vanityManufacturer: '', vanityManufacturerCustom: '', vanityColor: '', vanityColorCustom: '', vanityLaminateSubstrate: '', vanityLaminateSubstrateCustom: '', vanityLaminateColor: '', vanityLaminateColorCustom: '' }));
           } else {
             setSpecs(s => ({ ...s, [key]: val }));
           }
@@ -174,29 +185,28 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
                 {STF('Customer', 'customer', 'Customer / client name')}
               </div>
 
-              {/* Door Style + Countertops */}
-              <div className="grid grid-cols-2 gap-4">
-                {/* Door Style */}
-                <div className="space-y-2">
-                  <div>
-                    <label className={labelCls}>Door Style</label>
-                    <select value={specs.doorStyle} className={inputCls}
-                      onChange={e => setSpecs(s => ({ ...s, doorStyle: e.target.value, doorStyleCustom: '', doorStyleStyle: '', doorStyleStyleCustom: '', doorStyleConstruction: '', doorStyleFraming: '', doorStyleName: '', doorStyleNameCustom: '' }))}>
-                      <option value="">Select manufacturer…</option>
-                      <option value="Overseas">Overseas</option>
-                      <option value="India">India</option>
-                      <option value="Legacy">Legacy</option>
-                      <option value="Bristol">Bristol</option>
-                      <option value="India box+ Bristol door">India box+ Bristol door</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                  {specs.doorStyle === 'Other' && (
-                    <input type="text" value={specs.doorStyleCustom} className={inputCls}
-                      onChange={e => setSpecs(s => ({ ...s, doorStyleCustom: e.target.value }))}
-                      placeholder="Describe door style / manufacturer…" />
-                  )}
-                  {specs.doorStyle && (
+              {/* Door Style */}
+              <div className="space-y-2">
+                <div>
+                  <label className={labelCls}>Door Style</label>
+                  <select value={specs.doorStyle} className={inputCls}
+                    onChange={e => setSpecs(s => ({ ...s, doorStyle: e.target.value, doorStyleCustom: '', doorStyleStyle: '', doorStyleStyleCustom: '', doorStyleConstruction: '', doorStyleFraming: '', doorStyleName: '', doorStyleNameCustom: '' }))}>
+                    <option value="">Select manufacturer…</option>
+                    <option value="Overseas">Overseas</option>
+                    <option value="India">India</option>
+                    <option value="Legacy">Legacy</option>
+                    <option value="Bristol">Bristol</option>
+                    <option value="India box+ Bristol door">India box+ Bristol door</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                {specs.doorStyle === 'Other' && (
+                  <input type="text" value={specs.doorStyleCustom} className={inputCls}
+                    onChange={e => setSpecs(s => ({ ...s, doorStyleCustom: e.target.value }))}
+                    placeholder="Describe door style / manufacturer…" />
+                )}
+                {specs.doorStyle && (
+                  <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <div>
                         <label className={labelCls}>Style</label>
@@ -222,6 +232,8 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
                           <option value="Plywood">Plywood</option>
                         </select>
                       </div>
+                    </div>
+                    <div className="space-y-2">
                       <div>
                         <label className={labelCls}>Framing</label>
                         <select value={specs.doorStyleFraming} className={subInputCls}
@@ -257,12 +269,16 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
                         );
                       })()}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
+              </div>
 
-                {/* Countertops */}
+              {/* Kitchen Tops & Vanity Tops */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* Kitchen Tops */}
                 <div className="space-y-2">
-                  {SSF('Countertops', 'countertops', COUNTERTOP_OPTIONS)}
+                  <div className="text-xs font-bold text-foreground uppercase tracking-wider border-b border-border pb-1 mb-1">🍳 Kitchen Tops</div>
+                  {SSF('Material', 'countertops', COUNTERTOP_OPTIONS)}
                   {specs.countertops && COUNTERTOP_MANUFACTURERS[specs.countertops] && (
                     <div className="space-y-2">
                       <div>
@@ -330,6 +346,85 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
                           {specs.laminateColor === 'Custom/Specific Color' && (
                             <input type="text" value={specs.laminateColorCustom} className={inputCls}
                               onChange={e => setSpecs(s => ({ ...s, laminateColorCustom: e.target.value }))}
+                              placeholder="Enter specific color…" />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Vanity Tops */}
+                <div className="space-y-2">
+                  <div className="text-xs font-bold text-foreground uppercase tracking-wider border-b border-border pb-1 mb-1">🚿 Vanity Tops</div>
+                  {SSF('Material', 'vanityCountertops', COUNTERTOP_OPTIONS)}
+                  {specs.vanityCountertops && COUNTERTOP_MANUFACTURERS[specs.vanityCountertops] && (
+                    <div className="space-y-2">
+                      <div>
+                        <label className={labelCls}>Vendor</label>
+                        <select value={specs.vanityManufacturer} className={subInputCls}
+                          onChange={e => setSpecs(s => ({ ...s, vanityManufacturer: e.target.value, vanityManufacturerCustom: '' }))}>
+                          <option value="">Select vendor…</option>
+                          {COUNTERTOP_MANUFACTURERS[specs.vanityCountertops].map(m => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                      </div>
+                      {specs.vanityManufacturer === 'Other' && (
+                        <input type="text" value={specs.vanityManufacturerCustom} className={inputCls}
+                          onChange={e => setSpecs(s => ({ ...s, vanityManufacturerCustom: e.target.value }))}
+                          placeholder="Enter manufacturer name…" />
+                      )}
+                      {(specs.vanityCountertops === 'Quartz' || specs.vanityCountertops === 'Granite') && (
+                        <div className="space-y-2">
+                          <div>
+                            <label className={labelCls}>Color</label>
+                            <select value={specs.vanityColor} className={subInputCls}
+                              onChange={e => setSpecs(s => ({ ...s, vanityColor: e.target.value, vanityColorCustom: '' }))}>
+                              <option value="">Select color group…</option>
+                              <option value="Group 1 Color">Group 1 Color</option>
+                              <option value="Group 2 Color">Group 2 Color</option>
+                              <option value="Group 3 Color">Group 3 Color</option>
+                              <option value="Custom/Specific Color">Custom / Specific Color</option>
+                            </select>
+                          </div>
+                          {specs.vanityColor === 'Custom/Specific Color' && (
+                            <input type="text" value={specs.vanityColorCustom} className={inputCls}
+                              onChange={e => setSpecs(s => ({ ...s, vanityColorCustom: e.target.value }))}
+                              placeholder="Enter specific color…" />
+                          )}
+                        </div>
+                      )}
+                      {specs.vanityCountertops === 'Laminate' && (
+                        <div className="space-y-2">
+                          <div>
+                            <label className={labelCls}>Substrate</label>
+                            <select value={specs.vanityLaminateSubstrate} className={subInputCls}
+                              onChange={e => setSpecs(s => ({ ...s, vanityLaminateSubstrate: e.target.value, vanityLaminateSubstrateCustom: '' }))}>
+                              <option value="">Select substrate…</option>
+                              <option value="Particleboard">Particleboard</option>
+                              <option value="Plywood">Plywood</option>
+                              <option value="Other">Other</option>
+                            </select>
+                          </div>
+                          {specs.vanityLaminateSubstrate === 'Other' && (
+                            <input type="text" value={specs.vanityLaminateSubstrateCustom} className={inputCls}
+                              onChange={e => setSpecs(s => ({ ...s, vanityLaminateSubstrateCustom: e.target.value }))}
+                              placeholder="Enter substrate type…" />
+                          )}
+                          <div>
+                            <label className={labelCls}>Color</label>
+                            <select value={specs.vanityLaminateColor} className={subInputCls}
+                              onChange={e => setSpecs(s => ({ ...s, vanityLaminateColor: e.target.value, vanityLaminateColorCustom: '' }))}>
+                              <option value="">Select color group…</option>
+                              <option value="Group 1 Color">Group 1 Color</option>
+                              <option value="Group 2 Color">Group 2 Color</option>
+                              <option value="Group 3 Color">Group 3 Color</option>
+                              <option value="Group 5 Color">Group 5 Color</option>
+                              <option value="Custom/Specific Color">Custom / Specific Color</option>
+                            </select>
+                          </div>
+                          {specs.vanityLaminateColor === 'Custom/Specific Color' && (
+                            <input type="text" value={specs.vanityLaminateColorCustom} className={inputCls}
+                              onChange={e => setSpecs(s => ({ ...s, vanityLaminateColorCustom: e.target.value }))}
                               placeholder="Enter specific color…" />
                           )}
                         </div>

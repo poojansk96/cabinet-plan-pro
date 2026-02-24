@@ -55,6 +55,15 @@ export default function NewProject() {
     laminateSubstrateCustom: '',
     laminateColor: '',
     laminateColorCustom: '',
+    vanityCountertops: '',
+    vanityManufacturer: '',
+    vanityManufacturerCustom: '',
+    vanityColor: '',
+    vanityColorCustom: '',
+    vanityLaminateSubstrate: '',
+    vanityLaminateSubstrateCustom: '',
+    vanityLaminateColor: '',
+    vanityLaminateColorCustom: '',
     handlesCustom: '',
     handlesAndHardware: '',
     tax: '',
@@ -119,9 +128,10 @@ export default function NewProject() {
         value={specs[key]}
         onChange={e => {
           const val = e.target.value;
-          // Reset manufacturer when countertop type changes
           if (key === 'countertops') {
             setSpecs(s => ({ ...s, countertops: val, countertopManufacturer: '', countertopManufacturerCustom: '', countertopColor: '', countertopColorCustom: '', laminateSubstrate: '', laminateSubstrateCustom: '', laminateColor: '', laminateColorCustom: '' }));
+          } else if (key === 'vanityCountertops') {
+            setSpecs(s => ({ ...s, vanityCountertops: val, vanityManufacturer: '', vanityManufacturerCustom: '', vanityColor: '', vanityColorCustom: '', vanityLaminateSubstrate: '', vanityLaminateSubstrateCustom: '', vanityLaminateColor: '', vanityLaminateColorCustom: '' }));
           } else {
             setSpecs(s => ({ ...s, [key]: val }));
           }
@@ -219,76 +229,62 @@ export default function NewProject() {
                 {specTextField('Customer', 'customer', 'Customer / client name')}
               </div>
 
-              {/* Row 2: Door Style + Countertops */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <div>
-                    <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                      Door Style
-                    </label>
-                    <select
-                      value={specs.doorStyle}
-                      onChange={e => setSpecs(s => ({ ...s, doorStyle: e.target.value, doorStyleCustom: '', doorStyleStyle: '', doorStyleStyleCustom: '', doorStyleConstruction: '', doorStyleFraming: '', doorStyleName: '', doorStyleNameCustom: '' }))}
-                      className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
-                    >
-                      <option value="">Select manufacturer…</option>
-                      <option value="Overseas">Overseas</option>
-                      <option value="India">India</option>
-                      <option value="Legacy">Legacy</option>
-                      <option value="Bristol">Bristol</option>
-                      <option value="India box+ Bristol door">India box+ Bristol door</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                  {specs.doorStyle === 'Other' && (
-                    <input
-                      type="text"
-                      value={specs.doorStyleCustom}
-                      onChange={e => setSpecs(s => ({ ...s, doorStyleCustom: e.target.value }))}
-                      placeholder="Describe door style / manufacturer…"
-                      className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
-                      autoFocus
-                    />
-                  )}
-                  {/* Style — shown once a manufacturer is selected */}
-                  {specs.doorStyle && (
+              {/* Door Style */}
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                    Door Style
+                  </label>
+                  <select
+                    value={specs.doorStyle}
+                    onChange={e => setSpecs(s => ({ ...s, doorStyle: e.target.value, doorStyleCustom: '', doorStyleStyle: '', doorStyleStyleCustom: '', doorStyleConstruction: '', doorStyleFraming: '', doorStyleName: '', doorStyleNameCustom: '' }))}
+                    className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                  >
+                    <option value="">Select manufacturer…</option>
+                    <option value="Overseas">Overseas</option>
+                    <option value="India">India</option>
+                    <option value="Legacy">Legacy</option>
+                    <option value="Bristol">Bristol</option>
+                    <option value="India box+ Bristol door">India box+ Bristol door</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                {specs.doorStyle === 'Other' && (
+                  <input
+                    type="text"
+                    value={specs.doorStyleCustom}
+                    onChange={e => setSpecs(s => ({ ...s, doorStyleCustom: e.target.value }))}
+                    placeholder="Describe door style / manufacturer…"
+                    className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                    autoFocus
+                  />
+                )}
+                {specs.doorStyle && (
+                  <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <div>
-                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                          Style
-                        </label>
+                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Style</label>
                         <select
                           value={specs.doorStyleStyle}
                           onChange={e => setSpecs(s => ({ ...s, doorStyleStyle: e.target.value, doorStyleStyleCustom: '' }))}
                           className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
                         >
                           <option value="">Select style…</option>
-                          {specs.doorStyle !== 'India' && (
-                            <option value="Full overlay shaker">Full overlay shaker</option>
-                          )}
+                          {specs.doorStyle !== 'India' && <option value="Full overlay shaker">Full overlay shaker</option>}
                           <option value="Full overlay slab">Full overlay slab</option>
-                          {specs.doorStyle !== 'India' && (
-                            <option value="Other">Other</option>
-                          )}
+                          {specs.doorStyle !== 'India' && <option value="Other">Other</option>}
                         </select>
                       </div>
                       {specs.doorStyleStyle === 'Other' && (
-                        <input
-                          type="text"
-                          value={specs.doorStyleStyleCustom}
+                        <input type="text" value={specs.doorStyleStyleCustom}
                           onChange={e => setSpecs(s => ({ ...s, doorStyleStyleCustom: e.target.value }))}
                           placeholder="Describe style…"
                           className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
-                          autoFocus
                         />
                       )}
-                      {/* Construction */}
                       <div>
-                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                          Construction
-                        </label>
-                        <select
-                          value={specs.doorStyleConstruction}
+                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Construction</label>
+                        <select value={specs.doorStyleConstruction}
                           onChange={e => setSpecs(s => ({ ...s, doorStyleConstruction: e.target.value }))}
                           className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
                         >
@@ -297,13 +293,11 @@ export default function NewProject() {
                           <option value="Plywood">Plywood</option>
                         </select>
                       </div>
-                      {/* Framing */}
+                    </div>
+                    <div className="space-y-2">
                       <div>
-                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                          Framing
-                        </label>
-                        <select
-                          value={specs.doorStyleFraming}
+                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Framing</label>
+                        <select value={specs.doorStyleFraming}
                           onChange={e => setSpecs(s => ({ ...s, doorStyleFraming: e.target.value }))}
                           className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
                         >
@@ -312,7 +306,6 @@ export default function NewProject() {
                           <option value="Frameless">Frameless</option>
                         </select>
                       </div>
-                      {/* Door Style Name — shown when manufacturer has named styles */}
                       {(() => {
                         const nameOptions: Record<string, string[]> = {
                           Overseas: ['Avon Group 9', 'Avon Group 10- PTK', 'Kerala Slab', 'Other'],
@@ -323,11 +316,8 @@ export default function NewProject() {
                         return (
                           <div className="space-y-2">
                             <div>
-                              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                                Door Style Name
-                              </label>
-                              <select
-                                value={specs.doorStyleName}
+                              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Door Style Name</label>
+                              <select value={specs.doorStyleName}
                                 onChange={e => setSpecs(s => ({ ...s, doorStyleName: e.target.value, doorStyleNameCustom: '' }))}
                                 className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
                               >
@@ -336,59 +326,50 @@ export default function NewProject() {
                               </select>
                             </div>
                             {specs.doorStyleName === 'Other' && (
-                              <input
-                                type="text"
-                                value={specs.doorStyleNameCustom}
+                              <input type="text" value={specs.doorStyleNameCustom}
                                 onChange={e => setSpecs(s => ({ ...s, doorStyleNameCustom: e.target.value }))}
                                 placeholder="Enter door style name…"
                                 className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
-                                autoFocus
                               />
                             )}
                           </div>
                         );
                       })()}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Kitchen Tops & Vanity Tops — side by side */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* Kitchen Tops */}
                 <div className="space-y-2">
-                  {specSelectField('Countertops', 'countertops', COUNTERTOP_OPTIONS)}
+                  <div className="text-xs font-bold text-foreground uppercase tracking-wider border-b border-border pb-1 mb-1">🍳 Kitchen Tops</div>
+                  {specSelectField('Material', 'countertops', COUNTERTOP_OPTIONS)}
                   {specs.countertops && COUNTERTOP_MANUFACTURERS[specs.countertops] && (
                     <div className="space-y-2">
                       <div>
-                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                          Vendor
-                        </label>
-                        <select
-                          value={specs.countertopManufacturer}
+                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Vendor</label>
+                        <select value={specs.countertopManufacturer}
                           onChange={e => setSpecs(s => ({ ...s, countertopManufacturer: e.target.value, countertopManufacturerCustom: '' }))}
                           className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
                         >
                           <option value="">Select vendor…</option>
-                          {COUNTERTOP_MANUFACTURERS[specs.countertops].map(m => (
-                            <option key={m} value={m}>{m}</option>
-                          ))}
+                          {COUNTERTOP_MANUFACTURERS[specs.countertops].map(m => <option key={m} value={m}>{m}</option>)}
                         </select>
                       </div>
                       {specs.countertopManufacturer === 'Other' && (
-                        <input
-                          type="text"
-                          value={specs.countertopManufacturerCustom}
+                        <input type="text" value={specs.countertopManufacturerCustom}
                           onChange={e => setSpecs(s => ({ ...s, countertopManufacturerCustom: e.target.value }))}
                           placeholder="Enter manufacturer name…"
                           className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
-                          autoFocus
                         />
                       )}
-                      {/* Color selection — only for Quartz & Granite */}
                       {(specs.countertops === 'Quartz' || specs.countertops === 'Granite') && (
                         <div className="space-y-2">
                           <div>
-                            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                              Color
-                            </label>
-                            <select
-                              value={specs.countertopColor}
+                            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Color</label>
+                            <select value={specs.countertopColor}
                               onChange={e => setSpecs(s => ({ ...s, countertopColor: e.target.value, countertopColorCustom: '' }))}
                               className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
                             >
@@ -400,26 +381,19 @@ export default function NewProject() {
                             </select>
                           </div>
                           {specs.countertopColor === 'Custom/Specific Color' && (
-                            <input
-                              type="text"
-                              value={specs.countertopColorCustom}
+                            <input type="text" value={specs.countertopColorCustom}
                               onChange={e => setSpecs(s => ({ ...s, countertopColorCustom: e.target.value }))}
-                              placeholder="Enter specific color name or code…"
+                              placeholder="Enter specific color…"
                               className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
-                              autoFocus
                             />
                           )}
                         </div>
                       )}
-                      {/* Substrate selection — only for Laminate */}
                       {specs.countertops === 'Laminate' && (
                         <div className="space-y-2">
                           <div>
-                            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                              Substrate
-                            </label>
-                            <select
-                              value={specs.laminateSubstrate}
+                            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Substrate</label>
+                            <select value={specs.laminateSubstrate}
                               onChange={e => setSpecs(s => ({ ...s, laminateSubstrate: e.target.value, laminateSubstrateCustom: '' }))}
                               className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
                             >
@@ -430,22 +404,15 @@ export default function NewProject() {
                             </select>
                           </div>
                           {specs.laminateSubstrate === 'Other' && (
-                            <input
-                              type="text"
-                              value={specs.laminateSubstrateCustom}
+                            <input type="text" value={specs.laminateSubstrateCustom}
                               onChange={e => setSpecs(s => ({ ...s, laminateSubstrateCustom: e.target.value }))}
                               placeholder="Enter substrate type…"
                               className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
-                              autoFocus
                             />
                           )}
-                          {/* Color selection for Laminate */}
                           <div>
-                            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                              Color
-                            </label>
-                            <select
-                              value={specs.laminateColor}
+                            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Color</label>
+                            <select value={specs.laminateColor}
                               onChange={e => setSpecs(s => ({ ...s, laminateColor: e.target.value, laminateColorCustom: '' }))}
                               className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
                             >
@@ -458,13 +425,105 @@ export default function NewProject() {
                             </select>
                           </div>
                           {specs.laminateColor === 'Custom/Specific Color' && (
-                            <input
-                              type="text"
-                              value={specs.laminateColorCustom}
+                            <input type="text" value={specs.laminateColorCustom}
                               onChange={e => setSpecs(s => ({ ...s, laminateColorCustom: e.target.value }))}
-                              placeholder="Enter specific color name or code…"
+                              placeholder="Enter specific color…"
                               className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
-                              autoFocus
+                            />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Vanity Tops */}
+                <div className="space-y-2">
+                  <div className="text-xs font-bold text-foreground uppercase tracking-wider border-b border-border pb-1 mb-1">🚿 Vanity Tops</div>
+                  {specSelectField('Material', 'vanityCountertops', COUNTERTOP_OPTIONS)}
+                  {specs.vanityCountertops && COUNTERTOP_MANUFACTURERS[specs.vanityCountertops] && (
+                    <div className="space-y-2">
+                      <div>
+                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Vendor</label>
+                        <select value={specs.vanityManufacturer}
+                          onChange={e => setSpecs(s => ({ ...s, vanityManufacturer: e.target.value, vanityManufacturerCustom: '' }))}
+                          className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
+                        >
+                          <option value="">Select vendor…</option>
+                          {COUNTERTOP_MANUFACTURERS[specs.vanityCountertops].map(m => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                      </div>
+                      {specs.vanityManufacturer === 'Other' && (
+                        <input type="text" value={specs.vanityManufacturerCustom}
+                          onChange={e => setSpecs(s => ({ ...s, vanityManufacturerCustom: e.target.value }))}
+                          placeholder="Enter manufacturer name…"
+                          className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                        />
+                      )}
+                      {(specs.vanityCountertops === 'Quartz' || specs.vanityCountertops === 'Granite') && (
+                        <div className="space-y-2">
+                          <div>
+                            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Color</label>
+                            <select value={specs.vanityColor}
+                              onChange={e => setSpecs(s => ({ ...s, vanityColor: e.target.value, vanityColorCustom: '' }))}
+                              className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
+                            >
+                              <option value="">Select color group…</option>
+                              <option value="Group 1 Color">Group 1 Color</option>
+                              <option value="Group 2 Color">Group 2 Color</option>
+                              <option value="Group 3 Color">Group 3 Color</option>
+                              <option value="Custom/Specific Color">Custom / Specific Color</option>
+                            </select>
+                          </div>
+                          {specs.vanityColor === 'Custom/Specific Color' && (
+                            <input type="text" value={specs.vanityColorCustom}
+                              onChange={e => setSpecs(s => ({ ...s, vanityColorCustom: e.target.value }))}
+                              placeholder="Enter specific color…"
+                              className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                            />
+                          )}
+                        </div>
+                      )}
+                      {specs.vanityCountertops === 'Laminate' && (
+                        <div className="space-y-2">
+                          <div>
+                            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Substrate</label>
+                            <select value={specs.vanityLaminateSubstrate}
+                              onChange={e => setSpecs(s => ({ ...s, vanityLaminateSubstrate: e.target.value, vanityLaminateSubstrateCustom: '' }))}
+                              className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
+                            >
+                              <option value="">Select substrate…</option>
+                              <option value="Particleboard">Particleboard</option>
+                              <option value="Plywood">Plywood</option>
+                              <option value="Other">Other</option>
+                            </select>
+                          </div>
+                          {specs.vanityLaminateSubstrate === 'Other' && (
+                            <input type="text" value={specs.vanityLaminateSubstrateCustom}
+                              onChange={e => setSpecs(s => ({ ...s, vanityLaminateSubstrateCustom: e.target.value }))}
+                              placeholder="Enter substrate type…"
+                              className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                            />
+                          )}
+                          <div>
+                            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Color</label>
+                            <select value={specs.vanityLaminateColor}
+                              onChange={e => setSpecs(s => ({ ...s, vanityLaminateColor: e.target.value, vanityLaminateColorCustom: '' }))}
+                              className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
+                            >
+                              <option value="">Select color group…</option>
+                              <option value="Group 1 Color">Group 1 Color</option>
+                              <option value="Group 2 Color">Group 2 Color</option>
+                              <option value="Group 3 Color">Group 3 Color</option>
+                              <option value="Group 5 Color">Group 5 Color</option>
+                              <option value="Custom/Specific Color">Custom / Specific Color</option>
+                            </select>
+                          </div>
+                          {specs.vanityLaminateColor === 'Custom/Specific Color' && (
+                            <input type="text" value={specs.vanityLaminateColorCustom}
+                              onChange={e => setSpecs(s => ({ ...s, vanityLaminateColorCustom: e.target.value }))}
+                              placeholder="Enter specific color…"
+                              className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
                             />
                           )}
                         </div>

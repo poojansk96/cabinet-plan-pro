@@ -65,6 +65,7 @@ export interface ProjectSpecs {
   drawerBox?: string;
   drawerGuides?: string;
   countertops?: string;
+  vanityCountertops?: string;
   handlesAndHardware?: string;
   tax?: string;
 }
