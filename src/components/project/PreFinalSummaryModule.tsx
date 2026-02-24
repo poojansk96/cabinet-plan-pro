@@ -228,7 +228,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
       doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(...WHITE);
-      doc.text('CabinetTakeoff Pro — Pre-Final Report', margin + 10, 28);
+      doc.text('cabinetcounters.com — Pre-Final Report', margin + 10, 28);
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(...GRAY_MID);
@@ -360,7 +360,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
         doc.setFontSize(7);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(...GRAY_MID);
-        doc.text('CabinetTakeoff Pro  |  Pre-Final Report', margin, pageH - 9);
+        doc.text('cabinetcounters.com  |  Pre-Final Report', margin, pageH - 9);
         doc.text(`Page ${i} of ${totalPages}`, pageW - margin, pageH - 9, { align: 'right' });
         doc.text(project.name, pageW / 2, pageH - 9, { align: 'center' });
       }
