@@ -39,6 +39,7 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
     doorStyleStyle:             rawSpecs?.doorStyleStyle             ?? '',
     doorStyleStyleCustom:       rawSpecs?.doorStyleStyleCustom       ?? '',
     doorStyleConstruction:      rawSpecs?.doorStyleConstruction      ?? '',
+    doorStyleSeries:            rawSpecs?.doorStyleSeries            ?? '',
     doorStyleFraming:           rawSpecs?.doorStyleFraming           ?? '',
     doorStyleName:              rawSpecs?.doorStyleName              ?? '',
     doorStyleNameCustom:        rawSpecs?.doorStyleNameCustom        ?? '',
@@ -213,7 +214,7 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
                 <div>
                   <label className={labelCls}>Door Style</label>
                   <select value={specs.doorStyle} className={inputCls}
-                    onChange={e => setSpecs(s => ({ ...s, doorStyle: e.target.value, doorStyleCustom: '', doorStyleStyle: '', doorStyleStyleCustom: '', doorStyleConstruction: '', doorStyleFraming: '', doorStyleName: '', doorStyleNameCustom: '' }))}>
+                    onChange={e => setSpecs(s => ({ ...s, doorStyle: e.target.value, doorStyleCustom: '', doorStyleStyle: '', doorStyleStyleCustom: '', doorStyleConstruction: '', doorStyleFraming: '', doorStyleSeries: '', doorStyleName: '', doorStyleNameCustom: '' }))}>
                     <option value="">Select manufacturer…</option>
                     <option value="Overseas">Overseas</option>
                     <option value="India">India</option>
@@ -246,13 +247,41 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
                           onChange={e => setSpecs(s => ({ ...s, doorStyleStyleCustom: e.target.value }))}
                           placeholder="Describe style…" />
                       )}
+                      {specs.doorStyle === 'Legacy' && (
+                        <div>
+                          <label className={labelCls}>Series</label>
+                          <select value={specs.doorStyleSeries} className={subInputCls}
+                            onChange={e => setSpecs(s => ({ ...s, doorStyleSeries: e.target.value, doorStyleConstruction: '' }))}>
+                            <option value="">Select series…</option>
+                            <option value="Advantage">Advantage</option>
+                            <option value="Debut">Debut</option>
+                            <option value="Presidential">Presidential</option>
+                          </select>
+                        </div>
+                      )}
                       <div>
                         <label className={labelCls}>Construction</label>
                         <select value={specs.doorStyleConstruction} className={subInputCls}
                           onChange={e => setSpecs(s => ({ ...s, doorStyleConstruction: e.target.value }))}>
                           <option value="">Select construction…</option>
-                          <option value="Particleboard">Particleboard</option>
-                          <option value="Plywood">Plywood</option>
+                          {specs.doorStyle === 'Legacy' && specs.doorStyleSeries === 'Advantage' ? (
+                            <>
+                              <option value="Standard">Standard</option>
+                              <option value="Verde">Verde</option>
+                              <option value="Intence">Intence</option>
+                            </>
+                          ) : specs.doorStyle === 'Legacy' && specs.doorStyleSeries === 'Debut' ? (
+                            <>
+                              <option value="Standard">Standard</option>
+                              <option value="Plywood">Plywood</option>
+                              <option value="Extreme">Extreme</option>
+                            </>
+                          ) : (
+                            <>
+                              <option value="Particleboard">Particleboard</option>
+                              <option value="Plywood">Plywood</option>
+                            </>
+                          )}
                         </select>
                       </div>
                     </div>

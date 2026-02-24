@@ -17,6 +17,7 @@ export function formatDoorStyle(specs?: ProjectSpecs & Record<string, any>): str
     ? specs.doorStyleStyleCustom
     : specs.doorStyleStyle;
 
+  const series = specs.doorStyleSeries || '';
   const framing = specs.doorStyleFraming || '';
   const construction = specs.doorStyleConstruction
     ? `${specs.doorStyleConstruction} construction`
@@ -27,7 +28,7 @@ export function formatDoorStyle(specs?: ProjectSpecs & Record<string, any>): str
     : specs.doorStyleName;
 
   // Build: Manufacturer  Framing  Construction — Name
-  const parts = [manufacturer, framing, construction].filter(Boolean);
+  const parts = [manufacturer, series, framing, construction].filter(Boolean);
   let result = parts.join(' ');
   if (style) result += ` ${style}`;
   if (name) result += ` — ${name}`;
