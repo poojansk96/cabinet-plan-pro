@@ -1,7 +1,8 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import type { Project, Unit } from '@/types/project';
+import type { Project, Unit, ProjectSpecs } from '@/types/project';
 import { calcProjectSummary, calcUnitCountertopTotal, calcCountertopSqft } from '@/lib/calculations';
+import { formatDoorStyle } from '@/lib/formatSpecs';
 
 // Brand colors
 const BLUE_DARK = [22, 60, 110] as [number, number, number];
