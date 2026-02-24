@@ -203,6 +203,28 @@ export default function Dashboard() {
                     No other software in the market offers fully automated AI-powered cabinet and countertop takeoffs. Existing tools are built for general construction takeoffs and require you to manually select and trace every item on the plans. cabinetcounters.com is the first AI project purpose-built for cabinets & countertops — just upload your plans and the system does the rest, requiring far less human effort than anything else available.
                   </p>
                 </div>
+
+                <div className="est-card p-4 border-l-4" style={{ borderLeftColor: 'hsl(var(--chart-2))' }}>
+                  <h3 className="font-semibold text-sm text-foreground mb-2">🚀 Getting Started</h3>
+                  <ol className="space-y-2 text-xs text-muted-foreground list-none">
+                    <li className="flex items-start gap-2">
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-primary-foreground" style={{ background: 'hsl(var(--primary))' }}>1</span>
+                      <span><strong className="text-foreground">Create a Project</strong> — Click "New Project" and enter the project name, type (Residential / Commercial), and address.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-primary-foreground" style={{ background: 'hsl(var(--primary))' }}>2</span>
+                      <span><strong className="text-foreground">Import Units from Plans</strong> — Upload architect floor plans or images in the Units tab. The AI will auto-detect and extract all units and unit types.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-primary-foreground" style={{ background: 'hsl(var(--primary))' }}>3</span>
+                      <span><strong className="text-foreground">Import Cabinets & Countertops</strong> — Upload shop drawings or plans in the Cabinets and Countertops tabs to auto-extract SKUs, counts, and square footage.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-primary-foreground" style={{ background: 'hsl(var(--primary))' }}>4</span>
+                      <span><strong className="text-foreground">Review & Export</strong> — Check the Summary tab for a full project overview, then export to PDF or Excel for your records.</span>
+                    </li>
+                  </ol>
+                </div>
               </div>
             )}
           </div>
