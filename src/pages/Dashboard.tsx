@@ -137,20 +137,57 @@ export default function Dashboard() {
 
         {/* Projects Grid */}
         {projects.length === 0 ? (
-          <div className="text-center py-20">
-            <LayoutGrid size={48} className="mx-auto mb-4 text-muted-foreground opacity-30" />
-            <h2 className="text-xl font-semibold text-foreground mb-2">No Projects Yet</h2>
-            <p className="text-muted-foreground mb-6 text-sm">
-              Create your first project to start estimating cabinets and countertops.
+          <div className="py-12 max-w-2xl mx-auto">
+            <div className="text-center mb-8">
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'hsl(var(--primary) / 0.1)' }}>
+                <Building2 size={28} style={{ color: 'hsl(var(--primary))' }} />
+              </div>
+              <h2 className="text-2xl font-bold text-foreground mb-2">Welcome to CabinetTakeoff Pro</h2>
+              <p className="text-muted-foreground text-sm">
+                The first software of its kind — fully automated cabinet & countertop estimating powered by AI.
+              </p>
+            </div>
+
+            <div className="space-y-3 mb-8">
+              <div className="est-card p-4 flex items-start gap-3">
+                <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: 'hsl(var(--primary))' }}>✓</span>
+                <div>
+                  <h3 className="font-semibold text-sm text-foreground">Auto-Extract Units & Unit Types from Plans</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">Upload architect floor plans, shop drawings, or images — the system uses coding + AI to automatically detect and extract all units and unit types. No manual selection needed.</p>
+                </div>
+              </div>
+
+              <div className="est-card p-4 flex items-start gap-3">
+                <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white bg-orange-500">⟳</span>
+                <div>
+                  <h3 className="font-semibold text-sm text-foreground">Cabinet & Countertop Calculations</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">Automatically calculates cabinet counts and countertop square footage by just uploading the plans. Working and continuously optimizing for accuracy.</p>
+                </div>
+              </div>
+
+              <div className="est-card p-4 flex items-start gap-3">
+                <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: 'hsl(var(--primary))' }}>✓</span>
+                <div>
+                  <h3 className="font-semibold text-sm text-foreground">Extract Cabinet SKUs from 2020 Shop Drawings</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">Accurately extracts correct unit counts and cabinet SKUs from 2020 Design shop drawings — just upload and let the system handle the rest.</p>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-center text-xs text-muted-foreground mb-6">
+              Just upload your plans — no need to manually check or select anything. The AI handles it all.
             </p>
-            <Link
-              to="/new"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-medium text-white"
-              style={{ background: 'hsl(var(--primary))' }}
-            >
-              <Plus size={16} />
-              Create First Project
-            </Link>
+
+            <div className="text-center">
+              <Link
+                to="/new"
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-md text-sm font-medium text-white"
+                style={{ background: 'hsl(var(--primary))' }}
+              >
+                <Plus size={16} />
+                Create Your First Project
+              </Link>
+            </div>
           </div>
         ) : (
           <>
