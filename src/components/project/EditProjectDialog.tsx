@@ -278,6 +278,48 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
                 )}
               </div>
 
+
+              {/* Hinges + Drawer Box */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  {SSF('Hinges', 'hinges', HINGE_OPTIONS)}
+                  {specs.hinges === 'Other' && (
+                    <input type="text" value={specs.hingesCustom} className={inputCls}
+                      onChange={e => setSpecs(s => ({ ...s, hingesCustom: e.target.value }))}
+                      placeholder="Describe hinge type…" />
+                  )}
+                </div>
+                {SSF('Drawer Box', 'drawerBox', DRAWER_BOX_OPTIONS)}
+              </div>
+
+              {/* Drawer Guides + Handles */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  {SSF('Drawer Guides', 'drawerGuides', DRAWER_GUIDE_OPTIONS)}
+                  {specs.drawerGuides === 'Other' && (
+                    <input type="text" value={specs.drawerGuidesCustom} className={inputCls}
+                      onChange={e => setSpecs(s => ({ ...s, drawerGuidesCustom: e.target.value }))}
+                      placeholder="Describe drawer guide type…" />
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <div>
+                    <label className={labelCls}>Handles</label>
+                    <select value={specs.handlesAndHardware} className={inputCls}
+                      onChange={e => setSpecs(s => ({ ...s, handlesAndHardware: e.target.value, handlesCustom: '' }))}>
+                      <option value="">Select handles…</option>
+                      <option value='Standard knob, 4" wire pulls or 96mm barpulls in Brushed nickel finish'>Standard knob, 4" wire pulls or 96mm barpulls in Brushed nickel finish</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  {specs.handlesAndHardware === 'Other' && (
+                    <input type="text" value={specs.handlesCustom} className={inputCls}
+                      onChange={e => setSpecs(s => ({ ...s, handlesCustom: e.target.value }))}
+                      placeholder="Describe handle style…" />
+                  )}
+                </div>
+              </div>
+
               {/* Kitchen Tops & Vanity Tops */}
               <div className="grid grid-cols-2 gap-4">
                 {/* Kitchen Tops */}
@@ -496,47 +538,6 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
                           placeholder="Enter color…" />
                       )}
                     </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Hinges + Drawer Box */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  {SSF('Hinges', 'hinges', HINGE_OPTIONS)}
-                  {specs.hinges === 'Other' && (
-                    <input type="text" value={specs.hingesCustom} className={inputCls}
-                      onChange={e => setSpecs(s => ({ ...s, hingesCustom: e.target.value }))}
-                      placeholder="Describe hinge type…" />
-                  )}
-                </div>
-                {SSF('Drawer Box', 'drawerBox', DRAWER_BOX_OPTIONS)}
-              </div>
-
-              {/* Drawer Guides + Handles */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  {SSF('Drawer Guides', 'drawerGuides', DRAWER_GUIDE_OPTIONS)}
-                  {specs.drawerGuides === 'Other' && (
-                    <input type="text" value={specs.drawerGuidesCustom} className={inputCls}
-                      onChange={e => setSpecs(s => ({ ...s, drawerGuidesCustom: e.target.value }))}
-                      placeholder="Describe drawer guide type…" />
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <div>
-                    <label className={labelCls}>Handles</label>
-                    <select value={specs.handlesAndHardware} className={inputCls}
-                      onChange={e => setSpecs(s => ({ ...s, handlesAndHardware: e.target.value, handlesCustom: '' }))}>
-                      <option value="">Select handles…</option>
-                      <option value='Standard knob, 4" wire pulls or 96mm barpulls in Brushed nickel finish'>Standard knob, 4" wire pulls or 96mm barpulls in Brushed nickel finish</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                  {specs.handlesAndHardware === 'Other' && (
-                    <input type="text" value={specs.handlesCustom} className={inputCls}
-                      onChange={e => setSpecs(s => ({ ...s, handlesCustom: e.target.value }))}
-                      placeholder="Describe handle style…" />
                   )}
                 </div>
               </div>
