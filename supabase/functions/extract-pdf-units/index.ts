@@ -62,7 +62,10 @@ SPACES TO ALWAYS EXCLUDE (even if they have a label):
 - Stairwells, exit stairs
 - Storage closets (unless they clearly show cabinet/countertop drawings)
 - Janitor closets, custodial closets
-These spaces virtually NEVER have cabinets or countertops. Do NOT include them even if they appear on the plan.
+- Reception areas, lobbies, vestibules, foyers, waiting rooms, corridors, hallways
+- Mail rooms, package rooms, concierge desks
+- Offices (unless they clearly show cabinet/countertop drawings inside — a desk is NOT a cabinet)
+These spaces virtually NEVER have cabinets or countertops. Do NOT include them even if they appear on the plan. ONLY include them if you can CLEARLY SEE drawn cabinet rectangles or countertop lines INSIDE the space boundary — not just furniture or desks.
 
 UNIT NUMBERS vs UNIT TYPES — CRITICAL DISTINCTION:
 - Unit NUMBERS are unique identifiers for individual apartments/spaces, typically numeric or alphanumeric with numbers: "101", "1-01", "A-08", "2-05", "3B", "B204", "#201". They appear near doors or inside room boundaries.
