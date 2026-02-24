@@ -191,13 +191,44 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
             const data = await resp.json();
             if (data.units && Array.isArray(data.units)) {
               for (const unit of data.units) {
-                const key = (unit.unitNumber ?? '').trim().toUpperCase();
-                if (!key) continue;
-                const existing = allUnits[key];
-                if (!existing) {
-                  allUnits[key] = { ...unit, unitNumber: key, page: pageIndex + 1, confidence: 'high', kitchenConfidence: unit.kitchenConfidence ?? 'maybe' };
+                const unitNumber = (unit.unitNumber ?? '').trim().toUpperCase();
+                if (!unitNumber) continue;
+
+                const floorKey = (unit.detectedFloor ?? '').trim().toUpperCase();
+                const bldgKey = (unit.detectedBldg ?? '').trim().toUpperCase();
+                const normalizedType = (unit.detectedType ?? '').trim();
+                const typeKey = normalizedType && normalizedType !== '?'
+                  ? normalizedType.toUpperCase()
+                  : '?';
+
+                // Keep same unit number as separate records when type differs
+                // (e.g. residential 103 and Laundry 103).
+                const baseKey = `${unitNumber}|${floorKey}|${bldgKey}`;
+                const compositeKey = `${baseKey}|${typeKey}`;
+
+                // If we already have a typed record, ignore unknown fallback for same unit/floor/building.
+                if (typeKey === '?') {
+                  const hasTyped = Object.keys(allUnits).some(k => k.startsWith(`${baseKey}|`) && !k.endsWith('|?'));
+                  if (hasTyped) continue;
                 } else {
-                  if (!existing.detectedType && unit.detectedType) existing.detectedType = unit.detectedType;
+                  // Replace unknown fallback with concrete type when available.
+                  const unknownKey = `${baseKey}|?`;
+                  if (allUnits[unknownKey]) delete allUnits[unknownKey];
+                }
+
+                const existing = allUnits[compositeKey];
+                if (!existing) {
+                  allUnits[compositeKey] = {
+                    ...unit,
+                    unitNumber,
+                    page: pageIndex + 1,
+                    confidence: 'high',
+                    kitchenConfidence: unit.kitchenConfidence ?? 'maybe',
+                  };
+                } else {
+                  if ((!existing.detectedType || existing.detectedType === '?') && unit.detectedType && unit.detectedType !== '?') {
+                    existing.detectedType = unit.detectedType;
+                  }
                   if (!existing.detectedFloor && unit.detectedFloor) existing.detectedFloor = unit.detectedFloor;
                   if (!existing.detectedBldg && unit.detectedBldg) existing.detectedBldg = unit.detectedBldg;
                   if (existing.kitchenConfidence === 'maybe' && unit.kitchenConfidence === 'yes') existing.kitchenConfidence = 'yes';
