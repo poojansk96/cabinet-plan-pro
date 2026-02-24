@@ -46,7 +46,12 @@ export default function SummaryModule({ project }: Props) {
     // ── Sheet 1: Project Info ──────────────────────────────────────
     const wsInfo = wb.addWorksheet('Project Info');
     wsInfo.columns = [{ width: 22 }, { width: 40 }];
-    [
+    const boldUnderlineLabels = new Set([
+      'Project Name', 'Address', 'Project Super', 'Customer', 'Specifications',
+      'Kitchen Tops', 'Vanity Tops', 'Additional Tops', 'Handles & Hardware', 'Sales Tax on Material',
+    ]);
+
+    const infoRows: (string | undefined)[][] = [
       ['Project Name', project.name],
       [],
       ['Address', project.address],
@@ -68,10 +73,18 @@ export default function SummaryModule({ project }: Props) {
       [],
       ['Handles & Hardware', project.specs?.handlesAndHardware || ''],
       [],
-      ['Tax', project.specs?.tax || ''],
+      ['Sales Tax on Material', project.specs?.tax || ''],
       [],
       ['Generated', new Date().toLocaleString()],
-    ].forEach(r => wsInfo.addRow(r));
+    ];
+
+    infoRows.forEach(r => {
+      const row = wsInfo.addRow(r);
+      if (r.length > 0 && r[0] && boldUnderlineLabels.has(r[0])) {
+        const cell = row.getCell(1);
+        cell.font = { bold: true, underline: true };
+      }
+    });
 
     // ── Sheet 2: Unit Count (pivot: units vertical, types horizontal) ──
     const wsUnit = wb.addWorksheet('Unit Count');
