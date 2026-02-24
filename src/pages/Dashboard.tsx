@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, Plus, Trash2, Calendar, MapPin, LayoutGrid, ArrowRight, ChevronDown, ChevronRight } from 'lucide-react';
+import { Building2, Plus, Trash2, Calendar, MapPin, ArrowRight, ChevronDown, ChevronRight } from 'lucide-react';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { calcProjectSummary } from '@/lib/calculations';
 import type { Project } from '@/types/project';
@@ -197,6 +197,12 @@ export default function Dashboard() {
                   </div>
                 </div>
 
+                <div className="est-card p-4 border-l-4" style={{ borderLeftColor: 'hsl(var(--primary))' }}>
+                  <h3 className="font-semibold text-sm text-foreground mb-1">🌍 First of Its Kind</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    No other software in the market offers fully automated AI-powered cabinet and countertop takeoffs. Existing tools are built for general construction takeoffs and require you to manually select and trace every item on the plans. cabinetcounters.com is the first AI project purpose-built for cabinets & countertops — just upload your plans and the system does the rest, requiring far less human effort than anything else available.
+                  </p>
+                </div>
               </div>
             )}
           </div>
