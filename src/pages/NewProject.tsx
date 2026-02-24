@@ -345,6 +345,70 @@ export default function NewProject() {
                 )}
               </div>
 
+
+              {/* Row 3: Hinges + Drawer Box */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  {specSelectField('Hinges', 'hinges', HINGE_OPTIONS)}
+                  {specs.hinges === 'Other' && (
+                    <input
+                      type="text"
+                      value={specs.hingesCustom}
+                      onChange={e => setSpecs(s => ({ ...s, hingesCustom: e.target.value }))}
+                      placeholder="Describe hinge type…"
+                      className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                      autoFocus
+                    />
+                  )}
+                </div>
+                {specSelectField('Drawer Box', 'drawerBox', DRAWER_BOX_OPTIONS)}
+              </div>
+
+              {/* Row 4: Drawer Guides + Handles & Hardware */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  {specSelectField('Drawer Guides', 'drawerGuides', DRAWER_GUIDE_OPTIONS)}
+                  {specs.drawerGuides === 'Other' && (
+                    <input
+                      type="text"
+                      value={specs.drawerGuidesCustom}
+                      onChange={e => setSpecs(s => ({ ...s, drawerGuidesCustom: e.target.value }))}
+                      placeholder="Describe drawer guide type…"
+                      className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                      autoFocus
+                    />
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                      Handles
+                    </label>
+                    <select
+                      value={specs.handlesAndHardware}
+                      onChange={e => setSpecs(s => ({ ...s, handlesAndHardware: e.target.value, handlesCustom: '' }))}
+                      className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                    >
+                      <option value="">Select handles…</option>
+                      <option value="Standard knob, 4&quot; wire pulls or 96mm barpulls in Brushed nickel finish">
+                        Standard knob, 4" wire pulls or 96mm barpulls in Brushed nickel finish
+                      </option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  {specs.handlesAndHardware === 'Other' && (
+                    <input
+                      type="text"
+                      value={specs.handlesCustom}
+                      onChange={e => setSpecs(s => ({ ...s, handlesCustom: e.target.value }))}
+                      placeholder="Describe handle style…"
+                      className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                      autoFocus
+                    />
+                  )}
+                </div>
+              </div>
+
               {/* Kitchen Tops & Vanity Tops — side by side */}
               <div className="grid grid-cols-2 gap-4">
                 {/* Kitchen Tops */}
@@ -611,70 +675,6 @@ export default function NewProject() {
                 </div>
               </div>
 
-              {/* Row 3: Hinges + Drawer Box */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  {specSelectField('Hinges', 'hinges', HINGE_OPTIONS)}
-                  {specs.hinges === 'Other' && (
-                    <input
-                      type="text"
-                      value={specs.hingesCustom}
-                      onChange={e => setSpecs(s => ({ ...s, hingesCustom: e.target.value }))}
-                      placeholder="Describe hinge type…"
-                      className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
-                      autoFocus
-                    />
-                  )}
-                </div>
-                {specSelectField('Drawer Box', 'drawerBox', DRAWER_BOX_OPTIONS)}
-              </div>
-
-              {/* Row 4: Drawer Guides + Handles & Hardware */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  {specSelectField('Drawer Guides', 'drawerGuides', DRAWER_GUIDE_OPTIONS)}
-                  {specs.drawerGuides === 'Other' && (
-                    <input
-                      type="text"
-                      value={specs.drawerGuidesCustom}
-                      onChange={e => setSpecs(s => ({ ...s, drawerGuidesCustom: e.target.value }))}
-                      placeholder="Describe drawer guide type…"
-                      className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
-                      autoFocus
-                    />
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <div>
-                    <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                      Handles
-                    </label>
-                    <select
-                      value={specs.handlesAndHardware}
-                      onChange={e => setSpecs(s => ({ ...s, handlesAndHardware: e.target.value, handlesCustom: '' }))}
-                      className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
-                    >
-                      <option value="">Select handles…</option>
-                      <option value="Standard knob, 4&quot; wire pulls or 96mm barpulls in Brushed nickel finish">
-                        Standard knob, 4" wire pulls or 96mm barpulls in Brushed nickel finish
-                      </option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                  {specs.handlesAndHardware === 'Other' && (
-                    <input
-                      type="text"
-                      value={specs.handlesCustom}
-                      onChange={e => setSpecs(s => ({ ...s, handlesCustom: e.target.value }))}
-                      placeholder="Describe handle style…"
-                      className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
-                      autoFocus
-                    />
-                  )}
-                </div>
-              </div>
-
-              {/* Row 5: Tax */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <div>
