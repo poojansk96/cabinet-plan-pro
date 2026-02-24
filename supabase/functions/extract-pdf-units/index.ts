@@ -93,6 +93,7 @@ After your initial scan, do a SECOND pass over the entire floor plan to verify c
 - Pay special attention to units whose labels may be small, rotated, partially obscured, or positioned far from their door. Example: "A-03" might appear as a tiny label near the boundary.
 - If a unit number is visible ANYWHERE on the floor plan drawing (not in tables), and the corresponding space has cabinets/countertops, it MUST be in your output.
 - HOWEVER: During verification, do NOT add units just because you see a label. You MUST ALSO confirm that cabinet rectangles, countertop lines, or appliance symbols are VISUALLY DRAWN INSIDE that unit's boundary. A unit label alone is NEVER sufficient evidence.
+- COMMON AREA CROSS-CHECK: Specifically look for laundry rooms, community rooms, kitchenettes, and other common spaces on EVERY floor. If you found a laundry on floors 1 and 2, check whether floors 3, 4, etc. also have one. Common areas often repeat on every floor with incrementing room numbers (103, 203, 303, 403). If you see the space with cabinets/countertops but missed it, add it now.
 
 CRITICAL — BLANK UNIT FILTERING (FINAL CHECK):
 - Before finalizing your output, review EACH unit in your list one more time.
