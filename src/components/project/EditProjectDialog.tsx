@@ -262,7 +262,7 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
                         <select value={specs.doorStyleFraming} className={subInputCls}
                           onChange={e => setSpecs(s => ({ ...s, doorStyleFraming: e.target.value }))}>
                           <option value="">Select framing…</option>
-                          <option value="Framed">Framed</option>
+                          {specs.doorStyle !== 'India' && <option value="Framed">Framed</option>}
                           <option value="Frameless">Frameless</option>
                         </select>
                       </div>
