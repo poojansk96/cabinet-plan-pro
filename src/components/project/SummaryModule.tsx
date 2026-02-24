@@ -46,10 +46,9 @@ export default function SummaryModule({ project }: Props) {
     // ── Sheet 1: Project Info ──────────────────────────────────────
     const wsInfo = wb.addWorksheet('Project Info');
     wsInfo.columns = [{ width: 22 }, { width: 40 }];
-    const infoHeaderRow = wsInfo.addRow(['Field', 'Value']);
-    styleHeader(infoHeaderRow);
     [
       ['Project Name', project.name],
+      [],
       ['Address', project.address],
       ['Type', project.type],
       ['Notes', project.notes || ''],
