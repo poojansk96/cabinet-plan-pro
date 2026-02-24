@@ -4,7 +4,7 @@ import ExcelJS from 'exceljs';
 import type { Project, Unit } from '@/types/project';
 import { calcProjectSummary, calcUnitCabinetTotals, calcUnitCountertopTotal, calcCountertopSqft } from '@/lib/calculations';
 import { exportProjectPDF } from '@/lib/exportPDF';
-import { formatDoorStyle } from '@/lib/formatSpecs';
+import { formatDoorStyle, formatKitchenTops, formatVanityTops, formatAdditionalTops } from '@/lib/formatSpecs';
 
 interface Props {
   project: Project;
@@ -61,7 +61,9 @@ export default function SummaryModule({ project }: Props) {
       ['Hinges', project.specs?.hinges || ''],
       ['Drawer Box', project.specs?.drawerBox || ''],
       ['Drawer Guides', project.specs?.drawerGuides || ''],
-      ['Countertops', project.specs?.countertops || ''],
+      ['Kitchen Tops', formatKitchenTops(project.specs)],
+      ['Vanity Tops', formatVanityTops(project.specs)],
+      ...((project.specs as any)?.additionalTopsEnabled ? [['Additional Tops', formatAdditionalTops(project.specs)]] : []),
       ['Handles & Hardware', project.specs?.handlesAndHardware || ''],
       ['Tax', project.specs?.tax || ''],
       [],
