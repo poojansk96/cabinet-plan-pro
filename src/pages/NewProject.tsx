@@ -331,7 +331,7 @@ export default function NewProject() {
                             <>
                               <option value="Standard">Standard</option>
                               <option value="Verde">Verde</option>
-                              <option value="Intence">Intence</option>
+                              <option value="Intense">Intense</option>
                             </>
                           ) : specs.doorStyle === 'Legacy' && specs.doorStyleSeries === 'Debut' ? (
                             <>
