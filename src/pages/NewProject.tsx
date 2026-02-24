@@ -8,6 +8,7 @@ const HINGE_OPTIONS = ['Standard soft close 6 way adjustable hinges', 'Other'];
 const DRAWER_BOX_OPTIONS = ['Dovetail Wood', 'Melamine', 'Particleboard', 'Metal (Tandem)', 'Other'];
 const DRAWER_GUIDE_OPTIONS = ['Standard NRG guides', 'Upgraded SCG guides', 'Other'];
 const COUNTERTOP_OPTIONS = ['Quartz', 'Granite', 'Laminate', 'Solid Surface- Corian', 'Other'];
+const VANITY_COUNTERTOP_OPTIONS = ['Quartz', 'Granite', 'Laminate', 'Solid Surface- Corian', 'Cultured Marble', 'Swanstone', 'Other'];
 
 const COUNTERTOP_MANUFACTURERS: Record<string, string[]> = {
   Quartz:          ['Overseas', 'Local MSI', 'KOL Marble', 'Other'],
@@ -64,6 +65,10 @@ export default function NewProject() {
     vanityLaminateSubstrateCustom: '',
     vanityLaminateColor: '',
     vanityLaminateColorCustom: '',
+    vanityBowlStyle: '',
+    vanityBowlStyleCustom: '',
+    vanityCMColor: '',
+    vanityCMColorCustom: '',
     handlesCustom: '',
     handlesAndHardware: '',
     tax: '',
@@ -131,7 +136,7 @@ export default function NewProject() {
           if (key === 'countertops') {
             setSpecs(s => ({ ...s, countertops: val, countertopManufacturer: '', countertopManufacturerCustom: '', countertopColor: '', countertopColorCustom: '', laminateSubstrate: '', laminateSubstrateCustom: '', laminateColor: '', laminateColorCustom: '' }));
           } else if (key === 'vanityCountertops') {
-            setSpecs(s => ({ ...s, vanityCountertops: val, vanityManufacturer: '', vanityManufacturerCustom: '', vanityColor: '', vanityColorCustom: '', vanityLaminateSubstrate: '', vanityLaminateSubstrateCustom: '', vanityLaminateColor: '', vanityLaminateColorCustom: '' }));
+            setSpecs(s => ({ ...s, vanityCountertops: val, vanityManufacturer: '', vanityManufacturerCustom: '', vanityColor: '', vanityColorCustom: '', vanityLaminateSubstrate: '', vanityLaminateSubstrateCustom: '', vanityLaminateColor: '', vanityLaminateColorCustom: '', vanityBowlStyle: '', vanityBowlStyleCustom: '', vanityCMColor: '', vanityCMColorCustom: '' }));
           } else {
             setSpecs(s => ({ ...s, [key]: val }));
           }
@@ -440,7 +445,7 @@ export default function NewProject() {
                 {/* Vanity Tops */}
                 <div className="space-y-2">
                   <div className="text-xs font-bold text-foreground uppercase tracking-wider border-b border-border pb-1 mb-1">🚿 Vanity Tops</div>
-                  {specSelectField('Material', 'vanityCountertops', COUNTERTOP_OPTIONS)}
+                  {specSelectField('Material', 'vanityCountertops', VANITY_COUNTERTOP_OPTIONS)}
                   {specs.vanityCountertops && COUNTERTOP_MANUFACTURERS[specs.vanityCountertops] && (
                     <div className="space-y-2">
                       <div>
@@ -527,6 +532,79 @@ export default function NewProject() {
                             />
                           )}
                         </div>
+                      )}
+                    </div>
+                  )}
+                  {/* Cultured Marble */}
+                  {specs.vanityCountertops === 'Cultured Marble' && (
+                    <div className="space-y-2">
+                      <div>
+                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Bowl Style</label>
+                        <select value={specs.vanityBowlStyle}
+                          onChange={e => setSpecs(s => ({ ...s, vanityBowlStyle: e.target.value, vanityBowlStyleCustom: '' }))}
+                          className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
+                        >
+                          <option value="">Select bowl style…</option>
+                          <option value="Oval">Oval</option>
+                          <option value="Recessed Oval">Recessed Oval</option>
+                          <option value="Rectangular - Custom">Rectangular - Custom</option>
+                          <option value="Wave - Custom">Wave - Custom</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Color</label>
+                        <select value={specs.vanityCMColor}
+                          onChange={e => setSpecs(s => ({ ...s, vanityCMColor: e.target.value, vanityCMColorCustom: '' }))}
+                          className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
+                        >
+                          <option value="">Select color…</option>
+                          <option value="Solid White">Solid White</option>
+                          <option value="Solid Biscuit">Solid Biscuit</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                      {specs.vanityCMColor === 'Other' && (
+                        <input type="text" value={specs.vanityCMColorCustom}
+                          onChange={e => setSpecs(s => ({ ...s, vanityCMColorCustom: e.target.value }))}
+                          placeholder="Enter color…"
+                          className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                        />
+                      )}
+                    </div>
+                  )}
+                  {/* Swanstone */}
+                  {specs.vanityCountertops === 'Swanstone' && (
+                    <div className="space-y-2">
+                      <div>
+                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Bowl Style</label>
+                        <select value={specs.vanityBowlStyle}
+                          onChange={e => setSpecs(s => ({ ...s, vanityBowlStyle: e.target.value, vanityBowlStyleCustom: '' }))}
+                          className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
+                        >
+                          <option value="">Select bowl style…</option>
+                          <option value="Contour Style Vanity Tops">Contour Style Vanity Tops</option>
+                          <option value="Custom Vanity Tops">Custom Vanity Tops</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Color</label>
+                        <select value={specs.vanityCMColor}
+                          onChange={e => setSpecs(s => ({ ...s, vanityCMColor: e.target.value, vanityCMColorCustom: '' }))}
+                          className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
+                        >
+                          <option value="">Select color…</option>
+                          <option value="Solid White">Solid White</option>
+                          <option value="Solid Bisque">Solid Bisque</option>
+                          <option value="Solid Bone">Solid Bone</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                      {specs.vanityCMColor === 'Other' && (
+                        <input type="text" value={specs.vanityCMColorCustom}
+                          onChange={e => setSpecs(s => ({ ...s, vanityCMColorCustom: e.target.value }))}
+                          placeholder="Enter color…"
+                          className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                        />
                       )}
                     </div>
                   )}

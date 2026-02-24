@@ -6,6 +6,7 @@ const HINGE_OPTIONS = ['Standard soft close 6 way adjustable hinges', 'Other'];
 const DRAWER_BOX_OPTIONS = ['Dovetail Wood', 'Melamine', 'Particleboard', 'Metal (Tandem)', 'Other'];
 const DRAWER_GUIDE_OPTIONS = ['Standard NRG guides', 'Upgraded SCG guides', 'Other'];
 const COUNTERTOP_OPTIONS = ['Quartz', 'Granite', 'Laminate', 'Solid Surface- Corian', 'Other'];
+const VANITY_COUNTERTOP_OPTIONS = ['Quartz', 'Granite', 'Laminate', 'Solid Surface- Corian', 'Cultured Marble', 'Swanstone', 'Other'];
 
 const COUNTERTOP_MANUFACTURERS: Record<string, string[]> = {
   Quartz:          ['Overseas', 'Local MSI', 'KOL Marble', 'Other'],
@@ -64,6 +65,10 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
     vanityLaminateSubstrateCustom: rawSpecs?.vanityLaminateSubstrateCustom ?? '',
     vanityLaminateColor:        rawSpecs?.vanityLaminateColor        ?? '',
     vanityLaminateColorCustom:  rawSpecs?.vanityLaminateColorCustom  ?? '',
+    vanityBowlStyle:            rawSpecs?.vanityBowlStyle            ?? '',
+    vanityBowlStyleCustom:      rawSpecs?.vanityBowlStyleCustom      ?? '',
+    vanityCMColor:              rawSpecs?.vanityCMColor              ?? '',
+    vanityCMColorCustom:        rawSpecs?.vanityCMColorCustom        ?? '',
     handlesAndHardware:         rawSpecs?.handlesAndHardware         ?? '',
     handlesCustom:              rawSpecs?.handlesCustom              ?? '',
     tax:                        rawSpecs?.tax                        ?? '',
@@ -115,7 +120,7 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
           if (key === 'countertops') {
             setSpecs(s => ({ ...s, countertops: val, countertopManufacturer: '', countertopManufacturerCustom: '', countertopColor: '', countertopColorCustom: '', laminateSubstrate: '', laminateSubstrateCustom: '', laminateColor: '', laminateColorCustom: '' }));
           } else if (key === 'vanityCountertops') {
-            setSpecs(s => ({ ...s, vanityCountertops: val, vanityManufacturer: '', vanityManufacturerCustom: '', vanityColor: '', vanityColorCustom: '', vanityLaminateSubstrate: '', vanityLaminateSubstrateCustom: '', vanityLaminateColor: '', vanityLaminateColorCustom: '' }));
+            setSpecs(s => ({ ...s, vanityCountertops: val, vanityManufacturer: '', vanityManufacturerCustom: '', vanityColor: '', vanityColorCustom: '', vanityLaminateSubstrate: '', vanityLaminateSubstrateCustom: '', vanityLaminateColor: '', vanityLaminateColorCustom: '', vanityBowlStyle: '', vanityBowlStyleCustom: '', vanityCMColor: '', vanityCMColorCustom: '' }));
           } else {
             setSpecs(s => ({ ...s, [key]: val }));
           }
@@ -357,7 +362,7 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
                 {/* Vanity Tops */}
                 <div className="space-y-2">
                   <div className="text-xs font-bold text-foreground uppercase tracking-wider border-b border-border pb-1 mb-1">🚿 Vanity Tops</div>
-                  {SSF('Material', 'vanityCountertops', COUNTERTOP_OPTIONS)}
+                  {SSF('Material', 'vanityCountertops', VANITY_COUNTERTOP_OPTIONS)}
                   {specs.vanityCountertops && COUNTERTOP_MANUFACTURERS[specs.vanityCountertops] && (
                     <div className="space-y-2">
                       <div>
@@ -428,6 +433,67 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
                               placeholder="Enter specific color…" />
                           )}
                         </div>
+                      )}
+                    </div>
+                  )}
+                  {/* Cultured Marble */}
+                  {specs.vanityCountertops === 'Cultured Marble' && (
+                    <div className="space-y-2">
+                      <div>
+                        <label className={labelCls}>Bowl Style</label>
+                        <select value={specs.vanityBowlStyle} className={subInputCls}
+                          onChange={e => setSpecs(s => ({ ...s, vanityBowlStyle: e.target.value, vanityBowlStyleCustom: '' }))}>
+                          <option value="">Select bowl style…</option>
+                          <option value="Oval">Oval</option>
+                          <option value="Recessed Oval">Recessed Oval</option>
+                          <option value="Rectangular - Custom">Rectangular - Custom</option>
+                          <option value="Wave - Custom">Wave - Custom</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Color</label>
+                        <select value={specs.vanityCMColor} className={subInputCls}
+                          onChange={e => setSpecs(s => ({ ...s, vanityCMColor: e.target.value, vanityCMColorCustom: '' }))}>
+                          <option value="">Select color…</option>
+                          <option value="Solid White">Solid White</option>
+                          <option value="Solid Biscuit">Solid Biscuit</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                      {specs.vanityCMColor === 'Other' && (
+                        <input type="text" value={specs.vanityCMColorCustom} className={inputCls}
+                          onChange={e => setSpecs(s => ({ ...s, vanityCMColorCustom: e.target.value }))}
+                          placeholder="Enter color…" />
+                      )}
+                    </div>
+                  )}
+                  {/* Swanstone */}
+                  {specs.vanityCountertops === 'Swanstone' && (
+                    <div className="space-y-2">
+                      <div>
+                        <label className={labelCls}>Bowl Style</label>
+                        <select value={specs.vanityBowlStyle} className={subInputCls}
+                          onChange={e => setSpecs(s => ({ ...s, vanityBowlStyle: e.target.value, vanityBowlStyleCustom: '' }))}>
+                          <option value="">Select bowl style…</option>
+                          <option value="Contour Style Vanity Tops">Contour Style Vanity Tops</option>
+                          <option value="Custom Vanity Tops">Custom Vanity Tops</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Color</label>
+                        <select value={specs.vanityCMColor} className={subInputCls}
+                          onChange={e => setSpecs(s => ({ ...s, vanityCMColor: e.target.value, vanityCMColorCustom: '' }))}>
+                          <option value="">Select color…</option>
+                          <option value="Solid White">Solid White</option>
+                          <option value="Solid Bisque">Solid Bisque</option>
+                          <option value="Solid Bone">Solid Bone</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                      {specs.vanityCMColor === 'Other' && (
+                        <input type="text" value={specs.vanityCMColorCustom} className={inputCls}
+                          onChange={e => setSpecs(s => ({ ...s, vanityCMColorCustom: e.target.value }))}
+                          placeholder="Enter color…" />
                       )}
                     </div>
                   )}
