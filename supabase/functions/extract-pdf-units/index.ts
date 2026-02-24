@@ -62,10 +62,18 @@ SPACES TO ALWAYS EXCLUDE (even if they have a label):
 - Stairwells, exit stairs
 - Storage closets (unless they clearly show cabinet/countertop drawings)
 - Janitor closets, custodial closets
-- Reception areas, lobbies, vestibules, foyers, waiting rooms, corridors, hallways
 - Mail rooms, package rooms, concierge desks
-- Offices (unless they clearly show cabinet/countertop drawings inside — a desk is NOT a cabinet)
-These spaces virtually NEVER have cabinets or countertops. Do NOT include them even if they appear on the plan. ONLY include them if you can CLEARLY SEE drawn cabinet rectangles or countertop lines INSIDE the space boundary — not just furniture or desks.
+These spaces virtually NEVER have cabinets or countertops. Do NOT include them.
+
+SPACES TO INCLUDE IF CABINETS/COUNTERTOPS ARE VISUALLY DRAWN INSIDE:
+- Community kitchens, kitchenettes, community room kitchens, kitchens beside community centers — these are common areas with FULL cabinet runs and countertops. ALWAYS include them if you see cabinets drawn inside.
+- Laundry rooms — often have base cabinets, folding counters, or countertop surfaces above washers/dryers. Include if you see any cabinet rectangles or counter lines.
+- Lobby areas with small countertop sections — some lobbies have a kitchenette, coffee bar, or small counter area. Include ONLY if you see drawn cabinet rectangles or countertop lines (a reception desk alone does NOT count).
+- Reception areas, vestibules, foyers — include ONLY if cabinets or countertops are clearly drawn inside (not just furniture or desks).
+- Corridors, hallways, waiting rooms — include ONLY if a kitchenette or counter area is drawn within the space.
+- Offices — include ONLY if cabinet/countertop drawings are visible inside (a desk is NOT a cabinet).
+- Fitness centers, clubhouses, leasing offices, break rooms, pantries — these commonly have kitchenettes with cabinets. ALWAYS check for cabinet drawings inside these spaces.
+For ALL of the above: you MUST see drawn cabinet rectangles, countertop lines, or appliance symbols INSIDE the space boundary. A room label alone is NEVER sufficient.
 
 UNIT NUMBERS vs UNIT TYPES — CRITICAL DISTINCTION:
 - Unit NUMBERS are unique identifiers for individual apartments/spaces, typically numeric or alphanumeric with numbers: "101", "1-01", "A-08", "2-05", "3B", "B204", "#201". They appear near doors or inside room boundaries.
@@ -93,7 +101,8 @@ After your initial scan, do a SECOND pass over the entire floor plan to verify c
 - Pay special attention to units whose labels may be small, rotated, partially obscured, or positioned far from their door. Example: "A-03" might appear as a tiny label near the boundary.
 - If a unit number is visible ANYWHERE on the floor plan drawing (not in tables), and the corresponding space has cabinets/countertops, it MUST be in your output.
 - HOWEVER: During verification, do NOT add units just because you see a label. You MUST ALSO confirm that cabinet rectangles, countertop lines, or appliance symbols are VISUALLY DRAWN INSIDE that unit's boundary. A unit label alone is NEVER sufficient evidence.
-- COMMON AREA CROSS-CHECK: Specifically look for laundry rooms, community rooms, kitchenettes, and other common spaces on EVERY floor. If you found a laundry on floors 1 and 2, check whether floors 3, 4, etc. also have one. Common areas often repeat on every floor with incrementing room numbers (103, 203, 303, 403). If you see the space with cabinets/countertops but missed it, add it now.
+- COMMON AREA CROSS-CHECK: Specifically look for laundry rooms, community kitchens, kitchenettes, lobby countertops, fitness center kitchenettes, clubhouse kitchens, and other common spaces on EVERY floor. These are frequently missed! If you found a laundry on floors 1 and 2, check whether floors 3, 4, etc. also have one. Common areas often repeat on every floor with incrementing room numbers (103, 203, 303, 403). If you see the space with cabinets/countertops but missed it, add it now.
+- LOBBY / COMMUNITY AREA CHECK: Go back and look specifically at areas near community centers, lobbies, and shared spaces. Even small countertop sections (coffee bars, kitchenettes, folding counters) MUST be included if cabinet rectangles or counter lines are drawn.
 
 CRITICAL — BLANK UNIT FILTERING (FINAL CHECK):
 - Before finalizing your output, review EACH unit in your list one more time.
