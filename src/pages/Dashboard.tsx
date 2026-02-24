@@ -160,68 +160,108 @@ export default function Dashboard() {
             </button>
 
             {introOpen && (
-              <div className="mt-3 space-y-3">
-                <div className="text-center mb-4">
-                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'hsl(var(--primary) / 0.1)' }}>
-                    <Building2 size={28} style={{ color: 'hsl(var(--primary))' }} />
+              <div className="mt-4 space-y-4">
+                {/* Hero Section */}
+                <div className="text-center py-6 px-4 rounded-xl" style={{ background: 'linear-gradient(135deg, hsl(var(--primary) / 0.08), hsl(var(--primary) / 0.02))' }}>
+                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm" style={{ background: 'hsl(var(--primary))' }}>
+                    <Building2 size={30} className="text-white" />
                   </div>
                   <h2 className="text-2xl font-bold text-foreground mb-2">Welcome to cabinetcounters.com</h2>
-                  <p className="text-muted-foreground text-sm">
-                    The first software of its kind — fully automated cabinet & countertop estimating powered by AI.
+                  <p className="text-muted-foreground text-sm max-w-md mx-auto leading-relaxed">
+                    The first software of its kind — fully automated cabinet & countertop estimating powered by AI. Upload your plans and get instant takeoffs.
                   </p>
                 </div>
 
-                <div className="space-y-3 mb-4">
-                  <div className="est-card p-4 flex items-start gap-3">
-                    <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: 'hsl(var(--primary))' }}>✓</span>
-                    <div>
-                      <h3 className="font-semibold text-sm text-foreground">Auto-Extract Units & Unit Types from Plans</h3>
-                      <p className="text-xs text-muted-foreground mt-0.5">Upload architect floor plans, shop drawings, or images — the system uses coding + AI to automatically detect and extract all units and unit types. No manual selection needed.</p>
+                {/* Core Capabilities */}
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 px-1">Core Capabilities</h3>
+                  <div className="space-y-2">
+                    <div className="est-card p-4 flex items-start gap-3 hover:shadow-md transition-shadow">
+                      <span className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-sm" style={{ background: 'hsl(var(--primary))' }}>✓</span>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <h3 className="font-semibold text-sm text-foreground">Auto-Extract Units & Unit Types</h3>
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700">Live</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">Upload architect floor plans, shop drawings, or images — AI automatically detects and extracts all units and unit types. Zero manual selection required.</p>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="est-card p-4 flex items-start gap-3">
-                    <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white bg-orange-500">⟳</span>
-                    <div>
-                      <h3 className="font-semibold text-sm text-foreground">Cabinet & Countertop Calculations</h3>
-                      <p className="text-xs text-muted-foreground mt-0.5">Automatically calculates cabinet counts and countertop square footage by just uploading the plans. Working and continuously optimizing for accuracy.</p>
+                    <div className="est-card p-4 flex items-start gap-3 hover:shadow-md transition-shadow">
+                      <span className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-sm bg-orange-500">⟳</span>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <h3 className="font-semibold text-sm text-foreground">Cabinet & Countertop Calculations</h3>
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-700">Optimizing</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">Automatically calculates cabinet counts and countertop square footage from uploaded plans. Continuously improving accuracy with each update.</p>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="est-card p-4 flex items-start gap-3">
-                    <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: 'hsl(var(--primary))' }}>✓</span>
-                    <div>
-                      <h3 className="font-semibold text-sm text-foreground">Extract Cabinet SKUs from 2020 Shop Drawings</h3>
-                      <p className="text-xs text-muted-foreground mt-0.5">Accurately extracts correct unit counts and cabinet SKUs from 2020 Design shop drawings — just upload and let the system handle the rest.</p>
+                    <div className="est-card p-4 flex items-start gap-3 hover:shadow-md transition-shadow">
+                      <span className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-sm" style={{ background: 'hsl(var(--primary))' }}>✓</span>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <h3 className="font-semibold text-sm text-foreground">Extract SKUs from 2020 Shop Drawings</h3>
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700">Live</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">Accurately extracts unit counts and cabinet SKUs from 2020 Design shop drawings — upload and let the system handle the rest.</p>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="est-card p-4 border-l-4" style={{ borderLeftColor: 'hsl(var(--primary))' }}>
-                  <h3 className="font-semibold text-sm text-foreground mb-1">🌍 First of Its Kind</h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    No other software in the market offers fully automated AI-powered cabinet and countertop takeoffs. Existing tools are built for general construction takeoffs and require you to manually select and trace every item on the plans. cabinetcounters.com is the first AI project purpose-built for cabinets & countertops — just upload your plans and the system does the rest, requiring far less human effort than anything else available.
+                {/* Why It's Different */}
+                <div className="est-card p-5 border-l-4 rounded-r-xl" style={{ borderLeftColor: 'hsl(var(--primary))', background: 'hsl(var(--primary) / 0.03)' }}>
+                  <h3 className="font-semibold text-sm text-foreground mb-2 flex items-center gap-2">
+                    🌍 First of Its Kind
+                  </h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed mb-3">
+                    No other software offers fully automated AI-powered cabinet and countertop takeoffs. Traditional tools require you to manually select and trace every item on the plans.
                   </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-lg p-2.5 text-center" style={{ background: 'hsl(var(--primary) / 0.08)' }}>
+                      <div className="text-lg font-bold text-primary">90%</div>
+                      <div className="text-[10px] text-muted-foreground">Less Manual Effort</div>
+                    </div>
+                    <div className="rounded-lg p-2.5 text-center" style={{ background: 'hsl(var(--primary) / 0.08)' }}>
+                      <div className="text-lg font-bold text-primary">10x</div>
+                      <div className="text-[10px] text-muted-foreground">Faster Takeoffs</div>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="est-card p-4 border-l-4" style={{ borderLeftColor: 'hsl(var(--chart-2))' }}>
-                  <h3 className="font-semibold text-sm text-foreground mb-2">🚀 Getting Started</h3>
-                  <ol className="space-y-2 text-xs text-muted-foreground list-none">
-                    <li className="flex items-start gap-2">
-                      <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-primary-foreground" style={{ background: 'hsl(var(--primary))' }}>1</span>
-                      <span><strong className="text-foreground">Create a Project</strong> — Click "New Project" and enter the project name, type (Residential / Commercial), and address.</span>
+                {/* Getting Started */}
+                <div className="est-card p-5 border-l-4 rounded-r-xl" style={{ borderLeftColor: 'hsl(var(--chart-2))' }}>
+                  <h3 className="font-semibold text-sm text-foreground mb-3">🚀 Getting Started</h3>
+                  <ol className="space-y-3 text-xs text-muted-foreground list-none">
+                    <li className="flex items-start gap-3">
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold text-white shadow-sm" style={{ background: 'hsl(var(--primary))' }}>1</span>
+                      <div>
+                        <strong className="text-foreground block mb-0.5">Create a Project</strong>
+                        <span>Click "New Project" and enter the name, type (Residential / Commercial), and address.</span>
+                      </div>
                     </li>
-                    <li className="flex items-start gap-2">
-                      <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-primary-foreground" style={{ background: 'hsl(var(--primary))' }}>2</span>
-                      <span><strong className="text-foreground">Import Units from Plans</strong> — Upload architect floor plans or images in the Units tab. The AI will auto-detect and extract all units and unit types.</span>
+                    <li className="flex items-start gap-3">
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold text-white shadow-sm" style={{ background: 'hsl(var(--primary))' }}>2</span>
+                      <div>
+                        <strong className="text-foreground block mb-0.5">Import Units from Plans</strong>
+                        <span>Upload architect floor plans or images in the Units tab. AI auto-detects and extracts all units and unit types.</span>
+                      </div>
                     </li>
-                    <li className="flex items-start gap-2">
-                      <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-primary-foreground" style={{ background: 'hsl(var(--primary))' }}>3</span>
-                      <span><strong className="text-foreground">Import Cabinets & Countertops</strong> — Upload shop drawings or plans in the Cabinets and Countertops tabs to auto-extract SKUs, counts, and square footage.</span>
+                    <li className="flex items-start gap-3">
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold text-white shadow-sm" style={{ background: 'hsl(var(--primary))' }}>3</span>
+                      <div>
+                        <strong className="text-foreground block mb-0.5">Import Cabinets & Countertops</strong>
+                        <span>Upload shop drawings in the Cabinets and Countertops tabs to auto-extract SKUs, counts, and square footage.</span>
+                      </div>
                     </li>
-                    <li className="flex items-start gap-2">
-                      <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-primary-foreground" style={{ background: 'hsl(var(--primary))' }}>4</span>
-                      <span><strong className="text-foreground">Review & Export</strong> — Check the Summary tab for a full project overview, then export to PDF or Excel for your records.</span>
+                    <li className="flex items-start gap-3">
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold text-white shadow-sm" style={{ background: 'hsl(var(--primary))' }}>4</span>
+                      <div>
+                        <strong className="text-foreground block mb-0.5">Review & Export</strong>
+                        <span>Check the Summary tab for a full overview, then export to PDF or Excel.</span>
+                      </div>
                     </li>
                   </ol>
                 </div>
