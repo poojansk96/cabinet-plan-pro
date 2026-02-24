@@ -369,6 +369,7 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
               {typeGroups.map(g => {
                 const repUnit = g.units[0];
                 const perUnitSqft = calcUnitCountertopTotal(repUnit);
+                const actualTotal = g.units.reduce((s, u) => s + calcUnitCountertopTotal(u), 0);
                 return (
                   <tr
                     key={g.type}
@@ -381,7 +382,7 @@ export default function CountertopModule({ project, selectedUnit, setSelectedUni
                     <td className="text-right">{perUnitSqft}</td>
                     <td className="text-right">{g.units.length}</td>
                     <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>
-                      {perUnitSqft * g.units.length}
+                      {actualTotal}
                     </td>
                   </tr>
                 );
