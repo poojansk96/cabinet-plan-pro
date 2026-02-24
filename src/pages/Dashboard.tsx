@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, Plus, Trash2, Calendar, MapPin, LayoutGrid, ArrowRight } from 'lucide-react';
+import { Building2, Plus, Trash2, Calendar, MapPin, LayoutGrid, ArrowRight, ChevronDown, ChevronRight } from 'lucide-react';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { calcProjectSummary } from '@/lib/calculations';
 import type { Project } from '@/types/project';
@@ -74,6 +75,7 @@ function ProjectCard({ project, onDelete }: { project: Project; onDelete: (id: s
 
 export default function Dashboard() {
   const { projects, deleteProject } = useProjectStore();
+  const [introOpen, setIntroOpen] = useState(false);
 
   const handleDelete = (id: string) => {
     if (window.confirm('Delete this project? This cannot be undone.')) {
@@ -137,51 +139,8 @@ export default function Dashboard() {
 
         {/* Projects Grid */}
         {projects.length === 0 ? (
-          <div className="py-12 max-w-2xl mx-auto">
-            <div className="text-center mb-8">
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'hsl(var(--primary) / 0.1)' }}>
-                <Building2 size={28} style={{ color: 'hsl(var(--primary))' }} />
-              </div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">Welcome to cabinetcounters.com</h2>
-              <p className="text-muted-foreground text-sm">
-                The first software of its kind — fully automated cabinet & countertop estimating powered by AI.
-              </p>
-            </div>
-
-            <div className="space-y-3 mb-8">
-              <div className="est-card p-4 flex items-start gap-3">
-                <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: 'hsl(var(--primary))' }}>✓</span>
-                <div>
-                  <h3 className="font-semibold text-sm text-foreground">Auto-Extract Units & Unit Types from Plans</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">Upload architect floor plans, shop drawings, or images — the system uses coding + AI to automatically detect and extract all units and unit types. No manual selection needed.</p>
-                </div>
-              </div>
-
-              <div className="est-card p-4 flex items-start gap-3">
-                <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white bg-orange-500">⟳</span>
-                <div>
-                  <h3 className="font-semibold text-sm text-foreground">Cabinet & Countertop Calculations</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">Automatically calculates cabinet counts and countertop square footage by just uploading the plans. Working and continuously optimizing for accuracy.</p>
-                </div>
-              </div>
-
-              <div className="est-card p-4 flex items-start gap-3">
-                <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: 'hsl(var(--primary))' }}>✓</span>
-                <div>
-                  <h3 className="font-semibold text-sm text-foreground">Extract Cabinet SKUs from 2020 Shop Drawings</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">Accurately extracts correct unit counts and cabinet SKUs from 2020 Design shop drawings — just upload and let the system handle the rest.</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="est-card p-4 mb-8 border-l-4" style={{ borderLeftColor: 'hsl(var(--primary))' }}>
-              <h3 className="font-semibold text-sm text-foreground mb-1">🌍 First of Its Kind in the World</h3>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                No other software in the market offers fully automated AI-powered cabinet and countertop takeoffs. Existing tools are built for general construction takeoffs and require you to manually select and trace every item on the plans. cabinetcounters.com is the first AI project purpose-built for cabinets & countertops — just upload your plans and the system does the rest, requiring far less human effort than anything else available.
-              </p>
-            </div>
-
-            <div className="text-center">
+          <div className="py-6 max-w-2xl mx-auto">
+            <div className="text-center mb-6">
               <Link
                 to="/new"
                 className="inline-flex items-center gap-2 px-6 py-2.5 rounded-md text-sm font-medium text-white"
@@ -191,6 +150,61 @@ export default function Dashboard() {
                 Create Your First Project
               </Link>
             </div>
+
+            <button
+              onClick={() => setIntroOpen(!introOpen)}
+              className="flex items-center gap-2 w-full est-card p-3 hover:shadow-md transition-shadow text-left"
+            >
+              {introOpen ? <ChevronDown size={16} className="text-primary" /> : <ChevronRight size={16} className="text-primary" />}
+              <span className="font-semibold text-sm text-foreground">Introduction</span>
+            </button>
+
+            {introOpen && (
+              <div className="mt-3 space-y-3">
+                <div className="text-center mb-4">
+                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'hsl(var(--primary) / 0.1)' }}>
+                    <Building2 size={28} style={{ color: 'hsl(var(--primary))' }} />
+                  </div>
+                  <h2 className="text-2xl font-bold text-foreground mb-2">Welcome to cabinetcounters.com</h2>
+                  <p className="text-muted-foreground text-sm">
+                    The first software of its kind — fully automated cabinet & countertop estimating powered by AI.
+                  </p>
+                </div>
+
+                <div className="space-y-3 mb-4">
+                  <div className="est-card p-4 flex items-start gap-3">
+                    <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: 'hsl(var(--primary))' }}>✓</span>
+                    <div>
+                      <h3 className="font-semibold text-sm text-foreground">Auto-Extract Units & Unit Types from Plans</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">Upload architect floor plans, shop drawings, or images — the system uses coding + AI to automatically detect and extract all units and unit types. No manual selection needed.</p>
+                    </div>
+                  </div>
+
+                  <div className="est-card p-4 flex items-start gap-3">
+                    <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white bg-orange-500">⟳</span>
+                    <div>
+                      <h3 className="font-semibold text-sm text-foreground">Cabinet & Countertop Calculations</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">Automatically calculates cabinet counts and countertop square footage by just uploading the plans. Working and continuously optimizing for accuracy.</p>
+                    </div>
+                  </div>
+
+                  <div className="est-card p-4 flex items-start gap-3">
+                    <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: 'hsl(var(--primary))' }}>✓</span>
+                    <div>
+                      <h3 className="font-semibold text-sm text-foreground">Extract Cabinet SKUs from 2020 Shop Drawings</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">Accurately extracts correct unit counts and cabinet SKUs from 2020 Design shop drawings — just upload and let the system handle the rest.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="est-card p-4 border-l-4" style={{ borderLeftColor: 'hsl(var(--primary))' }}>
+                  <h3 className="font-semibold text-sm text-foreground mb-1">🌍 First of Its Kind in the World</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    No other software in the market offers fully automated AI-powered cabinet and countertop takeoffs. Existing tools are built for general construction takeoffs and require you to manually select and trace every item on the plans. cabinetcounters.com is the first AI project purpose-built for cabinets & countertops — just upload your plans and the system does the rest, requiring far less human effort than anything else available.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <>
