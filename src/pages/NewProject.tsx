@@ -325,7 +325,7 @@ export default function NewProject() {
                           className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
                         >
                           <option value="">Select framing…</option>
-                          <option value="Framed">Framed</option>
+                          {specs.doorStyle !== 'India' && <option value="Framed">Framed</option>}
                           <option value="Frameless">Frameless</option>
                         </select>
                       </div>
