@@ -177,7 +177,7 @@ export default function NewProject() {
             <Building2 size={18} className="text-white" />
           </div>
           <div>
-            <h1 className="font-bold text-base leading-none">CabinetTakeoff Pro</h1>
+            <h1 className="font-bold text-base leading-none">cabinetcounters.com</h1>
             <p className="text-xs text-muted-foreground">Kitchen & Countertop Estimating</p>
           </div>
         </div>

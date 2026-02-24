@@ -91,7 +91,7 @@ export default function Dashboard() {
               <Building2 size={18} className="text-white" />
             </div>
             <div>
-              <h1 className="font-bold text-base leading-none text-foreground">CabinetTakeoff Pro</h1>
+              <h1 className="font-bold text-base leading-none text-foreground">cabinetcounters.com</h1>
               <p className="text-xs text-muted-foreground">Kitchen & Countertop Estimating</p>
             </div>
           </div>
@@ -142,7 +142,7 @@ export default function Dashboard() {
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'hsl(var(--primary) / 0.1)' }}>
                 <Building2 size={28} style={{ color: 'hsl(var(--primary))' }} />
               </div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">Welcome to CabinetTakeoff Pro</h2>
+              <h2 className="text-2xl font-bold text-foreground mb-2">Welcome to cabinetcounters.com</h2>
               <p className="text-muted-foreground text-sm">
                 The first software of its kind — fully automated cabinet & countertop estimating powered by AI.
               </p>
@@ -177,7 +177,7 @@ export default function Dashboard() {
             <div className="est-card p-4 mb-8 border-l-4" style={{ borderLeftColor: 'hsl(var(--primary))' }}>
               <h3 className="font-semibold text-sm text-foreground mb-1">🌍 First of Its Kind in the World</h3>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                No other software in the market offers fully automated AI-powered cabinet and countertop takeoffs. Existing tools are built for general construction takeoffs and require you to manually select and trace every item on the plans. CabinetTakeoff Pro is the first AI project purpose-built for cabinets & countertops — just upload your plans and the system does the rest, requiring far less human effort than anything else available.
+                No other software in the market offers fully automated AI-powered cabinet and countertop takeoffs. Existing tools are built for general construction takeoffs and require you to manually select and trace every item on the plans. cabinetcounters.com is the first AI project purpose-built for cabinets & countertops — just upload your plans and the system does the rest, requiring far less human effort than anything else available.
               </p>
             </div>
 

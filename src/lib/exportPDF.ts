@@ -39,7 +39,7 @@ export function exportProjectPDF(project: Project) {
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...WHITE);
-  doc.text('CabinetTakeoff Pro', margin + 50, 30);
+  doc.text('cabinetcounters.com', margin + 50, 30);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...GRAY_MID);
@@ -254,7 +254,7 @@ export function exportProjectPDF(project: Project) {
     doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...GRAY_MID);
-    doc.text('CabinetTakeoff Pro  |  Professional Estimating Tool', margin, pageH - 12);
+    doc.text('cabinetcounters.com  |  Professional Estimating Tool', margin, pageH - 12);
     doc.text(`Page ${i} of ${totalPages}`, pageW - margin, pageH - 12, { align: 'right' });
     doc.text(project.name, pageW / 2, pageH - 12, { align: 'center' });
   }
