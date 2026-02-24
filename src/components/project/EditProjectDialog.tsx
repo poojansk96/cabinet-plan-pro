@@ -69,6 +69,18 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
     vanityBowlStyleCustom:      rawSpecs?.vanityBowlStyleCustom      ?? '',
     vanityCMColor:              rawSpecs?.vanityCMColor              ?? '',
     vanityCMColorCustom:        rawSpecs?.vanityCMColorCustom        ?? '',
+    vanitySameAsKitchen:        rawSpecs?.vanitySameAsKitchen === 'true' || (rawSpecs?.vanitySameAsKitchen as unknown) === true ? true : false,
+    additionalTopsEnabled:      rawSpecs?.additionalTopsEnabled === 'true' || (rawSpecs?.additionalTopsEnabled as unknown) === true ? true : false,
+    additionalTopsLabel:        rawSpecs?.additionalTopsLabel        ?? '',
+    additionalTops:             rawSpecs?.additionalTops             ?? '',
+    additionalTopsManufacturer: rawSpecs?.additionalTopsManufacturer ?? '',
+    additionalTopsManufacturerCustom: rawSpecs?.additionalTopsManufacturerCustom ?? '',
+    additionalTopsColor:        rawSpecs?.additionalTopsColor        ?? '',
+    additionalTopsColorCustom:  rawSpecs?.additionalTopsColorCustom  ?? '',
+    additionalTopsLaminateSubstrate: rawSpecs?.additionalTopsLaminateSubstrate ?? '',
+    additionalTopsLaminateSubstrateCustom: rawSpecs?.additionalTopsLaminateSubstrateCustom ?? '',
+    additionalTopsLaminateColor: rawSpecs?.additionalTopsLaminateColor ?? '',
+    additionalTopsLaminateColorCustom: rawSpecs?.additionalTopsLaminateColorCustom ?? '',
     handlesAndHardware:         rawSpecs?.handlesAndHardware         ?? '',
     handlesCustom:              rawSpecs?.handlesCustom              ?? '',
     tax:                        rawSpecs?.tax                        ?? '',
@@ -104,25 +116,30 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
   const STF = (label: string, key: keyof typeof specs, placeholder = '') => (
     <div>
       <label className={labelCls}>{label}</label>
-      <input className={inputCls} value={specs[key]} placeholder={placeholder}
+      <input className={inputCls} value={specs[key] as string} placeholder={placeholder}
         onChange={e => setSpecs(s => ({ ...s, [key]: e.target.value }))} />
     </div>
   );
 
-  const SSF = (label: string, key: keyof typeof specs, options: string[], placeholder = 'Select…', sub = false) => (
+  const SSF = (label: string, key: keyof typeof specs, options: string[], placeholder = 'Select…', sub = false) => {
+    const val = specs[key];
+    if (typeof val === 'boolean') return null;
+    return (
     <div>
       <label className={labelCls}>{label}</label>
       <select
-        value={specs[key]}
+        value={val}
         className={sub ? subInputCls : inputCls}
         onChange={e => {
-          const val = e.target.value;
+          const v = e.target.value;
           if (key === 'countertops') {
-            setSpecs(s => ({ ...s, countertops: val, countertopManufacturer: '', countertopManufacturerCustom: '', countertopColor: '', countertopColorCustom: '', laminateSubstrate: '', laminateSubstrateCustom: '', laminateColor: '', laminateColorCustom: '' }));
+            setSpecs(s => ({ ...s, countertops: v, countertopManufacturer: '', countertopManufacturerCustom: '', countertopColor: '', countertopColorCustom: '', laminateSubstrate: '', laminateSubstrateCustom: '', laminateColor: '', laminateColorCustom: '' }));
           } else if (key === 'vanityCountertops') {
-            setSpecs(s => ({ ...s, vanityCountertops: val, vanityManufacturer: '', vanityManufacturerCustom: '', vanityColor: '', vanityColorCustom: '', vanityLaminateSubstrate: '', vanityLaminateSubstrateCustom: '', vanityLaminateColor: '', vanityLaminateColorCustom: '', vanityBowlStyle: '', vanityBowlStyleCustom: '', vanityCMColor: '', vanityCMColorCustom: '' }));
+            setSpecs(s => ({ ...s, vanityCountertops: v, vanityManufacturer: '', vanityManufacturerCustom: '', vanityColor: '', vanityColorCustom: '', vanityLaminateSubstrate: '', vanityLaminateSubstrateCustom: '', vanityLaminateColor: '', vanityLaminateColorCustom: '', vanityBowlStyle: '', vanityBowlStyleCustom: '', vanityCMColor: '', vanityCMColorCustom: '' }));
+          } else if (key === 'additionalTops') {
+            setSpecs(s => ({ ...s, additionalTops: v, additionalTopsManufacturer: '', additionalTopsManufacturerCustom: '', additionalTopsColor: '', additionalTopsColorCustom: '', additionalTopsLaminateSubstrate: '', additionalTopsLaminateSubstrateCustom: '', additionalTopsLaminateColor: '', additionalTopsLaminateColorCustom: '' }));
           } else {
-            setSpecs(s => ({ ...s, [key]: val }));
+            setSpecs(s => ({ ...s, [key]: v }));
           }
         }}
       >
@@ -130,7 +147,8 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
         {options.map(o => <option key={o} value={o}>{o}</option>)}
       </select>
     </div>
-  );
+    );
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
@@ -404,6 +422,22 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
                 {/* Vanity Tops */}
                 <div className="space-y-2">
                   <div className="text-xs font-bold text-foreground uppercase tracking-wider border-b border-border pb-1 mb-1">🚿 Vanity Tops</div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={specs.vanitySameAsKitchen as boolean}
+                      onChange={e => {
+                        const checked = e.target.checked;
+                        if (checked) {
+                          setSpecs(s => ({ ...s, vanitySameAsKitchen: true, vanityCountertops: s.countertops, vanityManufacturer: s.countertopManufacturer, vanityManufacturerCustom: s.countertopManufacturerCustom, vanityColor: s.countertopColor, vanityColorCustom: s.countertopColorCustom, vanityLaminateSubstrate: s.laminateSubstrate, vanityLaminateSubstrateCustom: s.laminateSubstrateCustom, vanityLaminateColor: s.laminateColor, vanityLaminateColorCustom: s.laminateColorCustom, vanityBowlStyle: '', vanityBowlStyleCustom: '', vanityCMColor: '', vanityCMColorCustom: '' }));
+                        } else {
+                          setSpecs(s => ({ ...s, vanitySameAsKitchen: false }));
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                    />
+                    <span className="text-xs font-medium text-muted-foreground">Same as Kitchen Tops</span>
+                  </label>
+                  {!specs.vanitySameAsKitchen && (
+                    <>
                   {SSF('Material', 'vanityCountertops', VANITY_COUNTERTOP_OPTIONS)}
                   {specs.vanityCountertops && COUNTERTOP_MANUFACTURERS[specs.vanityCountertops] && (
                     <div className="space-y-2">
@@ -539,7 +573,110 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
                       )}
                     </div>
                   )}
+                    </>
+                  )}
+                  {specs.vanitySameAsKitchen && specs.countertops && (
+                    <p className="text-xs text-muted-foreground italic">Using Kitchen Tops selection: {specs.countertops}</p>
+                  )}
                 </div>
+              </div>
+
+              {/* Additional Tops */}
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={specs.additionalTopsEnabled as boolean}
+                    onChange={e => {
+                      const checked = e.target.checked;
+                      setSpecs(s => ({ ...s, additionalTopsEnabled: checked, ...(!checked ? { additionalTopsLabel: '', additionalTops: '', additionalTopsManufacturer: '', additionalTopsManufacturerCustom: '', additionalTopsColor: '', additionalTopsColorCustom: '', additionalTopsLaminateSubstrate: '', additionalTopsLaminateSubstrateCustom: '', additionalTopsLaminateColor: '', additionalTopsLaminateColorCustom: '' } : {}) }));
+                    }}
+                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                  />
+                  <span className="text-xs font-bold text-foreground uppercase tracking-wider">➕ Additional Tops</span>
+                </label>
+                {specs.additionalTopsEnabled && (
+                  <div className="space-y-2 pl-1 border-l-2 border-primary/20 ml-2">
+                    <div>
+                      <label className={labelCls}>Description / Area</label>
+                      <input type="text" value={specs.additionalTopsLabel} className={inputCls}
+                        onChange={e => setSpecs(s => ({ ...s, additionalTopsLabel: e.target.value }))}
+                        placeholder="e.g. Common area tops, Clubhouse tops…" />
+                    </div>
+                    {SSF('Material', 'additionalTops', COUNTERTOP_OPTIONS)}
+                    {specs.additionalTops && COUNTERTOP_MANUFACTURERS[specs.additionalTops] && (
+                      <div className="space-y-2">
+                        <div>
+                          <label className={labelCls}>Vendor</label>
+                          <select value={specs.additionalTopsManufacturer} className={subInputCls}
+                            onChange={e => setSpecs(s => ({ ...s, additionalTopsManufacturer: e.target.value, additionalTopsManufacturerCustom: '' }))}>
+                            <option value="">Select vendor…</option>
+                            {COUNTERTOP_MANUFACTURERS[specs.additionalTops].map(m => <option key={m} value={m}>{m}</option>)}
+                          </select>
+                        </div>
+                        {specs.additionalTopsManufacturer === 'Other' && (
+                          <input type="text" value={specs.additionalTopsManufacturerCustom} className={inputCls}
+                            onChange={e => setSpecs(s => ({ ...s, additionalTopsManufacturerCustom: e.target.value }))}
+                            placeholder="Enter manufacturer name…" />
+                        )}
+                        {(specs.additionalTops === 'Quartz' || specs.additionalTops === 'Granite') && (
+                          <div className="space-y-2">
+                            <div>
+                              <label className={labelCls}>Color</label>
+                              <select value={specs.additionalTopsColor} className={subInputCls}
+                                onChange={e => setSpecs(s => ({ ...s, additionalTopsColor: e.target.value, additionalTopsColorCustom: '' }))}>
+                                <option value="">Select color group…</option>
+                                <option value="Group 1 Color">Group 1 Color</option>
+                                <option value="Group 2 Color">Group 2 Color</option>
+                                <option value="Group 3 Color">Group 3 Color</option>
+                                <option value="Custom/Specific Color">Custom / Specific Color</option>
+                              </select>
+                            </div>
+                            {specs.additionalTopsColor === 'Custom/Specific Color' && (
+                              <input type="text" value={specs.additionalTopsColorCustom} className={inputCls}
+                                onChange={e => setSpecs(s => ({ ...s, additionalTopsColorCustom: e.target.value }))}
+                                placeholder="Enter specific color…" />
+                            )}
+                          </div>
+                        )}
+                        {specs.additionalTops === 'Laminate' && (
+                          <div className="space-y-2">
+                            <div>
+                              <label className={labelCls}>Substrate</label>
+                              <select value={specs.additionalTopsLaminateSubstrate} className={subInputCls}
+                                onChange={e => setSpecs(s => ({ ...s, additionalTopsLaminateSubstrate: e.target.value, additionalTopsLaminateSubstrateCustom: '' }))}>
+                                <option value="">Select substrate…</option>
+                                <option value="Particleboard">Particleboard</option>
+                                <option value="Plywood">Plywood</option>
+                                <option value="Other">Other</option>
+                              </select>
+                            </div>
+                            {specs.additionalTopsLaminateSubstrate === 'Other' && (
+                              <input type="text" value={specs.additionalTopsLaminateSubstrateCustom} className={inputCls}
+                                onChange={e => setSpecs(s => ({ ...s, additionalTopsLaminateSubstrateCustom: e.target.value }))}
+                                placeholder="Enter substrate type…" />
+                            )}
+                            <div>
+                              <label className={labelCls}>Color</label>
+                              <select value={specs.additionalTopsLaminateColor} className={subInputCls}
+                                onChange={e => setSpecs(s => ({ ...s, additionalTopsLaminateColor: e.target.value, additionalTopsLaminateColorCustom: '' }))}>
+                                <option value="">Select color group…</option>
+                                <option value="Group 1 Color">Group 1 Color</option>
+                                <option value="Group 2 Color">Group 2 Color</option>
+                                <option value="Group 3 Color">Group 3 Color</option>
+                                <option value="Group 5 Color">Group 5 Color</option>
+                                <option value="Custom/Specific Color">Custom / Specific Color</option>
+                              </select>
+                            </div>
+                            {specs.additionalTopsLaminateColor === 'Custom/Specific Color' && (
+                              <input type="text" value={specs.additionalTopsLaminateColorCustom} className={inputCls}
+                                onChange={e => setSpecs(s => ({ ...s, additionalTopsLaminateColorCustom: e.target.value }))}
+                                placeholder="Enter specific color…" />
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Tax */}
