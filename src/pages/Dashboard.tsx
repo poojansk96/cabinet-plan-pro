@@ -174,9 +174,12 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <p className="text-center text-xs text-muted-foreground mb-6">
-              Just upload your plans — no need to manually check or select anything. The AI handles it all.
-            </p>
+            <div className="est-card p-4 mb-8 border-l-4" style={{ borderLeftColor: 'hsl(var(--primary))' }}>
+              <h3 className="font-semibold text-sm text-foreground mb-1">🌍 First of Its Kind in the World</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                No other software in the market offers fully automated AI-powered cabinet and countertop takeoffs. Existing tools are built for general construction takeoffs and require you to manually select and trace every item on the plans. CabinetTakeoff Pro is the first AI project purpose-built for cabinets & countertops — just upload your plans and the system does the rest, requiring far less human effort than anything else available.
+              </p>
+            </div>
 
             <div className="text-center">
               <Link
