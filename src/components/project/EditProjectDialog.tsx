@@ -270,6 +270,7 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
                         const nameOptions: Record<string, string[]> = {
                           Overseas: ['Avon Group 9', 'Avon Group 10- PTK', 'Kerala Slab', 'Other'],
                           India:    ['Madison', 'Eden', 'Other'],
+                          Legacy:   ['Sagamore Shaker Maple', 'Venetian MDF Painted', 'Other'],
                         };
                         const opts = nameOptions[specs.doorStyle];
                         if (!opts) return null;
