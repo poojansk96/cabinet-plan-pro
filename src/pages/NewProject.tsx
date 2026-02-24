@@ -39,6 +39,7 @@ export default function NewProject() {
     doorStyleStyle: '',
     doorStyleStyleCustom: '',
     doorStyleConstruction: '',
+    doorStyleSeries: '',
     doorStyleFraming: '',
     doorStyleName: '',
     doorStyleNameCustom: '',
@@ -260,7 +261,7 @@ export default function NewProject() {
                   </label>
                   <select
                     value={specs.doorStyle}
-                    onChange={e => setSpecs(s => ({ ...s, doorStyle: e.target.value, doorStyleCustom: '', doorStyleStyle: '', doorStyleStyleCustom: '', doorStyleConstruction: '', doorStyleFraming: '', doorStyleName: '', doorStyleNameCustom: '' }))}
+                    onChange={e => setSpecs(s => ({ ...s, doorStyle: e.target.value, doorStyleCustom: '', doorStyleStyle: '', doorStyleStyleCustom: '', doorStyleConstruction: '', doorStyleFraming: '', doorStyleSeries: '', doorStyleName: '', doorStyleNameCustom: '' }))}
                     className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
                   >
                     <option value="">Select manufacturer…</option>
@@ -305,6 +306,20 @@ export default function NewProject() {
                           className="w-full h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
                         />
                       )}
+                      {specs.doorStyle === 'Legacy' && (
+                        <div>
+                          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Series</label>
+                          <select value={specs.doorStyleSeries}
+                            onChange={e => setSpecs(s => ({ ...s, doorStyleSeries: e.target.value, doorStyleConstruction: '' }))}
+                            className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
+                          >
+                            <option value="">Select series…</option>
+                            <option value="Advantage">Advantage</option>
+                            <option value="Debut">Debut</option>
+                            <option value="Presidential">Presidential</option>
+                          </select>
+                        </div>
+                      )}
                       <div>
                         <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Construction</label>
                         <select value={specs.doorStyleConstruction}
@@ -312,8 +327,24 @@ export default function NewProject() {
                           className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
                         >
                           <option value="">Select construction…</option>
-                          <option value="Particleboard">Particleboard</option>
-                          <option value="Plywood">Plywood</option>
+                          {specs.doorStyle === 'Legacy' && specs.doorStyleSeries === 'Advantage' ? (
+                            <>
+                              <option value="Standard">Standard</option>
+                              <option value="Verde">Verde</option>
+                              <option value="Intence">Intence</option>
+                            </>
+                          ) : specs.doorStyle === 'Legacy' && specs.doorStyleSeries === 'Debut' ? (
+                            <>
+                              <option value="Standard">Standard</option>
+                              <option value="Plywood">Plywood</option>
+                              <option value="Extreme">Extreme</option>
+                            </>
+                          ) : (
+                            <>
+                              <option value="Particleboard">Particleboard</option>
+                              <option value="Plywood">Plywood</option>
+                            </>
+                          )}
                         </select>
                       </div>
                     </div>
