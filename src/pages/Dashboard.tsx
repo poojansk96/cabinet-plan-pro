@@ -197,12 +197,6 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="est-card p-4 border-l-4" style={{ borderLeftColor: 'hsl(var(--primary))' }}>
-                  <h3 className="font-semibold text-sm text-foreground mb-1">🌍 First of Its Kind in the World</h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    No other software in the market offers fully automated AI-powered cabinet and countertop takeoffs. Existing tools are built for general construction takeoffs and require you to manually select and trace every item on the plans. cabinetcounters.com is the first AI project purpose-built for cabinets & countertops — just upload your plans and the system does the rest, requiring far less human effort than anything else available.
-                  </p>
-                </div>
               </div>
             )}
           </div>
