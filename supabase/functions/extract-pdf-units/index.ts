@@ -71,10 +71,14 @@ UNIT NUMBERS vs UNIT TYPES — CRITICAL DISTINCTION:
 - Unit NUMBERS are unique identifiers for individual apartments/spaces, typically numeric or alphanumeric with numbers: "101", "1-01", "A-08", "2-05", "3B", "B204", "#201". They appear near doors or inside room boundaries.
 - Unit TYPES are category labels describing the layout/design: "Unit A", "Unit B", "UNIT TYPE 1.1B", "Type A5", "Studio", "1 BR", "2 BR". Multiple apartments can share the same type.
 - NEVER use a type label (like "A", "B", "C", "D", "E", "J", "K", "M") as unitNumber. Always find the actual numeric/alphanumeric identifier for each apartment.
+- For COMMON AREAS (laundry rooms, community rooms, etc.): ALWAYS look for a room number label (e.g. "103", "203", "303") near the space. If a room number is visible, use it as unitNumber. NEVER use the space name (like "Laundry", "Community Room") as the unitNumber — the space name goes in detectedType instead.
 
 UNIT TYPES TO DETECT:
 1. Residential: "Unit 101", "Apt 3B", "A-101", "B204", "101A", "#201", "1-01", "1-02", "A-08"
-2. Common areas with cabinet content: Laundry rooms → "LAUNDRY-1", Community kitchens → "COMM-KITCHEN", Community rooms → "COMMUNITY ROOM 115", Pantries → "PANTRY-A", Clubhouses → "CLUBHOUSE", Leasing offices → "LEASING-OFFICE", Fitness rooms → "FITNESS-1", Toilets/Restrooms → "TOILET-C", Public bathrooms → "RESTROOM-1", Break rooms/Breakrooms → "BREAKROOM-1", Kitchenettes → "KITCHENETTE-1", Staff rooms → "STAFF-ROOM-1", Lounges with kitchenettes → "LOUNGE-1"
+2. Common areas with cabinet content: These use the ROOM NUMBER as unitNumber and the SPACE NAME as detectedType. Examples:
+   - Room labeled "103" with laundry cabinets → unitNumber: "103", detectedType: "Laundry"
+   - Room labeled "111" with community kitchen → unitNumber: "111", detectedType: "Community Room"
+   - If NO room number is visible, use "?-1", "?-2" etc. as unitNumber, NEVER use "Laundry" or "Community Room" as unitNumber
 
 IMPORTANT - WHAT TO IGNORE:
 - NEVER treat sheet/drawing numbers (e.g. "A-101.00", "A-102.00", "A-220") as unit numbers. These appear in title blocks next to "DRAWING NO:" or "SHEET:".
