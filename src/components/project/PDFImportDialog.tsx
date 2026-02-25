@@ -11,7 +11,7 @@ const EDGE_REQUEST_HEADERS = {
   apikey: EDGE_FUNCTION_KEY,
   Authorization: `Bearer ${EDGE_FUNCTION_KEY}`,
 };
-const MAX_REQUEST_BYTES = 3_500_000;
+const MAX_REQUEST_BYTES = 1_800_000;
 
 const compactPageTextForAI = (text: string): string => {
   const clean = text.replace(/\s+/g, ' ').trim();
@@ -20,6 +20,39 @@ const compactPageTextForAI = (text: string): string => {
   const head = clean.slice(0, 2800);
   const tail = clean.slice(-1000);
   return `${head}\n...\n${tail}`;
+};
+
+const FLOOR_PLAN_INCLUDE_HINTS = [
+  'FLOOR PLAN',
+  'UNIT TYPE',
+  'UNIT ',
+  'LEVEL',
+  'LAUNDRY',
+  'KITCHEN',
+  'COMMUNITY ROOM',
+  'CORR.',
+  'CORRIDOR',
+];
+
+const FLOOR_PLAN_EXCLUDE_HINTS = [
+  'ROOF PLAN',
+  'FOUNDATION PLAN',
+  'SITE PLAN',
+  'REFLECTED CEILING PLAN',
+  'ELEVATION',
+  'SECTION',
+  'DETAIL',
+];
+
+const shouldAnalyzePageForUnits = (text: string): boolean => {
+  const upper = text.toUpperCase();
+  if (!upper.trim()) return true;
+
+  if (FLOOR_PLAN_INCLUDE_HINTS.some(h => upper.includes(h))) return true;
+  if (FLOOR_PLAN_EXCLUDE_HINTS.some(h => upper.includes(h))) return false;
+
+  const likelyUnitRefs = upper.match(/\b\d{3}[A-Z]?\b/g)?.length ?? 0;
+  return likelyUnitRefs >= 4 && upper.includes('UNIT');
 };
 interface UnitRow {
   unitNumber: string;
@@ -167,10 +200,19 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
       let pagesProcessed = 0;
       const encoder = new TextEncoder();
 
+      const candidatePageIndices = pageTexts
+        .map((text, index) => ({ text, index }))
+        .filter(({ text }) => shouldAnalyzePageForUnits(text))
+        .map(({ index }) => index);
+
+      const aiTargetPages = candidatePageIndices.length
+        ? candidatePageIndices
+        : pageTexts.map((_, index) => index);
+
       const IMAGE_TIERS: Array<{ scale: number; quality: number; maxBase64Chars: number }> = [
-        { scale: 2.5, quality: 0.65, maxBase64Chars: 2_800_000 },
-        { scale: 2.0, quality: 0.55, maxBase64Chars: 2_000_000 },
-        { scale: 1.5, quality: 0.5, maxBase64Chars: 1_400_000 },
+        { scale: 1.8, quality: 0.55, maxBase64Chars: 1_200_000 },
+        { scale: 1.4, quality: 0.45, maxBase64Chars: 900_000 },
+        { scale: 1.1, quality: 0.38, maxBase64Chars: 650_000 },
       ];
 
       const getPayloadBytes = (payload: unknown) => encoder.encode(JSON.stringify(payload)).length;
@@ -228,7 +270,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
           return;
         }
 
-        const MAX_RETRIES = 3;
+        const MAX_RETRIES = 2;
         let pageSucceeded = false;
 
         for (let tierIdx = 0; tierIdx < IMAGE_TIERS.length; tierIdx++) {
@@ -353,15 +395,15 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
         }
 
         pagesProcessed++;
-        setProgress(45 + Math.round((pagesProcessed / totalPages) * 45));
-        setProgressLabel(`AI analyzed page ${pagesProcessed} of ${totalPages}`);
+        setProgress(45 + Math.round((pagesProcessed / aiTargetPages.length) * 45));
+        setProgressLabel(`AI analyzed page ${pagesProcessed} of ${aiTargetPages.length}`);
       };
 
-      // Process pages in batches of CONCURRENCY
-      for (let i = 0; i < pageTexts.length; i += CONCURRENCY) {
+      // Process only likely floor-plan pages in batches of CONCURRENCY
+      for (let i = 0; i < aiTargetPages.length; i += CONCURRENCY) {
         const batch = [];
-        for (let j = i; j < Math.min(i + CONCURRENCY, pageTexts.length); j++) {
-          batch.push(processPage(j));
+        for (let j = i; j < Math.min(i + CONCURRENCY, aiTargetPages.length); j++) {
+          batch.push(processPage(aiTargetPages[j]));
         }
         await Promise.all(batch);
       }
