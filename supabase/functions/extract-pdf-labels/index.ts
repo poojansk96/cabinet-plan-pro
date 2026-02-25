@@ -13,10 +13,8 @@ serve(async (req) => {
   }
 
   try {
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    const useDirectGemini = !!GEMINI_API_KEY;
-    if (!GEMINI_API_KEY && !LOVABLE_API_KEY) throw new Error("No AI API key configured");
+    if (!LOVABLE_API_KEY) throw new Error("No AI API key configured");
 
     const { pageImage, unitType } = await req.json();
 
@@ -96,27 +94,11 @@ Return ONLY valid JSON — no markdown, no explanation, no reasoning text:
     const MAX_RETRIES = 3;
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        if (useDirectGemini) {
-          response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                contents: [{ role: "user", parts: [
-                  { inlineData: { mimeType: "image/jpeg", data: pageImage } },
-                  { text: prompt },
-                ]}],
-                generationConfig: { temperature: 0.2, maxOutputTokens: 8192 },
-              }),
-            }
-          );
-        } else {
           response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
             headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
             body: JSON.stringify({
-              model: "google/gemini-2.5-flash",
+              model: "openai/gpt-5-mini",
               messages: [{ role: "user", content: [
                 { type: "image_url", image_url: { url: `data:image/jpeg;base64,${pageImage}` } },
                 { type: "text", text: prompt },
@@ -124,7 +106,6 @@ Return ONLY valid JSON — no markdown, no explanation, no reasoning text:
               temperature: 0.2, max_tokens: 8192,
             }),
           });
-        }
       } catch (fetchErr) {
         console.error(`AI fetch error (attempt ${attempt + 1}):`, fetchErr);
         if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
@@ -154,9 +135,7 @@ Return ONLY valid JSON — no markdown, no explanation, no reasoning text:
     }
 
     const aiData = await response.json();
-    const content: string = useDirectGemini
-      ? (aiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "")
-      : (aiData.choices?.[0]?.message?.content ?? "");
+    const content: string = aiData.choices?.[0]?.message?.content ?? "";
     console.log("AI raw response:", content.slice(0, 800));
 
     let parsed: { items: any[]; unitTypeName?: string | null } = { items: [] };
