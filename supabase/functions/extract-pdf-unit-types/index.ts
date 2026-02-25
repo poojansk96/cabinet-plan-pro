@@ -107,8 +107,8 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("No AI API key configured");
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    if (!OPENAI_API_KEY) throw new Error("No OpenAI API key configured");
 
     const { pageImage } = await req.json();
     if (!pageImage || typeof pageImage !== "string") {
@@ -122,11 +122,11 @@ serve(async (req) => {
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        const res = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
-          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: "openai/gpt-5-mini",
+            model: "gpt-4o-mini",
             messages: [{ role: "user", content: [
               { type: "image_url", image_url: { url: `data:image/jpeg;base64,${pageImage}` } },
               { type: "text", text: SYSTEM_PROMPT },
