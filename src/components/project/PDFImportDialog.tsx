@@ -5,14 +5,14 @@ import type { UnitType } from '@/types/project';
 import { toast } from 'sonner';
 
 const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-pdf-units`;
-const MAX_REQUEST_BYTES = 1_600_000;
+const MAX_REQUEST_BYTES = 700_000;
 
 const compactPageTextForAI = (text: string): string => {
   const clean = text.replace(/\s+/g, ' ').trim();
-  if (clean.length <= 3600) return clean;
+  if (clean.length <= 2200) return clean;
 
-  const head = clean.slice(0, 2400);
-  const tail = clean.slice(-1000);
+  const head = clean.slice(0, 1500);
+  const tail = clean.slice(-500);
   return `${head}\n...\n${tail}`;
 };
 interface UnitRow {
@@ -162,9 +162,9 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
       const encoder = new TextEncoder();
 
       const IMAGE_TIERS: Array<{ scale: number; quality: number; maxBase64Chars: number }> = [
-        { scale: 2, quality: 0.6, maxBase64Chars: 1_300_000 },
-        { scale: 1.5, quality: 0.5, maxBase64Chars: 900_000 },
-        { scale: 1.2, quality: 0.45, maxBase64Chars: 650_000 },
+        { scale: 1.25, quality: 0.45, maxBase64Chars: 450_000 },
+        { scale: 1.0, quality: 0.38, maxBase64Chars: 300_000 },
+        { scale: 0.8, quality: 0.32, maxBase64Chars: 220_000 },
       ];
 
       const getPayloadBytes = (payload: unknown) => encoder.encode(JSON.stringify(payload)).length;
