@@ -120,7 +120,7 @@ serve(async (req) => {
       });
     }
 
-    const model = useDirectGemini ? "gemini-2.5-flash" : "google/gemini-2.5-flash";
+    const model = useDirectGemini ? "gemini-3-flash-preview" : "google/gemini-3-flash-preview";
     let content = "";
     const MAX_RETRIES = 3;
 
