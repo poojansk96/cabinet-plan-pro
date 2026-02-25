@@ -151,7 +151,8 @@ serve(async (req) => {
 
   try {
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) throw new Error("No OpenAI API key configured");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!OPENAI_API_KEY && !GEMINI_API_KEY) throw new Error("No AI provider key configured");
 
     const body = await req.json();
 
@@ -169,71 +170,128 @@ serve(async (req) => {
     const tailBlock = (pageText ?? "").slice(-800);
     const userPrompt = `Analyze this floor plan page (page ${pageIndex + 1}).\n\nSHEET TITLE / HEADER AREA (check here first for building name):\n${titleBlock}\n\nFOOTER / TITLE BLOCK:\n${tailBlock}\n\nFULL PAGE TEXT:\n${(pageText ?? "").slice(0, 8000)}`;
 
+    const imageData = pageImage
+      ? (pageImage.startsWith("data:") ? (pageImage.split(",")[1] ?? "") : pageImage)
+      : "";
+
     let response: Response | null = null;
+    let content = "";
     const MAX_RETRIES = 3;
 
-    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-      try {
-        const contentParts: any[] = [];
-        if (pageImage) {
-          const imageData = pageImage.startsWith("data:")
-            ? (pageImage.split(",")[1] ?? "")
-            : pageImage;
+    if (OPENAI_API_KEY) {
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+          const contentParts: any[] = [];
           if (imageData) {
             contentParts.push({ type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageData}` } });
           }
+          contentParts.push({ type: "text", text: userPrompt });
+
+          response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${OPENAI_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "gpt-4o-mini",
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: contentParts },
+              ],
+              temperature: 0.1,
+              max_tokens: 8192,
+            }),
+          });
+        } catch (fetchErr) {
+          console.error(`Page ${pageIndex + 1} openai fetch error (attempt ${attempt + 1}):`, fetchErr);
+          if (attempt < MAX_RETRIES - 1) {
+            await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+            continue;
+          }
+          response = null;
+          break;
         }
-        contentParts.push({ type: "text", text: userPrompt });
 
-        response = await fetch("https://api.openai.com/v1/chat/completions", {
+        if (response && (response.status === 503 || response.status === 500)) {
+          console.warn(`Page ${pageIndex + 1} openai unavailable (${response.status}), attempt ${attempt + 1}`);
+          response = null;
+          if (attempt < MAX_RETRIES - 1) {
+            await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
+            continue;
+          }
+          break;
+        }
+
+        break;
+      }
+    }
+
+    const shouldTryGemini = Boolean(GEMINI_API_KEY) && (
+      !OPENAI_API_KEY ||
+      !response ||
+      (response.status === 429 || response.status === 402 || response.status === 500 || response.status === 503)
+    );
+
+    if (shouldTryGemini) {
+      console.warn(`Page ${pageIndex + 1}: OpenAI unavailable/quota-limited, falling back to Gemini`);
+      const geminiParts: any[] = [{ text: `${systemPrompt}\n\n${userPrompt}` }];
+      if (imageData) {
+        geminiParts.unshift({ inline_data: { mime_type: "image/jpeg", data: imageData } });
+      }
+
+      const geminiResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+        {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${OPENAI_API_KEY}`,
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: "gpt-4o-mini",
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: contentParts },
-            ],
-            temperature: 0.1,
-            max_tokens: 8192,
+            contents: [{ parts: geminiParts }],
+            generationConfig: {
+              temperature: 0.1,
+              maxOutputTokens: 8192,
+              responseMimeType: "application/json",
+            },
           }),
-        });
-      } catch (fetchErr) {
-        console.error(`Page ${pageIndex + 1} fetch error (attempt ${attempt + 1}):`, fetchErr);
-        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
-        break;
-      }
+        },
+      );
 
-      if (response && (response.status === 503 || response.status === 500)) {
-        console.warn(`Page ${pageIndex + 1} AI unavailable (${response.status}), attempt ${attempt + 1}`);
-        response = null;
-        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
-        break;
+      if (geminiResponse.ok) {
+        const geminiData = await geminiResponse.json();
+        content = (geminiData.candidates?.[0]?.content?.parts ?? [])
+          .map((part: any) => part.text ?? "")
+          .join("\n")
+          .trim();
+      } else {
+        const errText = await geminiResponse.text();
+        console.error("Gemini fallback error:", geminiResponse.status, errText);
+        response = geminiResponse;
       }
-      if (response && response.status === 429) {
-        return new Response(JSON.stringify({ error: "rate_limit" }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response && response.status === 402) {
-        return new Response(JSON.stringify({ error: "credits" }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      break;
     }
 
-    if (!response || !response.ok) {
-      return new Response(JSON.stringify({ units: [] }), {
-        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    if (!content) {
+      if (!response || !response.ok) {
+        if (response?.status === 429) {
+          return new Response(JSON.stringify({ error: "rate_limit" }), {
+            status: 429,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (response?.status === 402) {
+          return new Response(JSON.stringify({ error: "credits" }), {
+            status: 402,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify({ units: [] }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
-    const aiData = await response.json();
-    const content = aiData.choices?.[0]?.message?.content ?? "";
+      const aiData = await response.json();
+      content = aiData.choices?.[0]?.message?.content ?? "";
+    }
 
     let parsed: { pageBuilding?: string | null; units: any[] } | null = null;
     try {

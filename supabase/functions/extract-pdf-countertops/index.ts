@@ -13,7 +13,8 @@ serve(async (req) => {
 
   try {
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) throw new Error("No OpenAI API key configured");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!OPENAI_API_KEY && !GEMINI_API_KEY) throw new Error("No AI provider key configured");
 
     const { pageImage } = await req.json();
 
@@ -49,9 +50,12 @@ Return ONLY valid JSON — no markdown fences, no explanation:
 {"countertops":[{"label":"Perimeter Left","length":96,"depth":25.5,"splashHeight":4,"isIsland":false,"room":"Kitchen"}]}`;
 
     let response: Response | null = null;
+    let content = "";
     const MAX_RETRIES = 3;
-    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-      try {
+
+    if (OPENAI_API_KEY) {
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
           response = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
@@ -64,39 +68,86 @@ Return ONLY valid JSON — no markdown fences, no explanation:
               temperature: 0.2, max_tokens: 8192,
             }),
           });
-      } catch (fetchErr) {
-        console.error(`AI fetch error (attempt ${attempt + 1}):`, fetchErr);
-        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
-        throw fetchErr;
-      }
+        } catch (fetchErr) {
+          console.error(`AI openai fetch error (attempt ${attempt + 1}):`, fetchErr);
+          if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
+          response = null;
+          break;
+        }
 
-      if (response && (response.status === 503 || response.status === 500)) {
-        console.warn(`AI unavailable (${response.status}), attempt ${attempt + 1}/${MAX_RETRIES}`);
-        response = null;
-        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
+        if (response && (response.status === 503 || response.status === 500)) {
+          console.warn(`AI openai unavailable (${response.status}), attempt ${attempt + 1}/${MAX_RETRIES}`);
+          response = null;
+          if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
+          break;
+        }
+        break;
+      }
+    }
+
+    const shouldTryGemini = Boolean(GEMINI_API_KEY) && (
+      !OPENAI_API_KEY ||
+      !response ||
+      (response.status === 429 || response.status === 402 || response.status === 500 || response.status === 503)
+    );
+
+    if (shouldTryGemini) {
+      console.warn(`OpenAI unavailable/quota-limited, falling back to Gemini`);
+      const geminiResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { inline_data: { mime_type: "image/jpeg", data: pageImage } },
+                { text: prompt },
+              ],
+            }],
+            generationConfig: {
+              temperature: 0.2,
+              maxOutputTokens: 8192,
+              responseMimeType: "application/json",
+            },
+          }),
+        },
+      );
+
+      if (geminiResponse.ok) {
+        const geminiData = await geminiResponse.json();
+        content = (geminiData.candidates?.[0]?.content?.parts ?? [])
+          .map((part: any) => part.text ?? "")
+          .join("\n")
+          .trim();
+      } else {
+        const errText = await geminiResponse.text();
+        console.error("Gemini fallback error:", geminiResponse.status, errText);
+        response = geminiResponse;
+      }
+    }
+
+    if (!content) {
+      if (!response) {
         return new Response(JSON.stringify({ error: "AI model temporarily unavailable.", countertops: [] }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      break;
-    }
 
-    if (!response) {
-      return new Response(JSON.stringify({ error: "AI model temporarily unavailable.", countertops: [] }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("AI error:", response.status, errText);
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error("AI error:", response.status, errText);
+        if (response.status === 429) {
+          return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        if (response.status === 402) {
+          return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        return new Response(JSON.stringify({ error: `AI error: ${response.status}`, countertops: [] }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-      return new Response(JSON.stringify({ error: `AI error: ${response.status}`, countertops: [] }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+      const aiData = await response.json();
+      content = aiData.choices?.[0]?.message?.content ?? "";
     }
 
-    const aiData = await response.json();
-    const content: string = aiData.choices?.[0]?.message?.content ?? "";
     console.log("AI countertop raw:", content.slice(0, 800));
 
     let parsed: { countertops: any[] } = { countertops: [] };
