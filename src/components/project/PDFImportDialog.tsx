@@ -109,7 +109,22 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       const totalPages = pdf.numPages;
       const pageTexts: string[] = [];
-      const pageImages: string[] = [];
+      // Store PDF page refs so we can render at different qualities adaptively
+      const pdfPages: any[] = [];
+      
+      // Helper: render a PDF page to base64 JPEG at given scale/quality
+      const renderPageImage = async (pdfPage: any, scale: number, quality: number): Promise<string> => {
+        const viewport = pdfPage.getViewport({ scale });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext('2d')!;
+        await pdfPage.render({ canvasContext: ctx, viewport }).promise;
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        canvas.width = 0;
+        canvas.height = 0;
+        return dataUrl.replace(/^data:image\/jpeg;base64,/, '');
+      };
       
       for (let p = 1; p <= totalPages; p++) {
         const page = await pdf.getPage(p);
@@ -121,21 +136,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
           .map((item: any) => item.str)
           .join(' ');
         pageTexts.push(text);
-        
-        // Render page to image at high quality for best AI results
-        const scale = 3;
-        const viewport = page.getViewport({ scale });
-        const canvas = document.createElement('canvas');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        const ctx = canvas.getContext('2d')!;
-        await page.render({ canvasContext: ctx, viewport }).promise;
-        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.75);
-        // Strip data URI prefix to reduce payload size
-        const base64Only = imageDataUrl.replace(/^data:image\/jpeg;base64,/, '');
-        pageImages.push(base64Only);
-        canvas.width = 0;
-        canvas.height = 0;
+        pdfPages.push(page);
         
         setProgress(10 + Math.round((p / totalPages) * 30));
         setProgressLabel(`Reading page ${p} of ${totalPages}`);
@@ -150,12 +151,19 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
       const allUnits: Record<string, any> = {};
       let pagesProcessed = 0;
       
+      // Adaptive quality tiers: try high first, downscale on fetch failure
+      const IMAGE_TIERS: Array<{ scale: number; quality: number }> = [
+        { scale: 3, quality: 0.75 },
+        { scale: 2, quality: 0.6 },
+        { scale: 1.5, quality: 0.5 },
+      ];
+
       const processPage = async (pageIndex: number): Promise<void> => {
         let pageText = pageTexts[pageIndex];
-        const pageImage = pageImages[pageIndex];
-        // Skip only if no text AND no image
-        const hasImage = pageImage && pageImage.length > 100;
-        if ((!pageText || pageText.trim().length < 20) && !hasImage) {
+        const pdfPage = pdfPages[pageIndex];
+        
+        // Skip only if no text AND no renderable page
+        if ((!pageText || pageText.trim().length < 20) && !pdfPage) {
           pagesProcessed++;
           return;
         }
@@ -165,97 +173,151 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
           pageText = pageText.slice(0, 8000);
         }
         
-        const MAX_RETRIES = 3;
-        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        // Try each quality tier; on network/fetch failure, downscale and retry
+        for (let tierIdx = 0; tierIdx < IMAGE_TIERS.length; tierIdx++) {
+          const tier = IMAGE_TIERS[tierIdx];
+          let pageImage: string | undefined;
+          
           try {
-            const resp = await fetch(EDGE_FUNCTION_URL, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                pageText: pageText || '', 
-                pageImage: hasImage ? pageImage : undefined, 
-                pageIndex 
-              }),
-            });
-            
-            if (resp.status === 429) {
-              toast.error('AI rate limit — waiting 30s before retry…');
-              await new Promise(r => setTimeout(r, 30000));
-              continue;
-            }
-            if (resp.status === 402) {
-              toast.error('AI credits exhausted. Please add credits.');
-              return;
-            }
-            if (resp.status === 503 || resp.status === 500) {
-              if (attempt < MAX_RETRIES - 1) {
-                await new Promise(r => setTimeout(r, 3000 * (attempt + 1)));
+            pageImage = await renderPageImage(pdfPage, tier.scale, tier.quality);
+          } catch {
+            console.warn(`Page ${pageIndex + 1}: failed to render at scale ${tier.scale}`);
+          }
+          
+          const hasImage = pageImage && pageImage.length > 100;
+          
+          const MAX_RETRIES = 3;
+          let fetchFailed = false;
+          
+          for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+            try {
+              const resp = await fetch(EDGE_FUNCTION_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                  pageText: pageText || '', 
+                  pageImage: hasImage ? pageImage : undefined, 
+                  pageIndex 
+                }),
+              });
+              
+              if (resp.status === 429) {
+                toast.error('AI rate limit — waiting 30s before retry…');
+                await new Promise(r => setTimeout(r, 30000));
                 continue;
               }
-              console.error(`Page ${pageIndex + 1}: AI failed after retries`);
-              return;
-            }
-            if (!resp.ok) {
-              console.error(`Page ${pageIndex + 1}: AI error ${resp.status}`);
-              return;
-            }
-            
-            const data = await resp.json();
-            if (data.units && Array.isArray(data.units)) {
-              for (const unit of data.units) {
-                const unitNumber = (unit.unitNumber ?? '').trim().toUpperCase();
-                if (!unitNumber) continue;
-
-                const floorKey = (unit.detectedFloor ?? '').trim().toUpperCase();
-                const bldgKey = (unit.detectedBldg ?? '').trim().toUpperCase();
-                const normalizedType = (unit.detectedType ?? '').trim();
-                const typeKey = normalizedType && normalizedType !== '?'
-                  ? normalizedType.toUpperCase()
-                  : '?';
-
-                // Keep same unit number as separate records when type differs
-                // (e.g. residential 103 and Laundry 103).
-                const baseKey = `${unitNumber}|${floorKey}|${bldgKey}`;
-                const compositeKey = `${baseKey}|${typeKey}`;
-
-                // If we already have a typed record, ignore unknown fallback for same unit/floor/building.
-                if (typeKey === '?') {
-                  const hasTyped = Object.keys(allUnits).some(k => k.startsWith(`${baseKey}|`) && !k.endsWith('|?'));
-                  if (hasTyped) continue;
-                } else {
-                  // Replace unknown fallback with concrete type when available.
-                  const unknownKey = `${baseKey}|?`;
-                  if (allUnits[unknownKey]) delete allUnits[unknownKey];
+              if (resp.status === 402) {
+                toast.error('AI credits exhausted. Please add credits.');
+                pagesProcessed++;
+                return;
+              }
+              if (resp.status === 503 || resp.status === 500) {
+                if (attempt < MAX_RETRIES - 1) {
+                  await new Promise(r => setTimeout(r, 3000 * (attempt + 1)));
+                  continue;
                 }
+                console.error(`Page ${pageIndex + 1}: AI failed after retries`);
+                pagesProcessed++;
+                return;
+              }
+              if (!resp.ok) {
+                console.error(`Page ${pageIndex + 1}: AI error ${resp.status}`);
+                pagesProcessed++;
+                return;
+              }
+              
+              const data = await resp.json();
+              if (data.units && Array.isArray(data.units)) {
+                for (const unit of data.units) {
+                  const unitNumber = (unit.unitNumber ?? '').trim().toUpperCase();
+                  if (!unitNumber) continue;
 
-                const existing = allUnits[compositeKey];
-                if (!existing) {
-                  allUnits[compositeKey] = {
-                    ...unit,
-                    unitNumber,
-                    page: pageIndex + 1,
-                    confidence: 'high',
-                    kitchenConfidence: unit.kitchenConfidence ?? 'maybe',
-                  };
-                } else {
-                  if ((!existing.detectedType || existing.detectedType === '?') && unit.detectedType && unit.detectedType !== '?') {
-                    existing.detectedType = unit.detectedType;
+                  const floorKey = (unit.detectedFloor ?? '').trim().toUpperCase();
+                  const bldgKey = (unit.detectedBldg ?? '').trim().toUpperCase();
+                  const normalizedType = (unit.detectedType ?? '').trim();
+                  const typeKey = normalizedType && normalizedType !== '?'
+                    ? normalizedType.toUpperCase()
+                    : '?';
+
+                  const baseKey = `${unitNumber}|${floorKey}|${bldgKey}`;
+                  const compositeKey = `${baseKey}|${typeKey}`;
+
+                  if (typeKey === '?') {
+                    const hasTyped = Object.keys(allUnits).some(k => k.startsWith(`${baseKey}|`) && !k.endsWith('|?'));
+                    if (hasTyped) continue;
+                  } else {
+                    const unknownKey = `${baseKey}|?`;
+                    if (allUnits[unknownKey]) delete allUnits[unknownKey];
                   }
-                  if (!existing.detectedFloor && unit.detectedFloor) existing.detectedFloor = unit.detectedFloor;
-                  if (!existing.detectedBldg && unit.detectedBldg) existing.detectedBldg = unit.detectedBldg;
-                  if (existing.kitchenConfidence === 'maybe' && unit.kitchenConfidence === 'yes') existing.kitchenConfidence = 'yes';
+
+                  const existing = allUnits[compositeKey];
+                  if (!existing) {
+                    allUnits[compositeKey] = {
+                      ...unit,
+                      unitNumber,
+                      page: pageIndex + 1,
+                      confidence: 'high',
+                      kitchenConfidence: unit.kitchenConfidence ?? 'maybe',
+                    };
+                  } else {
+                    if ((!existing.detectedType || existing.detectedType === '?') && unit.detectedType && unit.detectedType !== '?') {
+                      existing.detectedType = unit.detectedType;
+                    }
+                    if (!existing.detectedFloor && unit.detectedFloor) existing.detectedFloor = unit.detectedFloor;
+                    if (!existing.detectedBldg && unit.detectedBldg) existing.detectedBldg = unit.detectedBldg;
+                    if (existing.kitchenConfidence === 'maybe' && unit.kitchenConfidence === 'yes') existing.kitchenConfidence = 'yes';
+                  }
                 }
               }
+              // Success — break out of retry loop AND tier loop
+              fetchFailed = false;
+              break;
+            } catch (err) {
+              fetchFailed = true;
+              if (attempt < MAX_RETRIES - 1) {
+                await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+                continue;
+              }
+              // All retries exhausted at this tier — will try next tier
+              console.warn(`Page ${pageIndex + 1}: fetch failed at scale ${tier.scale}, trying smaller…`);
             }
-            break; // success
-          } catch (err) {
-            if (attempt < MAX_RETRIES - 1) {
-              await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
-              continue;
+          }
+          
+          if (!fetchFailed) break; // Success at this tier, no need to try lower quality
+          
+          if (tierIdx === IMAGE_TIERS.length - 1 && fetchFailed) {
+            // Last tier also failed — try text-only as final fallback
+            console.warn(`Page ${pageIndex + 1}: all image tiers failed, trying text-only…`);
+            try {
+              const resp = await fetch(EDGE_FUNCTION_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pageText: pageText || '', pageIndex }),
+              });
+              if (resp.ok) {
+                const data = await resp.json();
+                if (data.units && Array.isArray(data.units)) {
+                  for (const unit of data.units) {
+                    const unitNumber = (unit.unitNumber ?? '').trim().toUpperCase();
+                    if (!unitNumber) continue;
+                    const floorKey = (unit.detectedFloor ?? '').trim().toUpperCase();
+                    const bldgKey = (unit.detectedBldg ?? '').trim().toUpperCase();
+                    const normalizedType = (unit.detectedType ?? '').trim();
+                    const typeKey = normalizedType && normalizedType !== '?' ? normalizedType.toUpperCase() : '?';
+                    const baseKey = `${unitNumber}|${floorKey}|${bldgKey}`;
+                    const compositeKey = `${baseKey}|${typeKey}`;
+                    if (!allUnits[compositeKey]) {
+                      allUnits[compositeKey] = { ...unit, unitNumber, page: pageIndex + 1, confidence: 'high', kitchenConfidence: unit.kitchenConfidence ?? 'maybe' };
+                    }
+                  }
+                }
+              }
+            } catch (finalErr) {
+              console.error(`Page ${pageIndex + 1}: text-only fallback also failed`, finalErr);
             }
-            console.error(`Page ${pageIndex + 1} error:`, err);
           }
         }
+        
         pagesProcessed++;
         setProgress(45 + Math.round((pagesProcessed / totalPages) * 45));
         setProgressLabel(`AI analyzed page ${pagesProcessed} of ${totalPages}`);
