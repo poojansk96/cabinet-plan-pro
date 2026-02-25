@@ -150,13 +150,13 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("No AI API key configured");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("No Gemini API key configured");
 
     const body = await req.json();
 
     const pageText = body.pageText as string | undefined;
-    const pageImage = body.pageImage as string | undefined; // base64 JPEG data URL
+    const pageImage = body.pageImage as string | undefined; // base64 JPEG data URL or raw base64
     const pageIndex = (body.pageIndex as number) ?? 0;
 
     if ((!pageText || pageText.trim().length < 20) && !pageImage) {
@@ -174,26 +174,35 @@ serve(async (req) => {
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        const userContent: any[] = [];
+        const userParts: any[] = [];
         if (pageImage) {
-          const imageUrl = pageImage.startsWith("data:") ? pageImage : `data:image/jpeg;base64,${pageImage}`;
-          userContent.push({
-            type: "image_url",
-            image_url: { url: imageUrl },
-          });
+          const imageData = pageImage.startsWith("data:")
+            ? (pageImage.split(",")[1] ?? "")
+            : pageImage;
+          if (imageData) {
+            userParts.push({
+              inline_data: {
+                mime_type: "image/jpeg",
+                data: imageData,
+              },
+            });
+          }
         }
-        userContent.push({ type: "text", text: userPrompt });
+        userParts.push({ text: userPrompt });
 
-        response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent", {
           method: "POST",
-          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          headers: {
+            "x-goog-api-key": GEMINI_API_KEY,
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({
-            model: "google/gemini-3-flash-preview",
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userContent },
-            ],
-            temperature: 0.1,
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            contents: [{ parts: userParts }],
+            generationConfig: {
+              temperature: 0.1,
+              responseMimeType: "application/json",
+            },
           }),
         });
       } catch (fetchErr) {
@@ -228,7 +237,9 @@ serve(async (req) => {
     }
 
     const aiData = await response.json();
-    const content = aiData.choices?.[0]?.message?.content ?? "";
+    const content = aiData.candidates?.[0]?.content?.parts?.map((p: any) => p.text ?? "").join("")
+      ?? aiData.choices?.[0]?.message?.content
+      ?? "";
 
     let parsed: { pageBuilding?: string | null; units: any[] } | null = null;
     try {

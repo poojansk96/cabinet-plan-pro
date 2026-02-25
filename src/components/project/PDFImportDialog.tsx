@@ -5,7 +5,16 @@ import type { UnitType } from '@/types/project';
 import { toast } from 'sonner';
 
 const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-pdf-units`;
+const MAX_REQUEST_BYTES = 1_600_000;
 
+const compactPageTextForAI = (text: string): string => {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  if (clean.length <= 3600) return clean;
+
+  const head = clean.slice(0, 2400);
+  const tail = clean.slice(-1000);
+  return `${head}\n...\n${tail}`;
+};
 interface UnitRow {
   unitNumber: string;
   type: string;
@@ -147,60 +156,116 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
       setProgress(45);
       setProgressLabel('AI analyzing…');
       
-      const CONCURRENCY = 2; // Process 2 pages at a time
+      const CONCURRENCY = 1; // sequential to avoid multiple oversized in-flight uploads
       const allUnits: Record<string, any> = {};
       let pagesProcessed = 0;
-      
-      // Adaptive quality tiers: try high first, downscale on fetch failure
-      const IMAGE_TIERS: Array<{ scale: number; quality: number }> = [
-        { scale: 3, quality: 0.75 },
-        { scale: 2, quality: 0.6 },
-        { scale: 1.5, quality: 0.5 },
+      const encoder = new TextEncoder();
+
+      const IMAGE_TIERS: Array<{ scale: number; quality: number; maxBase64Chars: number }> = [
+        { scale: 2, quality: 0.6, maxBase64Chars: 1_300_000 },
+        { scale: 1.5, quality: 0.5, maxBase64Chars: 900_000 },
+        { scale: 1.2, quality: 0.45, maxBase64Chars: 650_000 },
       ];
 
+      const getPayloadBytes = (payload: unknown) => encoder.encode(JSON.stringify(payload)).length;
+
+      const mergeDetectedUnits = (units: any[], pageIndex: number) => {
+        for (const unit of units) {
+          const unitNumber = (unit.unitNumber ?? '').trim().toUpperCase();
+          if (!unitNumber) continue;
+
+          const floorKey = (unit.detectedFloor ?? '').trim().toUpperCase();
+          const bldgKey = (unit.detectedBldg ?? '').trim().toUpperCase();
+          const normalizedType = (unit.detectedType ?? '').trim();
+          const typeKey = normalizedType && normalizedType !== '?'
+            ? normalizedType.toUpperCase()
+            : '?';
+
+          const baseKey = `${unitNumber}|${floorKey}|${bldgKey}`;
+          const compositeKey = `${baseKey}|${typeKey}`;
+
+          if (typeKey === '?') {
+            const hasTyped = Object.keys(allUnits).some(k => k.startsWith(`${baseKey}|`) && !k.endsWith('|?'));
+            if (hasTyped) continue;
+          } else {
+            const unknownKey = `${baseKey}|?`;
+            if (allUnits[unknownKey]) delete allUnits[unknownKey];
+          }
+
+          const existing = allUnits[compositeKey];
+          if (!existing) {
+            allUnits[compositeKey] = {
+              ...unit,
+              unitNumber,
+              page: pageIndex + 1,
+              confidence: 'high',
+              kitchenConfidence: unit.kitchenConfidence ?? 'maybe',
+            };
+          } else {
+            if ((!existing.detectedType || existing.detectedType === '?') && unit.detectedType && unit.detectedType !== '?') {
+              existing.detectedType = unit.detectedType;
+            }
+            if (!existing.detectedFloor && unit.detectedFloor) existing.detectedFloor = unit.detectedFloor;
+            if (!existing.detectedBldg && unit.detectedBldg) existing.detectedBldg = unit.detectedBldg;
+            if (existing.kitchenConfidence === 'maybe' && unit.kitchenConfidence === 'yes') existing.kitchenConfidence = 'yes';
+          }
+        }
+      };
+
       const processPage = async (pageIndex: number): Promise<void> => {
-        let pageText = pageTexts[pageIndex];
+        const rawPageText = pageTexts[pageIndex] ?? '';
+        const pageText = compactPageTextForAI(rawPageText);
         const pdfPage = pdfPages[pageIndex];
-        
-        // Skip only if no text AND no renderable page
-        if ((!pageText || pageText.trim().length < 20) && !pdfPage) {
+
+        if (!pageText && !pdfPage) {
           pagesProcessed++;
           return;
         }
-        
-        // Truncate very long text to avoid oversized payloads
-        if (pageText && pageText.length > 8000) {
-          pageText = pageText.slice(0, 8000);
-        }
-        
-        // Try each quality tier; on network/fetch failure, downscale and retry
+
+        const MAX_RETRIES = 3;
+        let pageSucceeded = false;
+
         for (let tierIdx = 0; tierIdx < IMAGE_TIERS.length; tierIdx++) {
           const tier = IMAGE_TIERS[tierIdx];
           let pageImage: string | undefined;
-          
+
           try {
-            pageImage = await renderPageImage(pdfPage, tier.scale, tier.quality);
+            if (pdfPage) {
+              pageImage = await renderPageImage(pdfPage, tier.scale, tier.quality);
+            }
           } catch {
             console.warn(`Page ${pageIndex + 1}: failed to render at scale ${tier.scale}`);
           }
-          
-          const hasImage = pageImage && pageImage.length > 100;
-          
-          const MAX_RETRIES = 3;
-          let fetchFailed = false;
-          
+
+          const hasImage = !!pageImage && pageImage.length > 100;
+          if (hasImage && pageImage.length > tier.maxBase64Chars) {
+            console.warn(`Page ${pageIndex + 1}: image too large at scale ${tier.scale} (${Math.round(pageImage.length / 1024)} KB), trying smaller…`);
+            continue;
+          }
+
+          let shouldTrySmallerTier = false;
+
           for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
             try {
+              const payload = {
+                pageText,
+                pageImage: hasImage ? pageImage : undefined,
+                pageIndex,
+              };
+
+              const payloadBytes = getPayloadBytes(payload);
+              if (payloadBytes > MAX_REQUEST_BYTES) {
+                shouldTrySmallerTier = true;
+                console.warn(`Page ${pageIndex + 1}: payload ${Math.round(payloadBytes / 1024)} KB too large at scale ${tier.scale}, trying smaller…`);
+                break;
+              }
+
               const resp = await fetch(EDGE_FUNCTION_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                  pageText: pageText || '', 
-                  pageImage: hasImage ? pageImage : undefined, 
-                  pageIndex 
-                }),
+                body: JSON.stringify(payload),
               });
-              
+
               if (resp.status === 429) {
                 toast.error('AI rate limit — waiting 30s before retry…');
                 await new Promise(r => setTimeout(r, 30000));
@@ -210,6 +275,11 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                 toast.error('AI credits exhausted. Please add credits.');
                 pagesProcessed++;
                 return;
+              }
+              if (resp.status === 413) {
+                shouldTrySmallerTier = true;
+                console.warn(`Page ${pageIndex + 1}: server rejected payload size at scale ${tier.scale}, trying smaller…`);
+                break;
               }
               if (resp.status === 503 || resp.status === 500) {
                 if (attempt < MAX_RETRIES - 1) {
@@ -225,104 +295,62 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                 pagesProcessed++;
                 return;
               }
-              
+
               const data = await resp.json();
               if (data.units && Array.isArray(data.units)) {
-                for (const unit of data.units) {
-                  const unitNumber = (unit.unitNumber ?? '').trim().toUpperCase();
-                  if (!unitNumber) continue;
-
-                  const floorKey = (unit.detectedFloor ?? '').trim().toUpperCase();
-                  const bldgKey = (unit.detectedBldg ?? '').trim().toUpperCase();
-                  const normalizedType = (unit.detectedType ?? '').trim();
-                  const typeKey = normalizedType && normalizedType !== '?'
-                    ? normalizedType.toUpperCase()
-                    : '?';
-
-                  const baseKey = `${unitNumber}|${floorKey}|${bldgKey}`;
-                  const compositeKey = `${baseKey}|${typeKey}`;
-
-                  if (typeKey === '?') {
-                    const hasTyped = Object.keys(allUnits).some(k => k.startsWith(`${baseKey}|`) && !k.endsWith('|?'));
-                    if (hasTyped) continue;
-                  } else {
-                    const unknownKey = `${baseKey}|?`;
-                    if (allUnits[unknownKey]) delete allUnits[unknownKey];
-                  }
-
-                  const existing = allUnits[compositeKey];
-                  if (!existing) {
-                    allUnits[compositeKey] = {
-                      ...unit,
-                      unitNumber,
-                      page: pageIndex + 1,
-                      confidence: 'high',
-                      kitchenConfidence: unit.kitchenConfidence ?? 'maybe',
-                    };
-                  } else {
-                    if ((!existing.detectedType || existing.detectedType === '?') && unit.detectedType && unit.detectedType !== '?') {
-                      existing.detectedType = unit.detectedType;
-                    }
-                    if (!existing.detectedFloor && unit.detectedFloor) existing.detectedFloor = unit.detectedFloor;
-                    if (!existing.detectedBldg && unit.detectedBldg) existing.detectedBldg = unit.detectedBldg;
-                    if (existing.kitchenConfidence === 'maybe' && unit.kitchenConfidence === 'yes') existing.kitchenConfidence = 'yes';
-                  }
-                }
+                mergeDetectedUnits(data.units, pageIndex);
               }
-              // Success — break out of retry loop AND tier loop
-              fetchFailed = false;
+
+              pageSucceeded = true;
               break;
             } catch (err) {
-              fetchFailed = true;
               if (attempt < MAX_RETRIES - 1) {
                 await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
                 continue;
               }
-              // All retries exhausted at this tier — will try next tier
+              shouldTrySmallerTier = true;
               console.warn(`Page ${pageIndex + 1}: fetch failed at scale ${tier.scale}, trying smaller…`);
             }
           }
-          
-          if (!fetchFailed) break; // Success at this tier, no need to try lower quality
-          
-          if (tierIdx === IMAGE_TIERS.length - 1 && fetchFailed) {
-            // Last tier also failed — try text-only as final fallback
-            console.warn(`Page ${pageIndex + 1}: all image tiers failed, trying text-only…`);
+
+          if (pageSucceeded) break;
+          if (!shouldTrySmallerTier) break;
+        }
+
+        if (!pageSucceeded) {
+          console.warn(`Page ${pageIndex + 1}: all image tiers failed, trying text-only…`);
+          const textOnlyPayload = { pageText, pageIndex };
+          const payloadBytes = getPayloadBytes(textOnlyPayload);
+
+          if (payloadBytes <= MAX_REQUEST_BYTES) {
             try {
               const resp = await fetch(EDGE_FUNCTION_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pageText: pageText || '', pageIndex }),
+                body: JSON.stringify(textOnlyPayload),
               });
+
               if (resp.ok) {
                 const data = await resp.json();
                 if (data.units && Array.isArray(data.units)) {
-                  for (const unit of data.units) {
-                    const unitNumber = (unit.unitNumber ?? '').trim().toUpperCase();
-                    if (!unitNumber) continue;
-                    const floorKey = (unit.detectedFloor ?? '').trim().toUpperCase();
-                    const bldgKey = (unit.detectedBldg ?? '').trim().toUpperCase();
-                    const normalizedType = (unit.detectedType ?? '').trim();
-                    const typeKey = normalizedType && normalizedType !== '?' ? normalizedType.toUpperCase() : '?';
-                    const baseKey = `${unitNumber}|${floorKey}|${bldgKey}`;
-                    const compositeKey = `${baseKey}|${typeKey}`;
-                    if (!allUnits[compositeKey]) {
-                      allUnits[compositeKey] = { ...unit, unitNumber, page: pageIndex + 1, confidence: 'high', kitchenConfidence: unit.kitchenConfidence ?? 'maybe' };
-                    }
-                  }
+                  mergeDetectedUnits(data.units, pageIndex);
                 }
+              } else {
+                console.error(`Page ${pageIndex + 1}: text-only fallback HTTP ${resp.status}`);
               }
             } catch (finalErr) {
               console.error(`Page ${pageIndex + 1}: text-only fallback also failed`, finalErr);
             }
+          } else {
+            console.error(`Page ${pageIndex + 1}: text-only payload too large (${Math.round(payloadBytes / 1024)} KB)`);
           }
         }
-        
+
         pagesProcessed++;
         setProgress(45 + Math.round((pagesProcessed / totalPages) * 45));
         setProgressLabel(`AI analyzed page ${pagesProcessed} of ${totalPages}`);
       };
-      
+
       // Process pages in batches of CONCURRENCY
       for (let i = 0; i < pageTexts.length; i += CONCURRENCY) {
         const batch = [];
