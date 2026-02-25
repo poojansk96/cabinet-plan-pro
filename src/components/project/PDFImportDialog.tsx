@@ -123,15 +123,17 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
         pageTexts.push(text);
         
         // Render page to image
-        const scale = 3;
+        const scale = 2;
         const viewport = page.getViewport({ scale });
         const canvas = document.createElement('canvas');
         canvas.width = viewport.width;
         canvas.height = viewport.height;
         const ctx = canvas.getContext('2d')!;
         await page.render({ canvasContext: ctx, viewport }).promise;
-        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.75);
-        pageImages.push(imageDataUrl);
+        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.5);
+        // Strip data URI prefix to reduce payload size
+        const base64Only = imageDataUrl.replace(/^data:image\/jpeg;base64,/, '');
+        pageImages.push(base64Only);
         canvas.width = 0;
         canvas.height = 0;
         
@@ -144,17 +146,22 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
       setProgress(45);
       setProgressLabel('AI analyzing…');
       
-      const CONCURRENCY = 2; // Reduced from 3 since images are larger
+      const CONCURRENCY = 2; // Process 2 pages at a time
       const allUnits: Record<string, any> = {};
       let pagesProcessed = 0;
       
       const processPage = async (pageIndex: number): Promise<void> => {
-        const pageText = pageTexts[pageIndex];
+        let pageText = pageTexts[pageIndex];
         const pageImage = pageImages[pageIndex];
         // Skip only if no text AND no image
         if ((!pageText || pageText.trim().length < 20) && !pageImage) {
           pagesProcessed++;
           return;
+        }
+        
+        // Truncate very long text to avoid oversized payloads
+        if (pageText && pageText.length > 8000) {
+          pageText = pageText.slice(0, 8000);
         }
         
         const MAX_RETRIES = 3;

@@ -176,7 +176,7 @@ serve(async (req) => {
     
     // Add image if provided (for direct Gemini)
     if (pageImage && useDirectGemini) {
-      // pageImage is "data:image/jpeg;base64,..." - extract the base64 part
+      // pageImage may be raw base64 or "data:image/jpeg;base64,..." - extract the base64 part
       const base64Data = pageImage.replace(/^data:image\/\w+;base64,/, "");
       parts.push({
         inlineData: {
@@ -209,9 +209,11 @@ serve(async (req) => {
           // Lovable gateway: use OpenAI-compatible format with image URL
           const userContent: any[] = [];
           if (pageImage) {
+            // Ensure data URI prefix for OpenAI-compatible format
+            const imageUrl = pageImage.startsWith("data:") ? pageImage : `data:image/jpeg;base64,${pageImage}`;
             userContent.push({
               type: "image_url",
-              image_url: { url: pageImage },
+              image_url: { url: imageUrl },
             });
           }
           userContent.push({ type: "text", text: userPrompt });
