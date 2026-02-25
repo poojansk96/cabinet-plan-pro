@@ -122,18 +122,24 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
           .join(' ');
         pageTexts.push(text);
         
-        // Render page to image
-        const scale = 2;
+        // Render page to image — cap dimensions to keep payload under limits
+        const MAX_DIM = 1600;
+        let scale = 2;
+        const rawViewport = page.getViewport({ scale });
+        if (rawViewport.width > MAX_DIM || rawViewport.height > MAX_DIM) {
+          scale = Math.min(MAX_DIM / (rawViewport.width / scale), MAX_DIM / (rawViewport.height / scale));
+        }
         const viewport = page.getViewport({ scale });
         const canvas = document.createElement('canvas');
         canvas.width = viewport.width;
         canvas.height = viewport.height;
         const ctx = canvas.getContext('2d')!;
         await page.render({ canvasContext: ctx, viewport }).promise;
-        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.5);
+        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.35);
         // Strip data URI prefix to reduce payload size
         const base64Only = imageDataUrl.replace(/^data:image\/jpeg;base64,/, '');
-        pageImages.push(base64Only);
+        // Only include image if base64 is under 500KB to avoid fetch failures
+        pageImages.push(base64Only.length < 500_000 ? base64Only : '');
         canvas.width = 0;
         canvas.height = 0;
         
@@ -154,7 +160,8 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
         let pageText = pageTexts[pageIndex];
         const pageImage = pageImages[pageIndex];
         // Skip only if no text AND no image
-        if ((!pageText || pageText.trim().length < 20) && !pageImage) {
+        const hasImage = pageImage && pageImage.length > 100;
+        if ((!pageText || pageText.trim().length < 20) && !hasImage) {
           pagesProcessed++;
           return;
         }
@@ -170,7 +177,11 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
             const resp = await fetch(EDGE_FUNCTION_URL, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ pageText: pageText || '', pageImage, pageIndex }),
+              body: JSON.stringify({ 
+                pageText: pageText || '', 
+                pageImage: hasImage ? pageImage : undefined, 
+                pageIndex 
+              }),
             });
             
             if (resp.status === 429) {
