@@ -150,8 +150,8 @@ serve(async (req) => {
   }
 
   try {
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("No Gemini API key configured");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("No AI API key configured");
 
     const body = await req.json();
 
@@ -174,35 +174,31 @@ serve(async (req) => {
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        const userParts: any[] = [];
+        const contentParts: any[] = [];
         if (pageImage) {
           const imageData = pageImage.startsWith("data:")
             ? (pageImage.split(",")[1] ?? "")
             : pageImage;
           if (imageData) {
-            userParts.push({
-              inline_data: {
-                mime_type: "image/jpeg",
-                data: imageData,
-              },
-            });
+            contentParts.push({ type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageData}` } });
           }
         }
-        userParts.push({ text: userPrompt });
+        contentParts.push({ type: "text", text: userPrompt });
 
-        response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", {
+        response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: {
-            "x-goog-api-key": GEMINI_API_KEY,
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-            contents: [{ parts: userParts }],
-            generationConfig: {
-              temperature: 0.1,
-              responseMimeType: "application/json",
-            },
+            model: "openai/gpt-5-mini",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: contentParts },
+            ],
+            temperature: 0.1,
+            max_tokens: 8192,
           }),
         });
       } catch (fetchErr) {
@@ -237,9 +233,7 @@ serve(async (req) => {
     }
 
     const aiData = await response.json();
-    const content = aiData.candidates?.[0]?.content?.parts?.map((p: any) => p.text ?? "").join("")
-      ?? aiData.choices?.[0]?.message?.content
-      ?? "";
+    const content = aiData.choices?.[0]?.message?.content ?? "";
 
     let parsed: { pageBuilding?: string | null; units: any[] } | null = null;
     try {
