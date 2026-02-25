@@ -5,6 +5,12 @@ import type { UnitType } from '@/types/project';
 import { toast } from 'sonner';
 
 const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-pdf-units`;
+const EDGE_FUNCTION_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '';
+const EDGE_REQUEST_HEADERS = {
+  'Content-Type': 'application/json',
+  apikey: EDGE_FUNCTION_KEY,
+  Authorization: `Bearer ${EDGE_FUNCTION_KEY}`,
+};
 const MAX_REQUEST_BYTES = 3_500_000;
 
 const compactPageTextForAI = (text: string): string => {
@@ -262,7 +268,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
 
               const resp = await fetch(EDGE_FUNCTION_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: EDGE_REQUEST_HEADERS,
                 body: JSON.stringify(payload),
               });
 
@@ -326,7 +332,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
             try {
               const resp = await fetch(EDGE_FUNCTION_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: EDGE_REQUEST_HEADERS,
                 body: JSON.stringify(textOnlyPayload),
               });
 

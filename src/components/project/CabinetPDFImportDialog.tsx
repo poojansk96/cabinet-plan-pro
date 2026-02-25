@@ -4,6 +4,12 @@ import type { Cabinet, CabinetType, Room } from '@/types/project';
 import { toast } from 'sonner';
 
 const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-pdf-cabinets`;
+const EDGE_FUNCTION_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '';
+const EDGE_REQUEST_HEADERS = {
+  'Content-Type': 'application/json',
+  apikey: EDGE_FUNCTION_KEY,
+  Authorization: `Bearer ${EDGE_FUNCTION_KEY}`,
+};
 
 interface CabinetRow extends Omit<Cabinet, 'id'> {
   selected: boolean;
@@ -90,7 +96,7 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
 
       const aiResponse = await fetch(EDGE_FUNCTION_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: EDGE_REQUEST_HEADERS,
         body: JSON.stringify({ pageImage, scaleFactor, scaleLabel, unitType }),
       });
 

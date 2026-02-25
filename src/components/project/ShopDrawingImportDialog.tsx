@@ -4,6 +4,12 @@ import type { CabinetType, Room } from '@/types/project';
 import { toast } from 'sonner';
 
 const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-pdf-labels`;
+const EDGE_FUNCTION_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '';
+const EDGE_REQUEST_HEADERS = {
+  'Content-Type': 'application/json',
+  apikey: EDGE_FUNCTION_KEY,
+  Authorization: `Bearer ${EDGE_FUNCTION_KEY}`,
+};
 
 const QUOTES = [
   "Measure twice, cut once.",
@@ -131,7 +137,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
             onStatus(`AI reading labels on "${file.name}" page ${p}/${pdf.numPages}${attempt > 1 ? ` (retry ${attempt - 1})` : ''}…`);
             const res = await fetch(EDGE_FUNCTION_URL, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: EDGE_REQUEST_HEADERS,
               body,
               signal: controller.signal,
             });
