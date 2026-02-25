@@ -56,7 +56,7 @@ Return ONLY valid JSON — no markdown fences, no explanation:
       try {
         if (useDirectGemini) {
           response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key=${GEMINI_API_KEY}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -74,7 +74,7 @@ Return ONLY valid JSON — no markdown fences, no explanation:
             method: "POST",
             headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
             body: JSON.stringify({
-              model: "google/gemini-3-pro-preview",
+              model: "google/gemini-2.5-flash",
               messages: [{ role: "user", content: [
                 { type: "image_url", image_url: { url: `data:image/jpeg;base64,${pageImage}` } },
                 { type: "text", text: prompt },
