@@ -3,12 +3,6 @@ import { FileUp, X, Loader2, CheckCircle, AlertCircle, Sparkles, Trash2, LayoutG
 import { toast } from 'sonner';
 
 const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-pdf-unit-types`;
-const EDGE_FUNCTION_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '';
-const EDGE_REQUEST_HEADERS = {
-  'Content-Type': 'application/json',
-  apikey: EDGE_FUNCTION_KEY,
-  Authorization: `Bearer ${EDGE_FUNCTION_KEY}`,
-};
 
 export interface UnitMappingRow {
   unitNumber: string;
@@ -130,7 +124,7 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
               try {
                 const res = await fetch(EDGE_FUNCTION_URL, {
                   method: 'POST',
-                  headers: EDGE_REQUEST_HEADERS,
+                  headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ pageImage }),
                   signal: controller.signal,
                 });

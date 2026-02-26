@@ -107,8 +107,11 @@ serve(async (req) => {
   }
 
   try {
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) throw new Error("No OpenAI API key configured");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const useDirectGemini = !!GEMINI_API_KEY;
+    const apiKey = (useDirectGemini ? GEMINI_API_KEY : LOVABLE_API_KEY)!;
+    if (!apiKey) throw new Error("No AI API key configured");
 
     const { pageImage } = await req.json();
     if (!pageImage || typeof pageImage !== "string") {
@@ -117,33 +120,60 @@ serve(async (req) => {
       });
     }
 
+    const model = useDirectGemini ? "gemini-2.5-flash" : "google/gemini-2.5-flash";
     let content = "";
     const MAX_RETRIES = 3;
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        const res = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: "gpt-4o-mini",
-            messages: [{ role: "user", content: [
-              { type: "image_url", image_url: { url: `data:image/jpeg;base64,${pageImage}` } },
-              { type: "text", text: SYSTEM_PROMPT },
-            ]}],
-            temperature: 0.1,
-            max_tokens: 4096,
-          }),
-        });
-        if (!res.ok) {
-          const status = res.status;
-          if (status === 429) return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-          if (status === 402) return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-          if ((status === 503 || status === 500) && attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
-          throw new Error(`AI error ${status}`);
+        if (useDirectGemini) {
+          const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ role: "user", parts: [
+                  { inlineData: { mimeType: "image/jpeg", data: pageImage } },
+                  { text: SYSTEM_PROMPT },
+                ]}],
+                generationConfig: { temperature: 0.1, maxOutputTokens: 4096 },
+              }),
+            },
+          );
+          if (!res.ok) {
+            const status = res.status;
+            if (status === 429) return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            if (status === 402) return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            if ((status === 503 || status === 500) && attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
+            throw new Error(`AI error ${status}`);
+          }
+          const data = await res.json();
+          content = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+        } else {
+          const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model,
+              messages: [{ role: "user", content: [
+                { type: "image_url", image_url: { url: `data:image/jpeg;base64,${pageImage}` } },
+                { type: "text", text: SYSTEM_PROMPT },
+              ]}],
+              temperature: 0.1,
+              max_tokens: 4096,
+            }),
+          });
+          if (!res.ok) {
+            const status = res.status;
+            if (status === 429) return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            if (status === 402) return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            if ((status === 503 || status === 500) && attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
+            throw new Error(`AI error ${status}`);
+          }
+          const data = await res.json();
+          content = data.choices?.[0]?.message?.content ?? "";
         }
-        const data = await res.json();
-        content = data.choices?.[0]?.message?.content ?? "";
         break;
       } catch (err: any) {
         if (attempt === MAX_RETRIES - 1) throw err;

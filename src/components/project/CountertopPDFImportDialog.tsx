@@ -67,12 +67,7 @@ export default function CountertopPDFImportDialog({ onImport, onClose }: Props) 
   const processingRef = useRef(false);
 
   const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-  const EDGE_FUNCTION_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '';
-  const EDGE_REQUEST_HEADERS = {
-    'Content-Type': 'application/json',
-    apikey: EDGE_FUNCTION_KEY,
-    Authorization: `Bearer ${EDGE_FUNCTION_KEY}`,
-  };
+  const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
   async function processFiles(files: File[]) {
     if (processingRef.current) return;
@@ -111,7 +106,10 @@ export default function CountertopPDFImportDialog({ onImport, onClose }: Props) 
           try {
             const resp = await fetch(`${SUPABASE_URL}/functions/v1/extract-pdf-countertops`, {
               method: 'POST',
-              headers: EDGE_REQUEST_HEADERS,
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+              },
               body: JSON.stringify({ pageImage }),
             });
 

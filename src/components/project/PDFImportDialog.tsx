@@ -5,55 +5,7 @@ import type { UnitType } from '@/types/project';
 import { toast } from 'sonner';
 
 const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-pdf-units`;
-const EDGE_FUNCTION_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '';
-const EDGE_REQUEST_HEADERS = {
-  'Content-Type': 'application/json',
-  apikey: EDGE_FUNCTION_KEY,
-  Authorization: `Bearer ${EDGE_FUNCTION_KEY}`,
-};
-const MAX_REQUEST_BYTES = 1_800_000;
 
-const compactPageTextForAI = (text: string): string => {
-  const clean = text.replace(/\s+/g, ' ').trim();
-  if (clean.length <= 4000) return clean;
-
-  const head = clean.slice(0, 2800);
-  const tail = clean.slice(-1000);
-  return `${head}\n...\n${tail}`;
-};
-
-const FLOOR_PLAN_INCLUDE_HINTS = [
-  'FLOOR PLAN',
-  'UNIT TYPE',
-  'UNIT ',
-  'LEVEL',
-  'LAUNDRY',
-  'KITCHEN',
-  'COMMUNITY ROOM',
-  'CORR.',
-  'CORRIDOR',
-];
-
-const FLOOR_PLAN_EXCLUDE_HINTS = [
-  'ROOF PLAN',
-  'FOUNDATION PLAN',
-  'SITE PLAN',
-  'REFLECTED CEILING PLAN',
-  'ELEVATION',
-  'SECTION',
-  'DETAIL',
-];
-
-const shouldAnalyzePageForUnits = (text: string): boolean => {
-  const upper = text.toUpperCase();
-  if (!upper.trim()) return true;
-
-  if (FLOOR_PLAN_INCLUDE_HINTS.some(h => upper.includes(h))) return true;
-  if (FLOOR_PLAN_EXCLUDE_HINTS.some(h => upper.includes(h))) return false;
-
-  const likelyUnitRefs = upper.match(/\b\d{3}[A-Z]?\b/g)?.length ?? 0;
-  return likelyUnitRefs >= 4 && upper.includes('UNIT');
-};
 interface UnitRow {
   unitNumber: string;
   type: string;
@@ -157,22 +109,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       const totalPages = pdf.numPages;
       const pageTexts: string[] = [];
-      // Store PDF page refs so we can render at different qualities adaptively
-      const pdfPages: any[] = [];
-      
-      // Helper: render a PDF page to base64 JPEG at given scale/quality
-      const renderPageImage = async (pdfPage: any, scale: number, quality: number): Promise<string> => {
-        const viewport = pdfPage.getViewport({ scale });
-        const canvas = document.createElement('canvas');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        const ctx = canvas.getContext('2d')!;
-        await pdfPage.render({ canvasContext: ctx, viewport }).promise;
-        const dataUrl = canvas.toDataURL('image/jpeg', quality);
-        canvas.width = 0;
-        canvas.height = 0;
-        return dataUrl.replace(/^data:image\/jpeg;base64,/, '');
-      };
+      const pageImages: string[] = [];
       
       for (let p = 1; p <= totalPages; p++) {
         const page = await pdf.getPage(p);
@@ -184,7 +121,19 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
           .map((item: any) => item.str)
           .join(' ');
         pageTexts.push(text);
-        pdfPages.push(page);
+        
+        // Render page to image
+        const scale = 3;
+        const viewport = page.getViewport({ scale });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext('2d')!;
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.75);
+        pageImages.push(imageDataUrl);
+        canvas.width = 0;
+        canvas.height = 0;
         
         setProgress(10 + Math.round((p / totalPages) * 30));
         setProgressLabel(`Reading page ${p} of ${totalPages}`);
@@ -195,215 +144,116 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
       setProgress(45);
       setProgressLabel('AI analyzing…');
       
-      const CONCURRENCY = 1; // sequential to avoid multiple oversized in-flight uploads
+      const CONCURRENCY = 2; // Reduced from 3 since images are larger
       const allUnits: Record<string, any> = {};
       let pagesProcessed = 0;
-      const encoder = new TextEncoder();
-
-      const candidatePageIndices = pageTexts
-        .map((text, index) => ({ text, index }))
-        .filter(({ text }) => shouldAnalyzePageForUnits(text))
-        .map(({ index }) => index);
-
-      const aiTargetPages = candidatePageIndices.length
-        ? candidatePageIndices
-        : pageTexts.map((_, index) => index);
-
-      const IMAGE_TIERS: Array<{ scale: number; quality: number; maxBase64Chars: number }> = [
-        { scale: 1.8, quality: 0.55, maxBase64Chars: 1_200_000 },
-        { scale: 1.4, quality: 0.45, maxBase64Chars: 900_000 },
-        { scale: 1.1, quality: 0.38, maxBase64Chars: 650_000 },
-      ];
-
-      const getPayloadBytes = (payload: unknown) => encoder.encode(JSON.stringify(payload)).length;
-
-      const mergeDetectedUnits = (units: any[], pageIndex: number) => {
-        for (const unit of units) {
-          const unitNumber = (unit.unitNumber ?? '').trim().toUpperCase();
-          if (!unitNumber) continue;
-
-          const floorKey = (unit.detectedFloor ?? '').trim().toUpperCase();
-          const bldgKey = (unit.detectedBldg ?? '').trim().toUpperCase();
-          const normalizedType = (unit.detectedType ?? '').trim();
-          const typeKey = normalizedType && normalizedType !== '?'
-            ? normalizedType.toUpperCase()
-            : '?';
-
-          const baseKey = `${unitNumber}|${floorKey}|${bldgKey}`;
-          const compositeKey = `${baseKey}|${typeKey}`;
-
-          if (typeKey === '?') {
-            const hasTyped = Object.keys(allUnits).some(k => k.startsWith(`${baseKey}|`) && !k.endsWith('|?'));
-            if (hasTyped) continue;
-          } else {
-            const unknownKey = `${baseKey}|?`;
-            if (allUnits[unknownKey]) delete allUnits[unknownKey];
-          }
-
-          const existing = allUnits[compositeKey];
-          if (!existing) {
-            allUnits[compositeKey] = {
-              ...unit,
-              unitNumber,
-              page: pageIndex + 1,
-              confidence: 'high',
-              kitchenConfidence: unit.kitchenConfidence ?? 'maybe',
-            };
-          } else {
-            if ((!existing.detectedType || existing.detectedType === '?') && unit.detectedType && unit.detectedType !== '?') {
-              existing.detectedType = unit.detectedType;
-            }
-            if (!existing.detectedFloor && unit.detectedFloor) existing.detectedFloor = unit.detectedFloor;
-            if (!existing.detectedBldg && unit.detectedBldg) existing.detectedBldg = unit.detectedBldg;
-            if (existing.kitchenConfidence === 'maybe' && unit.kitchenConfidence === 'yes') existing.kitchenConfidence = 'yes';
-          }
-        }
-      };
-
+      
       const processPage = async (pageIndex: number): Promise<void> => {
-        const rawPageText = pageTexts[pageIndex] ?? '';
-        const pageText = compactPageTextForAI(rawPageText);
-        const pdfPage = pdfPages[pageIndex];
-
-        if (!pageText && !pdfPage) {
+        const pageText = pageTexts[pageIndex];
+        const pageImage = pageImages[pageIndex];
+        // Skip only if no text AND no image
+        if ((!pageText || pageText.trim().length < 20) && !pageImage) {
           pagesProcessed++;
           return;
         }
-
-        const MAX_RETRIES = 2;
-        let pageSucceeded = false;
-
-        for (let tierIdx = 0; tierIdx < IMAGE_TIERS.length; tierIdx++) {
-          const tier = IMAGE_TIERS[tierIdx];
-          let pageImage: string | undefined;
-
+        
+        const MAX_RETRIES = 3;
+        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
           try {
-            if (pdfPage) {
-              pageImage = await renderPageImage(pdfPage, tier.scale, tier.quality);
+            const resp = await fetch(EDGE_FUNCTION_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ pageText: pageText || '', pageImage, pageIndex }),
+            });
+            
+            if (resp.status === 429) {
+              toast.error('AI rate limit — waiting 30s before retry…');
+              await new Promise(r => setTimeout(r, 30000));
+              continue;
             }
-          } catch {
-            console.warn(`Page ${pageIndex + 1}: failed to render at scale ${tier.scale}`);
-          }
-
-          const hasImage = !!pageImage && pageImage.length > 100;
-          if (hasImage && pageImage.length > tier.maxBase64Chars) {
-            console.warn(`Page ${pageIndex + 1}: image too large at scale ${tier.scale} (${Math.round(pageImage.length / 1024)} KB), trying smaller…`);
-            continue;
-          }
-
-          let shouldTrySmallerTier = false;
-
-          for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-            try {
-              const payload = {
-                pageText,
-                pageImage: hasImage ? pageImage : undefined,
-                pageIndex,
-              };
-
-              const payloadBytes = getPayloadBytes(payload);
-              if (payloadBytes > MAX_REQUEST_BYTES) {
-                shouldTrySmallerTier = true;
-                console.warn(`Page ${pageIndex + 1}: payload ${Math.round(payloadBytes / 1024)} KB too large at scale ${tier.scale}, trying smaller…`);
-                break;
-              }
-
-              const resp = await fetch(EDGE_FUNCTION_URL, {
-                method: 'POST',
-                headers: EDGE_REQUEST_HEADERS,
-                body: JSON.stringify(payload),
-              });
-
-              if (resp.status === 429) {
-                toast.error('AI rate limit — waiting 30s before retry…');
-                await new Promise(r => setTimeout(r, 30000));
-                continue;
-              }
-              if (resp.status === 402) {
-                toast.error('AI credits exhausted. Please add credits.');
-                pagesProcessed++;
-                return;
-              }
-              if (resp.status === 413) {
-                shouldTrySmallerTier = true;
-                console.warn(`Page ${pageIndex + 1}: server rejected payload size at scale ${tier.scale}, trying smaller…`);
-                break;
-              }
-              if (resp.status === 503 || resp.status === 500) {
-                if (attempt < MAX_RETRIES - 1) {
-                  await new Promise(r => setTimeout(r, 3000 * (attempt + 1)));
-                  continue;
-                }
-                console.error(`Page ${pageIndex + 1}: AI failed after retries`);
-                pagesProcessed++;
-                return;
-              }
-              if (!resp.ok) {
-                console.error(`Page ${pageIndex + 1}: AI error ${resp.status}`);
-                pagesProcessed++;
-                return;
-              }
-
-              const data = await resp.json();
-              if (data.units && Array.isArray(data.units)) {
-                mergeDetectedUnits(data.units, pageIndex);
-              }
-
-              pageSucceeded = true;
-              break;
-            } catch (err) {
+            if (resp.status === 402) {
+              toast.error('AI credits exhausted. Please add credits.');
+              return;
+            }
+            if (resp.status === 503 || resp.status === 500) {
               if (attempt < MAX_RETRIES - 1) {
-                await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+                await new Promise(r => setTimeout(r, 3000 * (attempt + 1)));
                 continue;
               }
-              shouldTrySmallerTier = true;
-              console.warn(`Page ${pageIndex + 1}: fetch failed at scale ${tier.scale}, trying smaller…`);
+              console.error(`Page ${pageIndex + 1}: AI failed after retries`);
+              return;
             }
-          }
+            if (!resp.ok) {
+              console.error(`Page ${pageIndex + 1}: AI error ${resp.status}`);
+              return;
+            }
+            
+            const data = await resp.json();
+            if (data.units && Array.isArray(data.units)) {
+              for (const unit of data.units) {
+                const unitNumber = (unit.unitNumber ?? '').trim().toUpperCase();
+                if (!unitNumber) continue;
 
-          if (pageSucceeded) break;
-          if (!shouldTrySmallerTier) break;
-        }
+                const floorKey = (unit.detectedFloor ?? '').trim().toUpperCase();
+                const bldgKey = (unit.detectedBldg ?? '').trim().toUpperCase();
+                const normalizedType = (unit.detectedType ?? '').trim();
+                const typeKey = normalizedType && normalizedType !== '?'
+                  ? normalizedType.toUpperCase()
+                  : '?';
 
-        if (!pageSucceeded) {
-          console.warn(`Page ${pageIndex + 1}: all image tiers failed, trying text-only…`);
-          const textOnlyPayload = { pageText, pageIndex };
-          const payloadBytes = getPayloadBytes(textOnlyPayload);
+                // Keep same unit number as separate records when type differs
+                // (e.g. residential 103 and Laundry 103).
+                const baseKey = `${unitNumber}|${floorKey}|${bldgKey}`;
+                const compositeKey = `${baseKey}|${typeKey}`;
 
-          if (payloadBytes <= MAX_REQUEST_BYTES) {
-            try {
-              const resp = await fetch(EDGE_FUNCTION_URL, {
-                method: 'POST',
-                headers: EDGE_REQUEST_HEADERS,
-                body: JSON.stringify(textOnlyPayload),
-              });
-
-              if (resp.ok) {
-                const data = await resp.json();
-                if (data.units && Array.isArray(data.units)) {
-                  mergeDetectedUnits(data.units, pageIndex);
+                // If we already have a typed record, ignore unknown fallback for same unit/floor/building.
+                if (typeKey === '?') {
+                  const hasTyped = Object.keys(allUnits).some(k => k.startsWith(`${baseKey}|`) && !k.endsWith('|?'));
+                  if (hasTyped) continue;
+                } else {
+                  // Replace unknown fallback with concrete type when available.
+                  const unknownKey = `${baseKey}|?`;
+                  if (allUnits[unknownKey]) delete allUnits[unknownKey];
                 }
-              } else {
-                console.error(`Page ${pageIndex + 1}: text-only fallback HTTP ${resp.status}`);
+
+                const existing = allUnits[compositeKey];
+                if (!existing) {
+                  allUnits[compositeKey] = {
+                    ...unit,
+                    unitNumber,
+                    page: pageIndex + 1,
+                    confidence: 'high',
+                    kitchenConfidence: unit.kitchenConfidence ?? 'maybe',
+                  };
+                } else {
+                  if ((!existing.detectedType || existing.detectedType === '?') && unit.detectedType && unit.detectedType !== '?') {
+                    existing.detectedType = unit.detectedType;
+                  }
+                  if (!existing.detectedFloor && unit.detectedFloor) existing.detectedFloor = unit.detectedFloor;
+                  if (!existing.detectedBldg && unit.detectedBldg) existing.detectedBldg = unit.detectedBldg;
+                  if (existing.kitchenConfidence === 'maybe' && unit.kitchenConfidence === 'yes') existing.kitchenConfidence = 'yes';
+                }
               }
-            } catch (finalErr) {
-              console.error(`Page ${pageIndex + 1}: text-only fallback also failed`, finalErr);
             }
-          } else {
-            console.error(`Page ${pageIndex + 1}: text-only payload too large (${Math.round(payloadBytes / 1024)} KB)`);
+            break; // success
+          } catch (err) {
+            if (attempt < MAX_RETRIES - 1) {
+              await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+              continue;
+            }
+            console.error(`Page ${pageIndex + 1} error:`, err);
           }
         }
-
         pagesProcessed++;
-        setProgress(45 + Math.round((pagesProcessed / aiTargetPages.length) * 45));
-        setProgressLabel(`AI analyzed page ${pagesProcessed} of ${aiTargetPages.length}`);
+        setProgress(45 + Math.round((pagesProcessed / totalPages) * 45));
+        setProgressLabel(`AI analyzed page ${pagesProcessed} of ${totalPages}`);
       };
-
-      // Process only likely floor-plan pages in batches of CONCURRENCY
-      for (let i = 0; i < aiTargetPages.length; i += CONCURRENCY) {
+      
+      // Process pages in batches of CONCURRENCY
+      for (let i = 0; i < pageTexts.length; i += CONCURRENCY) {
         const batch = [];
-        for (let j = i; j < Math.min(i + CONCURRENCY, aiTargetPages.length); j++) {
-          batch.push(processPage(aiTargetPages[j]));
+        for (let j = i; j < Math.min(i + CONCURRENCY, pageTexts.length); j++) {
+          batch.push(processPage(j));
         }
         await Promise.all(batch);
       }
