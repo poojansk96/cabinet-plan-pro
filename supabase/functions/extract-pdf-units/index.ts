@@ -150,12 +150,8 @@ serve(async (req) => {
   }
 
   try {
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    const useAnthropic = !!ANTHROPIC_API_KEY;
-    const useDirectGemini = !useAnthropic && !!GEMINI_API_KEY;
-    if (!ANTHROPIC_API_KEY && !GEMINI_API_KEY && !LOVABLE_API_KEY) throw new Error("No AI API key configured");
+    if (!LOVABLE_API_KEY) throw new Error("No AI API key configured");
 
     const body = await req.json();
     
@@ -173,80 +169,28 @@ serve(async (req) => {
     const tailBlock = (pageText ?? "").slice(-800);
     const userPrompt = `Analyze this floor plan page (page ${pageIndex + 1}).\n\nSHEET TITLE / HEADER AREA (check here first for building name):\n${titleBlock}\n\nFOOTER / TITLE BLOCK:\n${tailBlock}\n\nFULL PAGE TEXT:\n${(pageText ?? "").slice(0, 8000)}`;
 
-    // Build parts for the AI request
-    const parts: any[] = [];
-    
-    // Add image if provided (for direct Gemini)
-    if (pageImage && useDirectGemini) {
-      // pageImage is "data:image/jpeg;base64,..." - extract the base64 part
-      const base64Data = pageImage.replace(/^data:image\/\w+;base64,/, "");
-      parts.push({
-        inlineData: {
-          mimeType: "image/jpeg",
-          data: base64Data,
-        }
-      });
-    }
-    parts.push({ text: systemPrompt + "\n\n" + userPrompt });
-
     let response: Response | null = null;
     const MAX_RETRIES = 3;
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        if (useAnthropic) {
-          const claudeContent: any[] = [];
-          if (pageImage) {
-            const base64Data = pageImage.replace(/^data:image\/\w+;base64,/, "");
-            claudeContent.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64Data } });
-          }
-          claudeContent.push({ type: "text", text: userPrompt });
-          response = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: {
-              "x-api-key": ANTHROPIC_API_KEY!,
-              "anthropic-version": "2023-06-01",
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "claude-opus-4-6",
-              max_tokens: 4096,
-              system: systemPrompt,
-              messages: [{ role: "user", content: claudeContent }],
-              temperature: 0.1,
-            }),
-          });
-        } else if (useDirectGemini) {
-          response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                contents: [{ role: "user", parts }],
-                generationConfig: { temperature: 0.1 },
-              }),
-            }
-          );
-        } else {
-          const userContent: any[] = [];
-          if (pageImage) {
-            userContent.push({ type: "image_url", image_url: { url: pageImage } });
-          }
-          userContent.push({ type: "text", text: userPrompt });
-          response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-            method: "POST",
-            headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              model: "google/gemini-2.5-flash",
-              messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: userContent },
-              ],
-              temperature: 0.1,
-            }),
-          });
+        const userContent: any[] = [];
+        if (pageImage) {
+          userContent.push({ type: "image_url", image_url: { url: pageImage } });
         }
+        userContent.push({ type: "text", text: userPrompt });
+        response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userContent },
+            ],
+            temperature: 0.1,
+          }),
+        });
       } catch (fetchErr) {
         console.error(`Page ${pageIndex + 1} fetch error (attempt ${attempt + 1}):`, fetchErr);
         if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
@@ -279,11 +223,7 @@ serve(async (req) => {
     }
 
     const aiData = await response.json();
-    const content = useAnthropic
-      ? (aiData.content?.[0]?.text ?? "")
-      : useDirectGemini
-        ? (aiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "")
-        : (aiData.choices?.[0]?.message?.content ?? "");
+    const content = aiData.choices?.[0]?.message?.content ?? "";
 
     let parsed: { pageBuilding?: string | null; units: any[] } | null = null;
     try {
