@@ -150,8 +150,8 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("No AI API key configured");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
     const body = await req.json();
     
@@ -174,23 +174,23 @@ serve(async (req) => {
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        const userContent: any[] = [];
+        const geminiParts: any[] = [];
         if (pageImage) {
-          userContent.push({ type: "image_url", image_url: { url: pageImage } });
+          const base64Data = pageImage.replace(/^data:image\/\w+;base64,/, "");
+          geminiParts.push({ inlineData: { mimeType: "image/jpeg", data: base64Data } });
         }
-        userContent.push({ type: "text", text: userPrompt });
-        response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userContent },
-            ],
-            temperature: 0.1,
-          }),
-        });
+        geminiParts.push({ text: systemPrompt + "\n\n" + userPrompt });
+        response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ role: "user", parts: geminiParts }],
+              generationConfig: { temperature: 0.1 },
+            }),
+          }
+        );
       } catch (fetchErr) {
         console.error(`Page ${pageIndex + 1} fetch error (attempt ${attempt + 1}):`, fetchErr);
         if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
@@ -223,7 +223,7 @@ serve(async (req) => {
     }
 
     const aiData = await response.json();
-    const content = aiData.choices?.[0]?.message?.content ?? "";
+    const content = aiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
     let parsed: { pageBuilding?: string | null; units: any[] } | null = null;
     try {
