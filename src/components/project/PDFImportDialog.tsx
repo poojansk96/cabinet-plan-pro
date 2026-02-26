@@ -123,14 +123,26 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
         pageTexts.push(text);
         
         // Render page to image
-        const scale = 3;
+        const scale = 2; // Scale 2 is sufficient for unit/floor plan text detection
         const viewport = page.getViewport({ scale });
         const canvas = document.createElement('canvas');
         canvas.width = viewport.width;
         canvas.height = viewport.height;
         const ctx = canvas.getContext('2d')!;
         await page.render({ canvasContext: ctx, viewport }).promise;
-        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.75);
+        let imageDataUrl = canvas.toDataURL('image/jpeg', 0.65);
+        
+        // Adaptive downscale if image is too large (>3MB base64)
+        const base64Length = imageDataUrl.length - imageDataUrl.indexOf(',') - 1;
+        if (base64Length > 3 * 1024 * 1024) {
+          // Re-render at lower scale
+          const lowerScale = 1.5;
+          const lowerViewport = page.getViewport({ scale: lowerScale });
+          canvas.width = lowerViewport.width;
+          canvas.height = lowerViewport.height;
+          await page.render({ canvasContext: ctx, viewport: lowerViewport }).promise;
+          imageDataUrl = canvas.toDataURL('image/jpeg', 0.5);
+        }
         pageImages.push(imageDataUrl);
         canvas.width = 0;
         canvas.height = 0;
@@ -162,7 +174,10 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
           try {
             const resp = await fetch(EDGE_FUNCTION_URL, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              },
               body: JSON.stringify({ pageText: pageText || '', pageImage, pageIndex }),
             });
             
