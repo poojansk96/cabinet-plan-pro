@@ -107,10 +107,12 @@ serve(async (req) => {
   }
 
   try {
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    const useDirectGemini = !!GEMINI_API_KEY;
-    const apiKey = (useDirectGemini ? GEMINI_API_KEY : LOVABLE_API_KEY)!;
+    const useAnthropic = !!ANTHROPIC_API_KEY;
+    const useDirectGemini = !useAnthropic && !!GEMINI_API_KEY;
+    const apiKey = (useAnthropic ? ANTHROPIC_API_KEY : useDirectGemini ? GEMINI_API_KEY : LOVABLE_API_KEY)!;
     if (!apiKey) throw new Error("No AI API key configured");
 
     const { pageImage } = await req.json();
@@ -120,15 +122,42 @@ serve(async (req) => {
       });
     }
 
-    const model = useDirectGemini ? "gemini-2.5-flash" : "google/gemini-2.5-flash";
     let content = "";
     const MAX_RETRIES = 3;
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        if (useDirectGemini) {
-          const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        let res: Response;
+        if (useAnthropic) {
+          res = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+              "x-api-key": ANTHROPIC_API_KEY!,
+              "anthropic-version": "2023-06-01",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "claude-opus-4-6",
+              max_tokens: 4096,
+              messages: [{ role: "user", content: [
+                { type: "image", source: { type: "base64", media_type: "image/jpeg", data: pageImage } },
+                { type: "text", text: SYSTEM_PROMPT },
+              ]}],
+              temperature: 0.1,
+            }),
+          });
+          if (!res.ok) {
+            const status = res.status;
+            if (status === 429) return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            if (status === 402) return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            if ((status === 503 || status === 500 || status === 529) && attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
+            throw new Error(`AI error ${status}`);
+          }
+          const data = await res.json();
+          content = data.content?.[0]?.text ?? "";
+        } else if (useDirectGemini) {
+          res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -151,11 +180,11 @@ serve(async (req) => {
           const data = await res.json();
           content = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
         } else {
-          const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
-            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+            headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
             body: JSON.stringify({
-              model,
+              model: "google/gemini-2.5-flash",
               messages: [{ role: "user", content: [
                 { type: "image_url", image_url: { url: `data:image/jpeg;base64,${pageImage}` } },
                 { type: "text", text: SYSTEM_PROMPT },

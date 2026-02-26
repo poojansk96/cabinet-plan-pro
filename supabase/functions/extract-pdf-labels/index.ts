@@ -13,10 +13,12 @@ serve(async (req) => {
   }
 
   try {
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    const useDirectGemini = !!GEMINI_API_KEY;
-    if (!GEMINI_API_KEY && !LOVABLE_API_KEY) throw new Error("No AI API key configured");
+    const useAnthropic = !!ANTHROPIC_API_KEY;
+    const useDirectGemini = !useAnthropic && !!GEMINI_API_KEY;
+    if (!ANTHROPIC_API_KEY && !GEMINI_API_KEY && !LOVABLE_API_KEY) throw new Error("No AI API key configured");
 
     const { pageImage, unitType } = await req.json();
 
@@ -96,7 +98,25 @@ Return ONLY valid JSON — no markdown, no explanation, no reasoning text:
     const MAX_RETRIES = 3;
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        if (useDirectGemini) {
+        if (useAnthropic) {
+          response = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+              "x-api-key": ANTHROPIC_API_KEY!,
+              "anthropic-version": "2023-06-01",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "claude-opus-4-6",
+              max_tokens: 8192,
+              messages: [{ role: "user", content: [
+                { type: "image", source: { type: "base64", media_type: "image/jpeg", data: pageImage } },
+                { type: "text", text: prompt },
+              ]}],
+              temperature: 0.2,
+            }),
+          });
+        } else if (useDirectGemini) {
           response = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${GEMINI_API_KEY}`,
             {
@@ -154,9 +174,11 @@ Return ONLY valid JSON — no markdown, no explanation, no reasoning text:
     }
 
     const aiData = await response.json();
-    const content: string = useDirectGemini
-      ? (aiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "")
-      : (aiData.choices?.[0]?.message?.content ?? "");
+    const content: string = useAnthropic
+      ? (aiData.content?.[0]?.text ?? "")
+      : useDirectGemini
+        ? (aiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "")
+        : (aiData.choices?.[0]?.message?.content ?? "");
     console.log("AI raw response:", content.slice(0, 800));
 
     let parsed: { items: any[]; unitTypeName?: string | null } = { items: [] };
