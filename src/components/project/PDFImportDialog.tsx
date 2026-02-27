@@ -156,17 +156,61 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
       setProgress(45);
       setProgressLabel('AI analyzing…');
       
-      const CONCURRENCY = 2; // Reduced from 3 since images are larger
+      const CONCURRENCY = 1; // Sequential to avoid payload overload
       const allUnits: Record<string, any> = {};
       let pagesProcessed = 0;
+      const MAX_PAYLOAD_BYTES = 3.5 * 1024 * 1024; // 3.5MB hard cap
+      const TEXT_CHAR_LIMIT = 8000;
       
       const processPage = async (pageIndex: number): Promise<void> => {
-        const pageText = pageTexts[pageIndex];
+        let pageText = pageTexts[pageIndex] || '';
         const pageImage = pageImages[pageIndex];
         // Skip only if no text AND no image
-        if ((!pageText || pageText.trim().length < 20) && !pageImage) {
+        if (pageText.trim().length < 20 && !pageImage) {
           pagesProcessed++;
           return;
+        }
+        
+        // Truncate text to limit
+        if (pageText.length > TEXT_CHAR_LIMIT) {
+          pageText = pageText.slice(0, TEXT_CHAR_LIMIT);
+        }
+
+        // Build payload and check size; downscale image if needed
+        let finalImage = pageImage;
+        const DOWNSCALE_TIERS = [
+          { scale: 2.5, quality: 0.65 },
+          { scale: 2.0, quality: 0.55 },
+          { scale: 1.5, quality: 0.5 },
+          { scale: 1.0, quality: 0.4 },
+        ];
+
+        let payloadStr = JSON.stringify({ pageText, pageImage: finalImage, pageIndex });
+        if (new Blob([payloadStr]).size > MAX_PAYLOAD_BYTES) {
+          // Re-render at progressively lower quality
+          const pdfjsLib2 = (await import('pdfjs-dist')) as any;
+          const buf = await (await fetch(pageImages[0]?.startsWith('data:') ? '' : '')).arrayBuffer().catch(() => null);
+          // Use the already-loaded pdf object from outer scope
+          const page = await pdf.getPage(pageIndex + 1);
+          for (const tier of DOWNSCALE_TIERS) {
+            const vp = page.getViewport({ scale: tier.scale });
+            const c = document.createElement('canvas');
+            c.width = vp.width;
+            c.height = vp.height;
+            const cx = c.getContext('2d')!;
+            await page.render({ canvasContext: cx, viewport: vp }).promise;
+            finalImage = c.toDataURL('image/jpeg', tier.quality);
+            c.width = 0;
+            c.height = 0;
+            payloadStr = JSON.stringify({ pageText, pageImage: finalImage, pageIndex });
+            if (new Blob([payloadStr]).size <= MAX_PAYLOAD_BYTES) break;
+          }
+          // If still too large after all tiers, drop image and send text-only
+          if (new Blob([payloadStr]).size > MAX_PAYLOAD_BYTES) {
+            console.warn(`Page ${pageIndex + 1}: payload still too large after downscale, sending text-only`);
+            finalImage = '';
+            payloadStr = JSON.stringify({ pageText, pageImage: '', pageIndex });
+          }
         }
         
         const MAX_RETRIES = 3;
@@ -178,7 +222,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                 'Content-Type': 'application/json',
                 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
               },
-              body: JSON.stringify({ pageText: pageText || '', pageImage, pageIndex }),
+              body: payloadStr,
             });
             
             if (resp.status === 429) {
