@@ -51,6 +51,12 @@ export default function SummaryModule({ project }: Props) {
       'Kitchen Tops', 'Vanity Tops', 'Additional Tops', 'Handles & Hardware', 'Sales Tax on Material',
     ]);
 
+    const sp = project.specs as Record<string, any> | undefined;
+    const resolveOther = (val?: string, custom?: string) => {
+      if (!val) return '';
+      return val === 'Other' ? (custom || '') : val;
+    };
+
     const infoRows: (string | undefined)[][] = [
       ['Project Name', project.name],
       [],
@@ -58,22 +64,22 @@ export default function SummaryModule({ project }: Props) {
       ['Type', project.type],
       ['Notes', project.notes || ''],
       [],
-      ['Project Super', project.specs?.projectSuper || ''],
-      ['Customer', project.specs?.customer || ''],
+      ['Project Super', sp?.projectSuper || ''],
+      ['Customer', sp?.customer || ''],
       [],
       ['Specifications', ''],
       ['Door Style', formatDoorStyle(project.specs)],
-      ['Hinges', project.specs?.hinges || ''],
-      ['Drawer Box', project.specs?.drawerBox || ''],
-      ['Drawer Guides', project.specs?.drawerGuides || ''],
+      ['Hinges', resolveOther(sp?.hinges, sp?.hingesCustom)],
+      ['Drawer Box', resolveOther(sp?.drawerBox, sp?.drawerBoxCustom)],
+      ['Drawer Guides', resolveOther(sp?.drawerGuides, sp?.drawerGuidesCustom)],
       [],
       ['Kitchen Tops', formatKitchenTops(project.specs)],
       ['Vanity Tops', formatVanityTops(project.specs)],
       ...((project.specs as any)?.additionalTopsEnabled ? [['Additional Tops', formatAdditionalTops(project.specs)]] : []),
       [],
-      ['Handles & Hardware', project.specs?.handlesAndHardware || ''],
+      ['Handles & Hardware', resolveOther(sp?.handlesAndHardware, sp?.handlesCustom)],
       [],
-      ['Sales Tax on Material', project.specs?.tax || ''],
+      ['Sales Tax on Material', resolveOther(sp?.tax, sp?.taxCustom)],
       [],
       ['Generated', new Date().toLocaleString()],
     ];
