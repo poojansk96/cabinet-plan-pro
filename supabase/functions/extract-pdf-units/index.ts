@@ -72,6 +72,7 @@ SPACES TO INCLUDE IF CABINETS/COUNTERTOPS ARE VISUALLY DRAWN INSIDE:
 - Reception areas, vestibules, foyers — include ONLY if cabinets or countertops are clearly drawn inside (not just furniture or desks).
 - Corridors, hallways, waiting rooms — include ONLY if a kitchenette or counter area is drawn within the space.
 - Offices — include ONLY if cabinet/countertop drawings are visible inside (a desk is NOT a cabinet).
+- Lounges, resident lounges, club lounges, common lounges — these frequently have kitchenettes, coffee bars, or countertop areas with cabinets. ALWAYS check for cabinet drawings inside these spaces.
 - Fitness centers, clubhouses, leasing offices, break rooms, pantries — these commonly have kitchenettes with cabinets. ALWAYS check for cabinet drawings inside these spaces.
 For ALL of the above: you MUST see drawn cabinet rectangles, countertop lines, or appliance symbols INSIDE the space boundary. A room label alone is NEVER sufficient.
 
