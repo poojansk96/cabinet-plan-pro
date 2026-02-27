@@ -492,7 +492,8 @@ export default function NewProject() {
                               onChange={e => setSpecs(s => ({ ...s, countertopColor: e.target.value, countertopColorCustom: '' }))}
                               className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
                             >
-                              <option value="">Select color group…</option>
+                               <option value="">Select color group…</option>
+                              {specs.countertopManufacturer === 'Local MSI' && <option value="Group 0 Color">Group 0 Color</option>}
                               <option value="Group 1 Color">Group 1 Color</option>
                               <option value="Group 2 Color">Group 2 Color</option>
                               <option value="Group 3 Color">Group 3 Color</option>
@@ -604,6 +605,7 @@ export default function NewProject() {
                               className="w-full h-9 px-3 text-sm border border-primary/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-accent/30"
                             >
                               <option value="">Select color group…</option>
+                              {specs.vanityManufacturer === 'Local MSI' && <option value="Group 0 Color">Group 0 Color</option>}
                               <option value="Group 1 Color">Group 1 Color</option>
                               <option value="Group 2 Color">Group 2 Color</option>
                               <option value="Group 3 Color">Group 3 Color</option>
