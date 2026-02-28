@@ -8,11 +8,11 @@ const corsHeaders = {
 
 const SYSTEM_PROMPT = `You are an expert millwork estimator reading a TITLE PAGE / COVER PAGE of a 2020 Design shop drawing set.
 
-YOUR TASK: Extract the UNIT TYPE and all UNIT NUMBERS listed on this title/cover page.
+YOUR TASK: Extract ONLY the UNIT TYPE and UNIT NUMBERS from this title/cover page. Nothing else.
 
 ABOUT 2020 SHOP DRAWING TITLE PAGES:
 - Each shop drawing PDF set has a title/cover page as the first page
-- The title page shows: the drawing set title (e.g. "KITCHEN & VANITY CASEWORK SHOP DRAWINGS"), the UNIT TYPE, and a list of UNIT NUMBERS that use this type
+- The title page shows: the drawing set title (e.g. "KITCHEN & VANITY CASEWORK SHOP DRAWINGS"), the UNIT TYPE, and a list of UNIT NUMBERS
 - This is the ONLY page you will receive — extract everything from it
 
 WHAT TO EXTRACT:
@@ -20,33 +20,34 @@ WHAT TO EXTRACT:
 1. UNIT TYPE (most important):
    - Look for prominent text like "TYPE A1 - AS", "UNIT TYPE: A1-3BR", "TYPE C1-2BR", "TYPE PH-A"
    - It's usually large, bold, centered, or underlined on the page
-   - It is NOT a room name (Kitchen, Bath), NOT an elevation label, NOT a sheet number
+   - It is NOT a room name, NOT an elevation label, NOT a sheet number, NOT a cabinet SKU
    - Preserve the EXACT text including suffixes like "-AS", "-Mirror", "-Rev", "-3BR"
    - Examples: "TYPE A1 - AS", "A1-3BR", "C1-2BR", "Studio", "PH-A", "TYPE B2 - MIRROR"
 
 2. UNIT NUMBERS:
    - Look for text like "UNIT# 230, 330, 430" or "UNITS: 101, 102, 201, 202" or "APPLICABLE UNITS: A-101, A-201"
-   - Unit numbers are comma-separated apartment/suite identifiers
-   - Parse EVERY unit number from the comma-separated list — do NOT miss any
+   - Unit numbers are apartment/suite identifiers (e.g., 230, 101, A-502, PH-1)
+   - Parse EVERY unit number from the comma-separated list
    - Each unit number gets its OWN entry in the output array, all sharing the SAME unit type
-   - Examples of unit number formats: "230", "330", "101", "A-502", "PH-1", "1-01", "B204"
 
 3. FLOOR DETECTION:
-   - Derive the floor from the unit number pattern: "230" → floor "2", "330" → floor "3", "430" → floor "4"
-   - For 3-digit numbers: first digit is usually the floor (101→1, 201→2, 305→3)
-   - For 4-digit numbers: first digit(s) before last two are the floor (1201→12, 502→5)
-   - For labels like "2ND FLOOR", "LEVEL 3" → use that floor
+   - Derive the floor from the unit number: "230" → floor "2", "101" → floor "1"
+   - For 3-digit numbers: first digit is usually the floor
    - If floor cannot be determined, use null
 
 4. BUILDING:
-   - Look for building identifiers like "BUILDING 1", "EAST BUILDING", "BLDG A", "Tower B"
+   - Look for building identifiers like "BUILDING 1", "BLDG A"
    - If none found, use null
 
-CRITICAL RULES:
-- ALL unit numbers from the comma list must appear as separate entries in the output
-- Every entry shares the SAME unitType extracted from the page
-- Do NOT confuse room names, elevation labels, or SKU codes with unit types
-- Read text CHARACTER BY CHARACTER — "A1 - AS" not "A1-A5", "3BR" not "38R"
+CRITICAL — DO NOT EXTRACT THESE:
+- Do NOT extract cabinet SKU codes (e.g., W3030, B24, SB36, DB30, W2442, V3021)
+- Do NOT extract room names (Kitchen, Bath, Island, Pantry, Laundry, Lounge)
+- Do NOT extract cabinet descriptions (e.g., "52 Island", "Island Base", "Wall Cabinet")
+- Do NOT extract elevation labels, sheet numbers, or dimensions
+- Do NOT extract any text that describes a cabinet, countertop, or fixture
+- ONLY extract apartment/suite unit numbers (numeric IDs like 230, 101, A-502)
+
+If the page has NO unit numbers or unit type visible, return {"bldg":null,"units":[]}.
 
 Return ONLY valid JSON, no other text:
 {"bldg":"Building Name or null","units":[{"unitNumber":"230","unitType":"TYPE A1 - AS","floor":"2"},{"unitNumber":"330","unitType":"TYPE A1 - AS","floor":"3"},{"unitNumber":"430","unitType":"TYPE A1 - AS","floor":"4"}]}`;
@@ -76,9 +77,15 @@ function extractJSON(text: string): { units: any[]; bldg?: string } {
 function isValidUnitNumber(val: string): boolean {
   if (val.length > 10 || val.length < 1) return false;
   if (/^TYPE\s/i.test(val)) return false;
-  if (/^(KITCHEN|BATH|LIVING|BEDROOM|MASTER|DINING|LAUNDRY|PANTRY|CLOSET|LOBBY|HALLWAY|CORRIDOR|OFFICE|STORAGE|UTILITY|MECHANICAL|FOYER|ENTRY|GARAGE)/i.test(val)) return false;
+  // Reject room/space names
+  if (/^(KITCHEN|BATH|LIVING|BEDROOM|MASTER|DINING|LAUNDRY|PANTRY|CLOSET|LOBBY|HALLWAY|CORRIDOR|OFFICE|STORAGE|UTILITY|MECHANICAL|FOYER|ENTRY|GARAGE|ISLAND|LOUNGE|RECEPTION|RESTROOM|VANITY|POWDER)/i.test(val)) return false;
+  // Reject architectural labels
   if (/^(FLOOR|LEVEL|BUILDING|BLDG|TOWER|WING|BLOCK|EAST|WEST|NORTH|SOUTH)/i.test(val)) return false;
   if (/^(ELEVATION|ELEV|SECTION|DETAIL|SCALE|SHEET|DWG|REV|DATE|DRAWN|CHECKED|DOOR|WINDOW|SCHEDULE|LEGEND|NOTE|PLAN|TYPICAL)\b/i.test(val)) return false;
+  // Reject cabinet SKU patterns (e.g., W3030, B24, SB36, DB30, V3021)
+  if (/^[A-Z]{1,3}\d{2,4}[A-Z]?$/i.test(val)) return false;
+  // Reject values containing cabinet/room words anywhere
+  if (/\b(island|cabinet|base|wall|upper|sink|drawer|countertop|vanity|pantry|lazy|susan|filler)\b/i.test(val)) return false;
   return true;
 }
 
