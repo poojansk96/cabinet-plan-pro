@@ -126,8 +126,16 @@ function isValidUnitNumber(val: string): boolean {
 
 const ROOM_NAMES = /^(KITCHEN|KITCHENETTE|BATH|BATHROOM|LIVING|BEDROOM|MASTER|DINING|LAUNDRY|PANTRY|CLOSET|LOBBY|HALLWAY|CORRIDOR|OFFICE|STORAGE|UTILITY|MECHANICAL|FOYER|ENTRY|GARAGE|RESTROOM|RECEPTION|ISLAND|COMMON)$/i;
 
+function hasValidUnitType(val: string): boolean {
+  const t = String(val || "").trim();
+  if (!t) return false;
+  if (ROOM_NAMES.test(t)) return false;
+  if (/^(FLOOR|LEVEL|ELEVATION|ELEV|PLAN|SECTION|DETAIL|SHEET|COUNTERTOP|CABINET|ISLAND)\b/i.test(t)) return false;
+  return true;
+}
+
 function cleanUnits(rawUnits: any[], pageBldg: string | null) {
-  let units = (rawUnits ?? [])
+  const units = (rawUnits ?? [])
     .filter((u: any) => u.unitNumber && typeof u.unitNumber === "string")
     .map((u: any) => {
       let unitType = u.unitType ? String(u.unitType).trim() : "";
@@ -139,13 +147,8 @@ function cleanUnits(rawUnits: any[], pageBldg: string | null) {
         floor: u.floor ? `Floor ${String(u.floor).trim().replace(/^Floor\s*/i, '')}` : null,
       };
     })
-    .filter(u => isValidUnitNumber(u.unitNumber));
-
-  // Remove single-digit noise only if multi-digit units exist
-  const hasMultiDigit = units.some(u => /^\d{2,}$/.test(u.unitNumber));
-  if (hasMultiDigit) {
-    units = units.filter(u => !/^\d$/.test(u.unitNumber));
-  }
+    .filter(u => isValidUnitNumber(u.unitNumber) && hasValidUnitType(u.unitType))
+    .filter(u => !/^\d$/.test(u.unitNumber)); // Always reject floor-like single digits (3/4/5 noise)
 
   // Deduplicate
   const seen = new Set<string>();
