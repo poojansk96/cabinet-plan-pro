@@ -147,70 +147,115 @@ Return ONLY valid JSON — no markdown, no explanation, no reasoning text:
 
     const aiData = await response.json();
     const content: string = aiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-    console.log("AI raw response:", content.slice(0, 800));
+    console.log("AI Pass 1 raw:", content.slice(0, 800));
 
-    let parsed: { items: any[]; unitTypeName?: string | null } = { items: [] };
-    try {
-      // Strip markdown fences
-      let cleaned = content
-        .replace(/^```json\s*/i, "")
-        .replace(/^```\s*/i, "")
-        .replace(/```\s*$/i, "")
-        .trim();
-      
-      // If the model produced chain-of-thought text before JSON, find the last JSON object
+    function extractJson(raw: string): any {
+      let cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
       const lastBrace = cleaned.lastIndexOf('}');
       if (lastBrace !== -1) {
-        // Find the matching opening brace for the top-level JSON object
-        let depth = 0;
-        let startIdx = -1;
+        let depth = 0, startIdx = -1;
         for (let i = lastBrace; i >= 0; i--) {
           if (cleaned[i] === '}') depth++;
-          else if (cleaned[i] === '{') {
-            depth--;
-            if (depth === 0) { startIdx = i; break; }
-          }
+          else if (cleaned[i] === '{') { depth--; if (depth === 0) { startIdx = i; break; } }
         }
-        if (startIdx !== -1) {
-          cleaned = cleaned.substring(startIdx, lastBrace + 1);
-        }
+        if (startIdx !== -1) cleaned = cleaned.substring(startIdx, lastBrace + 1);
       }
-      
-      parsed = JSON.parse(cleaned);
-    } catch {
-      console.error("JSON parse failed:", content.slice(0, 500));
+      return JSON.parse(cleaned);
     }
 
+    let parsed: { items: any[]; unitTypeName?: string | null } = { items: [] };
+    try { parsed = extractJson(content); } catch { console.error("Pass 1 JSON parse failed:", content.slice(0, 500)); }
+
     const detectedUnitType = parsed.unitTypeName ?? null;
+    const pass1Items = parsed.items ?? [];
+
+    // ── PASS 2: Verification ──
+    // Only verify if Pass 1 found cabinet items (elevation page)
+    let pass2Items: any[] = [];
+    if (pass1Items.length > 0) {
+      const verifyPrompt = `You are an expert millwork estimator verifying cabinet extraction from a 2020 Design shop drawing ELEVATION page.
+
+Here is what was extracted in a first pass:
+${JSON.stringify(pass1Items)}
+
+Your job: Look at this SAME elevation image again and VERIFY every SKU and its quantity.
+
+VERIFICATION STEPS:
+1. Scan the elevation LEFT to RIGHT. List every distinct cabinet rectangle you see.
+2. For each SKU in the first-pass data, count the ACTUAL number of separate rectangular boxes in the drawing.
+3. Check for MISSED cabinets — any SKU visible in the drawing that is NOT in the first-pass list.
+4. Check for WRONG quantities — especially adjacent identical boxes that may have been counted as 1.
+   EXAMPLE: Two W3030B boxes side by side = quantity 2, NOT 1.
+5. Check for FALSE entries — any SKU in the first-pass list that does NOT actually appear in the drawing.
+6. For ACCESSORIES (WF, BF, FIL, etc.): count ONLY the label occurrences visible on THIS single elevation. Do NOT guess extras.
+
+IMPORTANT:
+- ONLY extract from ELEVATION drawings (front/side views). If this is a floor plan, return {"items":[]}.
+- SKIP appliances (REF, DW, DISHWASHER, RANGE, HOOD, MICRO, OTR, OVEN, etc.)
+- Read labels EXACTLY as printed.
+
+Return the CORRECTED and COMPLETE list as JSON — no markdown, no explanation:
+{"items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1}]}`;
+
+      try {
+        const verifyRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ role: "user", parts: [
+                { inlineData: { mimeType: "image/jpeg", data: pageImage } },
+                { text: verifyPrompt },
+              ]}],
+              generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
+            }),
+          }
+        );
+
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json();
+          const verifyContent: string = verifyData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+          console.log("AI Pass 2 verify:", verifyContent.slice(0, 800));
+          try {
+            const verifyParsed = extractJson(verifyContent);
+            pass2Items = verifyParsed.items ?? [];
+          } catch { console.error("Pass 2 JSON parse failed, using Pass 1 only"); }
+        } else {
+          console.warn("Pass 2 verify call failed:", verifyRes.status);
+        }
+      } catch (e) {
+        console.warn("Pass 2 verify error, using Pass 1 only:", e);
+      }
+    }
+
+    // Use Pass 2 results if available (it's the corrected version), otherwise Pass 1
+    const rawItems = pass2Items.length > 0 ? pass2Items : pass1Items;
+    console.log(`Using ${pass2Items.length > 0 ? 'Pass 2 (verified)' : 'Pass 1'} — ${rawItems.length} items`);
 
     // Filter: must start with letter AND contain a number (real SKU, not labels/titles)
     // Appliance prefixes to reject
     const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP)/i;
 
-    const items = (parsed.items ?? [])
+    const items = (rawItems)
       .filter((c: any) => c.sku && /^[A-Za-z]/.test(c.sku) && /\d/.test(c.sku))
       .filter((c: any) => {
         const upper = String(c.sku).toUpperCase().trim();
-        // Skip appliances
         if (APPLIANCE_RE.test(upper)) return false;
-        // Skip anything that looks like a unit number, type name, or call-out address
         if (/^UNIT\b/i.test(upper)) return false;
         if (/^ELEV/i.test(upper)) return false;
         if (/^FLOOR/i.test(upper)) return false;
         if (/^TYPE\s/i.test(upper)) return false;
-        if (/^WALL\s+[A-Z]$/i.test(upper)) return false; // "WALL A" title, not a cabinet
-        if (/^[A-Z]\d?-[A-Z]/i.test(upper) && upper.length <= 4) return false; // call-out like "A1-B" but not cabinet SKUs like "B15-L"
+        if (/^WALL\s+[A-Z]$/i.test(upper)) return false;
+        if (/^[A-Z]\d?-[A-Z]/i.test(upper) && upper.length <= 4) return false;
         return true;
       })
       .map((c: any) => {
-        // Normalize type to title case (e.g. "ACCESSORY" → "Accessory", "base" → "Base")
         const rawType = String(c.type ?? "Base").trim();
         const normalizedType = rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase();
-        // Normalize room to title case
         const rawRoom = String(c.room ?? "Kitchen").trim();
         const normalizedRoom = rawRoom.charAt(0).toUpperCase() + rawRoom.slice(1).toLowerCase();
         return {
-          // Normalize SKU: uppercase, trim, remove spaces around hyphens
           sku: String(c.sku).toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, ''),
           type: normalizedType,
           room: normalizedRoom,
@@ -218,8 +263,7 @@ Return ONLY valid JSON — no markdown, no explanation, no reasoning text:
         };
       });
 
-    // Deduplicate by SKU+room — SUM quantities since the AI may return the
-    // same SKU in separate entries (e.g. from different parts of the elevation).
+    // Deduplicate by SKU+room — SUM quantities
     const deduped = new Map<string, { sku: string; type: string; room: string; quantity: number }>();
     for (const item of items) {
       const key = `${item.sku}|${item.room}`;
