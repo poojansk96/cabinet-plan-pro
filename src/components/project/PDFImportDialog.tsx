@@ -95,7 +95,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
       setProgressLabel('Reading PDF…');
       const { extractUnitsFromPDF } = await import('@/lib/pdfExtractor');
       const res = await extractUnitsFromPDF(file);
-      setResult(res);
+      setResult({ ...res, totalPages: 1 });
       setProgress(10);
 
       // Step 2: Re-extract page texts AND render page images for AI
@@ -107,11 +107,12 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
         import.meta.url
       ).toString();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      const totalPages = pdf.numPages;
+      const sourceTotalPages = pdf.numPages;
+      const pagesToProcess = Math.min(1, sourceTotalPages); // TITLE PAGE ONLY
       const pageTexts: string[] = [];
       const pageImages: string[] = [];
       
-      for (let p = 1; p <= totalPages; p++) {
+      for (let p = 1; p <= pagesToProcess; p++) {
         const page = await pdf.getPage(p);
         
         // Extract text
@@ -123,7 +124,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
         pageTexts.push(text);
         
         // Render page to image
-        const scale = 2; // Scale 2 is sufficient for unit/floor plan text detection
+        const scale = 2; // Scale 2 is sufficient for title page text detection
         const viewport = page.getViewport({ scale });
         const canvas = document.createElement('canvas');
         canvas.width = viewport.width;
@@ -135,7 +136,6 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
         // Adaptive downscale if image is too large (>3MB base64)
         const base64Length = imageDataUrl.length - imageDataUrl.indexOf(',') - 1;
         if (base64Length > 3 * 1024 * 1024) {
-          // Re-render at lower scale
           const lowerScale = 1.5;
           const lowerViewport = page.getViewport({ scale: lowerScale });
           canvas.width = lowerViewport.width;
@@ -147,8 +147,8 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
         canvas.width = 0;
         canvas.height = 0;
         
-        setProgress(10 + Math.round((p / totalPages) * 30));
-        setProgressLabel(`Reading page ${p} of ${totalPages}`);
+        setProgress(10 + Math.round((p / pagesToProcess) * 30));
+        setProgressLabel(`Reading title page ${p} of ${pagesToProcess}`);
       }
 
       // Step 3: Call AI per page (avoid edge function timeout)
@@ -208,10 +208,15 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
               for (const unit of data.units) {
                 const unitNumber = (unit.unitNumber ?? '').trim().toUpperCase();
                 if (!unitNumber) continue;
+                if (!/\d/.test(unitNumber)) continue;
+                if (unitNumber.startsWith('?')) continue;
 
                 const floorKey = (unit.detectedFloor ?? '').trim().toUpperCase();
                 const bldgKey = (unit.detectedBldg ?? '').trim().toUpperCase();
-                const normalizedType = (unit.detectedType ?? '').trim();
+                let normalizedType = (unit.detectedType ?? '').trim();
+                if (/^(KITCHEN|KITCHENETTE|BATH|BATHROOM|LAUNDRY|PANTRY|ISLAND|LOUNGE|COMMON|\?)$/i.test(normalizedType)) {
+                  normalizedType = '';
+                }
                 const typeKey = normalizedType && normalizedType !== '?'
                   ? normalizedType.toUpperCase()
                   : '?';
@@ -235,14 +240,15 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                 if (!existing) {
                   allUnits[compositeKey] = {
                     ...unit,
+                    detectedType: normalizedType || null,
                     unitNumber,
                     page: pageIndex + 1,
                     confidence: 'high',
                     kitchenConfidence: unit.kitchenConfidence ?? 'maybe',
                   };
                 } else {
-                  if ((!existing.detectedType || existing.detectedType === '?') && unit.detectedType && unit.detectedType !== '?') {
-                    existing.detectedType = unit.detectedType;
+                  if ((!existing.detectedType || existing.detectedType === '?') && normalizedType && normalizedType !== '?') {
+                    existing.detectedType = normalizedType;
                   }
                   if (!existing.detectedFloor && unit.detectedFloor) existing.detectedFloor = unit.detectedFloor;
                   if (!existing.detectedBldg && unit.detectedBldg) existing.detectedBldg = unit.detectedBldg;
@@ -260,8 +266,8 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
           }
         }
         pagesProcessed++;
-        setProgress(45 + Math.round((pagesProcessed / totalPages) * 45));
-        setProgressLabel(`AI analyzed page ${pagesProcessed} of ${totalPages}`);
+        setProgress(45 + Math.round((pagesProcessed / pagesToProcess) * 45));
+        setProgressLabel(`AI analyzed page ${pagesProcessed} of ${pagesToProcess}`);
       };
       
       // Process pages in batches of CONCURRENCY
