@@ -101,8 +101,14 @@ function isValidUnitNumber(val: string): boolean {
   const compact = val.toUpperCase().replace(/\s+/g, "");
   const compactNoDash = compact.replace(/-/g, "");
 
+  // Must contain at least one digit to be a real unit number
+  if (!/\d/.test(compact)) return false;
+
+  // Reject entries starting with ? (garbage from non-title pages)
+  if (/^\?/.test(val.trim())) return false;
+
   // Reject room/space names
-  if (/^(KITCHEN|BATH|LIVING|BEDROOM|MASTER|DINING|LAUNDRY|PANTRY|CLOSET|LOBBY|HALLWAY|CORRIDOR|OFFICE|STORAGE|UTILITY|MECHANICAL|FOYER|ENTRY|GARAGE|ISLAND|LOUNGE|RECEPTION|RESTROOM|VANITY|POWDER)/i.test(compact)) return false;
+  if (/^(KITCHEN|KITCHENETTE|BATH|LIVING|BEDROOM|MASTER|DINING|LAUNDRY|PANTRY|CLOSET|LOBBY|HALLWAY|CORRIDOR|OFFICE|STORAGE|UTILITY|MECHANICAL|FOYER|ENTRY|GARAGE|ISLAND|LOUNGE|RECEPTION|RESTROOM|VANITY|POWDER|STUDIO|COMMON)/i.test(compact)) return false;
 
   // Reject architectural labels
   if (/^(FLOOR|LEVEL|BUILDING|BLDG|TOWER|WING|BLOCK|EAST|WEST|NORTH|SOUTH)/i.test(compact)) return false;
@@ -110,15 +116,15 @@ function isValidUnitNumber(val: string): boolean {
 
   // Reject cabinet SKU patterns (including extended 2020 formats like HASB48B, HAV3621-REM)
   if (/^[A-Z]{1,4}\d{2,4}[A-Z]{0,4}$/i.test(compactNoDash)) return false;
-  if (/^(W|B|SB|DB|UB|UC|TC|TK|WF|BF|V|OH|PT|PTC|UT|HAV|HASB|HASP|HAT|HAF)\d/i.test(compactNoDash)) return false;
+  if (/^(W|B|SB|DB|UB|UC|TC|TK|WF|BF|V|OH|PT|PTC|UT|HAV|HASB|HASP|HAT|HAF|LS|LSB|FIL|CM|LR|EP|FP)\d/i.test(compactNoDash)) return false;
 
   // Reject values containing cabinet/room words anywhere
-  if (/\b(island|cabinet|base|wall|upper|sink|drawer|countertop|vanity|pantry|lazy|susan|filler)\b/i.test(compact)) return false;
+  if (/\b(island|cabinet|base|wall|upper|sink|drawer|countertop|vanity|pantry|lazy|susan|filler|kitchenette)\b/i.test(compact)) return false;
 
   return true;
 }
 
-const ROOM_NAMES = /^(KITCHEN|BATH|BATHROOM|LIVING|BEDROOM|MASTER|DINING|LAUNDRY|PANTRY|CLOSET|LOBBY|HALLWAY|CORRIDOR|OFFICE|STORAGE|UTILITY|MECHANICAL|FOYER|ENTRY|GARAGE|RESTROOM|RECEPTION)$/i;
+const ROOM_NAMES = /^(KITCHEN|KITCHENETTE|BATH|BATHROOM|LIVING|BEDROOM|MASTER|DINING|LAUNDRY|PANTRY|CLOSET|LOBBY|HALLWAY|CORRIDOR|OFFICE|STORAGE|UTILITY|MECHANICAL|FOYER|ENTRY|GARAGE|RESTROOM|RECEPTION|ISLAND|COMMON)$/i;
 
 function cleanUnits(rawUnits: any[], pageBldg: string | null) {
   let units = (rawUnits ?? [])
