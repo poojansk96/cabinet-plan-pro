@@ -193,17 +193,21 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
   };
 
   const mergeRows = (incoming: LabelRow[], existing: LabelRow[] = []): LabelRow[] => {
-    // The AI already deduplicates within a single page (max qty per SKU+room).
-    // Across different pages, the same SKU in the same room means it appears
-    // in multiple elevations, so we SUM quantities instead of taking max.
+    // The AI already deduplicates within a single page.
+    // Across pages we normally SUM same SKU+room, except corner Lazy Susan SKUs
+    // (LS/LSB) that can appear in two side elevations for one physical cabinet.
     const merged: Record<string, LabelRow> = {};
+    const isCornerLazySusan = (sku: string) => /^(LS|LSB)\d+/i.test(sku);
+
     for (const r of [...existing, ...incoming]) {
       const normSku = r.sku.toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
       const key = `${normSku}__${r.room}`;
       if (merged[key]) {
-        merged[key].quantity += r.quantity;
+        merged[key].quantity = isCornerLazySusan(normSku)
+          ? Math.max(merged[key].quantity, r.quantity)
+          : merged[key].quantity + r.quantity;
       } else {
-        merged[key] = { ...r };
+        merged[key] = { ...r, sku: normSku };
       }
     }
     // Extract wall cabinet height from SKU like W3024 → height 24, W1542 → height 42

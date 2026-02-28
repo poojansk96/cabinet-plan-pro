@@ -108,7 +108,7 @@ Return ONLY valid JSON — no markdown, no explanation, no reasoning text:
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
         response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${GEMINI_API_KEY}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -204,7 +204,7 @@ Return the CORRECTED and COMPLETE list as JSON — no markdown, no explanation:
 
       try {
         const verifyRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${GEMINI_API_KEY}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -213,7 +213,7 @@ Return the CORRECTED and COMPLETE list as JSON — no markdown, no explanation:
                 { inlineData: { mimeType: "image/jpeg", data: pageImage } },
                 { text: verifyPrompt },
               ]}],
-              generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
+              generationConfig: { temperature: 0.2, maxOutputTokens: 8192 },
             }),
           }
         );
@@ -268,13 +268,20 @@ Return the CORRECTED and COMPLETE list as JSON — no markdown, no explanation:
         };
       });
 
-    // Deduplicate by SKU+room — SUM quantities
+    // Deduplicate by SKU+room.
+    // Normal SKUs are summed when repeated on the same page.
+    // Corner Lazy Susan SKUs (LS/LSB) can appear on two adjacent elevations
+    // for the same physical corner cabinet, so keep max instead of sum.
+    const isCornerLazySusan = (sku: string) => /^(LS|LSB)\d+/i.test(sku);
+
     const deduped = new Map<string, { sku: string; type: string; room: string; quantity: number }>();
     for (const item of items) {
       const key = `${item.sku}|${item.room}`;
       const existing = deduped.get(key);
       if (existing) {
-        existing.quantity += item.quantity;
+        existing.quantity = isCornerLazySusan(item.sku)
+          ? Math.max(existing.quantity, item.quantity)
+          : existing.quantity + item.quantity;
       } else {
         deduped.set(key, { ...item });
       }
