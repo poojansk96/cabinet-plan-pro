@@ -175,7 +175,7 @@ serve(async (req) => {
   try {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
-    let model = "gemini-3-pro-preview";
+    let model = "gemini-2.5-pro";
 
     const { pageImage } = await req.json();
     if (!pageImage || typeof pageImage !== "string") {
