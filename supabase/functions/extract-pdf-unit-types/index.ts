@@ -156,9 +156,15 @@ function cleanUnits(rawUnits: any[], pageBldg: string | null) {
     .filter(u => isValidUnitNumber(u.unitNumber) && hasValidUnitType(u.unitType))
     .filter(u => !/^\d$/.test(u.unitNumber)); // Always reject floor-like single digits (3/4/5 noise)
 
-  // Deduplicate
+  // Deduplicate by unit + building + floor (not unit alone), so repeated unit numbers in different areas are preserved
   const seen = new Set<string>();
-  return units.filter(u => { if (seen.has(u.unitNumber)) return false; seen.add(u.unitNumber); return true; });
+  const normalizeKeyPart = (v: string | null | undefined) => String(v ?? '').toUpperCase().replace(/\s+/g, '').trim();
+  return units.filter(u => {
+    const key = `${normalizeKeyPart(u.unitNumber)}|${normalizeKeyPart(u.bldg)}|${normalizeKeyPart(u.floor)}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 serve(async (req) => {

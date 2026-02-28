@@ -14,6 +14,7 @@ export interface UnitMappingRow {
 }
 
 interface PageSighting {
+  unitNumber: string;
   unitType: string;
   bldg: string;
   floor: string;
@@ -166,16 +167,20 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
           const pageUnits = data.units ?? [];
           console.log(`Page ${p}/${pdf.numPages} of "${file.name}": found ${pageUnits.length} unit(s)`, pageUnits);
 
+          const keyPart = (v: string) => v.toUpperCase().replace(/\s+/g, '').trim();
+
           for (const u of pageUnits) {
             const num = String(u.unitNumber ?? '').trim();
             const type = String(u.unitType ?? '').trim();
             const bldg = String(u.bldg ?? '').trim();
             const floor = String(u.floor ?? '').trim();
             if (!num || !type) continue;
-            // Only record the FIRST sighting of each unit number — skip if already seen
-            if (!sightings.has(num)) {
-              sightings.set(num, [{ unitType: type, bldg, floor, page: p, file: file.name }]);
-            }
+
+            const sightingKey = `${keyPart(num)}|${keyPart(bldg)}|${keyPart(floor)}`;
+            const nextSighting: PageSighting = { unitNumber: num, unitType: type, bldg, floor, page: p, file: file.name };
+            const existing = sightings.get(sightingKey);
+            if (existing) existing.push(nextSighting);
+            else sightings.set(sightingKey, [nextSighting]);
           }
 
           pagesProcessed++;
@@ -185,7 +190,7 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
 
       // Build rows with cross-page conflict detection
       const result: UnitMappingRow[] = [];
-      for (const [unitNumber, pages] of sightings) {
+      for (const pages of sightings.values()) {
         // Use the last sighting as the "primary" value (most detailed page usually comes later)
         const primary = pages[pages.length - 1];
         let conflict: string | undefined;
@@ -211,7 +216,7 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
         }
 
         result.push({
-          unitNumber,
+          unitNumber: primary.unitNumber,
           unitType: primary.unitType,
           bldg: primary.bldg,
           floor: primary.floor,
