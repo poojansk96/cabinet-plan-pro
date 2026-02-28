@@ -8,7 +8,7 @@ const corsHeaders = {
 
 const SYSTEM_PROMPT = `You are an expert millwork estimator reading a TITLE PAGE / COVER PAGE of a 2020 Design shop drawing set.
 
-YOUR TASK: Extract ONLY the UNIT TYPE and UNIT NUMBERS from this title/cover page. Nothing else.
+YOUR TASK: Extract ONLY the UNIT TYPE and ALL UNIT NUMBERS from this title/cover page. Nothing else.
 
 ABOUT 2020 SHOP DRAWING TITLE PAGES:
 - Each shop drawing PDF set has a title/cover page as the first page
@@ -24,11 +24,14 @@ WHAT TO EXTRACT:
    - Preserve the EXACT text including suffixes like "-AS", "-Mirror", "-Rev", "-3BR"
    - Examples: "TYPE A1 - AS", "A1-3BR", "C1-2BR", "Studio", "PH-A", "TYPE B2 - MIRROR"
 
-2. UNIT NUMBERS:
+2. UNIT NUMBERS (CRITICAL — DO NOT MISS ANY):
    - Look for text like "UNIT# 230, 330, 430" or "UNITS: 101, 102, 201, 202" or "APPLICABLE UNITS: A-101, A-201"
    - Unit numbers are apartment/suite identifiers (e.g., 230, 101, A-502, PH-1)
-   - Parse EVERY unit number from the comma-separated list
+   - They are usually listed as a COMMA-SEPARATED sequence on the title page
+   - COUNT every single number in the comma list. If you see "UNIT# 230, 330, 430, 530, 630, 730, 830" that is 7 unit numbers — output ALL 7.
+   - Read the list CHARACTER BY CHARACTER to avoid skipping any numbers
    - Each unit number gets its OWN entry in the output array, all sharing the SAME unit type
+   - DOUBLE-CHECK: After building your list, re-read the comma-separated text on the page and verify your count matches
 
 3. FLOOR DETECTION:
    - Derive the floor from the unit number: "230" → floor "2", "101" → floor "1"
@@ -47,10 +50,28 @@ CRITICAL — DO NOT EXTRACT THESE:
 - Do NOT extract any text that describes a cabinet, countertop, or fixture
 - ONLY extract apartment/suite unit numbers (numeric IDs like 230, 101, A-502)
 
+VERIFICATION STEP: Before outputting, re-read the unit number list on the page one more time and confirm you have captured every single number. Missing even one unit number is a critical error.
+
 If the page has NO unit numbers or unit type visible, return {"bldg":null,"units":[]}.
 
 Return ONLY valid JSON, no other text:
 {"bldg":"Building Name or null","units":[{"unitNumber":"230","unitType":"TYPE A1 - AS","floor":"2"},{"unitNumber":"330","unitType":"TYPE A1 - AS","floor":"3"},{"unitNumber":"430","unitType":"TYPE A1 - AS","floor":"4"}]}`;
+
+const VERIFY_PROMPT = `You are verifying extracted unit data from a 2020 Design shop drawing title page.
+
+I will give you:
+1. The original title page image
+2. Previously extracted data as JSON
+
+YOUR TASK: Re-read the title page carefully and verify:
+- Is the UNIT TYPE correct? If not, fix it.
+- Are ALL unit numbers captured? Re-read the comma-separated list on the page CHARACTER BY CHARACTER. If any are missing, ADD them.
+- Are there any FALSE entries (cabinet SKUs like W3030, room names like "Island", descriptions like "52 Island")? If so, REMOVE them.
+
+ONLY apartment/suite unit numbers should remain (e.g., 230, 101, A-502, PH-1).
+
+Return the corrected JSON (same format), no other text:
+{"bldg":"Building Name or null","units":[{"unitNumber":"230","unitType":"TYPE A1 - AS","floor":"2"}]}`;
 
 function extractJSON(text: string): { units: any[]; bldg?: string } {
   // Try markdown fences
@@ -167,12 +188,52 @@ serve(async (req) => {
       }
     }
 
-    console.log("AI response:", content.slice(0, 500));
+    console.log("AI Pass 1 response:", content.slice(0, 500));
     const parsed = extractJSON(content);
-    const units = cleanUnits(parsed.units, parsed.bldg || null);
-    console.log("Extracted units:", units.length, JSON.stringify(units.map(u => u.unitNumber)));
+    const firstPassUnits = cleanUnits(parsed.units, parsed.bldg || null);
+    console.log("Pass 1 units:", firstPassUnits.length, JSON.stringify(firstPassUnits.map(u => u.unitNumber)));
 
-    return new Response(JSON.stringify({ units, pageType: "floor_plan" }), {
+    // PASS 2: Verification — re-send the image with first-pass results for the AI to double-check
+    let finalUnits = firstPassUnits;
+    try {
+      const verifyBody = JSON.stringify({
+        contents: [{ role: "user", parts: [
+          { inlineData: { mimeType: "image/jpeg", data: pageImage } },
+          { text: VERIFY_PROMPT + "\n\nPreviously extracted data:\n" + JSON.stringify({ bldg: parsed.bldg || null, units: firstPassUnits }) },
+        ]}],
+        generationConfig: { temperature: 0.1, maxOutputTokens: 4096 },
+      });
+
+      const verifyRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: verifyBody }
+      );
+
+      if (verifyRes.ok) {
+        const verifyData = await verifyRes.json();
+        const verifyContent = verifyData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+        console.log("AI Pass 2 (verify) response:", verifyContent.slice(0, 500));
+        const verifyParsed = extractJSON(verifyContent);
+        const verifiedUnits = cleanUnits(verifyParsed.units, verifyParsed.bldg || parsed.bldg || null);
+
+        // Use verified results if they found units (merge to keep the most complete set)
+        if (verifiedUnits.length > 0) {
+          // Merge: keep all units from both passes, deduplicate by unitNumber
+          const merged = new Map<string, typeof finalUnits[0]>();
+          for (const u of firstPassUnits) merged.set(u.unitNumber, u);
+          for (const u of verifiedUnits) merged.set(u.unitNumber, u); // verified pass overrides
+          finalUnits = Array.from(merged.values());
+          finalUnits.sort((a, b) => a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true }));
+        }
+        console.log("Pass 2 verified units:", finalUnits.length, JSON.stringify(finalUnits.map(u => u.unitNumber)));
+      } else {
+        console.warn("Verification pass failed with status:", verifyRes.status, "— using Pass 1 results");
+      }
+    } catch (verifyErr) {
+      console.warn("Verification pass error:", verifyErr, "— using Pass 1 results");
+    }
+
+    return new Response(JSON.stringify({ units: finalUnits, pageType: "floor_plan" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
