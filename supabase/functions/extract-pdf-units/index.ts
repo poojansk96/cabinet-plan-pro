@@ -243,8 +243,8 @@ serve(async (req) => {
       }
     }
 
-    const pageBuilding = parsed.pageBuilding ?? null;
-    const units = (parsed.units ?? []).map((u: any) => ({
+    const pageBuilding = parsed?.pageBuilding ?? null;
+    const units = (parsed?.units ?? []).map((u: any) => ({
       unitNumber: (u.unitNumber ?? "").trim(),
       detectedType: u.detectedType ?? null,
       detectedFloor: u.detectedFloor ?? null,
