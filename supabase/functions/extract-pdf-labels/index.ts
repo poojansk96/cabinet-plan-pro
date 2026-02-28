@@ -148,9 +148,68 @@ Return ONLY valid JSON — no markdown, no explanation:
 
     const detectedUnitType = parsed.unitTypeName ?? null;
     const pass1Items = parsed.items ?? [];
+    console.log(`Pass 1: ${pass1Items.length} items`);
 
-    const rawItems = pass1Items;
-    console.log(`Extracted ${rawItems.length} items`);
+    // ── PASS 2: Verification — re-examine image to catch missed SKUs ──
+    let finalItems = pass1Items;
+    if (pass1Items.length > 0) {
+      const verifyPrompt = `You are an expert millwork estimator doing a SECOND verification pass on a 2020 Design shop drawing PLAN VIEW page.
+
+Pass 1 found these cabinet SKUs:
+${JSON.stringify(pass1Items)}
+
+Your job: Look at the SAME image again VERY carefully and check for:
+1. MISSED SKUs — any cabinet label visible on the plan view that is NOT in the list above. Pay special attention to small accessories like BF3, BF6, WF3X30, WF6X30, FIL3, TK, CM, LR, EP.
+2. WRONG quantities — if a SKU label appears multiple times in different locations, the quantity should match the number of occurrences (e.g. DB15 appearing twice = quantity 2).
+3. FALSE entries — any SKU in the list that does NOT actually appear as a label on this page.
+
+IMPORTANT:
+- Only extract from PLAN VIEW (top-down) pages. If this is an elevation (front view), return {"items":[]}.
+- SKIP appliances (REF, DW, RANGE, HOOD, MICRO, OTR, OVEN, etc.)
+- Read labels EXACTLY as printed.
+- Corner cabinets (LS, LSB): count only ONCE even if at junction of two walls.
+
+Return the COMPLETE corrected list as JSON — no markdown, no explanation:
+{"items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1}]}`;
+
+      try {
+        const verifyRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ role: "user", parts: [
+                { inlineData: { mimeType: "image/jpeg", data: pageImage } },
+                { text: verifyPrompt },
+              ]}],
+              generationConfig: { temperature: 0.1, maxOutputTokens: 4096 },
+            }),
+          }
+        );
+
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json();
+          const verifyContent: string = verifyData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+          console.log("Pass 2 verify:", verifyContent.slice(0, 800));
+          try {
+            const verifyParsed = extractJson(verifyContent);
+            const pass2Items = verifyParsed.items ?? [];
+            if (pass2Items.length > 0) {
+              finalItems = pass2Items;
+              console.log(`Pass 2: ${pass2Items.length} items (using verified)`);
+            }
+          } catch { console.error("Pass 2 JSON parse failed, using Pass 1"); }
+        } else {
+          console.warn("Pass 2 call failed:", verifyRes.status);
+        }
+      } catch (e) {
+        console.warn("Pass 2 error, using Pass 1:", e);
+      }
+    }
+
+    const rawItems = finalItems;
+    console.log(`Final: ${rawItems.length} items`);
 
     // Filter: must start with letter AND contain a number (real SKU, not labels/titles)
     // Appliance prefixes to reject
