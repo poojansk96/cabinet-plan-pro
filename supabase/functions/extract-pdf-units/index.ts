@@ -62,14 +62,14 @@ SPACES TO ALWAYS EXCLUDE (even if they have a label):
 - Stairwells, exit stairs
 - Storage closets (unless they clearly show cabinet/countertop drawings)
 - Janitor closets, custodial closets
-- Mail rooms, package rooms, concierge desks
-These spaces virtually NEVER have cabinets or countertops. Do NOT include them.
+- NOTE: Mail rooms/package rooms are NOT auto-excluded — include them if cabinets/countertops are visibly drawn.
 
 SPACES TO INCLUDE IF CABINETS/COUNTERTOPS ARE VISUALLY DRAWN INSIDE:
 - Community kitchens, kitchenettes, community room kitchens, kitchens beside community centers — these are common areas with FULL cabinet runs and countertops. ALWAYS include them if you see cabinets drawn inside.
 - Laundry rooms — often have base cabinets, folding counters, or countertop surfaces above washers/dryers. Include if you see any cabinet rectangles or counter lines.
 - Lobby areas with small countertop sections — some lobbies have a kitchenette, coffee bar, or small counter area. Include ONLY if you see drawn cabinet rectangles or countertop lines (a reception desk alone does NOT count).
 - Reception areas, vestibules, foyers — include ONLY if cabinets or countertops are clearly drawn inside (not just furniture or desks).
+- Mail rooms, package rooms, and parcel rooms — include ONLY if cabinet rectangles or countertop lines are visibly drawn.
 - Corridors, hallways, waiting rooms — include ONLY if a kitchenette or counter area is drawn within the space.
 - Offices — include ONLY if cabinet/countertop drawings are visible inside (a desk is NOT a cabinet).
 - Lounges, resident lounges, club lounges, common lounges — these frequently have kitchenettes, coffee bars, or countertop areas with cabinets. ALWAYS check for cabinet drawings inside these spaces.
