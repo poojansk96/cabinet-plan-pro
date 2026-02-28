@@ -232,9 +232,10 @@ export default function PDFImportDialog({ onImport, onClose, takeoffPerson }: Pr
                 const unitNumber = String(unit.unitNumber ?? '').trim().toUpperCase();
                 if (!unitNumber) continue;
 
-                // Takeoff Unit Count rule: unit number is unique project-wide.
+                // Takeoff Unit Count rule: unit number is unique within a building.
                 // Ignore type differences and keep only ONE row on the lowest floor.
-                const key = normalizeUnitKey(unitNumber);
+                const bldgKey = normalizeUnitKey(String(unit.detectedBldg ?? ''));
+                const key = `${bldgKey}__${normalizeUnitKey(unitNumber)}`;
                 const candidate = {
                   ...unit,
                   unitNumber,
