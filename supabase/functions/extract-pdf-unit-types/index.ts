@@ -8,34 +8,37 @@ const corsHeaders = {
 
 const SYSTEM_PROMPT = `You are an expert millwork estimator reading a page from a 2020 Design shop drawing PDF.
 
-FIRST — DETERMINE IF THIS IS A TITLE/COVER PAGE:
-A TITLE/COVER PAGE typically contains:
-- A drawing set title (e.g. "KITCHEN & VANITY CASEWORK SHOP DRAWINGS")
-- A UNIT TYPE name (large, bold, centered)
-- A list of UNIT NUMBERS (comma-separated)
-- NO cabinet drawings, NO floor plans, NO elevations, NO countertop drawings
+YOUR TASK: Determine the PAGE TYPE and extract data ONLY from FLOOR PLAN pages.
 
-If this page is NOT a title/cover page — i.e. it shows:
-- A floor plan (top-down view of cabinets/room)
-- An elevation drawing (front view of cabinets)
-- A countertop drawing
-- Any other drawing page
-→ Return {"bldg":null,"units":[]} immediately. DO NOT extract anything.
+PAGE TYPE IDENTIFICATION:
+A FLOOR PLAN page shows a TOP-DOWN / BIRD'S EYE VIEW of a unit layout — you can see:
+- Walls, doors, windows drawn from above
+- Cabinet boxes shown as rectangles from above (not front view)
+- Room labels like "Kitchen", "Bath", "Laundry" placed inside rooms
+- A UNIT TYPE name in the title block (e.g. "TYPE A1 - AS", "TYPE C1-2BR", "UNIT TYPE: PH-A")
+- Often unit numbers listed (e.g. "UNIT# 230, 330, 430" or "UNITS: 101, 102")
 
-*** ONLY extract unit type and unit numbers from TITLE/COVER PAGES. Skip ALL other page types. ***
+SKIP THESE PAGE TYPES — return {"bldg":null,"units":[]} immediately:
+- ELEVATION drawings (front/side view of cabinets showing doors, handles, heights)
+- COUNTERTOP drawings (showing countertop outlines, edges, cutouts)
+- TITLE/COVER pages with NO drawings (just text and lists)
+- Detail/section views, legends, schedules
+- Any page that is NOT a top-down floor plan view
 
-IF THIS IS A TITLE/COVER PAGE, EXTRACT:
+*** ONLY extract from FLOOR PLAN (top-down view) pages. Skip ALL other page types. ***
+
+IF THIS IS A FLOOR PLAN PAGE, EXTRACT:
 
 1. UNIT TYPE (most important):
    - Look for prominent text like "TYPE A1 - AS", "UNIT TYPE: A1-3BR", "TYPE C1-2BR", "TYPE PH-A"
-   - Usually large, bold, centered, or underlined
+   - Usually in a title block, large, bold, or underlined
    - NOT a room name, NOT an elevation label, NOT a sheet number, NOT a cabinet SKU
    - Preserve EXACT text including suffixes like "-AS", "-Mirror", "-Rev", "-3BR"
 
 2. UNIT NUMBERS (CRITICAL — DO NOT MISS ANY):
    - Look for text like "UNIT# 230, 330, 430" or "UNITS: 101, 102, 201, 202"
    - Unit numbers are apartment/suite identifiers (e.g., 230, 101, A-502, PH-1)
-   - Usually listed as a COMMA-SEPARATED sequence
+   - Usually listed as a COMMA-SEPARATED sequence on the floor plan page
    - COUNT every single number. Read the list CHARACTER BY CHARACTER.
    - Each unit number gets its OWN entry in the output array, all sharing the SAME unit type
    - DOUBLE-CHECK: re-read the comma-separated text and verify your count matches
@@ -50,7 +53,7 @@ IF THIS IS A TITLE/COVER PAGE, EXTRACT:
 
 DO NOT EXTRACT:
 - Cabinet SKUs (W3030, B24, SB36, HASB48B, HAV3621-REM, etc.)
-- Room names (Kitchen, Bath, Island, Pantry, Laundry)
+- Room names (Kitchen, Bath, Island, Pantry, Laundry) as unit numbers
 - Elevation labels, sheet numbers, dimensions
 - Cabinet or countertop descriptions
 
@@ -61,10 +64,10 @@ Return ONLY valid JSON, no other text:
 
 const VERIFY_PROMPT = `You are verifying extracted unit data from a 2020 Design shop drawing page.
 
-FIRST: Is this a TITLE/COVER PAGE? If NOT (it's a floor plan, elevation, countertop drawing, or any other drawing), return {"bldg":null,"units":[]}.
+FIRST: Is this a FLOOR PLAN (top-down view) page? If NOT (it's an elevation, countertop drawing, title-only page, or any other non-floor-plan page), return {"bldg":null,"units":[]}.
 
-If it IS a title/cover page, verify:
-- Is the UNIT TYPE correct?
+If it IS a floor plan page, verify:
+- Is the UNIT TYPE correct? It should be from the title block (e.g. "TYPE A1 - AS"), NOT a room name.
 - Are ALL unit numbers captured? Re-read the comma-separated list CHARACTER BY CHARACTER. Add any missing ones.
 - Are there FALSE entries (cabinet SKUs like W3030, HASB48B, room names like "Island")? Remove them.
 - ONLY apartment/suite unit numbers should remain (e.g., 230, 101, A-502, PH-1).
