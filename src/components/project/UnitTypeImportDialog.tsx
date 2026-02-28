@@ -171,10 +171,11 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
             const type = String(u.unitType ?? '').trim();
             const bldg = String(u.bldg ?? '').trim();
             const floor = String(u.floor ?? '').trim();
-            if (!num) continue;
-            const arr = sightings.get(num) || [];
-            arr.push({ unitType: type, bldg, floor, page: p, file: file.name });
-            sightings.set(num, arr);
+            if (!num || !type) continue;
+            // Only record the FIRST sighting of each unit number — skip if already seen
+            if (!sightings.has(num)) {
+              sightings.set(num, [{ unitType: type, bldg, floor, page: p, file: file.name }]);
+            }
           }
 
           pagesProcessed++;
