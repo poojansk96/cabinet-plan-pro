@@ -56,34 +56,61 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
   };
 
   const handlePDFImport = (units: Array<{ unitNumber: string; type: UnitType; floor: string; bldg: string }>) => {
-    // Deduplicate: if the same unit number appears on multiple floors, keep only the lowest floor
-    const bestByUnit = new Map<string, typeof units[0]>();
+    const normalizeUnitKey = (val: string) => String(val || '').toUpperCase().replace(/\s+/g, '');
+    const parseFloor = (f: string) => {
+      const n = parseFloat(String(f || '').replace(/^Floor\s*/i, ''));
+      return isNaN(n) ? Infinity : n;
+    };
+
+    // Deduplicate imported rows by normalized unit number, keeping the lowest floor
+    const bestImportedByUnit = new Map<string, typeof units[0]>();
     for (const u of units) {
-      const key = u.unitNumber;
-      const existing = bestByUnit.get(key);
-      if (!existing) {
-        bestByUnit.set(key, u);
-      } else {
-        // Parse floor numbers and keep the lower one
-        const parseFloor = (f: string) => {
-          const n = parseFloat(String(f || '').replace(/^Floor\s*/i, ''));
-          return isNaN(n) ? Infinity : n;
-        };
-        if (parseFloor(u.floor) < parseFloor(existing.floor)) {
-          bestByUnit.set(key, u);
-        }
+      const key = normalizeUnitKey(u.unitNumber);
+      if (!key) continue;
+      const existing = bestImportedByUnit.get(key);
+      if (!existing || parseFloor(u.floor) < parseFloor(existing.floor)) {
+        bestImportedByUnit.set(key, u);
       }
     }
 
     let lastUnit: Unit | null = null;
     let addedCount = 0;
-    for (const u of bestByUnit.values()) {
-      const exists = project.units.some(pu => pu.unitNumber === u.unitNumber);
-      if (!exists) {
-        lastUnit = addUnit(project.id, { unitNumber: u.unitNumber, type: u.type, floor: u.floor || '', bldg: u.bldg || '', notes: '' });
+
+    // Apply imported rows against current project data, collapsing duplicates to one (lowest floor) per unit number
+    for (const imported of bestImportedByUnit.values()) {
+      const key = normalizeUnitKey(imported.unitNumber);
+      const matches = project.units.filter(pu => normalizeUnitKey(pu.unitNumber) === key);
+
+      if (matches.length === 0) {
+        lastUnit = addUnit(project.id, {
+          unitNumber: imported.unitNumber,
+          type: imported.type,
+          floor: imported.floor || '',
+          bldg: imported.bldg || '',
+          notes: '',
+        });
         addedCount++;
+        continue;
+      }
+
+      // Keep one existing record and update it to the lower floor if needed
+      const keeper = matches[0];
+      const best = [...matches.map(m => ({ unitNumber: m.unitNumber, type: m.type as UnitType, floor: m.floor, bldg: m.bldg })), imported]
+        .sort((a, b) => parseFloor(a.floor) - parseFloor(b.floor))[0];
+
+      updateUnit(project.id, keeper.id, {
+        unitNumber: best.unitNumber,
+        type: best.type,
+        floor: best.floor || '',
+        bldg: best.bldg || '',
+      });
+
+      // Remove duplicate existing rows for the same normalized unit number
+      for (const dup of matches.slice(1)) {
+        deleteUnit(project.id, dup.id);
       }
     }
+
     if (lastUnit) setSelectedUnitId((lastUnit as Unit).id);
     setImportedCount(addedCount);
     setShowPDFImport(false);
