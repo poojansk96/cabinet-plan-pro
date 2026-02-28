@@ -86,6 +86,7 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
     handlesCustom:              rawSpecs?.handlesCustom              ?? '',
     tax:                        rawSpecs?.tax                        ?? '',
     taxCustom:                  rawSpecs?.taxCustom                  ?? '',
+    takeoffPerson:              rawSpecs?.takeoffPerson              ?? '',
   });
 
   const [error, setError] = useState('');
@@ -203,10 +204,11 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
             <div className="est-section-header"><Settings2 size={14} />Project Specifications</div>
             <div className="p-4 space-y-4">
 
-              {/* Super + Customer */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* Super + Customer + Takeoff Person */}
+              <div className="grid grid-cols-3 gap-4">
                 {STF('Project Super', 'projectSuper', 'Supervisor name')}
                 {STF('Customer', 'customer', 'Customer / client name')}
+                {STF('Takeoff Person', 'takeoffPerson', 'Person doing the takeoff')}
               </div>
 
               {/* Door Style */}

@@ -60,6 +60,7 @@ export interface Unit {
 export interface ProjectSpecs {
   projectSuper?: string;
   customer?: string;
+  takeoffPerson?: string;
   doorStyle?: string;
   hinges?: string;
   drawerBox?: string;
