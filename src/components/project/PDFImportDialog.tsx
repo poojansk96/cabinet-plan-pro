@@ -26,7 +26,23 @@ interface UnitRow {
 interface Props {
   onImport: (units: Array<{ unitNumber: string; type: UnitType; floor: string; bldg: string }>) => void;
   onClose: () => void;
+  takeoffPerson?: string;
 }
+
+const PERSONAL_QUOTES = [
+  (name: string) => `${name}, you've got this — one unit at a time! 💪`,
+  (name: string) => `Keep going, ${name}! Accuracy is your superpower.`,
+  (name: string) => `${name}, precision like yours builds perfection.`,
+  (name: string) => `You're crushing it, ${name}! Every count matters.`,
+  (name: string) => `${name}, great takeoffs start with great people like you.`,
+  (name: string) => `Stay sharp, ${name} — excellence is in the details!`,
+  (name: string) => `${name}, believe in the process. You're almost there!`,
+  (name: string) => `One page closer, ${name}. You make it look easy! ✨`,
+  (name: string) => `${name}, your dedication to accuracy is inspiring.`,
+  (name: string) => `Trust the grind, ${name}. The results will speak!`,
+  (name: string) => `${name}, legends aren't born — they count cabinets. 😄`,
+  (name: string) => `Focus and flow, ${name}. You're in the zone!`,
+];
 
 type Step = 'upload' | 'processing' | 'review';
 
@@ -48,8 +64,9 @@ const QUOTES = [
   "The blueprint is where dreams become structure.",
 ];
 
-export default function PDFImportDialog({ onImport, onClose }: Props) {
+export default function PDFImportDialog({ onImport, onClose, takeoffPerson }: Props) {
   const [quoteIndex, setQuoteIndex] = useState(() => Math.floor(Math.random() * QUOTES.length));
+  const [personalQuoteIndex, setPersonalQuoteIndex] = useState(() => Math.floor(Math.random() * PERSONAL_QUOTES.length));
   const [step, setStep] = useState<Step>('upload');
   const [result, setResult] = useState<PDFExtractionResult | null>(null);
   const [rows, setRows] = useState<UnitRow[]>([]);
@@ -58,7 +75,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
   const [showRawText, setShowRawText] = useState(false);
   const [processingStatus, setProcessingStatus] = useState('Extracting text from PDF…');
   const [usedAI, setUsedAI] = useState(false);
-  const [progress, setProgress] = useState(0);       // 0–100
+  const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState('');
   const [bulkBldg, setBulkBldg] = useState('');
   const [quoteVisible, setQuoteVisible] = useState(true);
@@ -71,6 +88,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
       setQuoteVisible(false);
       setTimeout(() => {
         setQuoteIndex(i => (i + 1) % QUOTES.length);
+        setPersonalQuoteIndex(i => (i + 1) % PERSONAL_QUOTES.length);
         setQuoteVisible(true);
       }, 400);
     }, 4000);
@@ -470,7 +488,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
               </div>
 
               {/* Status + Quote */}
-              <div className="text-center space-y-2 max-w-xs">
+              <div className="text-center space-y-1 max-w-xs">
                 {progressLabel && (
                   <p className="text-xs text-muted-foreground">{progressLabel}</p>
                 )}
@@ -480,6 +498,14 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                 >
                   "{QUOTES[quoteIndex]}"
                 </p>
+                {takeoffPerson && (
+                  <p
+                    className="text-xs font-medium text-primary transition-opacity duration-400 px-2"
+                    style={{ opacity: quoteVisible ? 1 : 0, transition: 'opacity 0.4s ease' }}
+                  >
+                    {PERSONAL_QUOTES[personalQuoteIndex](takeoffPerson)}
+                  </p>
+                )}
               </div>
 
               {/* Progress bar */}

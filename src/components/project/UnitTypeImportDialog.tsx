@@ -25,23 +25,7 @@ interface PageSighting {
 interface Props {
   onImport: (rows: Omit<UnitMappingRow, 'selected'>[]) => void;
   onClose: () => void;
-  takeoffPerson?: string;
 }
-
-const PERSONAL_QUOTES = [
-  (name: string) => `${name}, you've got this — one unit at a time! 💪`,
-  (name: string) => `Keep going, ${name}! Accuracy is your superpower.`,
-  (name: string) => `${name}, precision like yours builds perfection.`,
-  (name: string) => `You're crushing it, ${name}! Every count matters.`,
-  (name: string) => `${name}, great takeoffs start with great people like you.`,
-  (name: string) => `Stay sharp, ${name} — excellence is in the details!`,
-  (name: string) => `${name}, believe in the process. You're almost there!`,
-  (name: string) => `One page closer, ${name}. You make it look easy! ✨`,
-  (name: string) => `${name}, your dedication to accuracy is inspiring.`,
-  (name: string) => `Trust the grind, ${name}. The results will speak!`,
-  (name: string) => `${name}, legends aren't born — they count cabinets. 😄`,
-  (name: string) => `Focus and flow, ${name}. You're in the zone!`,
-];
 
 const QUOTES = [
   "Measure twice, cut once.",
@@ -79,14 +63,13 @@ async function renderPageToBase64(page: any): Promise<string> {
 
 type Step = 'upload' | 'processing' | 'review';
 
-export default function UnitTypeImportDialog({ onImport, onClose, takeoffPerson }: Props) {
+export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<UnitMappingRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState(0);
   const [quoteIndex, setQuoteIndex] = useState(() => Math.floor(Math.random() * QUOTES.length));
-  const [personalQuoteIndex, setPersonalQuoteIndex] = useState(() => Math.floor(Math.random() * PERSONAL_QUOTES.length));
   const [quoteVisible, setQuoteVisible] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -97,7 +80,6 @@ export default function UnitTypeImportDialog({ onImport, onClose, takeoffPerson 
       setQuoteVisible(false);
       setTimeout(() => {
         setQuoteIndex(i => (i + 1) % QUOTES.length);
-        setPersonalQuoteIndex(i => (i + 1) % PERSONAL_QUOTES.length);
         setQuoteVisible(true);
       }, 400);
     }, 4000);
@@ -379,19 +361,12 @@ export default function UnitTypeImportDialog({ onImport, onClose, takeoffPerson 
               </div>
 
               {/* Rotating quote */}
-              <div className="flex flex-col items-center justify-center gap-1">
+              <div className="h-10 flex items-center justify-center">
                 <p
                   className={`text-sm italic text-muted-foreground text-center max-w-sm transition-opacity duration-400 ${quoteVisible ? 'opacity-100' : 'opacity-0'}`}
                 >
                   "{QUOTES[quoteIndex]}"
                 </p>
-                {takeoffPerson && (
-                  <p
-                    className={`text-xs font-medium text-primary text-center max-w-sm transition-opacity duration-400 ${quoteVisible ? 'opacity-100' : 'opacity-0'}`}
-                  >
-                    {PERSONAL_QUOTES[personalQuoteIndex](takeoffPerson)}
-                  </p>
-                )}
               </div>
 
               {/* Step dots */}

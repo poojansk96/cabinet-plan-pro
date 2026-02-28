@@ -180,6 +180,7 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
         <PDFImportDialog
           onImport={handlePDFImport}
           onClose={() => setShowPDFImport(false)}
+          takeoffPerson={(project.specs as Record<string, string> | undefined)?.takeoffPerson}
         />
       )}
 
