@@ -31,13 +31,13 @@ FIRST — DETERMINE THE PAGE TYPE:
 Carefully examine this image and classify it as ONE of these types:
   A) TITLE PAGE / COVER PAGE — contains project info, unit type name, unit numbers, no cabinet drawings
   B) FLOOR PLAN — a TOP-DOWN / PLAN VIEW showing room layout from above (walls, doors, appliances shown as outlines from above). You can tell it's a floor plan because you see the room layout from a bird's-eye view.
-  C) ELEVATION DRAWING — a FRONT VIEW / SIDE VIEW showing cabinet boxes drawn as rectangles stacked vertically (base cabinets on bottom, wall cabinets on top). Elevation drawings show cabinets as you would see them standing in front of them.
+  C) ELEVATION DRAWING — a FRONT VIEW / SIDE VIEW showing cabinet boxes drawn as rectangles stacked vertically (base cabinets on bottom, wall cabinets on top).
 
 CRITICAL RULES FOR PAGE TYPE:
 - If this page is a TITLE PAGE or COVER PAGE → return {"unitTypeName":"<detected type>","items":[]}
-- If this page is a FLOOR PLAN (top-down view) → return {"unitTypeName":null,"items":[]}
-  *** DO NOT extract ANY cabinet SKUs from floor plans. Floor plans show rooms from above — they are NOT elevation drawings. Even if you can read SKU labels on a floor plan, DO NOT extract them. Return an EMPTY items array. ***
-- If this page is an ELEVATION DRAWING (front view) → extract cabinets as described below.
+- If this page is an ELEVATION DRAWING (front view) → return {"unitTypeName":null,"items":[]}
+  *** DO NOT extract ANY cabinet SKUs from elevation drawings. Skip them entirely. Return an EMPTY items array. ***
+- If this page is a FLOOR PLAN (top-down view) → extract cabinet SKUs as described below.
 
 TASK 1 — DETECT UNIT TYPE NAME (TITLE PAGE / COVER PAGE ONLY):
 If this is a TITLE PAGE or COVER PAGE:
@@ -46,46 +46,29 @@ If this is a TITLE PAGE or COVER PAGE:
 - Return the EXACT unit type name as written on the drawing.
 - Return: {"unitTypeName":"A1-As","items":[]}
 
-TASK 2 — EXTRACT CABINETS (ELEVATION DRAWINGS ONLY — NOT FROM FLOOR PLANS):
-Only extract cabinets if this page shows ELEVATION drawings (front/side views of cabinets).
+TASK 2 — EXTRACT CABINETS (FLOOR PLANS ONLY — NOT FROM ELEVATIONS):
+Only extract cabinets if this page shows a FLOOR PLAN (top-down / plan view).
 
-For each cabinet item extract:
-1. SKU / model label exactly as written (e.g. B24, W3036, T84, VB30, BF3, WF330, FIL3, TKRUN96, CM8, etc.)
+On floor plans, cabinet SKUs are written as text labels placed on or next to the cabinet outlines in the plan view. Each label represents ONE cabinet unless a multiplier like "x2" or "(2)" is shown next to it.
+
+For each cabinet SKU label visible on the floor plan, extract:
+1. SKU / model label exactly as written (e.g. B24, W3036, T84, VB30, BF3, WF330, FIL3, TKRUN96, CM8, LS36-L, etc.)
 2. Cabinet type determined by label prefix:
-   BASE      → prefixes B DB SB CB EB
+   BASE      → prefixes B DB SB CB EB LS LSB
    WALL      → prefixes W UB WC OH
    TALL      → prefixes T UT TC PT PTC UC
    VANITY    → prefixes V VB VD
    ACCESSORY → fillers (FIL BF WF BFFIL WFFIL), toe kick (TK TKRUN), crown (CM), light rail (LR), end panels (EP FP), hardware
-3. Room from elevation title text (KITCHEN, BATH, LAUNDRY, PANTRY → capitalize first letter only)
+3. Room — determine from the room label on the floor plan where the cabinet is located (KITCHEN, BATH, LAUNDRY, PANTRY, ISLAND → capitalize first letter only)
 
-COUNTING METHOD — THIS IS THE MOST CRITICAL STEP:
-Before producing the final JSON, perform a careful visual scan of the elevation drawing:
-
-Step A: Scan the elevation from LEFT to RIGHT. For EVERY distinct rectangular cabinet box you see drawn, note:
-  - Its approximate horizontal position
-  - The SKU label it belongs to (follow leader lines / callout lines from labels to boxes)
-  - Count the number of physically SEPARATE cabinet boxes that belong to each label
-
-Step B: Count each SKU ACCURATELY — THIS IS WHERE MOST ERRORS HAPPEN:
-  - Count the actual number of SEPARATE rectangular cabinet boxes drawn for each SKU label.
-  - CRITICAL W3030 EXAMPLE: Look at the image very carefully. If you see a SKU label like "W3030B" and there are TWO adjacent rectangular boxes of equal width drawn side by side near that label, the quantity MUST be 2, NOT 1. This is the #1 most common error. Count the VERTICAL DIVIDING LINES between boxes.
-  - In 2020 Design shop drawings, identical cabinets placed side by side are drawn as adjacent rectangles with a clear vertical line separating them. Each rectangle = 1 cabinet.
-  - Look for "xN" or "(2)" multiplier notation near labels.
-  - DOUBLE CHECK all W-prefixed wall cabinets (W3030, W2730, W3324, etc.) — they frequently appear as 2+ adjacent identical boxes under ONE label. Count each box.
-
-Step C: CORNER CABINETS (LS, LSB, LAZY SUSAN) — CRITICAL:
-  - Lazy Susan corner cabinets (LS36, LS33, LSB36, etc.) sit at the corner where two walls meet.
-  - The SAME LS cabinet will appear on TWO adjacent elevation views on the same page — once on each wall.
-  - COUNT LAZY SUSAN / LS CABINETS ONLY ONCE per page, even if visible on two elevations.
-  - If "LS36-L" appears on elevation A AND elevation B on the same page, quantity is still 1.
-
-Step D: For ACCESSORIES (fillers WF, BF, WFFIL, BFFIL; toe kick TK/TKRUN; crown CM; light rail LR; end panels EP/FP): Count the EXACT number of label occurrences on THIS elevation only. If "WF6X30" appears on the LEFT and RIGHT sides, that is quantity 2. Do NOT inflate.
-
-Step E: Group by SKU + room and count the total distinct physical boxes for the quantity field.
+COUNTING METHOD:
+- Scan the floor plan carefully and read EVERY cabinet SKU label you see.
+- Each separate text label = 1 cabinet, unless a multiplier notation is present.
+- If the same SKU label appears multiple times in different locations on the plan, count each occurrence.
+- Corner cabinets (LS, LSB) appear ONCE on the floor plan at the corner — count them as quantity 1.
 
 RULES:
-- *** ABSOLUTELY DO NOT extract cabinet SKUs from FLOOR PLANS — only from ELEVATION drawings ***
+- *** ABSOLUTELY DO NOT extract cabinet SKUs from ELEVATION drawings — only from FLOOR PLANS ***
 - A valid cabinet SKU must start with a LETTER and contain at least one NUMBER (e.g. B24, W3036, T84, VB30, FIL3)
 - SKIP appliances: REF REFRIG DW DISHWASHER RANGE HOOD MICRO OTR OVEN
 - SKIP these NON-SKU items:
@@ -206,20 +189,13 @@ Return ONLY valid JSON — no markdown, no explanation, no reasoning text:
         };
       });
 
-    // Deduplicate by SKU+room.
-    // Normal SKUs are summed when repeated on the same page.
-    // Corner Lazy Susan SKUs (LS/LSB) can appear on two adjacent elevations
-    // for the same physical corner cabinet, so keep max instead of sum.
-    const isCornerLazySusan = (sku: string) => /^(LS|LSB)\d+/i.test(sku);
-
+    // Deduplicate by SKU+room — SUM quantities
     const deduped = new Map<string, { sku: string; type: string; room: string; quantity: number }>();
     for (const item of items) {
       const key = `${item.sku}|${item.room}`;
       const existing = deduped.get(key);
       if (existing) {
-        existing.quantity = isCornerLazySusan(item.sku)
-          ? Math.max(existing.quantity, item.quantity)
-          : existing.quantity + item.quantity;
+        existing.quantity += item.quantity;
       } else {
         deduped.set(key, { ...item });
       }
