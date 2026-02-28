@@ -153,6 +153,7 @@ serve(async (req) => {
   try {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
+    let model = "gemini-3-pro-preview";
 
     const body = await req.json();
     
@@ -182,7 +183,7 @@ serve(async (req) => {
         }
         geminiParts.push({ text: systemPrompt + "\n\n" + userPrompt });
         response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -198,8 +199,13 @@ serve(async (req) => {
         break;
       }
 
+      if (response && response.status === 404 && model !== "gemini-2.5-flash") {
+        console.warn(`Model ${model} not available, falling back to gemini-2.5-flash`);
+        model = "gemini-2.5-flash";
+        response = null;
+        if (attempt < MAX_RETRIES - 1) { continue; }
+      }
       if (response && (response.status === 503 || response.status === 500)) {
-        console.warn(`Page ${pageIndex + 1} AI unavailable (${response.status}), attempt ${attempt + 1}`);
         response = null;
         if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
         break;
