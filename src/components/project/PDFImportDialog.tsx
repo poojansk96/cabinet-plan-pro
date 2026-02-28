@@ -95,7 +95,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
       setProgressLabel('Reading PDF…');
       const { extractUnitsFromPDF } = await import('@/lib/pdfExtractor');
       const res = await extractUnitsFromPDF(file);
-      setResult({ ...res, totalPages: 1 });
+      setResult(res);
       setProgress(10);
 
       // Step 2: Re-extract page texts AND render page images for AI
@@ -107,12 +107,11 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
         import.meta.url
       ).toString();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      const sourceTotalPages = pdf.numPages;
-      const pagesToProcess = Math.min(1, sourceTotalPages); // TITLE PAGE ONLY
+      const totalPages = pdf.numPages;
       const pageTexts: string[] = [];
       const pageImages: string[] = [];
       
-      for (let p = 1; p <= pagesToProcess; p++) {
+      for (let p = 1; p <= totalPages; p++) {
         const page = await pdf.getPage(p);
         
         // Extract text
@@ -124,7 +123,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
         pageTexts.push(text);
         
         // Render page to image
-        const scale = 2; // Scale 2 is sufficient for title page text detection
+        const scale = 2;
         const viewport = page.getViewport({ scale });
         const canvas = document.createElement('canvas');
         canvas.width = viewport.width;
@@ -147,8 +146,8 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
         canvas.width = 0;
         canvas.height = 0;
         
-        setProgress(10 + Math.round((p / pagesToProcess) * 30));
-        setProgressLabel(`Reading title page ${p} of ${pagesToProcess}`);
+        setProgress(10 + Math.round((p / totalPages) * 30));
+        setProgressLabel(`Reading page ${p} of ${totalPages}`);
       }
 
       // Step 3: Call AI per page (avoid edge function timeout)
@@ -208,15 +207,10 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
               for (const unit of data.units) {
                 const unitNumber = (unit.unitNumber ?? '').trim().toUpperCase();
                 if (!unitNumber) continue;
-                if (!/\d/.test(unitNumber)) continue;
-                if (unitNumber.startsWith('?')) continue;
 
                 const floorKey = (unit.detectedFloor ?? '').trim().toUpperCase();
                 const bldgKey = (unit.detectedBldg ?? '').trim().toUpperCase();
-                let normalizedType = (unit.detectedType ?? '').trim();
-                if (/^(KITCHEN|KITCHENETTE|BATH|BATHROOM|LAUNDRY|PANTRY|ISLAND|LOUNGE|COMMON|\?)$/i.test(normalizedType)) {
-                  normalizedType = '';
-                }
+                const normalizedType = (unit.detectedType ?? '').trim();
                 const typeKey = normalizedType && normalizedType !== '?'
                   ? normalizedType.toUpperCase()
                   : '?';
@@ -240,15 +234,14 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
                 if (!existing) {
                   allUnits[compositeKey] = {
                     ...unit,
-                    detectedType: normalizedType || null,
                     unitNumber,
                     page: pageIndex + 1,
                     confidence: 'high',
                     kitchenConfidence: unit.kitchenConfidence ?? 'maybe',
                   };
                 } else {
-                  if ((!existing.detectedType || existing.detectedType === '?') && normalizedType && normalizedType !== '?') {
-                    existing.detectedType = normalizedType;
+                  if ((!existing.detectedType || existing.detectedType === '?') && unit.detectedType && unit.detectedType !== '?') {
+                    existing.detectedType = unit.detectedType;
                   }
                   if (!existing.detectedFloor && unit.detectedFloor) existing.detectedFloor = unit.detectedFloor;
                   if (!existing.detectedBldg && unit.detectedBldg) existing.detectedBldg = unit.detectedBldg;
@@ -266,8 +259,8 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
           }
         }
         pagesProcessed++;
-        setProgress(45 + Math.round((pagesProcessed / pagesToProcess) * 45));
-        setProgressLabel(`AI analyzed page ${pagesProcessed} of ${pagesToProcess}`);
+        setProgress(45 + Math.round((pagesProcessed / totalPages) * 45));
+        setProgressLabel(`AI analyzed page ${pagesProcessed} of ${totalPages}`);
       };
       
       // Process pages in batches of CONCURRENCY

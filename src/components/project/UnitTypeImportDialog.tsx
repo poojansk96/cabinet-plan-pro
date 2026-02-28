@@ -99,21 +99,21 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
       // Track every sighting of each unit across pages
       const sightings: Map<string, PageSighting[]> = new Map();
 
-      // Count total pages for progress
+      // Count total pages across all PDFs for progress tracking
       const pdfs: { file: File; pdf: any }[] = [];
       let totalPages = 0;
       for (const file of files) {
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         pdfs.push({ file, pdf });
-        totalPages += 1; // Only processing first page of each PDF
+        totalPages += pdf.numPages; // Process ALL pages to find title pages
       }
       setProgress(10);
 
       let pagesProcessed = 0;
       for (const { file, pdf } of pdfs) {
-        // Only process the first page of each shop drawing
-        for (let p = 1; p <= Math.min(1, pdf.numPages); p++) {
+        // Scan ALL pages — the AI will identify title pages and skip others
+        for (let p = 1; p <= pdf.numPages; p++) {
           const page = await pdf.getPage(p);
           const pageImage = await renderPageToBase64(page);
 
