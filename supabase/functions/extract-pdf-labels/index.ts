@@ -67,13 +67,16 @@ Step A: Scan the elevation from LEFT to RIGHT. For EVERY distinct rectangular ca
   - The SKU label it belongs to (follow leader lines / callout lines from labels to boxes)
   - Count the number of physically SEPARATE cabinet boxes that belong to each label
 
-Step B: Count each SKU ACCURATELY:
+Step B: Count each SKU ACCURATELY — THIS IS WHERE MOST ERRORS HAPPEN:
   - Count the actual number of SEPARATE rectangular cabinet boxes drawn for each SKU label.
+  - CRITICAL EXAMPLE: If you see a label "W3030B" and there are TWO adjacent rectangular boxes of equal width both belonging to that label, the quantity is 2, NOT 1. Many labels point to MULTIPLE boxes — you MUST count each distinct box.
   - In 2020 Design shop drawings, when a SKU label has MULTIPLE identical cabinets, they are drawn as adjacent rectangles with clear vertical dividing lines between them. Count EACH box as 1 unit.
+  - Look carefully at leader lines / arrows from each label — they may point to multiple boxes.
   - Look for "xN" or "(2)" or similar multiplier notation near labels — this indicates the quantity.
   - If you see two adjacent boxes of the same width under one SKU label, the quantity is 2. Three boxes = quantity 3.
-  - For ACCESSORIES (fillers like WF, BF, WFFIL, BFFIL; toe kick TK/TKRUN; crown CM; light rail LR; end panels EP/FP): default to quantity 1 per label occurrence unless multiple are clearly drawn as separate items.
+  - For ACCESSORIES (fillers like WF, BF, WFFIL, BFFIL; toe kick TK/TKRUN; crown CM; light rail LR; end panels EP/FP): Count the EXACT number of label occurrences on THIS elevation only. If "WF6X30" appears as a label on the LEFT side and on the RIGHT side, that is quantity 2. Do NOT inflate the count.
   - If a SKU label appears in MULTIPLE separate locations on the elevation, count each occurrence separately — the system will merge them.
+  - DOUBLE CHECK: After your first count, re-scan the elevation and verify each quantity. Pay special attention to wall cabinets that appear as adjacent identical rectangles — these are commonly miscounted as 1 when they are actually 2 or more.
 
 Step C: Group by SKU + room and count the total distinct physical boxes for the quantity field.
 
