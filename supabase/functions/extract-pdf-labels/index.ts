@@ -27,23 +27,29 @@ serve(async (req) => {
 
     const prompt = `You are an expert millwork estimator reading a 2020 Design shop drawing page.
 
-This page may be a FLOOR PLAN / TITLE PAGE (top-down view or cover page) or an ELEVATION drawing (front view).
+FIRST — DETERMINE THE PAGE TYPE:
+Carefully examine this image and classify it as ONE of these types:
+  A) TITLE PAGE / COVER PAGE — contains project info, unit type name, unit numbers, no cabinet drawings
+  B) FLOOR PLAN — a TOP-DOWN / PLAN VIEW showing room layout from above (walls, doors, appliances shown as outlines from above). You can tell it's a floor plan because you see the room layout from a bird's-eye view.
+  C) ELEVATION DRAWING — a FRONT VIEW / SIDE VIEW showing cabinet boxes drawn as rectangles stacked vertically (base cabinets on bottom, wall cabinets on top). Elevation drawings show cabinets as you would see them standing in front of them.
 
-TASK 1 — DETECT UNIT TYPE NAME (FLOOR PLAN / TITLE PAGE ONLY):
-If this is a FLOOR PLAN or TITLE PAGE (top-down/plan view, cover sheet, or first page with a layout):
-- Look at the drawing's title block, header, footer, or prominent labels for the UNIT TYPE NAME.
+CRITICAL RULES FOR PAGE TYPE:
+- If this page is a TITLE PAGE or COVER PAGE → return {"unitTypeName":"<detected type>","items":[]}
+- If this page is a FLOOR PLAN (top-down view) → return {"unitTypeName":null,"items":[]}
+  *** DO NOT extract ANY cabinet SKUs from floor plans. Floor plans show rooms from above — they are NOT elevation drawings. Even if you can read SKU labels on a floor plan, DO NOT extract them. Return an EMPTY items array. ***
+- If this page is an ELEVATION DRAWING (front view) → extract cabinets as described below.
+
+TASK 1 — DETECT UNIT TYPE NAME (TITLE PAGE / COVER PAGE ONLY):
+If this is a TITLE PAGE or COVER PAGE:
+- Look for the UNIT TYPE NAME in the title block, header, or prominent labels.
 - This is typically something like "A1", "A1-As", "A2", "B1", "2BHK", "1BR", "Type A", "Studio", etc.
-- It usually appears in the title block or as a prominent label at the top of the drawing.
-- Do NOT confuse unit type with unit numbers (e.g. "101", "201") or elevation labels (e.g. "Elevation A").
-- Return the EXACT unit type name as written on the drawing (including suffixes like "-As", "-Mirror" if present).
-- Return the unit type name and an empty items array: {"unitTypeName":"A1-As","items":[]}
+- Return the EXACT unit type name as written on the drawing.
+- Return: {"unitTypeName":"A1-As","items":[]}
 
-If this is an ELEVATION drawing (front/side view showing cabinet boxes):
-- Set unitTypeName to null. Do NOT extract the unit type from elevation pages.
-- Only extract cabinet items (Task 2 below).
+TASK 2 — EXTRACT CABINETS (ELEVATION DRAWINGS ONLY — NOT FROM FLOOR PLANS):
+Only extract cabinets if this page shows ELEVATION drawings (front/side views of cabinets).
 
-TASK 2 — EXTRACT CABINETS (ELEVATIONS ONLY):
-For each item extract:
+For each cabinet item extract:
 1. SKU / model label exactly as written (e.g. B24, W3036, T84, VB30, BF3, WF330, FIL3, TKRUN96, CM8, etc.)
 2. Cabinet type determined by label prefix:
    BASE      → prefixes B DB SB CB EB
@@ -51,31 +57,31 @@ For each item extract:
    TALL      → prefixes T UT TC PT PTC UC
    VANITY    → prefixes V VB VD
    ACCESSORY → fillers (FIL BF WF BFFIL WFFIL), toe kick (TK TKRUN), crown (CM), light rail (LR), end panels (EP FP), hardware
-3. Room from elevation title or floor plan room label (KITCHEN, BATH, LAUNDRY, PANTRY → capitalize first letter only)
+3. Room from elevation title text (KITCHEN, BATH, LAUNDRY, PANTRY → capitalize first letter only)
 
 COUNTING METHOD — THIS IS THE MOST CRITICAL STEP:
-Before producing the final JSON, you MUST perform a careful visual scan of the elevation drawing:
+Before producing the final JSON, perform a careful visual scan of the elevation drawing:
 
 Step A: Scan the elevation from LEFT to RIGHT. For EVERY distinct rectangular cabinet box you see drawn, note:
-  - Its approximate horizontal position (e.g. "far left", "left of sink", "center", "right of range", "far right")
+  - Its approximate horizontal position
   - The SKU label it belongs to (follow leader lines / callout lines from labels to boxes)
   - Count the number of physically SEPARATE cabinet boxes that belong to each label
 
 Step B: Count each SKU ACCURATELY:
   - Count the actual number of SEPARATE rectangular cabinet boxes drawn for each SKU label.
-  - In 2020 Design shop drawings, when a SKU label has MULTIPLE identical cabinets, they are drawn as adjacent rectangles with clear vertical dividing lines between them. A single label may point to 2 or 3 side-by-side boxes — count EACH box as 1 unit.
+  - In 2020 Design shop drawings, when a SKU label has MULTIPLE identical cabinets, they are drawn as adjacent rectangles with clear vertical dividing lines between them. Count EACH box as 1 unit.
   - Look for "xN" or "(2)" or similar multiplier notation near labels — this indicates the quantity.
   - If you see two adjacent boxes of the same width under one SKU label, the quantity is 2. Three boxes = quantity 3.
-  - For ACCESSORIES (fillers like WF, BF, WFFIL, BFFIL; toe kick TK/TKRUN; crown CM; light rail LR; end panels EP/FP): default to quantity 1 per label occurrence unless multiple are clearly drawn.
-  - If a SKU label appears in MULTIPLE separate locations on the elevation (e.g. one on the left wall and one on the right wall), count each occurrence separately and list them as SEPARATE entries — the system will merge them.
+  - For ACCESSORIES (fillers like WF, BF, WFFIL, BFFIL; toe kick TK/TKRUN; crown CM; light rail LR; end panels EP/FP): default to quantity 1 per label occurrence unless multiple are clearly drawn as separate items.
+  - If a SKU label appears in MULTIPLE separate locations on the elevation, count each occurrence separately — the system will merge them.
 
 Step C: Group by SKU + room and count the total distinct physical boxes for the quantity field.
 
 RULES:
-- ONLY extract from ELEVATION drawings — do NOT extract cabinet labels from floor plans
+- *** ABSOLUTELY DO NOT extract cabinet SKUs from FLOOR PLANS — only from ELEVATION drawings ***
 - A valid cabinet SKU must start with a LETTER and contain at least one NUMBER (e.g. B24, W3036, T84, VB30, FIL3)
 - SKIP appliances: REF REFRIG DW DISHWASHER RANGE HOOD MICRO OTR OVEN
-- SKIP these NON-SKU items — they are NOT cabinets:
+- SKIP these NON-SKU items:
   * Unit numbers (e.g. "Unit 101", "101", "201")
   * Unit type names (e.g. "A1-As", "Type A", "2BHK")
   * Call-out addresses or bubble references (e.g. "A1", "1A", "A", circled numbers)
