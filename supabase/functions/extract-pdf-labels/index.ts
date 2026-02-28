@@ -69,16 +69,20 @@ Step A: Scan the elevation from LEFT to RIGHT. For EVERY distinct rectangular ca
 
 Step B: Count each SKU ACCURATELY — THIS IS WHERE MOST ERRORS HAPPEN:
   - Count the actual number of SEPARATE rectangular cabinet boxes drawn for each SKU label.
-  - CRITICAL EXAMPLE: If you see a label "W3030B" and there are TWO adjacent rectangular boxes of equal width both belonging to that label, the quantity is 2, NOT 1. Many labels point to MULTIPLE boxes — you MUST count each distinct box.
-  - In 2020 Design shop drawings, when a SKU label has MULTIPLE identical cabinets, they are drawn as adjacent rectangles with clear vertical dividing lines between them. Count EACH box as 1 unit.
-  - Look carefully at leader lines / arrows from each label — they may point to multiple boxes.
-  - Look for "xN" or "(2)" or similar multiplier notation near labels — this indicates the quantity.
-  - If you see two adjacent boxes of the same width under one SKU label, the quantity is 2. Three boxes = quantity 3.
-  - For ACCESSORIES (fillers like WF, BF, WFFIL, BFFIL; toe kick TK/TKRUN; crown CM; light rail LR; end panels EP/FP): Count the EXACT number of label occurrences on THIS elevation only. If "WF6X30" appears as a label on the LEFT side and on the RIGHT side, that is quantity 2. Do NOT inflate the count.
-  - If a SKU label appears in MULTIPLE separate locations on the elevation, count each occurrence separately — the system will merge them.
-  - DOUBLE CHECK: After your first count, re-scan the elevation and verify each quantity. Pay special attention to wall cabinets that appear as adjacent identical rectangles — these are commonly miscounted as 1 when they are actually 2 or more.
+  - CRITICAL W3030 EXAMPLE: Look at the image very carefully. If you see a SKU label like "W3030B" and there are TWO adjacent rectangular boxes of equal width drawn side by side near that label, the quantity MUST be 2, NOT 1. This is the #1 most common error. Count the VERTICAL DIVIDING LINES between boxes.
+  - In 2020 Design shop drawings, identical cabinets placed side by side are drawn as adjacent rectangles with a clear vertical line separating them. Each rectangle = 1 cabinet.
+  - Look for "xN" or "(2)" multiplier notation near labels.
+  - DOUBLE CHECK all W-prefixed wall cabinets (W3030, W2730, W3324, etc.) — they frequently appear as 2+ adjacent identical boxes under ONE label. Count each box.
 
-Step C: Group by SKU + room and count the total distinct physical boxes for the quantity field.
+Step C: CORNER CABINETS (LS, LSB, LAZY SUSAN) — CRITICAL:
+  - Lazy Susan corner cabinets (LS36, LS33, LSB36, etc.) sit at the corner where two walls meet.
+  - The SAME LS cabinet will appear on TWO adjacent elevation views on the same page — once on each wall.
+  - COUNT LAZY SUSAN / LS CABINETS ONLY ONCE per page, even if visible on two elevations.
+  - If "LS36-L" appears on elevation A AND elevation B on the same page, quantity is still 1.
+
+Step D: For ACCESSORIES (fillers WF, BF, WFFIL, BFFIL; toe kick TK/TKRUN; crown CM; light rail LR; end panels EP/FP): Count the EXACT number of label occurrences on THIS elevation only. If "WF6X30" appears on the LEFT and RIGHT sides, that is quantity 2. Do NOT inflate.
+
+Step E: Group by SKU + room and count the total distinct physical boxes for the quantity field.
 
 RULES:
 - *** ABSOLUTELY DO NOT extract cabinet SKUs from FLOOR PLANS — only from ELEVATION drawings ***
@@ -185,9 +189,10 @@ VERIFICATION STEPS:
 2. For each SKU in the first-pass data, count the ACTUAL number of separate rectangular boxes in the drawing.
 3. Check for MISSED cabinets — any SKU visible in the drawing that is NOT in the first-pass list.
 4. Check for WRONG quantities — especially adjacent identical boxes that may have been counted as 1.
-   EXAMPLE: Two W3030B boxes side by side = quantity 2, NOT 1.
+   CRITICAL: Two W3030B boxes side by side = quantity 2, NOT 1. Count the vertical dividing lines between adjacent identical boxes.
 5. Check for FALSE entries — any SKU in the first-pass list that does NOT actually appear in the drawing.
 6. For ACCESSORIES (WF, BF, FIL, etc.): count ONLY the label occurrences visible on THIS single elevation. Do NOT guess extras.
+7. CORNER CABINETS (LS, LSB, LAZY SUSAN): These appear on TWO adjacent elevations because they sit at the corner. Count them ONLY ONCE per page. If LS36-L appears on two elevations on the same page, quantity is 1.
 
 IMPORTANT:
 - ONLY extract from ELEVATION drawings (front/side views). If this is a floor plan, return {"items":[]}.
