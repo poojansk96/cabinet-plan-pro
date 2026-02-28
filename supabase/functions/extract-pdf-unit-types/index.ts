@@ -117,9 +117,12 @@ function isValidUnitNumber(val: string): boolean {
   if (/^(FLOOR|LEVEL|BUILDING|BLDG|TOWER|WING|BLOCK|EAST|WEST|NORTH|SOUTH)/i.test(compact)) return false;
   if (/^(ELEVATION|ELEV|SECTION|DETAIL|SCALE|SHEET|DWG|REV|DATE|DRAWN|CHECKED|DOOR|WINDOW|SCHEDULE|LEGEND|NOTE|PLAN|TYPICAL)\b/i.test(compact)) return false;
 
-  // Reject cabinet SKU patterns (including extended 2020 formats like HASB48B, HAV3621-REM)
-  if (/^[A-Z]{1,4}\d{2,4}[A-Z]{0,4}$/i.test(compactNoDash)) return false;
-  if (/^(W|B|SB|DB|UB|UC|TC|TK|WF|BF|V|OH|PT|PTC|UT|HAV|HASB|HASP|HAT|HAF|LS|LSB|FIL|CM|LR|EP|FP)\d/i.test(compactNoDash)) return false;
+   // Allow building-unit patterns like C1-005, B1-201 (letter(s) + digit + dash/separator + digits)
+   const isBuildingUnit = /^[A-Z]{1,2}\d{1}-?\d{2,4}$/i.test(compact);
+
+   // Reject cabinet SKU patterns (including extended 2020 formats like HASB48B, HAV3621-REM)
+   if (!isBuildingUnit && /^[A-Z]{1,4}\d{2,4}[A-Z]{0,4}$/i.test(compactNoDash)) return false;
+   if (!isBuildingUnit && /^(W|B|SB|DB|UB|UC|TC|TK|WF|BF|V|OH|PT|PTC|UT|HAV|HASB|HASP|HAT|HAF|LS|LSB|FIL|CM|LR|EP|FP)\d/i.test(compactNoDash)) return false;
 
   // Reject values containing cabinet/room words anywhere
   if (/\b(island|cabinet|base|wall|upper|sink|drawer|countertop|vanity|pantry|lazy|susan|filler|kitchenette)\b/i.test(compact)) return false;
