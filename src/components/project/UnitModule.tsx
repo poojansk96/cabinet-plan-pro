@@ -56,15 +56,34 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
   };
 
   const handlePDFImport = (units: Array<{ unitNumber: string; type: UnitType; floor: string; bldg: string }>) => {
+    // Deduplicate: if the same unit number appears on multiple floors, keep only the lowest floor
+    const bestByUnit = new Map<string, typeof units[0]>();
+    for (const u of units) {
+      const key = u.unitNumber;
+      const existing = bestByUnit.get(key);
+      if (!existing) {
+        bestByUnit.set(key, u);
+      } else {
+        // Parse floor numbers and keep the lower one
+        const parseFloor = (f: string) => {
+          const n = parseFloat(String(f || '').replace(/^Floor\s*/i, ''));
+          return isNaN(n) ? Infinity : n;
+        };
+        if (parseFloor(u.floor) < parseFloor(existing.floor)) {
+          bestByUnit.set(key, u);
+        }
+      }
+    }
+
     let lastUnit: Unit | null = null;
     let addedCount = 0;
-    units.forEach(u => {
+    for (const u of bestByUnit.values()) {
       const exists = project.units.some(pu => pu.unitNumber === u.unitNumber);
       if (!exists) {
         lastUnit = addUnit(project.id, { unitNumber: u.unitNumber, type: u.type, floor: u.floor || '', bldg: u.bldg || '', notes: '' });
         addedCount++;
       }
-    });
+    }
     if (lastUnit) setSelectedUnitId((lastUnit as Unit).id);
     setImportedCount(addedCount);
     setShowPDFImport(false);
