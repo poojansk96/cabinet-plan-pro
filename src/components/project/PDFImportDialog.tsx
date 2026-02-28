@@ -156,7 +156,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
       setProgressLabel('AI analyzing…');
       
       const CONCURRENCY = 2; // Reduced from 3 since images are larger
-      const allUnits: Record<string, any> = {};
+      const allUnits = new Map<string, any>();
       let pagesProcessed = 0;
       
       const processPage = async (pageIndex: number): Promise<void> => {
@@ -204,48 +204,43 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
             
             const data = await resp.json();
             if (data.units && Array.isArray(data.units)) {
+              const normalizeUnitKey = (value: string) => value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+              const floorRank = (value: string) => {
+                const n = parseFloat(String(value || '').replace(/^Floor\s*/i, ''));
+                return Number.isNaN(n) ? Infinity : n;
+              };
+
               for (const unit of data.units) {
-                const unitNumber = (unit.unitNumber ?? '').trim().toUpperCase();
+                const unitNumber = String(unit.unitNumber ?? '').trim().toUpperCase();
                 if (!unitNumber) continue;
 
-                const floorKey = (unit.detectedFloor ?? '').trim().toUpperCase();
-                const bldgKey = (unit.detectedBldg ?? '').trim().toUpperCase();
-                const normalizedType = (unit.detectedType ?? '').trim();
-                const typeKey = normalizedType && normalizedType !== '?'
-                  ? normalizedType.toUpperCase()
-                  : '?';
+                // Takeoff Unit Count rule: unit number is unique project-wide.
+                // Ignore type differences and keep only ONE row on the lowest floor.
+                const key = normalizeUnitKey(unitNumber);
+                const candidate = {
+                  ...unit,
+                  unitNumber,
+                  page: pageIndex + 1,
+                  confidence: 'high',
+                  kitchenConfidence: unit.kitchenConfidence ?? 'maybe',
+                };
 
-                // Keep same unit number as separate records when type differs
-                // (e.g. residential 103 and Laundry 103).
-                const baseKey = `${unitNumber}|${floorKey}|${bldgKey}`;
-                const compositeKey = `${baseKey}|${typeKey}`;
-
-                // If we already have a typed record, ignore unknown fallback for same unit/floor/building.
-                if (typeKey === '?') {
-                  const hasTyped = Object.keys(allUnits).some(k => k.startsWith(`${baseKey}|`) && !k.endsWith('|?'));
-                  if (hasTyped) continue;
-                } else {
-                  // Replace unknown fallback with concrete type when available.
-                  const unknownKey = `${baseKey}|?`;
-                  if (allUnits[unknownKey]) delete allUnits[unknownKey];
+                const existing = allUnits.get(key);
+                if (!existing) {
+                  allUnits.set(key, candidate);
+                  continue;
                 }
 
-                const existing = allUnits[compositeKey];
-                if (!existing) {
-                  allUnits[compositeKey] = {
-                    ...unit,
-                    unitNumber,
-                    page: pageIndex + 1,
-                    confidence: 'high',
-                    kitchenConfidence: unit.kitchenConfidence ?? 'maybe',
-                  };
-                } else {
-                  if ((!existing.detectedType || existing.detectedType === '?') && unit.detectedType && unit.detectedType !== '?') {
-                    existing.detectedType = unit.detectedType;
-                  }
-                  if (!existing.detectedFloor && unit.detectedFloor) existing.detectedFloor = unit.detectedFloor;
-                  if (!existing.detectedBldg && unit.detectedBldg) existing.detectedBldg = unit.detectedBldg;
-                  if (existing.kitchenConfidence === 'maybe' && unit.kitchenConfidence === 'yes') existing.kitchenConfidence = 'yes';
+                const existingFloor = floorRank(existing.detectedFloor ?? '');
+                const candidateFloor = floorRank(candidate.detectedFloor ?? '');
+                const existingHasType = !!String(existing.detectedType ?? '').trim() && String(existing.detectedType).trim() !== '?';
+                const candidateHasType = !!String(candidate.detectedType ?? '').trim() && String(candidate.detectedType).trim() !== '?';
+
+                if (
+                  candidateFloor < existingFloor ||
+                  (candidateFloor === existingFloor && candidateHasType && !existingHasType)
+                ) {
+                  allUnits.set(key, candidate);
                 }
               }
             }
@@ -277,7 +272,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
         b.toUpperCase().replace(/\b(BLDG|BUILDING|BLD)\b\.?\s*/g, '').replace(/[^A-Z0-9]/g, '').trim();
 
       const bldgCounts: Record<string, Record<string, number>> = {};
-      for (const u of Object.values(allUnits) as any[]) {
+      for (const u of Array.from(allUnits.values()) as any[]) {
         const raw = (u.detectedBldg ?? '').trim();
         if (!raw) continue;
         const key = normalizeBldgKey(raw);
@@ -292,7 +287,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
         bldgCanonical[key] = best;
       }
       // Apply canonical building names
-      for (const u of Object.values(allUnits) as any[]) {
+      for (const u of Array.from(allUnits.values()) as any[]) {
         const raw = (u.detectedBldg ?? '').trim();
         if (!raw) continue;
         const key = normalizeBldgKey(raw);
@@ -301,7 +296,7 @@ export default function PDFImportDialog({ onImport, onClose }: Props) {
         }
       }
 
-      const detectedUnits = Object.values(allUnits).sort((a: any, b: any) =>
+      const detectedUnits = Array.from(allUnits.values()).sort((a: any, b: any) =>
         a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true })
       );
       
