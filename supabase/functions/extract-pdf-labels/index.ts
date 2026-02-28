@@ -27,60 +27,57 @@ serve(async (req) => {
 
     const prompt = `You are an expert millwork estimator reading a 2020 Design shop drawing page.
 
-FIRST — DETERMINE THE PAGE TYPE:
-Carefully examine this image and classify it as ONE of these types:
-  A) TITLE PAGE / COVER PAGE — contains project info, unit type name, unit numbers, no cabinet drawings
-  B) DRAWING PAGE — contains floor plans (top-down views) and/or elevation drawings (front/side views) with cabinet SKU labels
+These are 2020 Design software shop drawings. They contain THREE types of pages:
 
-CRITICAL RULES FOR PAGE TYPE:
-- If this page is a TITLE PAGE or COVER PAGE → return {"unitTypeName":"<detected type>","items":[]}
-- If this page contains ANY drawings (floor plan or elevation) → extract ALL cabinet SKU labels as described below.
+PAGE TYPES:
+  A) TITLE PAGE / COVER PAGE — contains project info, unit type name, unit numbers. No cabinet drawings.
+  B) PLAN VIEW PAGE (top-down view) — shows cabinets from ABOVE as rectangular outlines with SKU labels written on or next to each cabinet. Walls appear as thick lines. You see the room layout from a bird's-eye perspective. Cabinet SKU labels like "B24", "W3030B", "DB15", "BF3" are placed directly on/near the cabinet shapes.
+  C) ELEVATION PAGE (front/side view) — shows cabinets as you would see them standing in front of them. Rectangular boxes stacked vertically (base on bottom, wall on top). Has dimension lines showing heights.
 
-TASK 1 — DETECT UNIT TYPE NAME (TITLE PAGE / COVER PAGE ONLY):
-If this is a TITLE PAGE or COVER PAGE:
+WHAT TO DO FOR EACH PAGE TYPE:
+- TITLE PAGE → return {"unitTypeName":"<detected type>","items":[]}
+- PLAN VIEW PAGE → EXTRACT all cabinet SKU labels (this is the main source of data)
+- ELEVATION PAGE → DO NOT extract. Return {"unitTypeName":null,"items":[]}
+  *** Elevation pages show the SAME cabinets already visible on plan view pages. Extracting from both would cause double-counting. Only extract from PLAN VIEW pages. ***
+
+HOW TO TELL PLAN VIEW vs ELEVATION:
+- PLAN VIEW: You look DOWN at the room. Cabinets are flat rectangular outlines along walls. Labels are placed inside or beside the cabinet shapes. You see the room shape from above.
+- ELEVATION: You look at the FRONT of cabinets. You see cabinet doors/drawers as tall rectangles. Dimension lines show heights (e.g. 32 7/8", 65 3/4"). Base cabinets sit on the bottom, wall cabinets hang at the top.
+
+TASK 1 — DETECT UNIT TYPE NAME (TITLE PAGE ONLY):
 - Look for the UNIT TYPE NAME in the title block, header, or prominent labels.
-- This is typically something like "A1", "A1-As", "A2", "B1", "2BHK", "1BR", "Type A", "Studio", etc.
-- Return the EXACT unit type name as written on the drawing.
+- Typically: "A1", "A1-As", "A2", "B1", "TYPE A - AS", "Studio", etc.
 - Return: {"unitTypeName":"A1-As","items":[]}
 
-TASK 2 — EXTRACT CABINET SKUs FROM ALL DRAWING PAGES:
-Scan the ENTIRE page and extract EVERY cabinet SKU label you can read, whether it appears on a floor plan or an elevation view.
+TASK 2 — EXTRACT CABINET SKUs (PLAN VIEW PAGES ONLY):
+For each cabinet SKU label on the plan view, extract:
+1. SKU exactly as written (e.g. B24, W3036, T84, VB30, BF3, WF6X30, FIL3, TKRUN96, CM8, LS36-L, DB15)
+2. Cabinet type by prefix:
+   BASE      → B DB SB CB EB LS LSB
+   WALL      → W UB WC OH
+   TALL      → T UT TC PT PTC UC
+   VANITY    → V VB VD
+   ACCESSORY → FIL BF WF BFFIL WFFIL TK TKRUN CM LR EP FP
+3. Room — from room labels on the plan (Kitchen, Bath, Laundry, Pantry → capitalize first letter only)
 
-For each cabinet SKU label, extract:
-1. SKU / model label exactly as written (e.g. B24, W3036, T84, VB30, BF3, WF330, FIL3, TKRUN96, CM8, LS36-L, DB15, etc.)
-2. Cabinet type determined by label prefix:
-   BASE      → prefixes B DB SB CB EB LS LSB
-   WALL      → prefixes W UB WC OH
-   TALL      → prefixes T UT TC PT PTC UC
-   VANITY    → prefixes V VB VD
-   ACCESSORY → fillers (FIL BF WF BFFIL WFFIL), toe kick (TK TKRUN), crown (CM), light rail (LR), end panels (EP FP), hardware
-3. Room — determine from room labels or elevation titles (KITCHEN, BATH, LAUNDRY, PANTRY → capitalize first letter only)
-
-COUNTING METHOD — CRITICAL:
-- Count EVERY separate occurrence of each SKU label on the page.
-- If "DB15" appears as a label in TWO different locations on the page, the quantity is 2.
-- If "BF3" appears once, the quantity is 1. Do NOT skip accessories like BF3, BF6, WF3X30, WF6X30.
-- Look for "xN" or "(2)" multiplier notation near labels.
-- ACCESSORIES ARE IMPORTANT: Fillers (BF, WF), base fillers (BF3, BF6), wall fillers (WF3X30, WF6X30) — count every single one you see.
-- Corner cabinets (LS, LSB) that appear on TWO adjacent elevation views represent ONE physical cabinet — count as quantity 1.
+COUNTING — CRITICAL:
+- Count EVERY separate SKU label occurrence on the plan view page.
+- If "DB15" label appears in TWO different spots → quantity 2.
+- If "BF3" label appears once → quantity 1. Do NOT skip small accessories.
+- ACCESSORIES MATTER: BF3, BF6, WF3X30, WF6X30 — count every occurrence.
+- Corner cabinets (LS, LSB) sit at the corner where two walls meet — count only ONCE even if the label appears at the junction of two wall runs.
+- Look for "xN" or "(2)" multiplier notation.
 
 RULES:
-- A valid cabinet SKU must start with a LETTER and contain at least one NUMBER (e.g. B24, W3036, T84, VB30, FIL3, BF3, DB15)
+- Valid SKU: starts with a LETTER, contains at least one NUMBER (e.g. B24, BF3, DB15, W3036)
 - SKIP appliances: REF REFRIG DW DISHWASHER RANGE HOOD MICRO OTR OVEN
-- SKIP these NON-SKU items:
-  * Unit numbers (e.g. "Unit 101", "101", "201")
-  * Unit type names (e.g. "A1-As", "Type A", "2BHK")
-  * Call-out addresses or bubble references (e.g. "A1", "1A", "A", circled numbers)
-  * Elevation titles (e.g. "ELEVATION A", "WALL A")
-  * Floor labels, building names, drawing titles, notes
-  * Dimension text (e.g. "24"", "36 1/2"")
-  * Page numbers or sheet references
-- Read labels EXACTLY as printed — do not invent or guess SKUs
-- If NO cabinet SKUs are readable on this page, return {"unitTypeName":null,"items":[]}
+- SKIP non-SKU text: unit numbers, unit type names, elevation titles, dimension text, page numbers, sheet references, call-out bubbles
+- Read labels EXACTLY as printed — do not invent or guess
+- If NO SKUs found → return {"unitTypeName":null,"items":[]}
 ${unitType ? `- Unit type context: ${unitType}` : ""}
 
-Return ONLY valid JSON — no markdown, no explanation, no reasoning text:
-{"unitTypeName":"A1","items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1},{"sku":"W3036","type":"Wall","room":"Kitchen","quantity":2}]}`;
+Return ONLY valid JSON — no markdown, no explanation:
+{"unitTypeName":"A1","items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1},{"sku":"DB15","type":"Base","room":"Kitchen","quantity":2},{"sku":"BF3","type":"Accessory","room":"Kitchen","quantity":1}]}`;
 
     let response: Response | null = null;
     const MAX_RETRIES = 3;
