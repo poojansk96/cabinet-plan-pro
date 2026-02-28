@@ -193,14 +193,17 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
   };
 
   const mergeRows = (incoming: LabelRow[], existing: LabelRow[] = []): LabelRow[] => {
-    // Floor plans show each cabinet once, so simply SUM across pages/files.
+    // SUM quantities across pages, except LS/LSB corner cabinets (use max).
     const merged: Record<string, LabelRow> = {};
+    const isCornerLazySusan = (sku: string) => /^(LS|LSB)\d+/i.test(sku);
 
     for (const r of [...existing, ...incoming]) {
       const normSku = r.sku.toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
       const key = `${normSku}__${r.room}`;
       if (merged[key]) {
-        merged[key].quantity += r.quantity;
+        merged[key].quantity = isCornerLazySusan(normSku)
+          ? Math.max(merged[key].quantity, r.quantity)
+          : merged[key].quantity + r.quantity;
       } else {
         merged[key] = { ...r, sku: normSku };
       }
