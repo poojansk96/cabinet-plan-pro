@@ -43,7 +43,7 @@ WHAT TO EXTRACT:
    - If none found, use null
 
 CRITICAL — DO NOT EXTRACT THESE:
-- Do NOT extract cabinet SKU codes (e.g., W3030, B24, SB36, DB30, W2442, V3021)
+- Do NOT extract cabinet SKU codes (e.g., W3030, B24, SB36, DB30, W2442, V3021, HASB48B, HAV3621-REM)
 - Do NOT extract room names (Kitchen, Bath, Island, Pantry, Laundry, Lounge)
 - Do NOT extract cabinet descriptions (e.g., "52 Island", "Island Base", "Wall Cabinet")
 - Do NOT extract elevation labels, sheet numbers, or dimensions
@@ -66,7 +66,7 @@ I will give you:
 YOUR TASK: Re-read the title page carefully and verify:
 - Is the UNIT TYPE correct? If not, fix it.
 - Are ALL unit numbers captured? Re-read the comma-separated list on the page CHARACTER BY CHARACTER. If any are missing, ADD them.
-- Are there any FALSE entries (cabinet SKUs like W3030, room names like "Island", descriptions like "52 Island")? If so, REMOVE them.
+- Are there any FALSE entries (cabinet SKUs like W3030, HASB48B, HAV3621-REM, room names like "Island", descriptions like "52 Island")? If so, REMOVE them.
 
 ONLY apartment/suite unit numbers should remain (e.g., 230, 101, A-502, PH-1).
 
@@ -96,17 +96,26 @@ function extractJSON(text: string): { units: any[]; bldg?: string } {
 }
 
 function isValidUnitNumber(val: string): boolean {
-  if (val.length > 10 || val.length < 1) return false;
+  if (val.length > 12 || val.length < 1) return false;
   if (/^TYPE\s/i.test(val)) return false;
+
+  const compact = val.toUpperCase().replace(/\s+/g, "");
+  const compactNoDash = compact.replace(/-/g, "");
+
   // Reject room/space names
-  if (/^(KITCHEN|BATH|LIVING|BEDROOM|MASTER|DINING|LAUNDRY|PANTRY|CLOSET|LOBBY|HALLWAY|CORRIDOR|OFFICE|STORAGE|UTILITY|MECHANICAL|FOYER|ENTRY|GARAGE|ISLAND|LOUNGE|RECEPTION|RESTROOM|VANITY|POWDER)/i.test(val)) return false;
+  if (/^(KITCHEN|BATH|LIVING|BEDROOM|MASTER|DINING|LAUNDRY|PANTRY|CLOSET|LOBBY|HALLWAY|CORRIDOR|OFFICE|STORAGE|UTILITY|MECHANICAL|FOYER|ENTRY|GARAGE|ISLAND|LOUNGE|RECEPTION|RESTROOM|VANITY|POWDER)/i.test(compact)) return false;
+
   // Reject architectural labels
-  if (/^(FLOOR|LEVEL|BUILDING|BLDG|TOWER|WING|BLOCK|EAST|WEST|NORTH|SOUTH)/i.test(val)) return false;
-  if (/^(ELEVATION|ELEV|SECTION|DETAIL|SCALE|SHEET|DWG|REV|DATE|DRAWN|CHECKED|DOOR|WINDOW|SCHEDULE|LEGEND|NOTE|PLAN|TYPICAL)\b/i.test(val)) return false;
-  // Reject cabinet SKU patterns (e.g., W3030, B24, SB36, DB30, V3021)
-  if (/^[A-Z]{1,3}\d{2,4}[A-Z]?$/i.test(val)) return false;
+  if (/^(FLOOR|LEVEL|BUILDING|BLDG|TOWER|WING|BLOCK|EAST|WEST|NORTH|SOUTH)/i.test(compact)) return false;
+  if (/^(ELEVATION|ELEV|SECTION|DETAIL|SCALE|SHEET|DWG|REV|DATE|DRAWN|CHECKED|DOOR|WINDOW|SCHEDULE|LEGEND|NOTE|PLAN|TYPICAL)\b/i.test(compact)) return false;
+
+  // Reject cabinet SKU patterns (including extended 2020 formats like HASB48B, HAV3621-REM)
+  if (/^[A-Z]{1,4}\d{2,4}[A-Z]{0,4}$/i.test(compactNoDash)) return false;
+  if (/^(W|B|SB|DB|UB|UC|TC|TK|WF|BF|V|OH|PT|PTC|UT|HAV|HASB|HASP|HAT|HAF)\d/i.test(compactNoDash)) return false;
+
   // Reject values containing cabinet/room words anywhere
-  if (/\b(island|cabinet|base|wall|upper|sink|drawer|countertop|vanity|pantry|lazy|susan|filler)\b/i.test(val)) return false;
+  if (/\b(island|cabinet|base|wall|upper|sink|drawer|countertop|vanity|pantry|lazy|susan|filler)\b/i.test(compact)) return false;
+
   return true;
 }
 
