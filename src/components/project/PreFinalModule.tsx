@@ -170,7 +170,6 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
           <UnitTypeImportDialog
             onImport={handleUnitImport}
             onClose={() => setShowUnitImport(false)}
-            takeoffPerson={(project.specs as Record<string, string> | undefined)?.takeoffPerson}
           />
         )}
 
