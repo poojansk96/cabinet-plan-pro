@@ -6,69 +6,68 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `You are an expert millwork estimator reading a TITLE PAGE / COVER PAGE of a 2020 Design shop drawing set.
+const SYSTEM_PROMPT = `You are an expert millwork estimator reading a page from a 2020 Design shop drawing PDF.
 
-YOUR TASK: Extract ONLY the UNIT TYPE and ALL UNIT NUMBERS from this title/cover page. Nothing else.
+FIRST — DETERMINE IF THIS IS A TITLE/COVER PAGE:
+A TITLE/COVER PAGE typically contains:
+- A drawing set title (e.g. "KITCHEN & VANITY CASEWORK SHOP DRAWINGS")
+- A UNIT TYPE name (large, bold, centered)
+- A list of UNIT NUMBERS (comma-separated)
+- NO cabinet drawings, NO floor plans, NO elevations, NO countertop drawings
 
-ABOUT 2020 SHOP DRAWING TITLE PAGES:
-- Each shop drawing PDF set has a title/cover page as the first page
-- The title page shows: the drawing set title (e.g. "KITCHEN & VANITY CASEWORK SHOP DRAWINGS"), the UNIT TYPE, and a list of UNIT NUMBERS
-- This is the ONLY page you will receive — extract everything from it
+If this page is NOT a title/cover page — i.e. it shows:
+- A floor plan (top-down view of cabinets/room)
+- An elevation drawing (front view of cabinets)
+- A countertop drawing
+- Any other drawing page
+→ Return {"bldg":null,"units":[]} immediately. DO NOT extract anything.
 
-WHAT TO EXTRACT:
+*** ONLY extract unit type and unit numbers from TITLE/COVER PAGES. Skip ALL other page types. ***
+
+IF THIS IS A TITLE/COVER PAGE, EXTRACT:
 
 1. UNIT TYPE (most important):
    - Look for prominent text like "TYPE A1 - AS", "UNIT TYPE: A1-3BR", "TYPE C1-2BR", "TYPE PH-A"
-   - It's usually large, bold, centered, or underlined on the page
-   - It is NOT a room name, NOT an elevation label, NOT a sheet number, NOT a cabinet SKU
-   - Preserve the EXACT text including suffixes like "-AS", "-Mirror", "-Rev", "-3BR"
-   - Examples: "TYPE A1 - AS", "A1-3BR", "C1-2BR", "Studio", "PH-A", "TYPE B2 - MIRROR"
+   - Usually large, bold, centered, or underlined
+   - NOT a room name, NOT an elevation label, NOT a sheet number, NOT a cabinet SKU
+   - Preserve EXACT text including suffixes like "-AS", "-Mirror", "-Rev", "-3BR"
 
 2. UNIT NUMBERS (CRITICAL — DO NOT MISS ANY):
-   - Look for text like "UNIT# 230, 330, 430" or "UNITS: 101, 102, 201, 202" or "APPLICABLE UNITS: A-101, A-201"
+   - Look for text like "UNIT# 230, 330, 430" or "UNITS: 101, 102, 201, 202"
    - Unit numbers are apartment/suite identifiers (e.g., 230, 101, A-502, PH-1)
-   - They are usually listed as a COMMA-SEPARATED sequence on the title page
-   - COUNT every single number in the comma list. If you see "UNIT# 230, 330, 430, 530, 630, 730, 830" that is 7 unit numbers — output ALL 7.
-   - Read the list CHARACTER BY CHARACTER to avoid skipping any numbers
+   - Usually listed as a COMMA-SEPARATED sequence
+   - COUNT every single number. Read the list CHARACTER BY CHARACTER.
    - Each unit number gets its OWN entry in the output array, all sharing the SAME unit type
-   - DOUBLE-CHECK: After building your list, re-read the comma-separated text on the page and verify your count matches
+   - DOUBLE-CHECK: re-read the comma-separated text and verify your count matches
 
 3. FLOOR DETECTION:
-   - Derive the floor from the unit number: "230" → floor "2", "101" → floor "1"
+   - Derive from unit number: "230" → floor "2", "101" → floor "1"
    - For 3-digit numbers: first digit is usually the floor
-   - If floor cannot be determined, use null
+   - If undetermined, use null
 
 4. BUILDING:
-   - Look for building identifiers like "BUILDING 1", "BLDG A"
-   - If none found, use null
+   - Look for "BUILDING 1", "BLDG A", etc. If none found, use null
 
-CRITICAL — DO NOT EXTRACT THESE:
-- Do NOT extract cabinet SKU codes (e.g., W3030, B24, SB36, DB30, W2442, V3021, HASB48B, HAV3621-REM)
-- Do NOT extract room names (Kitchen, Bath, Island, Pantry, Laundry, Lounge)
-- Do NOT extract cabinet descriptions (e.g., "52 Island", "Island Base", "Wall Cabinet")
-- Do NOT extract elevation labels, sheet numbers, or dimensions
-- Do NOT extract any text that describes a cabinet, countertop, or fixture
-- ONLY extract apartment/suite unit numbers (numeric IDs like 230, 101, A-502)
+DO NOT EXTRACT:
+- Cabinet SKUs (W3030, B24, SB36, HASB48B, HAV3621-REM, etc.)
+- Room names (Kitchen, Bath, Island, Pantry, Laundry)
+- Elevation labels, sheet numbers, dimensions
+- Cabinet or countertop descriptions
 
-VERIFICATION STEP: Before outputting, re-read the unit number list on the page one more time and confirm you have captured every single number. Missing even one unit number is a critical error.
-
-If the page has NO unit numbers or unit type visible, return {"bldg":null,"units":[]}.
+VERIFICATION: Before outputting, re-read the unit number list one more time and confirm you captured every number.
 
 Return ONLY valid JSON, no other text:
-{"bldg":"Building Name or null","units":[{"unitNumber":"230","unitType":"TYPE A1 - AS","floor":"2"},{"unitNumber":"330","unitType":"TYPE A1 - AS","floor":"3"},{"unitNumber":"430","unitType":"TYPE A1 - AS","floor":"4"}]}`;
+{"bldg":"Building Name or null","units":[{"unitNumber":"230","unitType":"TYPE A1 - AS","floor":"2"},{"unitNumber":"330","unitType":"TYPE A1 - AS","floor":"3"}]}`;
 
-const VERIFY_PROMPT = `You are verifying extracted unit data from a 2020 Design shop drawing title page.
+const VERIFY_PROMPT = `You are verifying extracted unit data from a 2020 Design shop drawing page.
 
-I will give you:
-1. The original title page image
-2. Previously extracted data as JSON
+FIRST: Is this a TITLE/COVER PAGE? If NOT (it's a floor plan, elevation, countertop drawing, or any other drawing), return {"bldg":null,"units":[]}.
 
-YOUR TASK: Re-read the title page carefully and verify:
-- Is the UNIT TYPE correct? If not, fix it.
-- Are ALL unit numbers captured? Re-read the comma-separated list on the page CHARACTER BY CHARACTER. If any are missing, ADD them.
-- Are there any FALSE entries (cabinet SKUs like W3030, HASB48B, HAV3621-REM, room names like "Island", descriptions like "52 Island")? If so, REMOVE them.
-
-ONLY apartment/suite unit numbers should remain (e.g., 230, 101, A-502, PH-1).
+If it IS a title/cover page, verify:
+- Is the UNIT TYPE correct?
+- Are ALL unit numbers captured? Re-read the comma-separated list CHARACTER BY CHARACTER. Add any missing ones.
+- Are there FALSE entries (cabinet SKUs like W3030, HASB48B, room names like "Island")? Remove them.
+- ONLY apartment/suite unit numbers should remain (e.g., 230, 101, A-502, PH-1).
 
 Return the corrected JSON (same format), no other text:
 {"bldg":"Building Name or null","units":[{"unitNumber":"230","unitType":"TYPE A1 - AS","floor":"2"}]}`;
