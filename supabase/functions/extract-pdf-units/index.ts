@@ -182,7 +182,7 @@ serve(async (req) => {
         }
         geminiParts.push({ text: systemPrompt + "\n\n" + userPrompt });
         response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key=${GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
