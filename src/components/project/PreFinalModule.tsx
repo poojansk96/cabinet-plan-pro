@@ -552,10 +552,8 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                           {cabUnitTypes.map(type => {
                             const qty = skuTypeQty[sku]?.[type] || 0;
                             return (
-                              <td key={type} className="text-center">
-                                {qty > 0 ? (
-                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-primary text-primary-foreground text-xs font-bold">{qty}</span>
-                                ) : ''}
+                              <td key={type} className="text-center font-mono text-xs">
+                                {qty > 0 ? qty : ''}
                               </td>
                             );
                           })}
