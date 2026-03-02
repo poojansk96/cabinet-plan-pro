@@ -107,14 +107,18 @@ export default function PreFinalSummaryModule({ project }: Props) {
     const wsUnits = wb.addWorksheet('Pre-Final Unit Count');
     const unitTypeCols = store.unitTypes.length;
     wsUnits.columns = [
+      { width: 10 },
+      { width: 10 },
       { width: 14 },
-      { width: 10 },
-      { width: 10 },
       ...store.unitTypes.map(() => ({ width: 6 })),
       { width: 8 },
     ];
 
-    const unitHeader = wsUnits.addRow(['Unit #', 'Bldg', 'Floor', ...store.unitTypes, 'Total']);
+    // Row 1: blank
+    wsUnits.addRow([]);
+
+    // Row 2: header — Bldg | Floor | Unit # | types... | Total
+    const unitHeader = wsUnits.addRow(['Bldg', 'Floor', 'Unit #', ...store.unitTypes, 'Total']);
     unitHeader.height = 120;
     unitHeader.eachCell((cell, colNumber) => {
       cell.font = { bold: true };
@@ -140,7 +144,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
     sortedUnits.forEach(unit => {
       const flags = store.unitTypes.map(t => unit.assignments[t] ? 1 : '');
       const rowTotal = store.unitTypes.filter(t => unit.assignments[t]).length;
-      const row = wsUnits.addRow([unit.name, unit.bldg || '', unit.floor || '', ...flags, rowTotal]);
+      const row = wsUnits.addRow([unit.bldg || '', unit.floor || '', unit.name, ...flags, rowTotal]);
       row.eachCell((cell, colNumber) => {
         if (colNumber > 3) cell.alignment = { horizontal: 'center', vertical: 'middle' };
       });
@@ -149,7 +153,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
     wsUnits.addRow([]);
     const totals = store.unitTypes.map(t => unitTypeTotal(t));
     const grandTotal = totals.reduce((s, v) => s + v, 0);
-    const totRow = wsUnits.addRow([`TOTAL (${store.unitNumbers.length})`, '', '', ...totals, grandTotal]);
+    const totRow = wsUnits.addRow(['', '', `TOTAL (${store.unitNumbers.length})`, ...totals, grandTotal]);
     totRow.eachCell((cell, colNumber) => {
       cell.font = { bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
