@@ -48,8 +48,15 @@ IF THIS IS A FLOOR PLAN PAGE, EXTRACT:
    - For 3-digit numbers: first digit is usually the floor
    - If undetermined, use null
 
-4. BUILDING:
-   - Look for "BUILDING 1", "BLDG A", etc. If none found, use null
+4. BUILDING (CRITICAL — MULTI-BUILDING PAGES):
+   - Look for "BUILDING 1", "BLDG A", "BLDG 1, BLDG 3", etc.
+   - **IMPORTANT**: A single page often lists MULTIPLE buildings that share the SAME unit layout.
+     For example: "BLDG 1, BLDG 3 — UNIT# 1A, 2A" means FOUR entries:
+       BLDG 1 / 1A, BLDG 1 / 2A, BLDG 3 / 1A, BLDG 3 / 2A
+   - You MUST create a SEPARATE entry for EACH building × EACH unit number combination.
+   - Include the building in the "bldg" field of EACH unit entry (e.g., "BLDG 1", "BLDG 3").
+   - If buildings are listed like "BLDG 2, BLDG 4, BLDG 6", create entries for ALL three buildings.
+   - If no building is found, use null.
 
 DO NOT EXTRACT:
 - Cabinet SKUs (W3030, B24, SB36, HASB48B, HAV3621-REM, etc.)
@@ -59,8 +66,8 @@ DO NOT EXTRACT:
 
 VERIFICATION: Before outputting, re-read the unit number list one more time and confirm you captured every number.
 
-Return ONLY valid JSON, no other text:
-{"bldg":"Building Name or null","units":[{"unitNumber":"230","unitType":"TYPE A1 - AS","floor":"2"},{"unitNumber":"330","unitType":"TYPE A1 - AS","floor":"3"}]}`;
+Return ONLY valid JSON, no other text. Each unit entry MUST include a "bldg" field:
+{"bldg":null,"units":[{"unitNumber":"1A","unitType":"TYPE 1 - AS","floor":"1","bldg":"BLDG 1"},{"unitNumber":"1A","unitType":"TYPE 1 - AS","floor":"1","bldg":"BLDG 3"},{"unitNumber":"2A","unitType":"TYPE 1 - AS","floor":"2","bldg":"BLDG 1"},{"unitNumber":"2A","unitType":"TYPE 1 - AS","floor":"2","bldg":"BLDG 3"}]}`;
 
 const VERIFY_PROMPT = `You are verifying extracted unit data from a 2020 Design shop drawing page.
 
@@ -71,9 +78,11 @@ If it IS a floor plan page, verify:
 - Are ALL unit numbers captured? Re-read the comma-separated list CHARACTER BY CHARACTER. Add any missing ones.
 - Are there FALSE entries (cabinet SKUs like W3030, HASB48B, room names like "Island")? Remove them.
 - ONLY apartment/suite unit numbers should remain (e.g., 230, 101, A-502, PH-1).
+- **CRITICAL**: If the page lists MULTIPLE BUILDINGS (e.g., "BLDG 1, BLDG 3"), EACH unit number must appear ONCE PER BUILDING with the correct "bldg" field. For example, if BLDG 1 and BLDG 3 both have unit 1A, there must be TWO entries: one with "bldg":"BLDG 1" and one with "bldg":"BLDG 3".
+- Check if any buildings were missed. Re-read the building list and ensure every building × unit combination exists.
 
-Return the corrected JSON (same format), no other text:
-{"bldg":"Building Name or null","units":[{"unitNumber":"230","unitType":"TYPE A1 - AS","floor":"2"}]}`;
+Return the corrected JSON (same format), no other text. Each entry MUST have a "bldg" field:
+{"bldg":null,"units":[{"unitNumber":"1A","unitType":"TYPE 1 - AS","floor":"1","bldg":"BLDG 1"},{"unitNumber":"1A","unitType":"TYPE 1 - AS","floor":"1","bldg":"BLDG 3"}]}`;
 
 function extractJSON(text: string): { units: any[]; bldg?: string } {
   // Try markdown fences
@@ -247,14 +256,19 @@ serve(async (req) => {
 
         // Use verified results if they found units (merge to keep the most complete set)
         if (verifiedUnits.length > 0) {
-          // Merge: keep all units from both passes, deduplicate by unitNumber
+          // Merge: keep all units from both passes, deduplicate by unitNumber+bldg composite key
           const merged = new Map<string, typeof finalUnits[0]>();
-          for (const u of firstPassUnits) merged.set(u.unitNumber, u);
-          for (const u of verifiedUnits) merged.set(u.unitNumber, u); // verified pass overrides
+          const makeKey = (u: typeof finalUnits[0]) => `${u.unitNumber}__${(u.bldg || '').toUpperCase().replace(/\s+/g, '')}`;
+          for (const u of firstPassUnits) merged.set(makeKey(u), u);
+          for (const u of verifiedUnits) merged.set(makeKey(u), u); // verified pass overrides
           finalUnits = Array.from(merged.values());
-          finalUnits.sort((a, b) => a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true }));
+          finalUnits.sort((a, b) => {
+            const bldgCmp = (a.bldg || '').localeCompare(b.bldg || '', undefined, { numeric: true });
+            if (bldgCmp !== 0) return bldgCmp;
+            return a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true });
+          });
         }
-        console.log("Pass 2 verified units:", finalUnits.length, JSON.stringify(finalUnits.map(u => u.unitNumber)));
+        console.log("Pass 2 verified units:", finalUnits.length, JSON.stringify(finalUnits.map(u => `${u.bldg}/${u.unitNumber}`)));
       } else {
         console.warn("Verification pass failed with status:", verifyRes.status, "— using Pass 1 results");
       }
