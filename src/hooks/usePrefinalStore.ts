@@ -189,25 +189,30 @@ export function usePrefinalStore(projectId: string) {
   // ── Import unit mappings (unit# → type with "1" assignment) ────────────
   const importUnitMappings = useCallback((mappings: { unitNumber: string; unitType: string; bldg?: string; floor?: string }[]) => {
     setData(prev => {
-      const existingNames = new Set(prev.unitNumbers.map(u => u.name));
+      // Use composite key: unitNumber + bldg to differentiate same unit# across buildings
+      const makeKey = (name: string, bldg: string) => `${name.toUpperCase().trim()}__${bldg.toUpperCase().trim()}`;
+      const existingKeys = new Map<string, number>();
+      prev.unitNumbers.forEach((u, i) => existingKeys.set(makeKey(u.name, u.bldg), i));
       const newUnits: PrefinalUnitNumber[] = [];
+      // Clone to avoid mutating prev directly
+      const updatedNumbers = prev.unitNumbers.map(u => ({ ...u, assignments: { ...u.assignments } }));
       for (const m of mappings) {
-        if (existingNames.has(m.unitNumber)) {
-          const idx = prev.unitNumbers.findIndex(u => u.name === m.unitNumber);
-          if (idx >= 0) {
-            prev.unitNumbers[idx] = {
-              ...prev.unitNumbers[idx],
-              bldg: m.bldg || prev.unitNumbers[idx].bldg || '',
-              floor: m.floor || prev.unitNumbers[idx].floor || '',
-              assignments: { ...prev.unitNumbers[idx].assignments, [m.unitType]: true },
-            };
-          }
+        const key = makeKey(m.unitNumber, m.bldg || '');
+        const existingIdx = existingKeys.get(key);
+        if (existingIdx !== undefined) {
+          updatedNumbers[existingIdx] = {
+            ...updatedNumbers[existingIdx],
+            bldg: m.bldg || updatedNumbers[existingIdx].bldg || '',
+            floor: m.floor || updatedNumbers[existingIdx].floor || '',
+            assignments: { ...updatedNumbers[existingIdx].assignments, [m.unitType]: true },
+          };
         } else {
-          existingNames.add(m.unitNumber);
-          newUnits.push({ name: m.unitNumber, bldg: m.bldg || '', floor: m.floor || '', assignments: { [m.unitType]: true } });
+          const newUnit: PrefinalUnitNumber = { name: m.unitNumber, bldg: m.bldg || '', floor: m.floor || '', assignments: { [m.unitType]: true } };
+          existingKeys.set(key, updatedNumbers.length + newUnits.length);
+          newUnits.push(newUnit);
         }
       }
-      const unitNumbers = [...prev.unitNumbers, ...newUnits];
+      const unitNumbers = [...updatedNumbers, ...newUnits];
       const next = { ...prev, unitNumbers };
       saveData(projectId, next);
       return next;
