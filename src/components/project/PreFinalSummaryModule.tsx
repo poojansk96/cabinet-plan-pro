@@ -105,44 +105,55 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
     // ── Sheet 1: Pre-Final Unit Count ───────────────────────────────
     const wsUnits = wb.addWorksheet('Pre-Final Unit Count');
+    const unitTypeCols = store.unitTypes.length;
     wsUnits.columns = [
       { width: 14 },
+      { width: 10 },
+      { width: 10 },
       ...store.unitTypes.map(() => ({ width: 6 })),
       { width: 8 },
     ];
 
-    const unitHeader = wsUnits.addRow(['Unit #', ...store.unitTypes, 'Total']);
+    const unitHeader = wsUnits.addRow(['Unit #', 'Bldg', 'Floor', ...store.unitTypes, 'Total']);
     unitHeader.height = 120;
     unitHeader.eachCell((cell, colNumber) => {
       cell.font = { bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F0' } };
       cell.border = { bottom: { style: 'thin', color: { argb: 'FF999999' } } };
       cell.alignment = { vertical: 'bottom', wrapText: false };
-      if (colNumber > 1 && colNumber <= store.unitTypes.length + 1) {
+      if (colNumber > 3 && colNumber <= unitTypeCols + 3) {
         cell.alignment = { textRotation: 90, vertical: 'bottom', horizontal: 'center' };
       }
-      if (colNumber === store.unitTypes.length + 2) {
+      if (colNumber === unitTypeCols + 4) {
         cell.alignment = { vertical: 'bottom', horizontal: 'center' };
       }
     });
 
-    store.unitNumbers.forEach(unit => {
+    // Sort units by Bldg first, then unit name
+    const sortedUnits = [...store.unitNumbers].sort((a, b) => {
+      const bldgA = (a.bldg || '').toUpperCase();
+      const bldgB = (b.bldg || '').toUpperCase();
+      if (bldgA !== bldgB) return bldgA.localeCompare(bldgB, undefined, { numeric: true });
+      return (a.name || '').localeCompare(b.name || '', undefined, { numeric: true });
+    });
+
+    sortedUnits.forEach(unit => {
       const flags = store.unitTypes.map(t => unit.assignments[t] ? 1 : '');
       const rowTotal = store.unitTypes.filter(t => unit.assignments[t]).length;
-      const row = wsUnits.addRow([unit.name, ...flags, rowTotal]);
+      const row = wsUnits.addRow([unit.name, unit.bldg || '', unit.floor || '', ...flags, rowTotal]);
       row.eachCell((cell, colNumber) => {
-        if (colNumber > 1) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        if (colNumber > 3) cell.alignment = { horizontal: 'center', vertical: 'middle' };
       });
     });
 
     wsUnits.addRow([]);
     const totals = store.unitTypes.map(t => unitTypeTotal(t));
     const grandTotal = totals.reduce((s, v) => s + v, 0);
-    const totRow = wsUnits.addRow([`TOTAL (${store.unitNumbers.length})`, ...totals, grandTotal]);
+    const totRow = wsUnits.addRow([`TOTAL (${store.unitNumbers.length})`, '', '', ...totals, grandTotal]);
     totRow.eachCell((cell, colNumber) => {
       cell.font = { bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
-      if (colNumber > 1) cell.alignment = { horizontal: 'center' };
+      if (colNumber > 3) cell.alignment = { horizontal: 'center' };
     });
 
     // ── Sheet 2: Pre-Final Cabinet Count ────────────────────────────
