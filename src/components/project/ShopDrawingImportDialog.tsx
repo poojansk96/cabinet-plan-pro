@@ -30,6 +30,7 @@ export interface LabelRow {
   quantity: number;
   selected: boolean;
   sourceFile?: string;
+  detectedUnitType?: string;  // AI-detected unit type from the PDF
 }
 
 interface Props {
@@ -173,8 +174,8 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
       if (data.error === 'rate_limit') throw new Error('rate_limit');
       if (data.error === 'credits') throw new Error('credits');
 
-      // Capture detected unit type from AI — only from the first page (title/floor plan)
-      if (data.unitTypeName && !detectedType && p === 1) {
+      // Capture detected unit type from AI — update from any page that returns it
+      if (data.unitTypeName && !detectedType) {
         detectedType = data.unitTypeName;
       }
 
@@ -185,6 +186,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
         quantity: c.quantity,
         selected: true,
         sourceFile: file.name,
+        detectedUnitType: data.unitTypeName || detectedType || undefined,
       }));
       allRows.push(...pageRows);
       onPageDone?.();

@@ -36,7 +36,7 @@ PAGE TYPES:
 
 WHAT TO DO FOR EACH PAGE TYPE:
 - TITLE PAGE → return {"unitTypeName":"<detected type>","items":[]}
-- PLAN VIEW PAGE → EXTRACT all cabinet SKU labels (this is the main source of data)
+- PLAN VIEW PAGE → EXTRACT all cabinet SKU labels AND detect the unit type name from the page title/header
 - ELEVATION PAGE → DO NOT extract. Return {"unitTypeName":null,"items":[]}
   *** Elevation pages show the SAME cabinets already visible on plan view pages. Extracting from both would cause double-counting. Only extract from PLAN VIEW pages. ***
 
@@ -44,10 +44,13 @@ HOW TO TELL PLAN VIEW vs ELEVATION:
 - PLAN VIEW: You look DOWN at the room. Cabinets are flat rectangular outlines along walls. Labels are placed inside or beside the cabinet shapes. You see the room shape from above.
 - ELEVATION: You look at the FRONT of cabinets. You see cabinet doors/drawers as tall rectangles. Dimension lines show heights (e.g. 32 7/8", 65 3/4"). Base cabinets sit on the bottom, wall cabinets hang at the top.
 
-TASK 1 — DETECT UNIT TYPE NAME (TITLE PAGE ONLY):
-- Look for the UNIT TYPE NAME in the title block, header, or prominent labels.
-- Typically: "A1", "A1-As", "A2", "B1", "TYPE A - AS", "Studio", etc.
-- Return: {"unitTypeName":"A1-As","items":[]}
+TASK 1 — DETECT UNIT TYPE NAME (ALL PAGE TYPES):
+- Look for the UNIT TYPE NAME in the title block, header, sheet title, or prominent labels on EVERY page.
+- The unit type name is typically found in the title block at the bottom or side of the page, or in a header/label.
+- Common formats: "TYPE A1-AS", "TYPE 1-MIRROR", "A1", "A1-As", "A2", "B1", "TYPE A - AS", "Studio", "1 Bed", "1B-Mirror", etc.
+- This identifies WHICH unit type this drawing page belongs to.
+- ALWAYS try to detect this, even on plan view and elevation pages — it's usually in the title block.
+- Return null ONLY if you truly cannot find any unit type identifier on the page.
 
 TASK 2 — EXTRACT CABINET SKUs (PLAN VIEW PAGES ONLY):
 For each cabinet SKU label on the plan view, extract:
@@ -73,11 +76,11 @@ RULES:
 - SKIP appliances: REF REFRIG DW DISHWASHER RANGE HOOD MICRO OTR OVEN
 - SKIP non-SKU text: unit numbers, unit type names, elevation titles, dimension text, page numbers, sheet references, call-out bubbles
 - Read labels EXACTLY as printed — do not invent or guess
-- If NO SKUs found → return {"unitTypeName":null,"items":[]}
+- If NO SKUs found → return {"unitTypeName":"<detected type or null>","items":[]}
 ${unitType ? `- Unit type context: ${unitType}` : ""}
 
 Return ONLY valid JSON — no markdown, no explanation:
-{"unitTypeName":"A1","items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1},{"sku":"DB15","type":"Base","room":"Kitchen","quantity":2},{"sku":"BF3","type":"Accessory","room":"Kitchen","quantity":1}]}`;
+{"unitTypeName":"A1-AS","items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1},{"sku":"DB15","type":"Base","room":"Kitchen","quantity":2},{"sku":"BF3","type":"Accessory","room":"Kitchen","quantity":1}]}`;
 
     let response: Response | null = null;
     const MAX_RETRIES = 3;
@@ -148,7 +151,7 @@ Return ONLY valid JSON — no markdown, no explanation:
 
     const detectedUnitType = parsed.unitTypeName ?? null;
     const pass1Items = parsed.items ?? [];
-    console.log(`Pass 1: ${pass1Items.length} items`);
+    console.log(`Pass 1: ${pass1Items.length} items, unitType: ${detectedUnitType}`);
 
     // ── PASS 2: Verification — re-examine image to catch missed SKUs ──
     let finalItems = pass1Items;

@@ -66,20 +66,32 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
 
   // ── Cabinet import handler ────────────────────────────────────────────────
   const handleCabinetImport = (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[], detectedUnitType?: string) => {
-    const rawType = detectedUnitType || importTargetType || '';
-    const targetType = rawType ? normalizeUnitType(rawType) : '';
-    if (targetType) {
-      // Auto-add the unit type as a cabinet column if not already present
-      store.addCabinetUnitTypes([targetType]);
+    // Group rows by their individual detectedUnitType (AI-detected from each page)
+    const rowsByType = new Map<string, typeof rows>();
+    for (const row of rows) {
+      const rawType = (row as any).detectedUnitType || detectedUnitType || importTargetType || '';
+      const targetType = rawType ? normalizeUnitType(rawType) : '';
+      const finalType = targetType || 'Unassigned';
+      if (!rowsByType.has(finalType)) rowsByType.set(finalType, []);
+      rowsByType.get(finalType)!.push(row);
     }
-    const finalType = targetType || 'All';
-    store.addCabinetImport(
-      rows.map(r => ({ sku: r.sku, type: r.type, room: r.room, quantity: r.quantity, unitType: finalType })),
-      finalType
-    );
+
+    // Import each group under its own unit type
+    for (const [unitType, typeRows] of rowsByType) {
+      if (unitType !== 'Unassigned') {
+        store.addCabinetUnitTypes([unitType]);
+      }
+      store.addCabinetImport(
+        typeRows.map(r => ({ sku: r.sku, type: r.type, room: r.room, quantity: r.quantity, unitType })),
+        unitType
+      );
+    }
+
     setCabinetImportedCount(rows.length);
     setShowCabinetImport(false);
-    if (targetType) setImportTargetType(targetType);
+    // Set dropdown to the first detected type for convenience
+    const firstType = Array.from(rowsByType.keys())[0];
+    if (firstType && firstType !== 'Unassigned') setImportTargetType(firstType);
     setTimeout(() => setCabinetImportedCount(null), 4000);
   };
 
