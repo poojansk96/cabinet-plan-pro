@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { FileUp, Users, LayoutGrid, Plus, Trash2, RotateCcw, Pencil } from 'lucide-react';
 import type { Project, Unit, Cabinet } from '@/types/project';
 import ShopDrawingImportDialog, { type LabelRow } from './ShopDrawingImportDialog';
@@ -534,8 +534,8 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
               </thead>
               <tbody>
                 {groupedSkus.map(({ group, skus }) => (
-                  <>
-                    <tr key={`group-${group}`}>
+                  <React.Fragment key={`group-${group}`}>
+                    <tr>
                       <td
                         colSpan={3 + cabUnitTypes.length}
                         className="text-[11px] font-extrabold uppercase tracking-widest py-2 px-3"
@@ -575,7 +575,7 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                         </tr>
                       );
                     })}
-                  </>
+                  </React.Fragment>
                 ))}
               </tbody>
               <tfoot>
