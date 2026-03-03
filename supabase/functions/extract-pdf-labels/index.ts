@@ -60,7 +60,7 @@ For each cabinet SKU label on the plan view, extract:
    WALL      → W UB WC OH
    TALL      → T UT TC PT PTC UC
    VANITY    → V VB VD
-   ACCESSORY → FIL BF WF BFFIL WFFIL TK TKRUN CM LR EP FP
+   ACCESSORY → FIL BF WF BFFIL WFFIL TK TKRUN CM LR EP FP DWR
 3. Room — from room labels on the plan (Kitchen, Bath, Laundry, Pantry → capitalize first letter only)
 
 COUNTING — CRITICAL:
