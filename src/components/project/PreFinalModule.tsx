@@ -538,8 +538,13 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                     <tr key={`group-${group}`}>
                       <td
                         colSpan={3 + cabUnitTypes.length}
-                        className="text-xs font-bold uppercase tracking-wider py-1.5 px-3"
-                        style={{ background: 'hsl(var(--accent))', color: 'hsl(var(--muted-foreground))' }}
+                        className="text-[11px] font-extrabold uppercase tracking-widest py-2 px-3"
+                        style={{
+                          background: 'hsl(213 72% 35%)',
+                          color: '#fff',
+                          letterSpacing: '0.12em',
+                          borderTop: '2px solid hsl(213 72% 25%)',
+                        }}
                       >
                         {group} ({skus.length})
                       </td>
