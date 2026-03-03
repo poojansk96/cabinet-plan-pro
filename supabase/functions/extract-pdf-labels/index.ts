@@ -241,8 +241,10 @@ Return the COMPLETE corrected list as JSON — no markdown, no explanation:
     // Appliance prefixes to reject
     const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
 
+    // SKUs that are valid even without digits
+    const NO_DIGIT_OK = /^(BP|SCRIBE)$/i;
     const items = (rawItems)
-      .filter((c: any) => c.sku && /^[A-Za-z]/.test(c.sku) && /\d/.test(c.sku))
+      .filter((c: any) => c.sku && /^[A-Za-z]/.test(c.sku) && (/\d/.test(c.sku) || NO_DIGIT_OK.test(String(c.sku).trim())))
       .filter((c: any) => {
         const upper = String(c.sku).toUpperCase().trim();
         if (APPLIANCE_RE.test(upper)) return false;
