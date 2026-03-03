@@ -201,7 +201,9 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
 
     for (const r of [...existing, ...incoming]) {
       const normSku = r.sku.toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
-      const key = `${normSku}__${r.room}`;
+      // Include detectedUnitType in key so quantities stay separated per type
+      const unitTypeKey = (r as any).detectedUnitType || '__none__';
+      const key = `${normSku}__${r.room}__${unitTypeKey}`;
       if (merged[key]) {
         merged[key].quantity = isCornerLazySusan(normSku)
           ? Math.max(merged[key].quantity, r.quantity)
