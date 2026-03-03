@@ -162,7 +162,7 @@ export default function ProjectDetail() {
         )}
       </div>
       <footer className="text-center py-2 border-t bg-card flex-shrink-0">
-        <span style={{ fontSize: '10px' }} className="text-muted-foreground">© {new Date().getFullYear()} Poojan Khilosiya. All rights reserved.</span>
+        <span style={{ fontSize: '10px' }} className="text-muted-foreground">© {new Date().getFullYear()} PK. All rights reserved.</span>
       </footer>
     </div>
   );
