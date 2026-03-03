@@ -533,50 +533,49 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {groupedSkus.map(({ group, skus }) => (
-                  <React.Fragment key={`group-${group}`}>
-                    <tr>
-                      <td
-                        colSpan={3 + cabUnitTypes.length}
-                        className="text-[11px] font-extrabold uppercase tracking-widest py-2 px-3"
-                        style={{
-                          background: 'hsl(213 72% 35%)',
-                          color: '#fff',
-                          letterSpacing: '0.12em',
-                          borderTop: '2px solid hsl(213 72% 25%)',
-                        }}
-                      >
-                        {group} ({skus.length})
-                      </td>
-                    </tr>
-                    {skus.map(sku => {
-                      const rowTotal = cabUnitTypes.reduce((sum, t) => sum + (skuTypeQty[sku]?.[t] || 0), 0);
-                      return (
-                        <tr key={sku}>
-                          <td className="font-mono font-medium">{sku}</td>
-                          {cabUnitTypes.map(type => {
-                            const qty = skuTypeQty[sku]?.[type] || 0;
-                            return (
-                              <td key={type} className="text-center font-mono text-xs">
-                                {qty > 0 ? qty : ''}
-                              </td>
-                            );
-                          })}
-                          <td className="text-center font-mono font-bold">{rowTotal || ''}</td>
-                          <td>
-                            <button
-                              onClick={() => { if (confirm(`Delete SKU "${sku}"?`)) store.deleteCabinetRow(sku); }}
-                              className="text-muted-foreground hover:text-destructive transition-colors"
-                              title={`Delete ${sku}`}
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </React.Fragment>
-                ))}
+                {cabUnitTypes.map(unitType => {
+                  const typeSkus = allSkus.filter(sku => (skuTypeQty[sku]?.[unitType] || 0) > 0);
+                  if (typeSkus.length === 0) return null;
+                  return (
+                    <React.Fragment key={`utype-${unitType}`}>
+                      <tr>
+                        <td
+                          colSpan={3 + cabUnitTypes.length}
+                          className="text-xs font-bold uppercase tracking-wider py-1.5 px-3"
+                          style={{ background: 'hsl(var(--accent))', color: 'hsl(var(--muted-foreground))' }}
+                        >
+                          {unitType} ({typeSkus.length})
+                        </td>
+                      </tr>
+                      {typeSkus.map(sku => {
+                        const rowTotal = cabUnitTypes.reduce((sum, t) => sum + (skuTypeQty[sku]?.[t] || 0), 0);
+                        return (
+                          <tr key={`${unitType}-${sku}`}>
+                            <td className="font-mono font-medium">{sku}</td>
+                            {cabUnitTypes.map(type => {
+                              const qty = skuTypeQty[sku]?.[type] || 0;
+                              return (
+                                <td key={type} className="text-center font-mono text-xs">
+                                  {qty > 0 ? qty : ''}
+                                </td>
+                              );
+                            })}
+                            <td className="text-center font-mono font-bold">{rowTotal || ''}</td>
+                            <td>
+                              <button
+                                onClick={() => { if (confirm(`Delete SKU "${sku}"?`)) store.deleteCabinetRow(sku); }}
+                                className="text-muted-foreground hover:text-destructive transition-colors"
+                                title={`Delete ${sku}`}
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
               <tfoot>
                 <tr className="font-bold border-t border-border">
