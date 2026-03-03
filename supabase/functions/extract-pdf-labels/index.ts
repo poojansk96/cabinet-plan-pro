@@ -96,7 +96,7 @@ Return ONLY valid JSON — no markdown, no explanation:
                 { inlineData: { mimeType: "image/jpeg", data: pageImage } },
                 { text: prompt },
               ]}],
-              generationConfig: { temperature: 0.1, maxOutputTokens: 4096 },
+              generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
             }),
           }
         );
@@ -134,16 +134,39 @@ Return ONLY valid JSON — no markdown, no explanation:
 
     function extractJson(raw: string): any {
       let cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
-      const lastBrace = cleaned.lastIndexOf('}');
-      if (lastBrace !== -1) {
-        let depth = 0, startIdx = -1;
-        for (let i = lastBrace; i >= 0; i--) {
-          if (cleaned[i] === '}') depth++;
-          else if (cleaned[i] === '{') { depth--; if (depth === 0) { startIdx = i; break; } }
-        }
-        if (startIdx !== -1) cleaned = cleaned.substring(startIdx, lastBrace + 1);
+      // Find the FIRST top-level '{' that starts the JSON object
+      const firstBrace = cleaned.indexOf('{');
+      if (firstBrace !== -1) {
+        cleaned = cleaned.substring(firstBrace);
       }
-      return JSON.parse(cleaned);
+      // Try parsing as-is first
+      try { return JSON.parse(cleaned); } catch {}
+      // If truncated, try to recover: close any open arrays/objects
+      // Find "items" array and extract whatever items we got
+      const itemsMatch = cleaned.match(/"items"\s*:\s*\[/);
+      if (itemsMatch) {
+        const arrStart = cleaned.indexOf('[', cleaned.indexOf('"items"'));
+        // Find the last complete item (ending with })
+        const lastCompleteItem = cleaned.lastIndexOf('}');
+        if (arrStart !== -1 && lastCompleteItem > arrStart) {
+          const itemsStr = cleaned.substring(arrStart, lastCompleteItem + 1) + ']';
+          // Extract unitTypeName if present
+          const typeMatch = cleaned.match(/"unitTypeName"\s*:\s*"([^"]*?)"/);
+          const unitTypeName = typeMatch ? typeMatch[1] : null;
+          try {
+            const items = JSON.parse(itemsStr);
+            console.log(`Recovered ${items.length} items from truncated JSON`);
+            return { unitTypeName, items };
+          } catch {}
+        }
+      }
+      // Last resort: try closing braces
+      let attempt = cleaned;
+      for (let i = 0; i < 5; i++) {
+        attempt += ']}';
+        try { return JSON.parse(attempt); } catch {}
+      }
+      throw new Error("Could not parse JSON");
     }
 
     let parsed: { items: any[]; unitTypeName?: string | null } = { items: [] };
@@ -186,7 +209,7 @@ Return the COMPLETE corrected list as JSON — no markdown, no explanation:
                 { inlineData: { mimeType: "image/jpeg", data: pageImage } },
                 { text: verifyPrompt },
               ]}],
-              generationConfig: { temperature: 0.1, maxOutputTokens: 4096 },
+              generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
             }),
           }
         );
