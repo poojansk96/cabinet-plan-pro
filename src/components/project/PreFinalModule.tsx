@@ -50,6 +50,7 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
   const [showCabinetImport, setShowCabinetImport] = useState(false);
   const [importTargetType, setImportTargetType] = useState('');
   const [cabinetImportedCount, setCabinetImportedCount] = useState<number | null>(null);
+  const [cabinetChecks, setCabinetChecks] = useState<Record<string, boolean>>({});
 
   
 
@@ -471,15 +472,19 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
                 <RotateCcw size={11} /> Clear
               </button>
             )}
-            <select
-              className="est-input text-xs h-7 pr-6"
-              value={importTargetType}
-              onChange={e => setImportTargetType(e.target.value)}
-              title="Unit type this drawing belongs to"
-            >
-              <option value="">Select unit type…</option>
-              {store.cabinetUnitTypes.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
+            <div className="flex items-center gap-3 border border-border rounded px-3 py-1.5 bg-background">
+              {['CM8', 'LR8', 'TK8', 'TF3X96-Molding', 'Scribe', 'OCM8'].map(item => (
+                <label key={item} className="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-foreground select-none">
+                  <input
+                    type="checkbox"
+                    checked={cabinetChecks[item] || false}
+                    onChange={e => setCabinetChecks(prev => ({ ...prev, [item]: e.target.checked }))}
+                    className="h-3.5 w-3.5 rounded border-border accent-primary"
+                  />
+                  {item}
+                </label>
+              ))}
+            </div>
             <button
               onClick={() => setShowCabinetImport(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border transition-colors"
