@@ -23,21 +23,21 @@ export default function SummaryPanel({ project, activeTab }: Props) {
   const accuracyScore = Math.round((completedSteps / 3) * 100);
 
   const row = (label: string, value: string | number) => (
-    <div key={label} className="flex justify-between items-center py-1.5 border-b" style={{ borderColor: 'hsl(var(--sidebar-border))' }}>
-      <span className="text-xs" style={{ color: 'hsl(var(--panel-fg))' }}>{label}</span>
-      <span className="text-sm font-bold" style={{ color: 'hsl(var(--panel-accent))' }}>{value}</span>
+    <div key={label} className="flex justify-between items-center py-1.5 border-b" style={{ borderColor: 'hsl(var(--border))' }}>
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-sm font-bold text-primary">{value}</span>
     </div>
   );
 
   return (
     <div className="p-4 h-full">
       {/* Quick Insights */}
-      <div className="rounded-lg p-3 mb-4" style={{ background: 'hsl(var(--primary) / 0.08)' }}>
-        <div className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'hsl(var(--sidebar-primary))' }}>
+      <div className="rounded-lg p-3 mb-4 border" style={{ borderColor: 'hsl(var(--border))', background: 'hsl(var(--accent))' }}>
+        <div className="text-[10px] font-bold uppercase tracking-widest mb-2 text-primary">
           Completion
         </div>
         <div className="flex items-center gap-2 mb-2">
-          <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'hsl(var(--sidebar-border))' }}>
+          <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'hsl(var(--border))' }}>
             <div
               className="h-full rounded-full transition-all duration-500"
               style={{
@@ -46,25 +46,25 @@ export default function SummaryPanel({ project, activeTab }: Props) {
               }}
             />
           </div>
-          <span className="text-xs font-bold" style={{ color: 'hsl(var(--panel-accent))' }}>{accuracyScore}%</span>
+          <span className="text-xs font-bold text-primary">{accuracyScore}%</span>
         </div>
         <div className="space-y-1">
-          <div className="flex items-center gap-1.5 text-[11px]" style={{ color: hasUnits ? 'hsl(142, 71%, 45%)' : 'hsl(var(--panel-fg))' }}>
+          <div className="flex items-center gap-1.5 text-[11px]" style={{ color: hasUnits ? 'hsl(142, 71%, 35%)' : undefined }}>
             <span>{hasUnits ? '✓' : '○'}</span>
-            <span>{hasUnits ? `${summary.totalUnits} units detected` : 'Upload plans to detect units'}</span>
+            <span className={hasUnits ? '' : 'text-muted-foreground'}>{hasUnits ? `${summary.totalUnits} units detected` : 'Upload plans to detect units'}</span>
           </div>
-          <div className="flex items-center gap-1.5 text-[11px]" style={{ color: hasCabinets ? 'hsl(142, 71%, 45%)' : 'hsl(var(--panel-fg))' }}>
+          <div className="flex items-center gap-1.5 text-[11px]" style={{ color: hasCabinets ? 'hsl(142, 71%, 35%)' : undefined }}>
             <span>{hasCabinets ? '✓' : '○'}</span>
-            <span>{hasCabinets ? `${summary.totalCabinets} cabinets` : 'Import cabinet data'}</span>
+            <span className={hasCabinets ? '' : 'text-muted-foreground'}>{hasCabinets ? `${summary.totalCabinets} cabinets` : 'Import cabinet data'}</span>
           </div>
-          <div className="flex items-center gap-1.5 text-[11px]" style={{ color: hasCountertops ? 'hsl(142, 71%, 45%)' : 'hsl(var(--panel-fg))' }}>
+          <div className="flex items-center gap-1.5 text-[11px]" style={{ color: hasCountertops ? 'hsl(142, 71%, 35%)' : undefined }}>
             <span>{hasCountertops ? '✓' : '○'}</span>
-            <span>{hasCountertops ? `${summary.totalCountertopSqft} sqft countertops` : 'Add countertop data'}</span>
+            <span className={hasCountertops ? '' : 'text-muted-foreground'}>{hasCountertops ? `${summary.totalCountertopSqft} sqft countertops` : 'Add countertop data'}</span>
           </div>
         </div>
       </div>
 
-      <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'hsl(var(--sidebar-primary))' }}>
+      <div className="text-xs font-bold uppercase tracking-widest mb-3 text-primary">
         Project Totals
       </div>
 
@@ -79,7 +79,7 @@ export default function SummaryPanel({ project, activeTab }: Props) {
 
       {!isUnitsTab && (
         <>
-          <div className="text-xs font-bold uppercase tracking-widest mt-4 mb-2" style={{ color: 'hsl(var(--sidebar-primary))' }}>
+          <div className="text-xs font-bold uppercase tracking-widest mt-4 mb-2 text-primary">
             Countertops
           </div>
           <div className="rounded-lg p-3 text-center mb-3" style={{ background: 'hsl(var(--primary))' }}>
@@ -91,7 +91,7 @@ export default function SummaryPanel({ project, activeTab }: Props) {
 
       {!hideAccessories && (
         <>
-          <div className="text-xs font-bold uppercase tracking-widest mt-4 mb-2" style={{ color: 'hsl(var(--sidebar-primary))' }}>
+          <div className="text-xs font-bold uppercase tracking-widest mt-4 mb-2 text-primary">
             Accessories
           </div>
           <div className="space-y-0">
@@ -107,7 +107,7 @@ export default function SummaryPanel({ project, activeTab }: Props) {
 
       {Object.keys(summary.unitsByType).length > 0 && (
         <>
-          <div className="text-xs font-bold uppercase tracking-widest mt-4 mb-2" style={{ color: 'hsl(var(--sidebar-primary))' }}>
+          <div className="text-xs font-bold uppercase tracking-widest mt-4 mb-2 text-primary">
             By Unit Type
           </div>
           <div className="space-y-0">

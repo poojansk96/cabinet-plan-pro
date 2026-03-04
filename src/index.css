@@ -6,32 +6,32 @@
 
 @layer base {
   :root {
-    /* Professional estimator blue theme */
+    /* Professional estimator blue theme — high contrast */
     --background: 210 20% 98%;
-    --foreground: 215 25% 12%;
+    --foreground: 215 28% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 215 25% 12%;
+    --card-foreground: 215 28% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 215 25% 12%;
+    --popover-foreground: 215 28% 10%;
 
-    --primary: 213 72% 35%;
+    --primary: 213 80% 42%;
     --primary-foreground: 0 0% 100%;
 
     --primary-light: 213 72% 92%;
-    --primary-dark: 213 72% 25%;
+    --primary-dark: 213 80% 30%;
 
-    --secondary: 215 16% 93%;
-    --secondary-foreground: 215 25% 20%;
+    --secondary: 215 14% 94%;
+    --secondary-foreground: 215 28% 18%;
 
-    --muted: 215 16% 95%;
-    --muted-foreground: 215 14% 48%;
+    --muted: 215 14% 95%;
+    --muted-foreground: 215 16% 40%;
 
-    --accent: 213 60% 90%;
-    --accent-foreground: 213 72% 28%;
+    --accent: 213 50% 92%;
+    --accent-foreground: 213 80% 25%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 72% 48%;
     --destructive-foreground: 0 0% 100%;
 
     --success: 142 70% 35%;
@@ -42,32 +42,32 @@
     --warning-foreground: 38 92% 12%;
     --warning-light: 38 92% 95%;
 
-    --border: 215 20% 88%;
-    --input: 215 20% 88%;
-    --ring: 213 72% 35%;
+    --border: 215 16% 90%;
+    --input: 215 16% 90%;
+    --ring: 213 80% 42%;
 
-    --radius: 0.375rem;
+    --radius: 0.5rem;
 
-    /* Sidebar */
-    --sidebar-background: 215 30% 16%;
-    --sidebar-foreground: 215 20% 85%;
-    --sidebar-primary: 213 72% 55%;
+    /* Sidebar / Summary panel — lighter, consistent with main UI */
+    --sidebar-background: 215 20% 97%;
+    --sidebar-foreground: 215 28% 18%;
+    --sidebar-primary: 213 80% 42%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 30% 22%;
-    --sidebar-accent-foreground: 215 20% 92%;
-    --sidebar-border: 215 30% 22%;
-    --sidebar-ring: 213 72% 55%;
+    --sidebar-accent: 213 50% 94%;
+    --sidebar-accent-foreground: 213 80% 25%;
+    --sidebar-border: 215 16% 88%;
+    --sidebar-ring: 213 80% 42%;
 
     /* Table styles */
-    --table-header: 215 25% 14%;
-    --table-header-fg: 0 0% 100%;
-    --table-row-alt: 215 16% 97%;
-    --table-border: 215 20% 88%;
+    --table-header: 215 20% 96%;
+    --table-header-fg: 215 28% 10%;
+    --table-row-alt: 215 14% 98%;
+    --table-border: 215 16% 90%;
 
-    /* Summary panel */
-    --panel-bg: 215 30% 16%;
-    --panel-fg: 215 20% 88%;
-    --panel-accent: 213 72% 55%;
+    /* Summary panel — light theme */
+    --panel-bg: 215 16% 97%;
+    --panel-fg: 215 28% 18%;
+    --panel-accent: 213 80% 42%;
   }
 }
 
@@ -80,12 +80,20 @@
     @apply bg-background text-foreground;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     font-size: 14px;
-    line-height: 1.5;
+    line-height: 1.6;
   }
 
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    font-weight: 600;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  /* Global focus styles for accessibility */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: var(--radius);
   }
 
   /* Compact input styles for estimator */
@@ -112,7 +120,7 @@
   }
 
   .est-table thead th {
-    @apply px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide;
+    @apply px-3 py-2 text-left text-xs font-bold uppercase tracking-wide;
   }
 
   .est-table tbody tr:nth-child(even) {
@@ -153,12 +161,13 @@
 
   /* Section card */
   .est-card {
-    @apply bg-card rounded-lg border shadow-sm;
+    @apply bg-card rounded-lg border;
     border-color: hsl(var(--border));
+    box-shadow: 0 1px 3px 0 hsl(var(--foreground) / 0.04);
   }
 
   .est-section-header {
-    @apply px-4 py-2.5 border-b flex items-center gap-2 font-semibold text-sm;
+    @apply px-4 py-2.5 border-b flex items-center gap-2 font-bold text-sm;
     background: hsl(var(--secondary));
     border-color: hsl(var(--border));
   }
@@ -182,6 +191,7 @@
   .stat-card {
     @apply bg-card rounded-lg border p-4;
     border-color: hsl(var(--border));
+    box-shadow: 0 1px 3px 0 hsl(var(--foreground) / 0.04);
   }
 
   .stat-card .stat-value {
@@ -190,7 +200,7 @@
   }
 
   .stat-card .stat-label {
-    @apply text-xs font-medium uppercase tracking-wide;
+    @apply text-[11px] font-semibold uppercase tracking-wide;
     color: hsl(var(--muted-foreground));
   }
 
