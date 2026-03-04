@@ -1,71 +1,129 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, Plus, Trash2, Calendar, MapPin, ArrowRight, ChevronDown, ChevronRight } from 'lucide-react';
+import { Building2, Plus, Trash2, MapPin, ArrowRight, ChevronDown, ChevronRight, Search, Upload, AlertCircle, Clock } from 'lucide-react';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { calcProjectSummary } from '@/lib/calculations';
 import type { Project } from '@/types/project';
 
+function getProjectStatus(project: Project): { label: string; color: string; bg: string } {
+  const summary = calcProjectSummary(project);
+  if (summary.totalUnits === 0) return { label: 'Draft', color: 'text-muted-foreground', bg: 'bg-secondary' };
+  if (summary.totalCabinets === 0 && summary.totalCountertopSqft === 0) return { label: 'Needs Cabinets', color: 'text-orange-700', bg: 'bg-orange-100' };
+  if (summary.totalCountertopSqft === 0) return { label: 'Needs Countertops', color: 'text-amber-700', bg: 'bg-amber-100' };
+  return { label: 'Complete', color: 'text-green-700', bg: 'bg-green-100' };
+}
+
+function getProjectProgress(project: Project): number {
+  const summary = calcProjectSummary(project);
+  let score = 0;
+  if (summary.totalUnits > 0) score += 40;
+  if (summary.totalCabinets > 0) score += 30;
+  if (summary.totalCountertopSqft > 0) score += 30;
+  return score;
+}
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return '1 day ago';
+  if (days < 30) return `${days} days ago`;
+  return `${Math.floor(days / 30)}mo ago`;
+}
+
 function ProjectCard({ project, onDelete }: { project: Project; onDelete: (id: string) => void }) {
   const summary = calcProjectSummary(project);
-  const updatedAt = new Date(project.updatedAt).toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric'
-  });
+  const status = getProjectStatus(project);
+  const progress = getProjectProgress(project);
 
   return (
     <div className="est-card hover:shadow-md transition-shadow">
       <div className="p-4">
-        <div className="flex items-start justify-between mb-3">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+        <div className="flex items-start justify-between mb-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
                 project.type === 'Commercial'
                   ? 'bg-purple-100 text-purple-700'
                   : 'bg-blue-100 text-blue-700'
               }`}>
                 {project.type}
               </span>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${status.bg} ${status.color}`}>
+                {status.label}
+              </span>
             </div>
-            <h3 className="font-semibold text-base text-foreground">{project.name}</h3>
+            <h3 className="font-semibold text-sm text-foreground truncate">{project.name}</h3>
             {project.address && (
-              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                <MapPin size={11} />
+              <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
+                <MapPin size={10} />
                 {project.address}
               </p>
             )}
           </div>
           <button
             onClick={(e) => { e.preventDefault(); onDelete(project.id); }}
-            className="text-muted-foreground hover:text-destructive transition-colors p-1"
+            className="text-muted-foreground hover:text-destructive transition-colors p-1 flex-shrink-0"
           >
-            <Trash2 size={14} />
+            <Trash2 size={13} />
           </button>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 mb-3">
-          <div className="text-center py-2 rounded bg-secondary">
-            <div className="text-lg font-bold text-primary">{summary.totalUnits}</div>
-            <div className="text-xs text-muted-foreground">Units</div>
+        {/* Progress bar */}
+        <div className="mb-3">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] text-muted-foreground">Progress</span>
+            <span className="text-[10px] font-medium text-foreground">{progress}%</span>
           </div>
-          <div className="text-center py-2 rounded bg-secondary">
-            <div className="text-lg font-bold text-primary">{summary.totalCabinets}</div>
-            <div className="text-xs text-muted-foreground">Cabinets</div>
-          </div>
-          <div className="text-center py-2 rounded bg-secondary">
-            <div className="text-lg font-bold text-primary">{summary.totalCountertopSqft}</div>
-            <div className="text-xs text-muted-foreground">CT Sqft</div>
+          <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${progress}%`,
+                background: progress === 100 ? 'hsl(142, 71%, 45%)' : 'hsl(var(--primary))'
+              }}
+            />
           </div>
         </div>
 
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground flex items-center gap-1">
-            <Calendar size={11} />
-            {updatedAt}
-          </span>
+        <div className="grid grid-cols-3 gap-1.5 mb-3">
+          <div className="text-center py-1.5 rounded bg-secondary">
+            <div className="text-sm font-bold text-primary">{summary.totalUnits}</div>
+            <div className="text-[10px] text-muted-foreground">Units</div>
+          </div>
+          <div className="text-center py-1.5 rounded bg-secondary">
+            <div className="text-sm font-bold text-primary">{summary.totalCabinets}</div>
+            <div className="text-[10px] text-muted-foreground">Cabinets</div>
+          </div>
+          <div className="text-center py-1.5 rounded bg-secondary">
+            <div className="text-sm font-bold text-primary">{summary.totalCountertopSqft}</div>
+            <div className="text-[10px] text-muted-foreground">CT Sqft</div>
+          </div>
+        </div>
+
+        {/* Microcopy line */}
+        <p className="text-[10px] text-muted-foreground/70 mb-2.5 flex items-center gap-1">
+          <Clock size={10} />
+          Updated {timeAgo(project.updatedAt)}
+          {summary.totalUnits > 0 && <span>— {summary.totalUnits} unit{summary.totalUnits !== 1 ? 's' : ''} detected</span>}
+        </p>
+
+        <div className="flex items-center gap-2">
           <Link
             to={`/project/${project.id}`}
-            className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+            className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 rounded-md text-xs font-medium text-white transition-colors"
+            style={{ background: 'hsl(var(--primary))' }}
           >
-            Open <ArrowRight size={12} />
+            Open <ArrowRight size={11} />
+          </Link>
+          <Link
+            to={`/project/${project.id}`}
+            className="inline-flex items-center justify-center gap-1 py-1.5 px-3 rounded-md text-xs font-medium border border-border text-muted-foreground hover:bg-secondary transition-colors"
+          >
+            <Upload size={11} /> Upload
           </Link>
         </div>
       </div>
@@ -76,12 +134,45 @@ function ProjectCard({ project, onDelete }: { project: Project; onDelete: (id: s
 export default function Dashboard() {
   const { projects, deleteProject } = useProjectStore();
   const [introOpen, setIntroOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   const handleDelete = (id: string) => {
     if (window.confirm('Delete this project? This cannot be undone.')) {
       deleteProject(id);
     }
   };
+
+  // Most recently updated project
+  const lastProject = useMemo(() => {
+    if (projects.length === 0) return null;
+    return [...projects].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0];
+  }, [projects]);
+
+  // Projects needing attention
+  const needsAttention = useMemo(() => {
+    return projects.filter(p => {
+      const status = getProjectStatus(p);
+      return status.label !== 'Complete';
+    });
+  }, [projects]);
+
+  // Filtered projects
+  const filteredProjects = useMemo(() => {
+    let filtered = projects;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter(p =>
+        p.name.toLowerCase().includes(q) ||
+        p.address?.toLowerCase().includes(q) ||
+        p.type.toLowerCase().includes(q)
+      );
+    }
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(p => getProjectStatus(p).label === statusFilter);
+    }
+    return filtered;
+  }, [projects, searchQuery, statusFilter]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -301,16 +392,91 @@ export default function Dashboard() {
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-foreground">
-                Projects <span className="text-muted-foreground font-normal">({projects.length})</span>
-              </h2>
+            {/* Welcome line + resume action */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+              <div>
+                <h2 className="font-semibold text-foreground text-lg">Your Projects</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {projects.length} project{projects.length !== 1 ? 's' : ''}
+                  {lastProject && <> · Last worked on <strong className="text-foreground">{lastProject.name}</strong></>}
+                </p>
+              </div>
+              {lastProject && (
+                <Link
+                  to={`/project/${lastProject.id}`}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-xs font-medium text-white transition-colors shadow-sm"
+                  style={{ background: 'hsl(var(--primary))' }}
+                >
+                  <ArrowRight size={13} />
+                  Resume "{lastProject.name}"
+                </Link>
+              )}
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {projects.map(p => (
-                <ProjectCard key={p.id} project={p} onDelete={handleDelete} />
-              ))}
+
+            {/* Needs Attention Panel */}
+            {needsAttention.length > 0 && (
+              <div className="est-card p-3.5 mb-5 border-l-4" style={{ borderLeftColor: 'hsl(35, 92%, 50%)' }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertCircle size={14} className="text-amber-600" />
+                  <span className="text-xs font-semibold text-foreground">Projects needing attention ({needsAttention.length})</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {needsAttention.slice(0, 5).map(p => {
+                    const st = getProjectStatus(p);
+                    return (
+                      <Link key={p.id} to={`/project/${p.id}`}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium border border-border hover:bg-secondary transition-colors"
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${st.label === 'Draft' ? 'bg-muted-foreground' : 'bg-amber-500'}`} />
+                        {p.name}
+                        <span className="text-muted-foreground">· {st.label}</span>
+                      </Link>
+                    );
+                  })}
+                  {needsAttention.length > 5 && (
+                    <span className="text-[11px] text-muted-foreground self-center">+{needsAttention.length - 5} more</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Search + Filters */}
+            <div className="flex flex-col sm:flex-row gap-3 mb-4">
+              <div className="relative flex-1">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Search projects by name, address, or type…"
+                  className="w-full h-9 pl-9 pr-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                />
+              </div>
+              <select
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+                className="h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+              >
+                <option value="all">All Status</option>
+                <option value="Draft">Draft</option>
+                <option value="Needs Cabinets">Needs Cabinets</option>
+                <option value="Needs Countertops">Needs Countertops</option>
+                <option value="Complete">Complete</option>
+              </select>
             </div>
+
+            {/* Project Cards Grid */}
+            {filteredProjects.length === 0 ? (
+              <div className="text-center py-10 text-sm text-muted-foreground">
+                No projects match your search.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredProjects.map(p => (
+                  <ProjectCard key={p.id} project={p} onDelete={handleDelete} />
+                ))}
+              </div>
+            )}
           </>
         )}
       </main>
