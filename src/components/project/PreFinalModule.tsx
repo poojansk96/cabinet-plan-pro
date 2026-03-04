@@ -14,6 +14,7 @@ interface Props {
   updateCabinet: (projectId: string, unitId: string, cabinetId: string, data: Partial<Cabinet>) => void;
   deleteCabinet: (projectId: string, unitId: string, cabinetId: string) => void;
   section?: 'units' | 'cabinets' | 'mismatch';
+  showMismatchToggle?: boolean;
   [key: string]: unknown;
 }
 
@@ -33,7 +34,9 @@ function normalizeUnitType(raw: string): string {
   return s;
 }
 
-export default function PreFinalModule({ project, section = 'units' }: Props) {
+export default function PreFinalModule({ project, section: sectionProp = 'units', showMismatchToggle }: Props) {
+  const [viewMode, setViewMode] = useState<'count' | 'mismatch'>('count');
+  const section = showMismatchToggle && viewMode === 'mismatch' ? 'mismatch' : sectionProp;
   const store = usePrefinalStore(section === 'mismatch' ? `${project.id}_mismatch` : project.id);
 
   // ── Unit Count state ──────────────────────────────────────────────────────
@@ -192,10 +195,30 @@ export default function PreFinalModule({ project, section = 'units' }: Props) {
           </div>
         )}
 
+        {/* Subtab toggle for Unit Count vs Mismatch */}
+        {showMismatchToggle && (
+          <div className="flex items-center gap-1 mb-1">
+            <button
+              onClick={() => setViewMode('count')}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${viewMode === 'count' ? 'text-white' : 'text-muted-foreground border border-border hover:bg-secondary'}`}
+              style={viewMode === 'count' ? { background: 'hsl(var(--primary))' } : {}}
+            >
+              Unit Count
+            </button>
+            <button
+              onClick={() => setViewMode('mismatch')}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${viewMode === 'mismatch' ? 'text-white' : 'text-muted-foreground border border-border hover:bg-secondary'}`}
+              style={viewMode === 'mismatch' ? { background: 'hsl(var(--primary))' } : {}}
+            >
+              Unit Mismatch
+            </button>
+          </div>
+        )}
+
         <div className="est-card overflow-hidden">
           <div className="est-section-header flex items-center gap-2 flex-wrap">
             <Users size={13} className="flex-shrink-0" />
-            Pre-Final Unit Count
+            Pre-Final {section === 'mismatch' ? 'Unit Mismatch' : 'Unit Count'}
 
             <div className="ml-auto flex items-center gap-2 flex-wrap">
               {(store.unitTypes.length > 0 || store.unitNumbers.length > 0) && (

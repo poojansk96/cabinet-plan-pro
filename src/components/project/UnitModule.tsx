@@ -292,18 +292,34 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
       )}
 
       {project.units.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          <Users size={36} className="mx-auto mb-3 opacity-20" />
-          <p className="text-sm font-medium mb-1">No units added yet</p>
-          <p className="text-xs mb-4">Upload your architectural PDF to auto-detect units, or add manually.</p>
-          <button
-            onClick={() => setShowPDFImport(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium border"
-            style={{ borderColor: 'hsl(var(--primary))', color: 'hsl(var(--primary))' }}
-          >
-            <FileUp size={14} />
-            Import from PDF Plan
-          </button>
+        <div className="text-center py-16">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 text-3xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>📄</div>
+          <h3 className="text-lg font-bold text-foreground mb-1.5">No units yet — upload a plan to begin</h3>
+          <p className="text-sm text-muted-foreground mb-5 max-w-sm mx-auto">
+            Upload your architectural PDF and we'll auto-detect every unit, type, floor, and building.
+          </p>
+          <div className="flex items-center justify-center gap-3 mb-5">
+            <button
+              onClick={() => setShowPDFImport(true)}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all"
+              style={{ background: 'hsl(var(--primary))' }}
+            >
+              <FileUp size={15} />
+              Import PDF — Auto-detect
+            </button>
+            <button
+              onClick={() => setShowForm(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border border-border text-muted-foreground hover:bg-secondary transition-colors"
+            >
+              <Plus size={15} />
+              Add Unit Manually
+            </button>
+          </div>
+          <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground/70">
+            <span className="flex items-center gap-1">✓ Auto-detect units</span>
+            <span className="flex items-center gap-1">✓ Extract cabinets & SKUs</span>
+            <span className="flex items-center gap-1">✓ Get countertop sqft</span>
+          </div>
         </div>
       ) : (
         <>
