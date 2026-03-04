@@ -141,13 +141,10 @@ export default function ProjectDetail() {
           onClose={() => setShowEdit(false)}
         />
       )}
-      {/* Header */}
-      <header className="border-b bg-card shadow-sm sticky top-0 z-20">
-        <div className="px-4 py-2 flex items-center gap-3">
-          <div className="w-7 h-7 rounded flex items-center justify-center flex-shrink-0" style={{ background: 'hsl(var(--primary))' }}>
-            <Building2 size={15} className="text-white" />
-          </div>
-          <Link to="/" className="text-muted-foreground hover:text-foreground">
+      {/* Header — slim */}
+      <header className="border-b bg-card sticky top-0 z-20" style={{ boxShadow: '0 1px 3px 0 hsl(var(--foreground) / 0.04)' }}>
+        <div className="px-4 py-1.5 flex items-center gap-3">
+          <Link to="/" className="text-muted-foreground hover:text-foreground" aria-label="Back to dashboard">
             <ArrowLeft size={16} />
           </Link>
           <div className="flex-1 min-w-0">
@@ -164,43 +161,48 @@ export default function ProjectDetail() {
           </div>
           <button
             onClick={() => setShowEdit(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-border text-muted-foreground hover:text-foreground hover:border-primary transition-colors flex-shrink-0"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-border text-muted-foreground hover:text-foreground hover:border-primary transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-ring"
             title="Edit project details"
+            aria-label="Edit project details"
           >
             <Pencil size={12} />
-            Edit Details
+            Edit
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="px-4 flex items-end border-t gap-0" style={{ borderColor: 'hsl(var(--border))' }}>
+        <div className="px-4 flex items-end gap-0 overflow-x-auto">
           <div className="flex flex-col">
-            <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground px-1 pt-1">Takeoff Section</span>
+            <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground px-1 pt-1">Takeoff</span>
             <div className="flex">
               {TAKEOFF_TABS.map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
                   className={`module-tab flex items-center gap-1.5 mr-1 ${activeTab === tab.key ? 'active' : ''}`}
+                  aria-selected={activeTab === tab.key}
+                  role="tab"
                 >
                   {tab.icon}
-                  {tab.label}
+                  <span className="hidden sm:inline">{tab.label}</span>
                 </button>
               ))}
             </div>
           </div>
-          <div className="w-px my-1 mx-6 bg-border flex-shrink-0 self-stretch" />
+          <div className="w-px my-1 mx-4 bg-border flex-shrink-0 self-stretch" />
           <div className="flex flex-col">
-            <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground px-1 pt-1">Prefinal Section</span>
+            <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground px-1 pt-1">Prefinal</span>
             <div className="flex">
               {PREFINAL_TABS.map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
                   className={`module-tab flex items-center gap-1.5 mr-1 ${activeTab === tab.key ? 'active' : ''}`}
+                  aria-selected={activeTab === tab.key}
+                  role="tab"
                 >
                   {tab.icon}
-                  {tab.label}
+                  <span className="hidden sm:inline">{tab.label}</span>
                 </button>
               ))}
             </div>
@@ -223,9 +225,9 @@ export default function ProjectDetail() {
           </div>
         </main>
 
-        {/* Sticky Summary Panel — hidden on Pre-Final tabs */}
+        {/* Summary Panel — light, consistent */}
         {!activeTab.startsWith('prefinal') && (
-          <aside className="w-56 flex-shrink-0 hidden lg:block summary-panel overflow-auto">
+          <aside className="w-56 flex-shrink-0 hidden lg:block overflow-auto border-l" style={{ borderColor: 'hsl(var(--border))', background: 'hsl(var(--panel-bg))' }}>
             <SummaryPanel project={project} activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab as Tab)} />
           </aside>
         )}

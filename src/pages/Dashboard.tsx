@@ -66,7 +66,8 @@ function ProjectCard({ project, onDelete }: { project: Project; onDelete: (id: s
           </div>
           <button
             onClick={(e) => { e.preventDefault(); onDelete(project.id); }}
-            className="text-muted-foreground hover:text-destructive transition-colors p-1 flex-shrink-0"
+            className="text-muted-foreground hover:text-destructive transition-colors p-1 flex-shrink-0 focus-visible:ring-2 focus-visible:ring-ring rounded"
+            aria-label={`Delete project ${project.name}`}
           >
             <Trash2 size={13} />
           </button>
@@ -114,14 +115,14 @@ function ProjectCard({ project, onDelete }: { project: Project; onDelete: (id: s
         <div className="flex items-center gap-2">
           <Link
             to={`/project/${project.id}`}
-            className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 rounded-md text-xs font-medium text-white transition-colors"
-            style={{ background: 'hsl(var(--primary))' }}
+            className="flex-1 inline-flex items-center justify-center gap-1 py-2 rounded-md text-xs font-semibold text-primary-foreground bg-primary hover:bg-primary/90 transition-colors focus-visible:ring-2 focus-visible:ring-ring"
           >
             Open <ArrowRight size={11} />
           </Link>
           <Link
             to={`/project/${project.id}`}
-            className="inline-flex items-center justify-center gap-1 py-1.5 px-3 rounded-md text-xs font-medium border border-border text-muted-foreground hover:bg-secondary transition-colors"
+            className="inline-flex items-center justify-center gap-1 py-2 px-3 rounded-md text-xs font-medium border border-border text-foreground hover:bg-secondary transition-colors focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={`Upload plans to ${project.name}`}
           >
             <Upload size={11} /> Upload
           </Link>
@@ -177,21 +178,21 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Top Bar */}
-      <header className="border-b bg-card shadow-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <header className="border-b bg-card sticky top-0 z-10" style={{ boxShadow: '0 1px 3px 0 hsl(var(--foreground) / 0.04)' }}>
+        <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'hsl(var(--primary))' }}>
-              <Building2 size={18} className="text-white" />
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'hsl(var(--primary))' }}>
+              <Building2 size={15} className="text-white" />
             </div>
             <div>
-              <h1 className="font-bold text-base leading-none text-foreground">cabinetcounters.com</h1>
-              <p className="text-xs text-muted-foreground">Kitchen & Countertop Estimating</p>
+              <h1 className="font-bold text-sm leading-none text-foreground">cabinetcounters.com</h1>
+              <p className="text-[11px] text-muted-foreground">Kitchen & Countertop Estimating</p>
             </div>
           </div>
           <Link
             to="/new"
-            className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium text-white transition-colors"
-            style={{ background: 'hsl(var(--primary))' }}
+            className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold text-primary-foreground bg-primary hover:bg-primary/90 transition-colors focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="Create new project"
           >
             <Plus size={16} />
             New Project
