@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Building2, ArrowLeft, Users, Layers, Wrench, Square, BarChart3, Pencil, ClipboardCheck } from 'lucide-react';
+import { Building2, ArrowLeft, Users, Layers, Wrench, Square, BarChart3, Pencil, ClipboardCheck, FileUp, X } from 'lucide-react';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import UnitModule from '@/components/project/UnitModule';
 import CabinetModule from '@/components/project/CabinetModule';
@@ -23,8 +23,7 @@ const TAKEOFF_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
 ];
 
 const PREFINAL_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
-  { key: 'prefinal-units', label: 'Unit Count', icon: <ClipboardCheck size={14} /> },
-  { key: 'prefinal-mismatch', label: 'Unit - Mismatch', icon: <ClipboardCheck size={14} /> },
+  { key: 'prefinal-units', label: 'Units', icon: <ClipboardCheck size={14} /> },
   { key: 'prefinal-cabinets', label: 'Cabinet Count', icon: <ClipboardCheck size={14} /> },
   { key: 'prefinal-summary', label: 'Summary', icon: <BarChart3 size={14} /> },
 ];
@@ -36,6 +35,18 @@ export default function ProjectDetail() {
   const [activeTab, setActiveTab] = useState<Tab>('units');
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [showEdit, setShowEdit] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [showTour, setShowTour] = useState(false);
+
+  // First-run tour: show once per project
+  useEffect(() => {
+    if (!id) return;
+    const key = `tour-shown-${id}`;
+    if (!localStorage.getItem(key)) {
+      setShowTour(true);
+      localStorage.setItem(key, '1');
+    }
+  }, [id]);
 
   const project = id ? getProject(id) : undefined;
 
@@ -63,7 +74,66 @@ export default function ProjectDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div
+      className="min-h-screen bg-background flex flex-col relative"
+      onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+      onDragLeave={e => { if (e.currentTarget === e.target || !e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false); }}
+      onDrop={e => { e.preventDefault(); setIsDragging(false); }}
+    >
+      {/* Drag overlay */}
+      {isDragging && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'hsl(var(--primary) / 0.12)', backdropFilter: 'blur(4px)' }}>
+          <div className="text-center p-8 rounded-2xl border-2 border-dashed" style={{ borderColor: 'hsl(var(--primary))' }}>
+            <FileUp size={48} className="mx-auto mb-3 text-primary animate-bounce" />
+            <h3 className="text-lg font-bold text-foreground mb-1">Drop your PDF here</h3>
+            <p className="text-sm text-muted-foreground">We'll auto-detect units, cabinets, and countertops</p>
+          </div>
+        </div>
+      )}
+
+      {/* First-run tour overlay */}
+      {showTour && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
+          <div className="bg-card rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 relative">
+            <button onClick={() => setShowTour(false)} className="absolute top-3 right-3 text-muted-foreground hover:text-foreground">
+              <X size={18} />
+            </button>
+            <h3 className="text-lg font-bold text-foreground mb-1">Welcome to your project! 🎉</h3>
+            <p className="text-sm text-muted-foreground mb-5">Here's how to get your takeoff done in 3 easy steps:</p>
+            <div className="space-y-4 mb-6">
+              <div className="flex items-start gap-3">
+                <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: 'hsl(var(--primary))' }}>1</span>
+                <div>
+                  <strong className="text-sm text-foreground">Upload your PDF plans</strong>
+                  <p className="text-xs text-muted-foreground">Click "Import from PDF" in the Units tab or drag a PDF onto this page.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: 'hsl(var(--primary))' }}>2</span>
+                <div>
+                  <strong className="text-sm text-foreground">Review detected units & cabinets</strong>
+                  <p className="text-xs text-muted-foreground">AI extracts units, cabinet SKUs, and countertop dimensions automatically.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: 'hsl(var(--primary))' }}>3</span>
+                <div>
+                  <strong className="text-sm text-foreground">Export your takeoff</strong>
+                  <p className="text-xs text-muted-foreground">Review the Summary tab and export to PDF or Excel.</p>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowTour(false)}
+              className="w-full py-2.5 rounded-lg text-sm font-semibold text-white transition-colors"
+              style={{ background: 'hsl(var(--primary))' }}
+            >
+              Got it — Let's start!
+            </button>
+          </div>
+        </div>
+      )}
+
       {showEdit && (
         <EditProjectDialog
           project={project}
@@ -147,8 +217,7 @@ export default function ProjectDetail() {
             {activeTab === 'accessories' && <AccessoriesModule {...storeProps} />}
             {activeTab === 'countertops' && <CountertopModule {...storeProps} />}
             {activeTab === 'summary' && <SummaryModule {...storeProps} />}
-            {activeTab === 'prefinal-units' && <PreFinalModule key="prefinal-units" {...storeProps} section="units" />}
-            {activeTab === 'prefinal-mismatch' && <PreFinalModule key="prefinal-mismatch" {...storeProps} section="mismatch" />}
+            {activeTab === 'prefinal-units' && <PreFinalModule key="prefinal-units" {...storeProps} section="units" showMismatchToggle />}
             {activeTab === 'prefinal-cabinets' && <PreFinalModule key="prefinal-cabinets" {...storeProps} section="cabinets" />}
             {activeTab === 'prefinal-summary' && <PreFinalSummaryModule {...storeProps} />}
           </div>
