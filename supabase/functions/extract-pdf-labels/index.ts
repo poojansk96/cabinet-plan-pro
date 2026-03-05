@@ -71,6 +71,14 @@ COUNTING — CRITICAL:
 - Corner cabinets (LS, LSB) sit at the corner where two walls meet — count only ONCE even if the label appears at the junction of two wall runs.
 - Look for "xN" or "(2)" multiplier notation.
 
+STACKED / ADJACENT LABELS — CRITICAL:
+- On plan views, TWO or MORE SKU labels may appear STACKED VERTICALLY or placed very close together near the SAME cabinet location. These are SEPARATE cabinets, NOT one combined SKU.
+- Example: "W1230" on one line and "VDC2430" on the next line → these are TWO different cabinets: W1230 (qty 1) AND VDC2430 (qty 1).
+- Example: "B12FH" near "LS36-R" → TWO different cabinets, not one.
+- Example: "HAUC15X82", "HCOC3082", "HCDBC15" stacked → THREE separate cabinets, each qty 1.
+- NEVER concatenate or merge adjacent labels into a single SKU. Each distinct text string that matches a valid SKU pattern is its OWN cabinet entry.
+- If you see a cabinet outline with multiple labels near it, each label is a separate cabinet item.
+
 RULES:
 - Valid SKU: starts with a LETTER, contains at least one NUMBER (e.g. B24, BF3, DB15, W3036)
 - SKIP appliances: REF REFRIG DW DISHWASHER RANGE HOOD MICRO OTR OVEN
@@ -194,6 +202,7 @@ IMPORTANT:
 - SKIP appliances (REF, DW, RANGE, HOOD, MICRO, OTR, OVEN, etc.)
 - Read labels EXACTLY as printed.
 - Corner cabinets (LS, LSB): count only ONCE even if at junction of two walls.
+- STACKED LABELS: If multiple SKU labels appear stacked vertically or adjacent near one cabinet location (e.g. "W1230" above "VDC2430", or "HAUC15X82" / "HCOC3082" / "HCDBC15"), each is a SEPARATE cabinet entry. NEVER merge them into one SKU.
 
 Return the COMPLETE corrected list as JSON — no markdown, no explanation:
 {"items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1}]}`;
