@@ -482,7 +482,7 @@ export default function Dashboard() {
         )}
       </main>
       <footer className="text-center py-3 border-t">
-        <span style={{ fontSize: '10px' }} className="text-muted-foreground">© {new Date().getFullYear()} PK. All rights reserved.</span>
+        <span style={{ fontSize: '10px' }} className="text-muted-foreground">© {new Date().getFullYear()} Poojan K. All rights reserved.</span>
       </footer>
     </div>
   );
