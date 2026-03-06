@@ -261,7 +261,7 @@ export default function Dashboard() {
             {/* Trust Row */}
             <div className="grid grid-cols-3 gap-4 mb-6">
               <div className="est-card p-4 text-center">
-                <div className="text-2xl font-bold text-primary">500+</div>
+                <div className="text-2xl font-bold text-primary">50+</div>
                 <div className="text-[11px] text-muted-foreground mt-0.5">Projects Processed</div>
               </div>
               <div className="est-card p-4 text-center">
