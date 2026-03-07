@@ -250,11 +250,11 @@ export default function Dashboard() {
                   Upload a Plan — Get a Free Takeoff
                 </Link>
                 <a
-                  href="#demo"
-                  className="inline-flex items-center gap-2 px-5 py-3 rounded-lg text-sm font-medium border border-border text-foreground hover:bg-secondary transition-colors"
-                >
-                  ▶ See a 60-sec Demo
-                </a>
+                   href="#demo"
+                   className="inline-flex items-center gap-2 px-5 py-3 rounded-lg text-sm font-medium border border-border text-foreground hover:bg-secondary transition-colors"
+                 >
+                   ▶ See a 60-sec Demo <span className="text-[11px] text-muted-foreground">(write coming soon)</span>
+                 </a>
               </div>
             </div>
 
