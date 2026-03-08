@@ -196,6 +196,12 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
             const floor = String(u.floor ?? '').trim();
             if (!num || !type) continue;
 
+            // Track first page each unit type appears on (for PDF-order column sorting)
+            const typeKey = type.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').trim();
+            if (!typeFirstPage.has(typeKey)) {
+              typeFirstPage.set(typeKey, pagesProcessed);
+            }
+
             // Deduplicate by unitNumber+bldg+unitType (NOT floor) to prevent floor-variant duplicates
             const sightingKey = `${keyPart(num)}|${keyPart(bldg)}|${keyPart(type)}`;
             const nextSighting: PageSighting = { unitNumber: num, unitType: type, bldg, floor, page: p, file: file.name };
