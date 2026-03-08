@@ -15,19 +15,31 @@ export interface PrefinalCabinetRow {
   unitType: string;
 }
 
+export interface PrefinalStoneRow {
+  label: string;
+  length: number;       // inches
+  depth: number;        // inches
+  splashHeight: number | null;
+  isIsland: boolean;
+  room: string;
+  unitType: string;
+}
+
 interface PrefinalData {
   unitTypes: string[];
   unitNumbers: PrefinalUnitNumber[];
   cabinetRows: PrefinalCabinetRow[];
   cabinetUnitTypes: string[];
-  handleQtyPerSku: Record<string, number>;   // SKU → pulls per cabinet (manual)
-  bidCostPerType: Record<string, number>;     // unitType → bid cost (manual)
+  handleQtyPerSku: Record<string, number>;
+  bidCostPerType: Record<string, number>;
+  stoneRows: PrefinalStoneRow[];
+  stoneUnitTypes: string[];
 }
 
 function loadData(projectId: string): PrefinalData {
   try {
     const raw = localStorage.getItem(`prefinal_${projectId}`);
-    if (!raw) return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {} };
+    if (!raw) return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, stoneRows: [], stoneUnitTypes: [] };
     const parsed = JSON.parse(raw);
     // Migration: old format had unitRows
     if (parsed.unitRows && !parsed.unitTypes) {
@@ -38,6 +50,8 @@ function loadData(projectId: string): PrefinalData {
         cabinetUnitTypes: parsed.cabinetUnitTypes || [],
         handleQtyPerSku: parsed.handleQtyPerSku || {},
         bidCostPerType: parsed.bidCostPerType || {},
+        stoneRows: parsed.stoneRows || [],
+        stoneUnitTypes: parsed.stoneUnitTypes || [],
       };
     }
     // Normalize + deduplicate cabinetUnitTypes
@@ -59,9 +73,9 @@ function loadData(projectId: string): PrefinalData {
       unitType: r.unitType ? r.unitType.trim().toUpperCase().replace(/\s*-\s*/g, '-') : r.unitType,
     }));
     const unitNumbers = (parsed.unitNumbers || []).map((u: any) => ({ ...u, floor: u.floor || '' }));
-    return { unitTypes: parsed.unitTypes || [], unitNumbers, cabinetRows, cabinetUnitTypes: dedupedCabTypes, handleQtyPerSku: parsed.handleQtyPerSku || {}, bidCostPerType: parsed.bidCostPerType || {} };
+    return { unitTypes: parsed.unitTypes || [], unitNumbers, cabinetRows, cabinetUnitTypes: dedupedCabTypes, handleQtyPerSku: parsed.handleQtyPerSku || {}, bidCostPerType: parsed.bidCostPerType || {}, stoneRows: parsed.stoneRows || [], stoneUnitTypes: parsed.stoneUnitTypes || [] };
   } catch {
-    return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {} };
+    return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, stoneRows: [], stoneUnitTypes: [] };
   }
 }
 
@@ -312,8 +326,65 @@ export function usePrefinalStore(projectId: string) {
     });
   }, [projectId]);
 
+  // ── Stone (Countertop) imports ──────────────────────────────────────────
+  const addStoneUnitTypes = useCallback((types: string[]) => {
+    setData(prev => {
+      const normalizeKey = (t: string) => t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '').trim();
+      const existingKeys = new Set(prev.stoneUnitTypes.map(t => normalizeKey(t)));
+      const newTypes = types.filter(t => {
+        const key = normalizeKey(t);
+        if (!key || existingKeys.has(key)) return false;
+        existingKeys.add(key);
+        return true;
+      });
+      if (!newTypes.length) return prev;
+      const stoneUnitTypes = [...prev.stoneUnitTypes, ...newTypes];
+      const next = { ...prev, stoneUnitTypes };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
+  const deleteStoneUnitType = useCallback((type: string) => {
+    setData(prev => {
+      const stoneUnitTypes = prev.stoneUnitTypes.filter(t => t !== type);
+      const stoneRows = prev.stoneRows.filter(r => r.unitType !== type);
+      const next = { ...prev, stoneUnitTypes, stoneRows };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
+  const addStoneImport = useCallback((rows: PrefinalStoneRow[], unitType: string) => {
+    setData(prev => {
+      // Replace all rows for this unitType
+      const existingOther = prev.stoneRows.filter(r => r.unitType !== unitType);
+      const stoneRows = [...existingOther, ...rows.map(r => ({ ...r, unitType }))];
+      const next = { ...prev, stoneRows };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
+  const deleteStoneRow = useCallback((unitType: string, index: number) => {
+    setData(prev => {
+      let typeIdx = 0;
+      const stoneRows = prev.stoneRows.filter(r => {
+        if (r.unitType !== unitType) return true;
+        return typeIdx++ !== index;
+      });
+      const next = { ...prev, stoneRows };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
+  const clearStone = useCallback(() => {
+    commit({ ...data, stoneRows: [], stoneUnitTypes: [] });
+  }, [commit, data]);
+
   const clearAll = useCallback(() => {
-    commit({ unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {} });
+    commit({ unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, stoneRows: [], stoneUnitTypes: [] });
   }, [commit]);
 
   return {
@@ -323,6 +394,8 @@ export function usePrefinalStore(projectId: string) {
     cabinetUnitTypes: data.cabinetUnitTypes,
     handleQtyPerSku: data.handleQtyPerSku,
     bidCostPerType: data.bidCostPerType,
+    stoneRows: data.stoneRows,
+    stoneUnitTypes: data.stoneUnitTypes,
     addUnitTypes,
     deleteUnitType,
     renameUnitType,
@@ -341,6 +414,11 @@ export function usePrefinalStore(projectId: string) {
     clearUnits,
     setHandleQty,
     setBidCost,
+    addStoneUnitTypes,
+    deleteStoneUnitType,
+    addStoneImport,
+    deleteStoneRow,
+    clearStone,
     clearAll,
   };
 }

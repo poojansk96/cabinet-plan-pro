@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { FileUp, Users, LayoutGrid, Plus, Trash2, RotateCcw, Pencil } from 'lucide-react';
+import { FileUp, Users, LayoutGrid, Plus, Trash2, RotateCcw, Pencil, Square } from 'lucide-react';
 import type { Project, Unit, Cabinet } from '@/types/project';
 import { type LabelRow } from './ShopDrawingImportDialog';
 import ShopDrawingImportDialog from './ShopDrawingImportDialog';
 import UnitTypeImportDialog from './UnitTypeImportDialog';
-import { usePrefinalStore } from '@/hooks/usePrefinalStore';
+import StonePDFImportDialog, { type StoneExtractedRow } from './StonePDFImportDialog';
+import { usePrefinalStore, type PrefinalStoneRow } from '@/hooks/usePrefinalStore';
 
 interface Props {
   project: Project;
@@ -30,7 +31,7 @@ function normalizeUnitType(raw: string): string {
 }
 
 export default function PreFinalModule({ project }: Props) {
-  const [activeSubTab, setActiveSubTab] = useState<'units' | 'cabinets'>('units');
+  const [activeSubTab, setActiveSubTab] = useState<'units' | 'cabinets' | 'stone'>('units');
   const store = usePrefinalStore(project.id);
 
   // ── Unit Count state ──────────────────────────────────────────────────────
@@ -48,6 +49,10 @@ export default function PreFinalModule({ project }: Props) {
   const [importTargetType, setImportTargetType] = useState('');
   const [cabinetImportedCount, setCabinetImportedCount] = useState<number | null>(null);
   const [cabinetChecks, setCabinetChecks] = useState<Record<string, boolean>>({});
+
+  // ── Stone SQFT state ──────────────────────────────────────────────────
+  const [showStoneImport, setShowStoneImport] = useState(false);
+  const [stoneImportedCount, setStoneImportedCount] = useState<number | null>(null);
 
   // ── Unit import handler ───────────────────────────────────────────────────
   const handleUnitImport = (rows: { unitNumber: string; unitType: string; bldg: string }[]) => {
@@ -84,8 +89,42 @@ export default function PreFinalModule({ project }: Props) {
     if (firstType && firstType !== 'Unassigned') setImportTargetType(firstType);
     setTimeout(() => setCabinetImportedCount(null), 4000);
   };
+  // ── Stone import handler ────────────────────────────────────────────────
+  const handleStoneImport = (rows: StoneExtractedRow[], detectedUnitType?: string) => {
+    const targetType = detectedUnitType ? normalizeUnitType(detectedUnitType) : 'Unassigned';
+    store.addStoneUnitTypes([targetType]);
+    const stoneRows: PrefinalStoneRow[] = rows.filter(r => r.selected !== false).map(r => ({
+      label: r.label,
+      length: r.length,
+      depth: r.depth,
+      splashHeight: r.splashHeight,
+      isIsland: r.isIsland,
+      room: r.room,
+      unitType: targetType,
+    }));
+    store.addStoneImport(stoneRows, targetType);
+    setStoneImportedCount(stoneRows.length);
+    setShowStoneImport(false);
+    setTimeout(() => setStoneImportedCount(null), 4000);
+  };
 
-  // ── Cabinet pivot ──────────────────────────────────────────────────────────
+  // ── Stone pivot ─────────────────────────────────────────────────────────
+  const stoneUnitTypes = (() => {
+    const seen = new Set<string>();
+    return store.stoneUnitTypes.filter(t => {
+      const key = t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '').trim();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  })();
+
+  const calcStoneSqft = (row: PrefinalStoneRow): number => {
+    const effectiveDepth = row.depth + (row.splashHeight ?? 0);
+    return Math.ceil((row.length * effectiveDepth) / 144);
+  };
+
+
   const cabUnitTypes = (() => {
     const seen = new Set<string>();
     return store.cabinetUnitTypes.filter(t => {
@@ -176,6 +215,14 @@ export default function PreFinalModule({ project }: Props) {
         />
       )}
 
+      {/* Stone Import Dialog */}
+      {showStoneImport && (
+        <StonePDFImportDialog
+          onImport={(rows, detectedUnitType) => handleStoneImport(rows, detectedUnitType)}
+          onClose={() => setShowStoneImport(false)}
+        />
+      )}
+
       {/* Sub-tab toggle */}
       <div className="flex items-center gap-1">
         <button
@@ -191,6 +238,13 @@ export default function PreFinalModule({ project }: Props) {
           style={activeSubTab === 'cabinets' ? { background: 'hsl(var(--primary))' } : {}}
         >
           <LayoutGrid size={13} /> Cabinet Count
+        </button>
+        <button
+          onClick={() => setActiveSubTab('stone')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-xs font-medium transition-colors ${activeSubTab === 'stone' ? 'text-white' : 'text-muted-foreground border border-border hover:bg-secondary'}`}
+          style={activeSubTab === 'stone' ? { background: 'hsl(var(--primary))' } : {}}
+        >
+          <Square size={13} /> Stone - SQFT
         </button>
       </div>
 
@@ -661,6 +715,147 @@ export default function PreFinalModule({ project }: Props) {
                       />
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* STONE - SQFT SUB-TAB                                               */}
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {activeSubTab === 'stone' && (
+        <>
+          {stoneImportedCount !== null && (
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-white" style={{ background: 'hsl(142 71% 45%)' }}>
+              ✓ Successfully imported {stoneImportedCount} countertop section{stoneImportedCount !== 1 ? 's' : ''}
+            </div>
+          )}
+
+          <div className="est-card overflow-hidden">
+            <div className="est-section-header flex items-center gap-2 flex-wrap">
+              <Square size={13} className="flex-shrink-0" />
+              Stone - SQFT
+
+              <div className="ml-auto flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => setShowStoneImport(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
+                  style={{ background: 'hsl(var(--primary))' }}
+                >
+                  <FileUp size={12} /> Import from PDF
+                </button>
+                {store.stoneRows.length > 0 && (
+                  <button
+                    onClick={() => { if (confirm('Clear all stone data?')) store.clearStone(); }}
+                    className="flex items-center gap-1 px-2 py-1 rounded text-xs text-muted-foreground hover:text-destructive border border-border hover:border-destructive transition-colors"
+                  >
+                    <RotateCcw size={11} /> Clear
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {store.stoneRows.length === 0 ? (
+              <div className="text-center py-10 text-muted-foreground text-sm">
+                No data yet — import 2020 countertop shop drawings to extract stone dimensions and SQFT.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                {stoneUnitTypes.map(unitType => {
+                  const typeRows = store.stoneRows.filter(r => r.unitType === unitType);
+                  if (typeRows.length === 0) return null;
+                  const typeSqft = typeRows.reduce((s, r) => s + calcStoneSqft(r), 0);
+                  const unitCount = store.unitNumbers.filter(u => u.assignments[unitType]).length;
+
+                  return (
+                    <div key={unitType} className="mb-4">
+                      <div className="px-4 py-2 flex items-center justify-between" style={{ background: 'hsl(213 72% 35%)', color: '#fff' }}>
+                        <span className="text-xs font-bold">{unitType}</span>
+                        <div className="flex items-center gap-4 text-xs">
+                          <span>Sections: {typeRows.length}</span>
+                          <span>SQFT/Unit: <strong>{typeSqft}</strong></span>
+                          {unitCount > 0 && (
+                            <span>Total SQFT ({unitCount} units): <strong>{typeSqft * unitCount}</strong></span>
+                          )}
+                        </div>
+                      </div>
+                      <table className="est-table text-xs">
+                        <thead>
+                          <tr>
+                            <th>Label</th>
+                            <th>Room</th>
+                            <th className="text-right">Length"</th>
+                            <th className="text-right">Depth"</th>
+                            <th className="text-right">Backsplash"</th>
+                            <th className="text-center">Island</th>
+                            <th className="text-right">SQFT</th>
+                            <th className="w-8"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {typeRows.map((row, idx) => (
+                            <tr key={idx}>
+                              <td className="font-medium">{row.label}</td>
+                              <td className="text-muted-foreground">{row.room}</td>
+                              <td className="text-right font-mono">{row.length}</td>
+                              <td className="text-right font-mono">{row.depth}</td>
+                              <td className="text-right font-mono">{row.splashHeight ?? '—'}</td>
+                              <td className="text-center">{row.isIsland ? '✓' : '—'}</td>
+                              <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{calcStoneSqft(row)}</td>
+                              <td>
+                                <button
+                                  onClick={() => store.deleteStoneRow(unitType, idx)}
+                                  className="text-muted-foreground hover:text-destructive transition-colors"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="font-bold border-t border-border">
+                            <td colSpan={6} className="text-right">Type Total SQFT:</td>
+                            <td className="text-right" style={{ color: 'hsl(var(--primary))' }}>{typeSqft}</td>
+                            <td></td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  );
+                })}
+
+                {/* Grand total */}
+                {stoneUnitTypes.length > 1 && (
+                  <div className="px-4 py-3 border-t border-border flex justify-end">
+                    <div className="text-sm font-bold">
+                      Grand Total SQFT:{' '}
+                      <span style={{ color: 'hsl(var(--primary))' }}>
+                        {store.stoneRows.reduce((s, r) => s + calcStoneSqft(r), 0)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Per-type total with unit multiplier summary */}
+                <div className="px-4 py-3 border-t border-border">
+                  <div className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Total SQFT by Type (× Unit Count)</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {stoneUnitTypes.map(type => {
+                      const typeRows = store.stoneRows.filter(r => r.unitType === type);
+                      const typeSqft = typeRows.reduce((s, r) => s + calcStoneSqft(r), 0);
+                      const unitCount = store.unitNumbers.filter(u => u.assignments[type]).length || 1;
+                      return (
+                        <div key={type} className="rounded-lg border border-border p-3 text-center">
+                          <div className="text-[10px] font-bold text-muted-foreground uppercase truncate">{type}</div>
+                          <div className="text-lg font-bold" style={{ color: 'hsl(var(--primary))' }}>{typeSqft * unitCount}</div>
+                          <div className="text-[10px] text-muted-foreground">{typeSqft} sqft × {unitCount} unit{unitCount !== 1 ? 's' : ''}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             )}
