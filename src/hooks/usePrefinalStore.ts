@@ -253,7 +253,7 @@ function loadData(projectId: string): PrefinalData {
 
     const rawUnitNumbers = (parsed.unitNumbers || []).map((u: any) => ({
       ...u,
-      name: String(u.name || '').trim(),
+      name: sanitizeUnitNumber(u.name),
       bldg: String(u.bldg || '').trim(),
       floor: String(u.floor || '').trim(),
       assignments: normalizeAssignments(u.assignments || {}, dedupedUnitTypes),
