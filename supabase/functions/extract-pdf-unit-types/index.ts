@@ -30,10 +30,10 @@ SKIP THESE PAGE TYPES — return {"bldg":null,"units":[]} immediately:
 IF THIS IS A FLOOR PLAN PAGE, EXTRACT:
 
 1. UNIT TYPE (most important):
-   - Look for prominent text like "TYPE A1 - AS", "UNIT TYPE: A1-3BR", "TYPE C1-2BR", "TYPE PH-A"
-   - Usually in a title block, large, bold, or underlined
-   - NOT a room name, NOT an elevation label, NOT a sheet number, NOT a cabinet SKU
+   - Prefer the title-block type when present (e.g. "TYPE A1 - AS", "UNIT TYPE: A1-3BR", "TYPE C1-2BR", "TYPE PH-A")
+   - For COMMON AREA spaces with a room number (e.g. restroom, office, laundry, mail room), room labels are valid unitType values
    - Preserve EXACT text including suffixes like "-AS", "-Mirror", "-Rev", "-3BR"
+   - Never use sheet numbers, dimensions, cabinet SKUs, or drawing labels as unitType
 
 2. UNIT NUMBERS (CRITICAL — DO NOT MISS ANY):
    - Look for text like "UNIT# 230, 330, 430" or "UNITS: 101, 102, 201, 202"
@@ -125,13 +125,12 @@ function isValidUnitNumber(val: string): boolean {
   return true;
 }
 
-const ROOM_NAMES = /^(KITCHEN|KITCHENETTE|BATH|BATHROOM|LIVING|BEDROOM|MASTER|DINING|LAUNDRY|PANTRY|CLOSET|LOBBY|HALLWAY|CORRIDOR|OFFICE|STORAGE|UTILITY|MECHANICAL|FOYER|ENTRY|GARAGE|RESTROOM|RECEPTION|ISLAND|COMMON)$/i;
-
 function hasValidUnitType(val: string): boolean {
   const t = String(val || "").trim();
   if (!t) return false;
-  if (ROOM_NAMES.test(t)) return false;
-  if (/^(FLOOR|LEVEL|ELEVATION|ELEV|PLAN|SECTION|DETAIL|SHEET|COUNTERTOP|CABINET|ISLAND)\b/i.test(t)) return false;
+  // Reject obvious non-type metadata, but allow common-area labels (e.g. RESTROOM/OFFICE/MAIL ROOM)
+  if (/^(FLOOR|LEVEL|ELEVATION|ELEV|PLAN|SECTION|DETAIL|SHEET|DRAWING|DWG|REV|DATE|SCALE|NOTE|LEGEND)\b/i.test(t)) return false;
+  if (/^(W|B|SB|DB|UB|UC|TC|TK|WF|BF|V|OH|PT|PTC|UT|HAV|HASB|HASP|HAT|HAF|LS|LSB|FIL|CM|LR|EP|FP)\d/i.test(t.replace(/\s+/g, '').toUpperCase())) return false;
   return true;
 }
 
@@ -153,7 +152,6 @@ function cleanUnits(rawUnits: any[], pageBldg: string | null) {
     .filter((u: any) => u.unitNumber && typeof u.unitNumber === "string")
     .map((u: any) => {
       let unitType = u.unitType ? String(u.unitType).trim() : "";
-      if (ROOM_NAMES.test(unitType)) unitType = "";
       return {
         unitNumber: String(u.unitNumber).trim(),
         unitType,
@@ -271,7 +269,7 @@ serve(async (req) => {
 FIRST: Is this a FLOOR PLAN (top-down view) page? If NOT (it's an elevation, countertop drawing, title-only page, or any other non-floor-plan page), return {"bldg":null,"units":[]}.
 
 If it IS a floor plan page, verify:
-- Is the UNIT TYPE correct? It should be from the title block (e.g. "TYPE A1 - AS"), NOT a room name.
+- Is the UNIT TYPE correct? Prefer title-block unit type when present; for numbered common areas (restroom, office, laundry, mail room), room labels are valid unitType values.
 - Are ALL unit numbers captured? Re-read the comma-separated list CHARACTER BY CHARACTER. Add any missing ones.
 - Are there FALSE entries (cabinet SKUs like W3030, HASB48B, room names like "Island")? Remove them.
 - ONLY apartment/suite unit numbers should remain (e.g., 230, 101, A-502, PH-1).
