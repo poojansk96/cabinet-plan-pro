@@ -356,7 +356,7 @@ export function usePrefinalStore(projectId: string) {
   // ── Unit Numbers (rows) ───────────────────────────────────────────────
   const addUnitNumber = useCallback((name: string, bldg: string = '', floor: string = '') => {
     setData(prev => {
-      const unitNumbers = [...prev.unitNumbers, { name, bldg, floor, assignments: {} }];
+      const unitNumbers = [...prev.unitNumbers, { name: sanitizeUnitNumber(name), bldg, floor, assignments: {} }];
       const next = { ...prev, unitNumbers };
       saveData(projectId, next);
       return next;
