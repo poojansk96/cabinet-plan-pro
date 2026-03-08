@@ -32,6 +32,7 @@ interface PrefinalData {
   cabinetUnitTypes: string[];
   handleQtyPerSku: Record<string, number>;
   bidCostPerType: Record<string, number>;
+  additionalCostPerType: Record<string, number>;
   stoneRows: PrefinalStoneRow[];
   stoneUnitTypes: string[];
 }
