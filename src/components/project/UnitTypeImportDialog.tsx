@@ -235,7 +235,7 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
         }
       }
 
-      const dominantStructured = Array.from(structuredBuildingStats.entries())
+      const keyPart = (v: string) => v.toUpperCase().replace(/\s+/g, '').trim();
         .sort((a, b) => b[1].count - a[1].count)[0];
       const dominantStructuredKey = dominantStructured?.[0] ?? '';
       const dominantStructuredLabel = dominantStructured?.[1].label?.trim() ?? '';
