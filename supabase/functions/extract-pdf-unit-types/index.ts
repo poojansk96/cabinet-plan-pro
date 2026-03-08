@@ -152,6 +152,9 @@ function cleanUnits(rawUnits: any[], pageBldg: string | null) {
     .filter((u: any) => u.unitNumber && typeof u.unitNumber === "string")
     .map((u: any) => {
       let unitType = u.unitType ? String(u.unitType).trim() : "";
+      // Reject only metadata-style types (sheet numbers, dimensions, etc.), but keep room labels and empty
+      if (/^(FLOOR|LEVEL|ELEVATION|ELEV|PLAN|SECTION|DETAIL|SHEET|DRAWING|DWG|REV|DATE|SCALE|NOTE|LEGEND)\b/i.test(unitType)) unitType = "";
+      if (/^(W|B|SB|DB|UB|UC|TC|TK|WF|BF|V|OH|PT|PTC|UT|HAV|HASB|HASP|HAT|HAF|LS|LSB|FIL|CM|LR|EP|FP)\d/i.test(unitType.replace(/\s+/g, '').toUpperCase())) unitType = "";
       return {
         unitNumber: String(u.unitNumber).trim(),
         unitType,
@@ -159,7 +162,7 @@ function cleanUnits(rawUnits: any[], pageBldg: string | null) {
         floor: u.floor ? `Floor ${String(u.floor).trim().replace(/^Floor\s*/i, '')}` : null,
       };
     })
-    .filter(u => isValidUnitNumber(u.unitNumber) && hasValidUnitType(u.unitType))
+    .filter(u => isValidUnitNumber(u.unitNumber))
     .filter(u => !/^\d$/.test(u.unitNumber));
 
   // Find the dominant structured building label on this page
