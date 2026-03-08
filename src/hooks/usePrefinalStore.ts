@@ -37,8 +37,19 @@ interface PrefinalData {
   stoneUnitTypes: string[];
 }
 
+function sanitizeUnitNumber(value: string): string {
+  return String(value || '')
+    .trim()
+    .replace(/\s+/g, '')
+    .replace(/[\u2010-\u2015]/g, '-')
+    .replace(/[,:;]+$/g, '')
+    .replace(/\.+$/g, '')
+    .replace(/-+$/g, '')
+    .toUpperCase();
+}
+
 function normalizeUnitKeyPart(value: string): string {
-  return String(value || '').toUpperCase().replace(/\s+/g, '').trim();
+  return sanitizeUnitNumber(value);
 }
 
 function normalizeTypeKeyPart(value: string): string {
@@ -111,34 +122,34 @@ function dedupeUnitNumbers(unitNumbers: PrefinalUnitNumber[]): PrefinalUnitNumbe
     const key = makeUnitCompositeKey(unit.name, unit.bldg);
     const existing = map.get(key);
 
-    if (!existing) {
+      if (!existing) {
+        map.set(key, {
+          ...unit,
+          name: sanitizeUnitNumber(unit.name),
+          bldg: String(unit.bldg || '').trim(),
+          floor: String(unit.floor || '').trim(),
+          assignments: { ...unit.assignments },
+        });
+        continue;
+      }
+
+      const existingFloorNum = parseFloorNumber(existing.floor);
+      const incomingFloorNum = parseFloorNumber(unit.floor);
+
+      const pickedFloor = (() => {
+        if (existingFloorNum !== null && incomingFloorNum !== null) return Math.min(existingFloorNum, incomingFloorNum).toString();
+        if (existingFloorNum !== null) return existing.floor;
+        if (incomingFloorNum !== null) return String(unit.floor || '').trim();
+        return existing.floor || String(unit.floor || '').trim();
+      })();
+
       map.set(key, {
-        ...unit,
-        name: String(unit.name || '').trim(),
-        bldg: String(unit.bldg || '').trim(),
-        floor: String(unit.floor || '').trim(),
-        assignments: { ...unit.assignments },
+        ...existing,
+        name: sanitizeUnitNumber(existing.name || unit.name),
+        bldg: pickPreferredBldg(existing.bldg, String(unit.bldg || '').trim()),
+        floor: pickedFloor,
+        assignments: mergeAssignments(existing.assignments, unit.assignments),
       });
-      continue;
-    }
-
-    const existingFloorNum = parseFloorNumber(existing.floor);
-    const incomingFloorNum = parseFloorNumber(unit.floor);
-
-    const pickedFloor = (() => {
-      if (existingFloorNum !== null && incomingFloorNum !== null) return Math.min(existingFloorNum, incomingFloorNum).toString();
-      if (existingFloorNum !== null) return existing.floor;
-      if (incomingFloorNum !== null) return String(unit.floor || '').trim();
-      return existing.floor || String(unit.floor || '').trim();
-    })();
-
-    map.set(key, {
-      ...existing,
-      name: existing.name || String(unit.name || '').trim(),
-      bldg: pickPreferredBldg(existing.bldg, String(unit.bldg || '').trim()),
-      floor: pickedFloor,
-      assignments: mergeAssignments(existing.assignments, unit.assignments),
-    });
   }
 
   return Array.from(map.values());
@@ -242,7 +253,7 @@ function loadData(projectId: string): PrefinalData {
 
     const rawUnitNumbers = (parsed.unitNumbers || []).map((u: any) => ({
       ...u,
-      name: String(u.name || '').trim(),
+      name: sanitizeUnitNumber(u.name),
       bldg: String(u.bldg || '').trim(),
       floor: String(u.floor || '').trim(),
       assignments: normalizeAssignments(u.assignments || {}, dedupedUnitTypes),
@@ -345,7 +356,7 @@ export function usePrefinalStore(projectId: string) {
   // ── Unit Numbers (rows) ───────────────────────────────────────────────
   const addUnitNumber = useCallback((name: string, bldg: string = '', floor: string = '') => {
     setData(prev => {
-      const unitNumbers = [...prev.unitNumbers, { name, bldg, floor, assignments: {} }];
+      const unitNumbers = [...prev.unitNumbers, { name: sanitizeUnitNumber(name), bldg, floor, assignments: {} }];
       const next = { ...prev, unitNumbers };
       saveData(projectId, next);
       return next;
@@ -363,7 +374,7 @@ export function usePrefinalStore(projectId: string) {
 
   const updateUnitNumberName = useCallback((index: number, name: string) => {
     setData(prev => {
-      const unitNumbers = prev.unitNumbers.map((u, i) => i === index ? { ...u, name } : u);
+      const unitNumbers = prev.unitNumbers.map((u, i) => i === index ? { ...u, name: sanitizeUnitNumber(name) } : u);
       const next = { ...prev, unitNumbers };
       saveData(projectId, next);
       return next;
@@ -415,7 +426,7 @@ export function usePrefinalStore(projectId: string) {
       const updatedNumbers = [...baseUnits];
       for (const m of mappings) {
         const resolvedType = resolveExistingTypeName(String(m.unitType || '').trim(), prev.unitTypes);
-        const key = makeUnitCompositeKey(m.unitNumber, m.bldg || '');
+        const key = makeUnitCompositeKey(sanitizeUnitNumber(m.unitNumber), m.bldg || '');
         const existingIdx = existingKeys.get(key);
 
         if (existingIdx !== undefined) {
@@ -430,14 +441,14 @@ export function usePrefinalStore(projectId: string) {
 
           updatedNumbers[existingIdx] = {
             ...current,
-            name: current.name || String(m.unitNumber || '').trim(),
+            name: current.name || sanitizeUnitNumber(m.unitNumber),
             bldg: current.bldg || String(m.bldg || '').trim(),
             floor: mergedFloor,
             assignments: normalizeAssignments({ ...current.assignments, [resolvedType]: true }, prev.unitTypes),
           };
         } else {
           updatedNumbers.push({
-            name: String(m.unitNumber || '').trim(),
+            name: sanitizeUnitNumber(m.unitNumber),
             bldg: String(m.bldg || '').trim(),
             floor: String(m.floor || '').trim(),
             assignments: normalizeAssignments({ [resolvedType]: true }, prev.unitTypes),
