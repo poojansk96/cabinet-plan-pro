@@ -29,9 +29,10 @@ SKIP THESE PAGE TYPES — return {"bldg":null,"units":[]} immediately:
 
 IF THIS IS A FLOOR PLAN PAGE, EXTRACT:
 
-1. UNIT TYPE (most important):
+1. UNIT TYPE (most important — NEVER leave null or empty):
    - Prefer the title-block type when present (e.g. "TYPE A1 - AS", "UNIT TYPE: A1-3BR", "TYPE C1-2BR", "TYPE PH-A")
-   - For COMMON AREA spaces with a room number (e.g. restroom, office, laundry, mail room), room labels are valid unitType values
+   - For COMMON AREA spaces (restroom, office, laundry, mail room, etc.), use the ROOM LABEL as the unitType (e.g. "Restroom", "Office", "Laundry", "Mail Room")
+   - If you cannot find ANY type label, use the room/space name visible on the plan as unitType
    - Preserve EXACT text including suffixes like "-AS", "-Mirror", "-Rev", "-3BR"
    - Never use sheet numbers, dimensions, cabinet SKUs, or drawing labels as unitType
 
@@ -152,6 +153,9 @@ function cleanUnits(rawUnits: any[], pageBldg: string | null) {
     .filter((u: any) => u.unitNumber && typeof u.unitNumber === "string")
     .map((u: any) => {
       let unitType = u.unitType ? String(u.unitType).trim() : "";
+      // Reject only metadata-style types (sheet numbers, dimensions, etc.), but keep room labels and empty
+      if (/^(FLOOR|LEVEL|ELEVATION|ELEV|PLAN|SECTION|DETAIL|SHEET|DRAWING|DWG|REV|DATE|SCALE|NOTE|LEGEND)\b/i.test(unitType)) unitType = "";
+      if (/^(W|B|SB|DB|UB|UC|TC|TK|WF|BF|V|OH|PT|PTC|UT|HAV|HASB|HASP|HAT|HAF|LS|LSB|FIL|CM|LR|EP|FP)\d/i.test(unitType.replace(/\s+/g, '').toUpperCase())) unitType = "";
       return {
         unitNumber: String(u.unitNumber).trim(),
         unitType,
@@ -159,7 +163,7 @@ function cleanUnits(rawUnits: any[], pageBldg: string | null) {
         floor: u.floor ? `Floor ${String(u.floor).trim().replace(/^Floor\s*/i, '')}` : null,
       };
     })
-    .filter(u => isValidUnitNumber(u.unitNumber) && hasValidUnitType(u.unitType))
+    .filter(u => isValidUnitNumber(u.unitNumber))
     .filter(u => !/^\d$/.test(u.unitNumber));
 
   // Find the dominant structured building label on this page
