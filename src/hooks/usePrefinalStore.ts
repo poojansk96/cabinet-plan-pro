@@ -425,6 +425,7 @@ export function usePrefinalStore(projectId: string) {
     clearUnits,
     setHandleQty,
     setBidCost,
+    setAdditionalCost,
     addStoneUnitTypes,
     deleteStoneUnitType,
     addStoneImport,
