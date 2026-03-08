@@ -496,13 +496,6 @@ export default function PreFinalModule({ project }: Props) {
                     </label>
                   ))}
                 </div>
-                <button
-                  onClick={() => setShowCabinetImport(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border transition-colors"
-                  style={{ borderColor: 'hsl(var(--primary))', color: 'hsl(var(--primary))' }}
-                >
-                  <FileUp size={12} /> Import Shop Drawing PDF
-                </button>
               </div>
             </div>
 
