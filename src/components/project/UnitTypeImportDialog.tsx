@@ -251,11 +251,13 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
       for (const unit of extractedUnits) {
         const rawBldg = String(unit.bldg || '').trim();
         const bldgKey = normalizeBuildingKey(rawBldg);
-        const shouldFoldToDominant =
-          !!dominantStructuredKey &&
-          !!bldgKey &&
-          !isStructuredBuildingLabel(bldgKey) &&
-          (aliasCounts.get(bldgKey) ?? 0) <= 2;
+        const isStructured = isStructuredBuildingLabel(bldgKey);
+
+        // If we found a dominant structured building label on the PDF,
+        // force noisy/missing building labels to that canonical label.
+        // This prevents duplicate rows like 119/126 appearing twice
+        // because one detection had blank/weak bldg text.
+        const shouldFoldToDominant = !!dominantStructuredKey && (!bldgKey || !isStructured);
 
         const canonicalBldgKey = shouldFoldToDominant ? dominantStructuredKey : bldgKey;
         const canonicalBldgLabel = shouldFoldToDominant ? dominantStructuredLabel : rawBldg;
