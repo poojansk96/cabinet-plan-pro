@@ -46,8 +46,27 @@ function normalizeTypeKeyPart(value: string): string {
     .toUpperCase()
     .trim()
     .replace(/^TYPE\s+/, '')
-    .replace(/\s+/g, '')
-    .replace(/-/g, '');
+    .replace(/[^A-Z0-9]/g, '');
+}
+
+function resolveExistingTypeName(type: string, candidates: string[]): string {
+  const incomingKey = normalizeTypeKeyPart(type);
+  if (!incomingKey) return type;
+  const match = candidates.find(c => normalizeTypeKeyPart(c) === incomingKey);
+  return match ?? type;
+}
+
+function normalizeAssignments(
+  assignments: Record<string, boolean>,
+  knownTypes: string[]
+): Record<string, boolean> {
+  const out: Record<string, boolean> = {};
+  for (const [k, v] of Object.entries(assignments || {})) {
+    if (!v) continue;
+    const resolved = resolveExistingTypeName(k, knownTypes);
+    out[resolved] = true;
+  }
+  return out;
 }
 
 function normalizeBldgKeyPart(value: string): string {
