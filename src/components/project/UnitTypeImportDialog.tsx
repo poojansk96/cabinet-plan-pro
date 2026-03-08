@@ -194,7 +194,8 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
             const floor = String(u.floor ?? '').trim();
             if (!num || !type) continue;
 
-            const sightingKey = `${keyPart(num)}|${keyPart(bldg)}|${keyPart(floor)}`;
+            // Deduplicate by unitNumber+bldg+unitType (NOT floor) to prevent floor-variant duplicates
+            const sightingKey = `${keyPart(num)}|${keyPart(bldg)}|${keyPart(type)}`;
             const nextSighting: PageSighting = { unitNumber: num, unitType: type, bldg, floor, page: p, file: file.name };
             const existing = sightings.get(sightingKey);
             if (existing) existing.push(nextSighting);

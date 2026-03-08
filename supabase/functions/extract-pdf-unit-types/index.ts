@@ -276,6 +276,24 @@ serve(async (req) => {
       console.warn("Verification pass error:", verifyErr, "— using Pass 1 results");
     }
 
+    // FINAL DEDUP: Collapse entries that share unitNumber+bldg+unitType but differ only in floor
+    // Keep the entry with the lowest numeric floor (most reliable)
+    const finalDedup = new Map<string, typeof finalUnits[0]>();
+    for (const u of finalUnits) {
+      const dedupKey = `${u.unitNumber.toUpperCase().replace(/\s+/g, '')}|${(u.bldg || '').toUpperCase().replace(/\s+/g, '')}|${(u.unitType || '').toUpperCase().replace(/\s+/g, '')}`;
+      const existing = finalDedup.get(dedupKey);
+      if (!existing) {
+        finalDedup.set(dedupKey, u);
+      } else {
+        // Keep the one with the lower floor number
+        const existFloor = parseInt(String(existing.floor || '').replace(/\D/g, ''), 10) || 999;
+        const newFloor = parseInt(String(u.floor || '').replace(/\D/g, ''), 10) || 999;
+        if (newFloor < existFloor) finalDedup.set(dedupKey, u);
+      }
+    }
+    finalUnits = Array.from(finalDedup.values());
+    console.log("Final deduped units:", finalUnits.length);
+
     return new Response(JSON.stringify({ units: finalUnits, pageType: "floor_plan" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
