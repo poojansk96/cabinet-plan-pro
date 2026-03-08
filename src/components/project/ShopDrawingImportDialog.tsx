@@ -490,6 +490,14 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
                 >
                   "{QUOTES[quoteIndex]}"
                 </p>
+                {prefinalPerson && (
+                  <p
+                    className="text-xs font-medium text-primary transition-opacity duration-400 px-2"
+                    style={{ opacity: quoteVisible ? 1 : 0, transition: 'opacity 0.4s ease' }}
+                  >
+                    {PERSONAL_QUOTES[personalQuoteIndex](prefinalPerson)}
+                  </p>
+                )}
               </div>
 
               {/* Progress bar */}

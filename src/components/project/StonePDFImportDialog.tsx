@@ -105,7 +105,14 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
     setError('');
     setProgress(0);
 
-    const quoteInterval = setInterval(() => setQuoteIdx(i => (i + 1) % QUOTES.length), 4000);
+    const quoteInterval = setInterval(() => {
+      setQuoteVisible(false);
+      setTimeout(() => {
+        setQuoteIdx(i => (i + 1) % QUOTES.length);
+        setPersonalQuoteIdx(i => (i + 1) % PERSONAL_QUOTES.length);
+        setQuoteVisible(true);
+      }, 400);
+    }, 4000);
 
     try {
       const pdfjsLib = await import('pdfjs-dist');
