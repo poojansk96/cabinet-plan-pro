@@ -285,11 +285,22 @@ export function usePrefinalStore(projectId: string) {
   // ── Unit Types (columns) ──────────────────────────────────────────────
   const addUnitTypes = useCallback((types: string[]) => {
     setData(prev => {
-      const existing = new Set(prev.unitTypes);
-      const newTypes = types.filter(t => !existing.has(t));
+      const existingKeys = new Set(prev.unitTypes.map(t => normalizeTypeKeyPart(t)));
+      const newTypes: string[] = [];
+      for (const t of types) {
+        const trimmed = String(t || '').trim();
+        const key = normalizeTypeKeyPart(trimmed);
+        if (!key || existingKeys.has(key)) continue;
+        existingKeys.add(key);
+        newTypes.push(trimmed);
+      }
       if (!newTypes.length) return prev;
       const unitTypes = [...prev.unitTypes, ...newTypes];
-      const next = { ...prev, unitTypes };
+      const unitNumbers = prev.unitNumbers.map(u => ({
+        ...u,
+        assignments: normalizeAssignments(u.assignments, unitTypes),
+      }));
+      const next = { ...prev, unitTypes, unitNumbers };
       saveData(projectId, next);
       return next;
     });
