@@ -569,7 +569,7 @@ export default function PreFinalModule({ project }: Props) {
                       <React.Fragment key={`grp-${group}`}>
                         <tr>
                           <td
-                            colSpan={2 + cabUnitTypes.length}
+                            colSpan={3 + cabUnitTypes.length}
                             className="text-xs font-bold uppercase tracking-wider py-1.5 px-3"
                             style={{ background: 'hsl(var(--accent))', color: 'hsl(var(--muted-foreground))' }}
                           >
