@@ -294,6 +294,24 @@ export function usePrefinalStore(projectId: string) {
     commit({ ...data, unitTypes: [], unitNumbers: [] });
   }, [commit, data]);
 
+  const setHandleQty = useCallback((sku: string, qty: number) => {
+    setData(prev => {
+      const handleQtyPerSku = { ...prev.handleQtyPerSku, [sku]: qty };
+      const next = { ...prev, handleQtyPerSku };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
+  const setBidCost = useCallback((unitType: string, cost: number) => {
+    setData(prev => {
+      const bidCostPerType = { ...prev.bidCostPerType, [unitType]: cost };
+      const next = { ...prev, bidCostPerType };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
   const clearAll = useCallback(() => {
     commit({ unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {} });
   }, [commit]);
