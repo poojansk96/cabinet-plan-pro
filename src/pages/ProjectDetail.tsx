@@ -12,7 +12,7 @@ import PreFinalSummaryModule from '@/components/project/PreFinalSummaryModule';
 import SummaryPanel from '@/components/project/SummaryPanel';
 import EditProjectDialog from '@/components/project/EditProjectDialog';
 
-type Tab = 'units' | 'cabinets' | 'accessories' | 'countertops' | 'summary' | 'prefinal-units' | 'prefinal-mismatch' | 'prefinal-cabinets' | 'prefinal-summary';
+type Tab = 'units' | 'cabinets' | 'accessories' | 'countertops' | 'summary' | 'prefinal-units' | 'prefinal-summary';
 
 const TAKEOFF_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'units', label: 'Units', icon: <Users size={14} /> },
@@ -23,8 +23,7 @@ const TAKEOFF_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
 ];
 
 const PREFINAL_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
-  { key: 'prefinal-units', label: 'Units', icon: <ClipboardCheck size={14} /> },
-  { key: 'prefinal-cabinets', label: 'Cabinet Count', icon: <ClipboardCheck size={14} /> },
+  { key: 'prefinal-units', label: 'Pre-Final', icon: <ClipboardCheck size={14} /> },
   { key: 'prefinal-summary', label: 'Summary', icon: <BarChart3 size={14} /> },
 ];
 
@@ -219,8 +218,7 @@ export default function ProjectDetail() {
             {activeTab === 'accessories' && <AccessoriesModule {...storeProps} />}
             {activeTab === 'countertops' && <CountertopModule {...storeProps} />}
             {activeTab === 'summary' && <SummaryModule {...storeProps} />}
-            {activeTab === 'prefinal-units' && <PreFinalModule key="prefinal-units" {...storeProps} section="units" showMismatchToggle />}
-            {activeTab === 'prefinal-cabinets' && <PreFinalModule key="prefinal-cabinets" {...storeProps} section="cabinets" />}
+            {activeTab === 'prefinal-units' && <PreFinalModule key="prefinal" {...storeProps} />}
             {activeTab === 'prefinal-summary' && <PreFinalSummaryModule {...storeProps} />}
           </div>
         </main>
