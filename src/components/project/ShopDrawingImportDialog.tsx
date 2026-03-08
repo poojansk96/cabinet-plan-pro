@@ -37,7 +37,23 @@ interface Props {
   unitType?: string;
   onImport: (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[], detectedUnitType?: string) => void;
   onClose: () => void;
+  prefinalPerson?: string;
 }
+
+const PERSONAL_QUOTES = [
+  (name: string) => `${name}, you've got this — one unit at a time! 💪`,
+  (name: string) => `Keep going, ${name}! Accuracy is your superpower.`,
+  (name: string) => `${name}, precision like yours builds perfection.`,
+  (name: string) => `You're crushing it, ${name}! Every count matters.`,
+  (name: string) => `${name}, great takeoffs start with great people like you.`,
+  (name: string) => `Stay sharp, ${name} — excellence is in the details!`,
+  (name: string) => `${name}, believe in the process. You're almost there!`,
+  (name: string) => `One page closer, ${name}. You make it look easy! ✨`,
+  (name: string) => `${name}, your dedication to accuracy is inspiring.`,
+  (name: string) => `Trust the grind, ${name}. The results will speak!`,
+  (name: string) => `${name}, legends aren't born — they count cabinets. 😄`,
+  (name: string) => `Focus and flow, ${name}. You're in the zone!`,
+];
 
 type Step = 'upload' | 'processing' | 'review';
 
@@ -75,7 +91,7 @@ async function renderPageToBase64(page: any): Promise<string> {
   return canvas.toDataURL('image/jpeg', 0.95).split(',')[1];
 }
 
-export default function ShopDrawingImportDialog({ unitType, onImport, onClose }: Props) {
+export default function ShopDrawingImportDialog({ unitType, onImport, onClose, prefinalPerson }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<LabelRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -85,6 +101,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
   const [filterSource, setFilterSource] = useState<string>('all');
   const [detectedUnitType, setDetectedUnitType] = useState<string | null>(null);
   const [quoteIndex, setQuoteIndex] = useState(() => Math.floor(Math.random() * QUOTES.length));
+  const [personalQuoteIndex, setPersonalQuoteIndex] = useState(() => Math.floor(Math.random() * PERSONAL_QUOTES.length));
   const [quoteVisible, setQuoteVisible] = useState(true);
   const [progress, setProgress] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
@@ -99,6 +116,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
       setQuoteVisible(false);
       setTimeout(() => {
         setQuoteIndex(i => (i + 1) % QUOTES.length);
+        setPersonalQuoteIndex(i => (i + 1) % PERSONAL_QUOTES.length);
         setQuoteVisible(true);
       }, 400);
     }, 4000);
@@ -472,6 +490,14 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
                 >
                   "{QUOTES[quoteIndex]}"
                 </p>
+                {prefinalPerson && (
+                  <p
+                    className="text-xs font-medium text-primary transition-opacity duration-400 px-2"
+                    style={{ opacity: quoteVisible ? 1 : 0, transition: 'opacity 0.4s ease' }}
+                  >
+                    {PERSONAL_QUOTES[personalQuoteIndex](prefinalPerson)}
+                  </p>
+                )}
               </div>
 
               {/* Progress bar */}

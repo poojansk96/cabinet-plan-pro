@@ -202,6 +202,7 @@ export default function PreFinalModule({ project }: Props) {
             setShowUnitImport(false);
           }}
           onClose={() => setShowUnitImport(false)}
+          prefinalPerson={project.specs?.takeoffPerson}
         />
       )}
 
@@ -212,6 +213,7 @@ export default function PreFinalModule({ project }: Props) {
             handleCabinetImport(rows, detectedUnitType);
           }}
           onClose={() => setShowCabinetImport(false)}
+          prefinalPerson={project.specs?.takeoffPerson}
         />
       )}
 
@@ -220,6 +222,7 @@ export default function PreFinalModule({ project }: Props) {
         <StonePDFImportDialog
           onImport={(rows, detectedUnitType) => handleStoneImport(rows, detectedUnitType)}
           onClose={() => setShowStoneImport(false)}
+          prefinalPerson={project.specs?.takeoffPerson}
         />
       )}
 

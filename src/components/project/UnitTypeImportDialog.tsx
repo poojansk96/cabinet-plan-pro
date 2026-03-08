@@ -25,7 +25,23 @@ interface PageSighting {
 interface Props {
   onImport: (rows: Omit<UnitMappingRow, 'selected'>[]) => void;
   onClose: () => void;
+  prefinalPerson?: string;
 }
+
+const PERSONAL_QUOTES = [
+  (name: string) => `${name}, you've got this — one unit at a time! 💪`,
+  (name: string) => `Keep going, ${name}! Accuracy is your superpower.`,
+  (name: string) => `${name}, precision like yours builds perfection.`,
+  (name: string) => `You're crushing it, ${name}! Every count matters.`,
+  (name: string) => `${name}, great takeoffs start with great people like you.`,
+  (name: string) => `Stay sharp, ${name} — excellence is in the details!`,
+  (name: string) => `${name}, believe in the process. You're almost there!`,
+  (name: string) => `One page closer, ${name}. You make it look easy! ✨`,
+  (name: string) => `${name}, your dedication to accuracy is inspiring.`,
+  (name: string) => `Trust the grind, ${name}. The results will speak!`,
+  (name: string) => `${name}, legends aren't born — they count cabinets. 😄`,
+  (name: string) => `Focus and flow, ${name}. You're in the zone!`,
+];
 
 const QUOTES = [
   "Measure twice, cut once.",
@@ -63,13 +79,14 @@ async function renderPageToBase64(page: any): Promise<string> {
 
 type Step = 'upload' | 'processing' | 'review';
 
-export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
+export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<UnitMappingRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState(0);
   const [quoteIndex, setQuoteIndex] = useState(() => Math.floor(Math.random() * QUOTES.length));
+  const [personalQuoteIndex, setPersonalQuoteIndex] = useState(() => Math.floor(Math.random() * PERSONAL_QUOTES.length));
   const [quoteVisible, setQuoteVisible] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -80,6 +97,7 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
       setQuoteVisible(false);
       setTimeout(() => {
         setQuoteIndex(i => (i + 1) % QUOTES.length);
+        setPersonalQuoteIndex(i => (i + 1) % PERSONAL_QUOTES.length);
         setQuoteVisible(true);
       }, 400);
     }, 4000);
@@ -326,56 +344,81 @@ export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
 
           {/* Processing */}
           {step === 'processing' && (
-            <div className="flex flex-col items-center justify-center py-12 gap-6">
-              {/* Pulsing icon cluster */}
-              <div className="relative flex items-center justify-center">
-                <div className="absolute w-20 h-20 rounded-full animate-ping opacity-10" style={{ background: 'hsl(var(--primary))' }} />
-                <div className="relative flex items-center justify-center w-16 h-16 rounded-full" style={{ background: 'hsl(var(--primary) / 0.1)' }}>
-                  <Search size={20} className="text-primary animate-pulse" />
-                  <Sparkles size={11} className="absolute top-1 right-1 text-primary animate-bounce" />
-                  <FileText size={11} className="absolute bottom-1 left-1 text-primary opacity-60" />
-                </div>
+            <div className="flex flex-col items-center justify-center py-10 gap-6 px-6 animate-fade-in">
+              {/* Animated icon cluster */}
+              <div className="relative flex items-center justify-center w-20 h-20">
+                {/* Pulsing ring */}
+                <span className="absolute inset-0 rounded-full opacity-20 animate-[ping_1.8s_cubic-bezier(0,0,0.2,1)_infinite]" style={{ background: 'hsl(var(--primary))' }} />
+                <span className="absolute inset-2 rounded-full opacity-10 animate-[ping_1.8s_cubic-bezier(0,0,0.2,1)_0.4s_infinite]" style={{ background: 'hsl(var(--primary))' }} />
+                {/* Core circle */}
+                <span className="absolute inset-3 rounded-full" style={{ background: 'hsl(var(--primary)/0.12)' }} />
+                <Loader2 size={32} className="animate-spin relative z-10" style={{ color: 'hsl(var(--primary))' }} />
+                <Sparkles size={13} className="absolute top-2 right-2 z-20 animate-pulse" style={{ color: 'hsl(var(--primary))' }} />
               </div>
 
-              {/* Progress bar */}
-              <div className="w-full max-w-xs">
-                <div className="relative h-2 rounded-full overflow-hidden" style={{ background: 'hsl(var(--muted))' }}>
-                  <div
-                    className="absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out"
-                    style={{
-                      width: `${progress}%`,
-                      background: 'linear-gradient(90deg, hsl(var(--primary)), hsl(var(--primary) / 0.7))',
-                      boxShadow: '0 0 8px hsl(var(--primary) / 0.4)',
-                    }}
-                  />
-                  {/* Shimmer */}
-                  <div
-                    className="absolute inset-0 animate-[shimmer_2s_infinite]"
-                    style={{
-                      background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%)',
-                      backgroundSize: '200% 100%',
-                    }}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground text-center mt-2">{progress}% complete</p>
-              </div>
-
-              {/* Rotating quote */}
-              <div className="h-10 flex items-center justify-center">
+              {/* Status + Quote */}
+              <div className="text-center space-y-2 max-w-xs">
                 <p
-                  className={`text-sm italic text-muted-foreground text-center max-w-sm transition-opacity duration-400 ${quoteVisible ? 'opacity-100' : 'opacity-0'}`}
+                  className="text-xs italic text-muted-foreground/80 transition-opacity duration-400 mt-2 px-2"
+                  style={{ opacity: quoteVisible ? 1 : 0, transition: 'opacity 0.4s ease' }}
                 >
                   "{QUOTES[quoteIndex]}"
                 </p>
+                {prefinalPerson && (
+                  <p
+                    className="text-xs font-medium text-primary transition-opacity duration-400 px-2"
+                    style={{ opacity: quoteVisible ? 1 : 0, transition: 'opacity 0.4s ease' }}
+                  >
+                    {PERSONAL_QUOTES[personalQuoteIndex](prefinalPerson)}
+                  </p>
+                )}
               </div>
 
-              {/* Step dots */}
-              <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                <span className={progress >= 5 ? 'text-primary font-medium' : ''}>● Loading</span>
-                <span className="text-border">—</span>
-                <span className={progress >= 10 ? 'text-primary font-medium' : ''}>● Scanning</span>
-                <span className="text-border">—</span>
-                <span className={progress >= 95 ? 'text-primary font-medium' : ''}>● Finalizing</span>
+              {/* Progress bar */}
+              <div className="w-full max-w-sm space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground font-medium">Progress</span>
+                  <span className="font-bold tabular-nums" style={{ color: 'hsl(var(--primary))' }}>{progress}%</span>
+                </div>
+                {/* Track */}
+                <div className="relative w-full h-3 rounded-full overflow-hidden" style={{ background: 'hsl(var(--secondary))' }}>
+                  {/* Shimmer layer */}
+                  <div
+                    className="absolute inset-0 -translate-x-full animate-[shimmer_1.6s_ease-in-out_infinite]"
+                    style={{
+                      background: 'linear-gradient(90deg, transparent 0%, hsl(var(--primary)/0.25) 50%, transparent 100%)',
+                      width: '60%',
+                    }}
+                  />
+                  {/* Fill */}
+                  <div
+                    className="h-full rounded-full transition-all duration-700 ease-out relative overflow-hidden"
+                    style={{
+                      width: `${progress}%`,
+                      background: 'linear-gradient(90deg, hsl(var(--primary)/0.8) 0%, hsl(var(--primary)) 60%, hsl(var(--primary)/0.9) 100%)',
+                    }}
+                  >
+                    {/* Inner shine */}
+                    <span className="absolute inset-0 rounded-full" style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.18) 0%, transparent 60%)' }} />
+                  </div>
+                </div>
+
+                {/* Step dots */}
+                <div className="flex justify-between items-center pt-1">
+                  {['Read PDF', 'Extract pages', 'AI analysis', 'Build list'].map((label, idx) => {
+                    const stepThreshold = [5, 10, 30, 95][idx];
+                    const done = progress >= stepThreshold + 10;
+                    const active = progress >= stepThreshold && !done;
+                    return (
+                      <div key={label} className="flex flex-col items-center gap-1">
+                        <div className={`w-2 h-2 rounded-full transition-all duration-500 ${done ? 'scale-110' : active ? 'scale-125 animate-pulse' : 'opacity-30'}`}
+                          style={{ background: done || active ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))' }}
+                        />
+                        <span className={`text-[9px] font-medium transition-colors duration-300 ${done || active ? 'text-primary' : 'text-muted-foreground opacity-50'}`}>{label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}

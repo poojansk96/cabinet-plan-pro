@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { X, Upload, Loader2, Check, Trash2 } from 'lucide-react';
+import { X, Upload, Loader2, Check, Trash2, Sparkles } from 'lucide-react';
 
 export interface StoneExtractedRow {
   label: string;
@@ -15,7 +15,23 @@ export interface StoneExtractedRow {
 interface Props {
   onImport: (rows: StoneExtractedRow[], detectedUnitType?: string) => void;
   onClose: () => void;
+  prefinalPerson?: string;
 }
+
+const PERSONAL_QUOTES = [
+  (name: string) => `${name}, you've got this — one unit at a time! 💪`,
+  (name: string) => `Keep going, ${name}! Accuracy is your superpower.`,
+  (name: string) => `${name}, precision like yours builds perfection.`,
+  (name: string) => `You're crushing it, ${name}! Every count matters.`,
+  (name: string) => `${name}, great takeoffs start with great people like you.`,
+  (name: string) => `Stay sharp, ${name} — excellence is in the details!`,
+  (name: string) => `${name}, believe in the process. You're almost there!`,
+  (name: string) => `One page closer, ${name}. You make it look easy! ✨`,
+  (name: string) => `${name}, your dedication to accuracy is inspiring.`,
+  (name: string) => `Trust the grind, ${name}. The results will speak!`,
+  (name: string) => `${name}, legends aren't born — they count cabinets. 😄`,
+  (name: string) => `Focus and flow, ${name}. You're in the zone!`,
+];
 
 type Step = 'upload' | 'processing' | 'review';
 
@@ -65,7 +81,7 @@ const QUOTES = [
   "Calculating surface areas...",
 ];
 
-export default function StonePDFImportDialog({ onImport, onClose }: Props) {
+export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<StoneExtractedRow[]>([]);
   const [error, setError] = useState('');
@@ -73,6 +89,8 @@ export default function StonePDFImportDialog({ onImport, onClose }: Props) {
   const [totalPages, setTotalPages] = useState(0);
   const [statusMsg, setStatusMsg] = useState('');
   const [quoteIdx, setQuoteIdx] = useState(0);
+  const [personalQuoteIdx, setPersonalQuoteIdx] = useState(0);
+  const [quoteVisible, setQuoteVisible] = useState(true);
   const [detectedType, setDetectedType] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const processingRef = useRef(false);
@@ -87,7 +105,14 @@ export default function StonePDFImportDialog({ onImport, onClose }: Props) {
     setError('');
     setProgress(0);
 
-    const quoteInterval = setInterval(() => setQuoteIdx(i => (i + 1) % QUOTES.length), 4000);
+    const quoteInterval = setInterval(() => {
+      setQuoteVisible(false);
+      setTimeout(() => {
+        setQuoteIdx(i => (i + 1) % QUOTES.length);
+        setPersonalQuoteIdx(i => (i + 1) % PERSONAL_QUOTES.length);
+        setQuoteVisible(true);
+      }, 400);
+    }, 4000);
 
     try {
       const pdfjsLib = await import('pdfjs-dist');
@@ -217,14 +242,74 @@ export default function StonePDFImportDialog({ onImport, onClose }: Props) {
           )}
 
           {step === 'processing' && (
-            <div className="text-center py-12">
-              <Loader2 size={40} className="mx-auto mb-4 animate-spin text-primary" />
-              <p className="text-sm font-medium mb-2">{statusMsg}</p>
-              <div className="w-64 mx-auto bg-secondary rounded-full h-2 mb-3">
-                <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${progress}%` }} />
+            <div className="flex flex-col items-center justify-center py-10 gap-6 px-6 animate-fade-in">
+              {/* Animated icon cluster */}
+              <div className="relative flex items-center justify-center w-20 h-20">
+                <span className="absolute inset-0 rounded-full opacity-20 animate-[ping_1.8s_cubic-bezier(0,0,0.2,1)_infinite]" style={{ background: 'hsl(var(--primary))' }} />
+                <span className="absolute inset-2 rounded-full opacity-10 animate-[ping_1.8s_cubic-bezier(0,0,0.2,1)_0.4s_infinite]" style={{ background: 'hsl(var(--primary))' }} />
+                <span className="absolute inset-3 rounded-full" style={{ background: 'hsl(var(--primary)/0.12)' }} />
+                <Loader2 size={32} className="animate-spin relative z-10" style={{ color: 'hsl(var(--primary))' }} />
+                <Sparkles size={13} className="absolute top-2 right-2 z-20 animate-pulse" style={{ color: 'hsl(var(--primary))' }} />
               </div>
-              <p className="text-xs text-muted-foreground">{progress}% complete</p>
-              <p className="text-xs text-muted-foreground mt-4 italic">"{QUOTES[quoteIdx]}"</p>
+
+              {/* Status + Quote */}
+              <div className="text-center space-y-2 max-w-xs">
+                <p
+                  className="text-xs italic text-muted-foreground/80 transition-opacity duration-400 px-2"
+                  style={{ opacity: quoteVisible ? 1 : 0, transition: 'opacity 0.4s ease' }}
+                >
+                  "{QUOTES[quoteIdx]}"
+                </p>
+                {prefinalPerson && (
+                  <p
+                    className="text-xs font-medium text-primary transition-opacity duration-400 px-2"
+                    style={{ opacity: quoteVisible ? 1 : 0, transition: 'opacity 0.4s ease' }}
+                  >
+                    {PERSONAL_QUOTES[personalQuoteIdx](prefinalPerson)}
+                  </p>
+                )}
+              </div>
+
+              {/* Progress bar */}
+              <div className="w-full max-w-sm space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground font-medium">Progress</span>
+                  <span className="font-bold tabular-nums" style={{ color: 'hsl(var(--primary))' }}>{progress}%</span>
+                </div>
+                <div className="relative w-full h-3 rounded-full overflow-hidden" style={{ background: 'hsl(var(--secondary))' }}>
+                  <div
+                    className="absolute inset-0 -translate-x-full animate-[shimmer_1.6s_ease-in-out_infinite]"
+                    style={{
+                      background: 'linear-gradient(90deg, transparent 0%, hsl(var(--primary)/0.25) 50%, transparent 100%)',
+                      width: '60%',
+                    }}
+                  />
+                  <div
+                    className="h-full rounded-full transition-all duration-700 ease-out relative overflow-hidden"
+                    style={{
+                      width: `${progress}%`,
+                      background: 'linear-gradient(90deg, hsl(var(--primary)/0.8) 0%, hsl(var(--primary)) 60%, hsl(var(--primary)/0.9) 100%)',
+                    }}
+                  >
+                    <span className="absolute inset-0 rounded-full" style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.18) 0%, transparent 60%)' }} />
+                  </div>
+                </div>
+                <div className="flex justify-between items-center pt-1">
+                  {['Read PDF', 'Extract pages', 'AI analysis', 'Build list'].map((label, idx) => {
+                    const stepThreshold = [5, 10, 30, 95][idx];
+                    const done = progress >= stepThreshold + 10;
+                    const active = progress >= stepThreshold && !done;
+                    return (
+                      <div key={label} className="flex flex-col items-center gap-1">
+                        <div className={`w-2 h-2 rounded-full transition-all duration-500 ${done ? 'scale-110' : active ? 'scale-125 animate-pulse' : 'opacity-30'}`}
+                          style={{ background: done || active ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))' }}
+                        />
+                        <span className={`text-[9px] font-medium transition-colors duration-300 ${done || active ? 'text-primary' : 'text-muted-foreground opacity-50'}`}>{label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
               {error && <p className="text-destructive text-xs mt-3">{error}</p>}
             </div>
           )}
