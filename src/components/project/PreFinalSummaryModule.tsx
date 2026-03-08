@@ -747,7 +747,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
         const unitCountPerTypePdf: Record<string, number> = {};
         for (const t of store.cabinetUnitTypes) {
-          unitCountPerTypePdf[t] = store.unitNumbers.filter(u => u.assignments[t]).length;
+          unitCountPerTypePdf[t] = countUnitsForType(t);
         }
 
         const tcHead = ['SKU Name', ...store.cabinetUnitTypes, 'Total'];
