@@ -235,6 +235,39 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
         }
       }
 
+      const keyPart = (v: string) => v.toUpperCase().replace(/\s+/g, '').trim();
+      const aliasCounts = new Map<string, number>();
+      for (const unit of extractedUnits) {
+        const aliasKey = normalizeBuildingKey(unit.bldg);
+        if (!aliasKey) continue;
+        aliasCounts.set(aliasKey, (aliasCounts.get(aliasKey) ?? 0) + 1);
+      }
+
+      const dominantStructured = Array.from(structuredBuildingStats.entries())
+        .sort((a, b) => b[1].count - a[1].count)[0];
+      const dominantStructuredKey = dominantStructured?.[0] ?? '';
+      const dominantStructuredLabel = dominantStructured?.[1].label?.trim() ?? '';
+
+      for (const unit of extractedUnits) {
+        const rawBldg = String(unit.bldg || '').trim();
+        const bldgKey = normalizeBuildingKey(rawBldg);
+        const shouldFoldToDominant =
+          !!dominantStructuredKey &&
+          !!bldgKey &&
+          !isStructuredBuildingLabel(bldgKey) &&
+          (aliasCounts.get(bldgKey) ?? 0) <= 2;
+
+        const canonicalBldgKey = shouldFoldToDominant ? dominantStructuredKey : bldgKey;
+        const canonicalBldgLabel = shouldFoldToDominant ? dominantStructuredLabel : rawBldg;
+
+        // Deduplicate by unitNumber+bldg+unitType (NOT floor) after building normalization
+        const sightingKey = `${keyPart(unit.unitNumber)}|${canonicalBldgKey}|${keyPart(unit.unitType)}`;
+        const nextSighting: PageSighting = { ...unit, bldg: canonicalBldgLabel };
+        const existing = sightings.get(sightingKey);
+        if (existing) existing.push(nextSighting);
+        else sightings.set(sightingKey, [nextSighting]);
+      }
+
       // Build rows with cross-page conflict detection
       const result: UnitMappingRow[] = [];
       for (const pages of sightings.values()) {
