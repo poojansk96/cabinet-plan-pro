@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { FileUp, Users, LayoutGrid, Plus, Trash2, RotateCcw, Pencil } from 'lucide-react';
 import type { Project, Unit, Cabinet } from '@/types/project';
 import { type LabelRow } from './ShopDrawingImportDialog';
-import CombinedImportDialog from './CombinedImportDialog';
+import ShopDrawingImportDialog from './ShopDrawingImportDialog';
+import UnitTypeImportDialog from './UnitTypeImportDialog';
 import { usePrefinalStore } from '@/hooks/usePrefinalStore';
 
 interface Props {
