@@ -491,17 +491,19 @@ export function usePrefinalStore(projectId: string) {
   // ── Cabinet imports ───────────────────────────────────────────────────
   const addCabinetImport = useCallback((rows: Omit<PrefinalCabinetRow, never>[], unitType: string) => {
     setData(prev => {
+      const canonicalType = resolveExistingTypeName(unitType, [...prev.cabinetUnitTypes, ...prev.unitTypes]);
       const merged: Record<string, PrefinalCabinetRow> = {};
       for (const r of prev.cabinetRows) {
-        const key = `${r.sku}__${r.room}__${r.unitType}`;
-        merged[key] = { ...r };
+        const resolvedType = resolveExistingTypeName(r.unitType, [...prev.cabinetUnitTypes, ...prev.unitTypes]);
+        const key = `${r.sku}__${r.room}__${resolvedType}`;
+        merged[key] = { ...r, unitType: resolvedType };
       }
       for (const r of rows) {
-        const key = `${r.sku}__${r.room}__${unitType}`;
+        const key = `${r.sku}__${r.room}__${canonicalType}`;
         if (merged[key]) {
           merged[key].quantity = Math.max(merged[key].quantity, r.quantity);
         } else {
-          merged[key] = { ...r, unitType };
+          merged[key] = { ...r, unitType: canonicalType };
         }
       }
       const cabinetRows = Object.values(merged).sort((a, b) =>
