@@ -211,33 +211,56 @@ function loadData(projectId: string): PrefinalData {
         stoneUnitTypes: parsed.stoneUnitTypes || [],
       };
     }
-    // Normalize + deduplicate cabinetUnitTypes
+    // Normalize + deduplicate unit types preserving first-seen order
+    const rawUnitTypes: string[] = parsed.unitTypes || [];
+    const seenUnitTypeKeys = new Set<string>();
+    const dedupedUnitTypes: string[] = [];
+    for (const t of rawUnitTypes) {
+      const key = normalizeTypeKeyPart(t);
+      if (!key || seenUnitTypeKeys.has(key)) continue;
+      seenUnitTypeKeys.add(key);
+      dedupedUnitTypes.push(String(t).trim());
+    }
+
+    // Normalize + deduplicate cabinetUnitTypes and align aliases with unitTypes when possible
     const rawCabTypes: string[] = parsed.cabinetUnitTypes || [];
-    const seenNorm = new Set<string>();
+    const seenCabTypeKeys = new Set<string>();
     const dedupedCabTypes: string[] = [];
     for (const t of rawCabTypes) {
-      // Normalize the stored value: uppercase, collapse spaces around hyphens
-      let normalized = t.trim().toUpperCase().replace(/\s*-\s*/g, '-');
-      // Strip "TYPE " prefix for dedup key
-      const key = normalized.replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '');
-      if (!key || seenNorm.has(key)) continue;
-      seenNorm.add(key);
-      dedupedCabTypes.push(normalized);
+      const resolved = resolveExistingTypeName(String(t).trim(), [...dedupedCabTypes, ...dedupedUnitTypes]);
+      const key = normalizeTypeKeyPart(resolved);
+      if (!key || seenCabTypeKeys.has(key)) continue;
+      seenCabTypeKeys.add(key);
+      dedupedCabTypes.push(resolved);
     }
-    // Also normalize cabinetRows unitType values to match
+
+    // Normalize cabinetRows unitType values to canonical type names
     const cabinetRows = (parsed.cabinetRows || []).map((r: any) => ({
       ...r,
-      unitType: r.unitType ? r.unitType.trim().toUpperCase().replace(/\s*-\s*/g, '-') : r.unitType,
+      unitType: resolveExistingTypeName(String(r.unitType || '').trim(), [...dedupedCabTypes, ...dedupedUnitTypes]),
     }));
+
     const rawUnitNumbers = (parsed.unitNumbers || []).map((u: any) => ({
       ...u,
       name: String(u.name || '').trim(),
       bldg: String(u.bldg || '').trim(),
       floor: String(u.floor || '').trim(),
-      assignments: { ...(u.assignments || {}) },
+      assignments: normalizeAssignments(u.assignments || {}, dedupedUnitTypes),
     }));
+
     const unitNumbers = dedupeSameTypeSameUnit(dedupeUnitNumbers(rawUnitNumbers));
-    return { unitTypes: parsed.unitTypes || [], unitNumbers, cabinetRows, cabinetUnitTypes: dedupedCabTypes, handleQtyPerSku: parsed.handleQtyPerSku || {}, bidCostPerType: parsed.bidCostPerType || {}, additionalCostPerType: parsed.additionalCostPerType || {}, stoneRows: parsed.stoneRows || [], stoneUnitTypes: parsed.stoneUnitTypes || [] };
+
+    return {
+      unitTypes: dedupedUnitTypes,
+      unitNumbers,
+      cabinetRows,
+      cabinetUnitTypes: dedupedCabTypes,
+      handleQtyPerSku: parsed.handleQtyPerSku || {},
+      bidCostPerType: parsed.bidCostPerType || {},
+      additionalCostPerType: parsed.additionalCostPerType || {},
+      stoneRows: parsed.stoneRows || [],
+      stoneUnitTypes: parsed.stoneUnitTypes || [],
+    };
   } catch {
     return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [] };
   }
