@@ -269,7 +269,7 @@ serve(async (req) => {
 FIRST: Is this a FLOOR PLAN (top-down view) page? If NOT (it's an elevation, countertop drawing, title-only page, or any other non-floor-plan page), return {"bldg":null,"units":[]}.
 
 If it IS a floor plan page, verify:
-- Is the UNIT TYPE correct? It should be from the title block (e.g. "TYPE A1 - AS"), NOT a room name.
+- Is the UNIT TYPE correct? Prefer title-block unit type when present; for numbered common areas (restroom, office, laundry, mail room), room labels are valid unitType values.
 - Are ALL unit numbers captured? Re-read the comma-separated list CHARACTER BY CHARACTER. Add any missing ones.
 - Are there FALSE entries (cabinet SKUs like W3030, HASB48B, room names like "Island")? Remove them.
 - ONLY apartment/suite unit numbers should remain (e.g., 230, 101, A-502, PH-1).
