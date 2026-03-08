@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { FileUp, Users, LayoutGrid, Plus, Trash2, RotateCcw, Pencil } from 'lucide-react';
+import { FileUp, Users, LayoutGrid, Plus, Trash2, RotateCcw, Pencil, Square } from 'lucide-react';
 import type { Project, Unit, Cabinet } from '@/types/project';
 import { type LabelRow } from './ShopDrawingImportDialog';
 import ShopDrawingImportDialog from './ShopDrawingImportDialog';
 import UnitTypeImportDialog from './UnitTypeImportDialog';
-import { usePrefinalStore } from '@/hooks/usePrefinalStore';
+import StonePDFImportDialog, { type StoneExtractedRow } from './StonePDFImportDialog';
+import { usePrefinalStore, type PrefinalStoneRow } from '@/hooks/usePrefinalStore';
 
 interface Props {
   project: Project;
