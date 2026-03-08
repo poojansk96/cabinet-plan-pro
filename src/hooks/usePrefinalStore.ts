@@ -41,6 +41,15 @@ function normalizeUnitKeyPart(value: string): string {
   return String(value || '').toUpperCase().replace(/\s+/g, '').trim();
 }
 
+function normalizeTypeKeyPart(value: string): string {
+  return String(value || '')
+    .toUpperCase()
+    .trim()
+    .replace(/^TYPE\s+/, '')
+    .replace(/\s+/g, '')
+    .replace(/-/g, '');
+}
+
 function normalizeBldgKeyPart(value: string): string {
   const raw = String(value || '').toUpperCase().trim();
   if (!raw) return '';
@@ -56,6 +65,24 @@ function makeUnitCompositeKey(name: string, bldg: string): string {
 function parseFloorNumber(floor: string): number | null {
   const n = parseInt(String(floor || '').replace(/\D/g, ''), 10);
   return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function pickPreferredBldg(a: string, b: string): string {
+  const score = (v: string) => {
+    const n = normalizeBldgKeyPart(v);
+    if (!n) return 0;
+    if (n.startsWith('BLDG')) return 3;
+    return 1;
+  };
+  return score(b) > score(a) ? b : a;
+}
+
+function mergeAssignments(a: Record<string, boolean>, b: Record<string, boolean>): Record<string, boolean> {
+  const out: Record<string, boolean> = { ...a };
+  for (const [k, v] of Object.entries(b)) {
+    if (v) out[k] = true;
+  }
+  return out;
 }
 
 function dedupeUnitNumbers(unitNumbers: PrefinalUnitNumber[]): PrefinalUnitNumber[] {
@@ -89,13 +116,61 @@ function dedupeUnitNumbers(unitNumbers: PrefinalUnitNumber[]): PrefinalUnitNumbe
     map.set(key, {
       ...existing,
       name: existing.name || String(unit.name || '').trim(),
-      bldg: existing.bldg || String(unit.bldg || '').trim(),
+      bldg: pickPreferredBldg(existing.bldg, String(unit.bldg || '').trim()),
       floor: pickedFloor,
-      assignments: { ...existing.assignments, ...unit.assignments },
+      assignments: mergeAssignments(existing.assignments, unit.assignments),
     });
   }
 
   return Array.from(map.values());
+}
+
+function dedupeSameTypeSameUnit(unitNumbers: PrefinalUnitNumber[]): PrefinalUnitNumber[] {
+  const byTypeAndUnit = new Map<string, PrefinalUnitNumber>();
+
+  for (const row of unitNumbers) {
+    const activeTypes = Object.entries(row.assignments)
+      .filter(([, enabled]) => !!enabled)
+      .map(([type]) => type);
+
+    let merged = false;
+    for (const type of activeTypes) {
+      const key = `${normalizeUnitKeyPart(row.name)}__${normalizeTypeKeyPart(type)}`;
+      const existing = byTypeAndUnit.get(key);
+      if (!existing) continue;
+
+      const existingFloorNum = parseFloorNumber(existing.floor);
+      const incomingFloorNum = parseFloorNumber(row.floor);
+      existing.floor = (() => {
+        if (existingFloorNum !== null && incomingFloorNum !== null) return String(Math.min(existingFloorNum, incomingFloorNum));
+        if (existingFloorNum !== null) return existing.floor;
+        return row.floor || existing.floor;
+      })();
+      existing.bldg = pickPreferredBldg(existing.bldg, row.bldg);
+      existing.assignments = mergeAssignments(existing.assignments, row.assignments);
+      merged = true;
+      break;
+    }
+
+    if (!merged) {
+      const copy: PrefinalUnitNumber = {
+        name: row.name,
+        bldg: row.bldg,
+        floor: row.floor,
+        assignments: { ...row.assignments },
+      };
+      for (const type of activeTypes) {
+        const key = `${normalizeUnitKeyPart(copy.name)}__${normalizeTypeKeyPart(type)}`;
+        if (!byTypeAndUnit.has(key)) byTypeAndUnit.set(key, copy);
+      }
+      if (activeTypes.length === 0) {
+        const fallbackKey = `${normalizeUnitKeyPart(copy.name)}__UNASSIGNED`;
+        if (!byTypeAndUnit.has(fallbackKey)) byTypeAndUnit.set(fallbackKey, copy);
+      }
+    }
+  }
+
+  return Array.from(new Set(byTypeAndUnit.values()));
 }
 
 function loadData(projectId: string): PrefinalData {
