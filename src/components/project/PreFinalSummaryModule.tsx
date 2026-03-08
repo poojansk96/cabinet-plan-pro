@@ -86,11 +86,19 @@ export default function PreFinalSummaryModule({ project }: Props) {
   const store = usePrefinalStore(project.id);
   const [pdfLoading, setPdfLoading] = useState(false);
 
+  const normalizeTypeKey = (value: string) =>
+    String(value || '').toUpperCase().trim().replace(/^TYPE\s+/, '').replace(/[^A-Z0-9]/g, '');
+
+  const countUnitsForType = (type: string) => {
+    const target = normalizeTypeKey(type);
+    return store.unitNumbers.filter(u =>
+      Object.entries(u.assignments || {}).some(([k, enabled]) => enabled && normalizeTypeKey(k) === target)
+    ).length;
+  };
+
   const { allSkus, skuCabType, skuTypeMap, skuTypeQty, groupedSkus } = groupSkusByType(store.cabinetRows);
 
-  const unitTypeTotal = (type: string) =>
-    store.unitNumbers.filter(u => u.assignments[type]).length;
-
+  const unitTypeTotal = (type: string) => countUnitsForType(type);
   // ─── Excel Export ────────────────────────────────────────────────
   const handleExportExcel = async () => {
     const wb = new ExcelJS.Workbook();
