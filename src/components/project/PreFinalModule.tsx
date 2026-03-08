@@ -468,6 +468,13 @@ export default function PreFinalModule({ project }: Props) {
               Pre-Final Cabinet Count
 
               <div className="ml-auto flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => setShowCabinetImport(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
+                  style={{ background: 'hsl(var(--primary))' }}
+                >
+                  <FileUp size={12} /> Import from PDF
+                </button>
                 {store.cabinetRows.length > 0 && (
                   <button
                     onClick={() => { if (confirm('Clear all cabinet import data?')) store.clearCabinets(); }}
