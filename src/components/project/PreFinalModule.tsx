@@ -239,6 +239,13 @@ export default function PreFinalModule({ project }: Props) {
         >
           <LayoutGrid size={13} /> Cabinet Count
         </button>
+        <button
+          onClick={() => setActiveSubTab('stone')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-xs font-medium transition-colors ${activeSubTab === 'stone' ? 'text-white' : 'text-muted-foreground border border-border hover:bg-secondary'}`}
+          style={activeSubTab === 'stone' ? { background: 'hsl(var(--primary))' } : {}}
+        >
+          <Square size={13} /> Stone - SQFT
+        </button>
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
