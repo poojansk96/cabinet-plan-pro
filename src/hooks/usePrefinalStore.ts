@@ -321,6 +321,8 @@ export function usePrefinalStore(projectId: string) {
     unitNumbers: data.unitNumbers,
     cabinetRows: data.cabinetRows,
     cabinetUnitTypes: data.cabinetUnitTypes,
+    handleQtyPerSku: data.handleQtyPerSku,
+    bidCostPerType: data.bidCostPerType,
     addUnitTypes,
     deleteUnitType,
     renameUnitType,
@@ -337,6 +339,8 @@ export function usePrefinalStore(projectId: string) {
     deleteCabinetRow,
     clearCabinets,
     clearUnits,
+    setHandleQty,
+    setBidCost,
     clearAll,
   };
 }
