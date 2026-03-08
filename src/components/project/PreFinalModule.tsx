@@ -542,6 +542,25 @@ export default function PreFinalModule({ project }: Props) {
                           Total
                         </div>
                       </th>
+                      <th className="text-center" style={{ verticalAlign: 'bottom', padding: '0', minWidth: '56px' }}>
+                        <div style={{
+                          background: 'hsl(280 60% 40%)',
+                          color: '#fff',
+                          fontWeight: 700,
+                          fontSize: '11px',
+                          height: '100px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          writingMode: 'vertical-rl',
+                          transform: 'rotate(180deg)',
+                          letterSpacing: '0.05em',
+                          width: '100%',
+                          borderRadius: '4px 4px 0 0',
+                        }}>
+                          Pulls/Cab
+                        </div>
+                      </th>
                       <th className="w-8" style={{ verticalAlign: 'bottom' }}></th>
                     </tr>
                   </thead>
