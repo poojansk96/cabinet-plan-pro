@@ -79,13 +79,14 @@ async function renderPageToBase64(page: any): Promise<string> {
 
 type Step = 'upload' | 'processing' | 'review';
 
-export default function UnitTypeImportDialog({ onImport, onClose }: Props) {
+export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<UnitMappingRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState(0);
   const [quoteIndex, setQuoteIndex] = useState(() => Math.floor(Math.random() * QUOTES.length));
+  const [personalQuoteIndex, setPersonalQuoteIndex] = useState(() => Math.floor(Math.random() * PERSONAL_QUOTES.length));
   const [quoteVisible, setQuoteVisible] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
 
