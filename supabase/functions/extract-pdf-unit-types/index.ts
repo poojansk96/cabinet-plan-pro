@@ -56,7 +56,8 @@ IF THIS IS A FLOOR PLAN PAGE, EXTRACT:
    - You MUST create a SEPARATE entry for EACH building × EACH unit number combination.
    - Include the building in the "bldg" field of EACH unit entry (e.g., "BLDG 1", "BLDG 3").
    - If buildings are listed like "BLDG 2, BLDG 4, BLDG 6", create entries for ALL three buildings.
-   - If no building is found, use null.
+   - **IMPORTANT**: Use ONLY the structured building label (e.g., "BLDG 1", "Building A"). Do NOT use the project/apartment name (e.g., "Clover Apartments", "Sunrise Towers") as a building value.
+   - If no structured building label is found, use null.
 
 DO NOT EXTRACT:
 - Cabinet SKUs (W3030, B24, SB36, HASB48B, HAV3621-REM, etc.)
@@ -68,21 +69,6 @@ VERIFICATION: Before outputting, re-read the unit number list one more time and 
 
 Return ONLY valid JSON, no other text. Each unit entry MUST include a "bldg" field:
 {"bldg":null,"units":[{"unitNumber":"1A","unitType":"TYPE 1 - AS","floor":"1","bldg":"BLDG 1"},{"unitNumber":"1A","unitType":"TYPE 1 - AS","floor":"1","bldg":"BLDG 3"},{"unitNumber":"2A","unitType":"TYPE 1 - AS","floor":"2","bldg":"BLDG 1"},{"unitNumber":"2A","unitType":"TYPE 1 - AS","floor":"2","bldg":"BLDG 3"}]}`;
-
-const VERIFY_PROMPT = `You are verifying extracted unit data from a 2020 Design shop drawing page.
-
-FIRST: Is this a FLOOR PLAN (top-down view) page? If NOT (it's an elevation, countertop drawing, title-only page, or any other non-floor-plan page), return {"bldg":null,"units":[]}.
-
-If it IS a floor plan page, verify:
-- Is the UNIT TYPE correct? It should be from the title block (e.g. "TYPE A1 - AS"), NOT a room name.
-- Are ALL unit numbers captured? Re-read the comma-separated list CHARACTER BY CHARACTER. Add any missing ones.
-- Are there FALSE entries (cabinet SKUs like W3030, HASB48B, room names like "Island")? Remove them.
-- ONLY apartment/suite unit numbers should remain (e.g., 230, 101, A-502, PH-1).
-- **CRITICAL**: If the page lists MULTIPLE BUILDINGS (e.g., "BLDG 1, BLDG 3"), EACH unit number must appear ONCE PER BUILDING with the correct "bldg" field. For example, if BLDG 1 and BLDG 3 both have unit 1A, there must be TWO entries: one with "bldg":"BLDG 1" and one with "bldg":"BLDG 3".
-- Check if any buildings were missed. Re-read the building list and ensure every building × unit combination exists.
-
-Return the corrected JSON (same format), no other text. Each entry MUST have a "bldg" field:
-{"bldg":null,"units":[{"unitNumber":"1A","unitType":"TYPE 1 - AS","floor":"1","bldg":"BLDG 1"},{"unitNumber":"1A","unitType":"TYPE 1 - AS","floor":"1","bldg":"BLDG 3"}]}`;
 
 function extractJSON(text: string): { units: any[]; bldg?: string } {
   // Try markdown fences
@@ -149,6 +135,19 @@ function hasValidUnitType(val: string): boolean {
   return true;
 }
 
+/** Normalize building string to a canonical key for dedup */
+function normalizeBldgKey(raw: string): string {
+  return String(raw || '').toUpperCase().trim()
+    .replace(/BUILDINGS?/g, 'BLDG')
+    .replace(/BLDG\.?/g, 'BLDG')
+    .replace(/[^A-Z0-9]/g, '');
+}
+
+/** Check if a building label is a proper structural label (BLDG 1, Tower A, etc.) vs a project name */
+function isStructuredBldg(key: string): boolean {
+  return /(BLDG|TOWER|WING|BLOCK|PHASE|PODIUM)/.test(key) || /\d/.test(key);
+}
+
 function cleanUnits(rawUnits: any[], pageBldg: string | null) {
   const units = (rawUnits ?? [])
     .filter((u: any) => u.unitNumber && typeof u.unitNumber === "string")
@@ -158,18 +157,50 @@ function cleanUnits(rawUnits: any[], pageBldg: string | null) {
       return {
         unitNumber: String(u.unitNumber).trim(),
         unitType,
-        bldg: String(u.bldg || pageBldg || "BLDG 1").trim(),
+        bldg: String(u.bldg || pageBldg || "").trim(),
         floor: u.floor ? `Floor ${String(u.floor).trim().replace(/^Floor\s*/i, '')}` : null,
       };
     })
     .filter(u => isValidUnitNumber(u.unitNumber) && hasValidUnitType(u.unitType))
-    .filter(u => !/^\d$/.test(u.unitNumber)); // Always reject floor-like single digits (3/4/5 noise)
+    .filter(u => !/^\d$/.test(u.unitNumber));
 
-  // Deduplicate by unit + building + floor (not unit alone), so repeated unit numbers in different areas are preserved
+  // Find the dominant structured building label on this page
+  const bldgCounts = new Map<string, { count: number; label: string }>();
+  for (const u of units) {
+    const key = normalizeBldgKey(u.bldg);
+    if (!key) continue;
+    const existing = bldgCounts.get(key);
+    if (existing) { existing.count++; } else { bldgCounts.set(key, { count: 1, label: u.bldg }); }
+  }
+  // Pick the structured label with most occurrences
+  let dominantKey = '';
+  let dominantLabel = '';
+  let dominantCount = 0;
+  for (const [key, val] of bldgCounts) {
+    if (isStructuredBldg(key) && val.count > dominantCount) {
+      dominantKey = key;
+      dominantLabel = val.label;
+      dominantCount = val.count;
+    }
+  }
+
+  // Normalize: fold non-structured building names (project names like "Clover Apartments") into the dominant structured label
+  const normalized = units.map(u => {
+    const key = normalizeBldgKey(u.bldg);
+    if (dominantKey && key && !isStructuredBldg(key)) {
+      return { ...u, bldg: dominantLabel };
+    }
+    if (!u.bldg && dominantLabel) {
+      return { ...u, bldg: dominantLabel };
+    }
+    return u;
+  });
+
+  // Deduplicate by unitNumber + normalized bldg + unitType
   const seen = new Set<string>();
-  const normalizeKeyPart = (v: string | null | undefined) => String(v ?? '').toUpperCase().replace(/\s+/g, '').trim();
-  return units.filter(u => {
-    const key = `${normalizeKeyPart(u.unitNumber)}|${normalizeKeyPart(u.bldg)}|${normalizeKeyPart(u.floor)}`;
+  const kp = (v: string | null | undefined) => String(v ?? '').toUpperCase().replace(/\s+/g, '').trim();
+  return normalized.filter(u => {
+    const key = `${kp(u.unitNumber)}|${kp(u.bldg)}|${kp(u.unitType)}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -214,6 +245,7 @@ serve(async (req) => {
         if (!res.ok) {
           const status = res.status;
           if (status === 429) return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          if (status === 402) return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
           if ((status === 503 || status === 500) && attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
           throw new Error(`AI error ${status}`);
         }
@@ -226,73 +258,10 @@ serve(async (req) => {
       }
     }
 
-    console.log("AI Pass 1 response:", content.slice(0, 500));
+    console.log("AI response:", content.slice(0, 500));
     const parsed = extractJSON(content);
-    const firstPassUnits = cleanUnits(parsed.units, parsed.bldg || null);
-    console.log("Pass 1 units:", firstPassUnits.length, JSON.stringify(firstPassUnits.map(u => u.unitNumber)));
-
-    // PASS 2: Verification — re-send the image with first-pass results for the AI to double-check
-    let finalUnits = firstPassUnits;
-    try {
-      const verifyBody = JSON.stringify({
-        contents: [{ role: "user", parts: [
-          { inlineData: { mimeType: "image/jpeg", data: pageImage } },
-          { text: VERIFY_PROMPT + "\n\nPreviously extracted data:\n" + JSON.stringify({ bldg: parsed.bldg || null, units: firstPassUnits }) },
-        ]}],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 4096 },
-      });
-
-      const verifyRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-        { method: "POST", headers: { "Content-Type": "application/json" }, body: verifyBody }
-      );
-
-      if (verifyRes.ok) {
-        const verifyData = await verifyRes.json();
-        const verifyContent = verifyData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-        console.log("AI Pass 2 (verify) response:", verifyContent.slice(0, 500));
-        const verifyParsed = extractJSON(verifyContent);
-        const verifiedUnits = cleanUnits(verifyParsed.units, verifyParsed.bldg || parsed.bldg || null);
-
-        // Use verified results if they found units (merge to keep the most complete set)
-        if (verifiedUnits.length > 0) {
-          // Merge: keep all units from both passes, deduplicate by unitNumber+bldg composite key
-          const merged = new Map<string, typeof finalUnits[0]>();
-          const makeKey = (u: typeof finalUnits[0]) => `${u.unitNumber}__${(u.bldg || '').toUpperCase().replace(/\s+/g, '')}`;
-          for (const u of firstPassUnits) merged.set(makeKey(u), u);
-          for (const u of verifiedUnits) merged.set(makeKey(u), u); // verified pass overrides
-          finalUnits = Array.from(merged.values());
-          finalUnits.sort((a, b) => {
-            const bldgCmp = (a.bldg || '').localeCompare(b.bldg || '', undefined, { numeric: true });
-            if (bldgCmp !== 0) return bldgCmp;
-            return a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true });
-          });
-        }
-        console.log("Pass 2 verified units:", finalUnits.length, JSON.stringify(finalUnits.map(u => `${u.bldg}/${u.unitNumber}`)));
-      } else {
-        console.warn("Verification pass failed with status:", verifyRes.status, "— using Pass 1 results");
-      }
-    } catch (verifyErr) {
-      console.warn("Verification pass error:", verifyErr, "— using Pass 1 results");
-    }
-
-    // FINAL DEDUP: Collapse entries that share unitNumber+bldg+unitType but differ only in floor
-    // Keep the entry with the lowest numeric floor (most reliable)
-    const finalDedup = new Map<string, typeof finalUnits[0]>();
-    for (const u of finalUnits) {
-      const dedupKey = `${u.unitNumber.toUpperCase().replace(/\s+/g, '')}|${(u.bldg || '').toUpperCase().replace(/\s+/g, '')}|${(u.unitType || '').toUpperCase().replace(/\s+/g, '')}`;
-      const existing = finalDedup.get(dedupKey);
-      if (!existing) {
-        finalDedup.set(dedupKey, u);
-      } else {
-        // Keep the one with the lower floor number
-        const existFloor = parseInt(String(existing.floor || '').replace(/\D/g, ''), 10) || 999;
-        const newFloor = parseInt(String(u.floor || '').replace(/\D/g, ''), 10) || 999;
-        if (newFloor < existFloor) finalDedup.set(dedupKey, u);
-      }
-    }
-    finalUnits = Array.from(finalDedup.values());
-    console.log("Final deduped units:", finalUnits.length);
+    const finalUnits = cleanUnits(parsed.units, parsed.bldg || null);
+    console.log("Final units:", finalUnits.length, JSON.stringify(finalUnits.map(u => `${u.bldg}/${u.unitNumber}`)));
 
     return new Response(JSON.stringify({ units: finalUnits, pageType: "floor_plan" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
