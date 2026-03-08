@@ -55,10 +55,17 @@ export default function PreFinalModule({ project }: Props) {
   const [stoneImportedCount, setStoneImportedCount] = useState<number | null>(null);
 
   // ── Unit import handler ───────────────────────────────────────────────────
-  const handleUnitImport = (rows: { unitNumber: string; unitType: string; bldg: string }[]) => {
+  const handleUnitImport = (rows: { unitNumber: string; unitType: string; bldg: string }[], typeOrder?: string[]) => {
     const normalized = rows.map(r => ({ ...r, unitType: normalizeUnitType(r.unitType) }));
-    const types = Array.from(new Set(normalized.map(r => r.unitType)));
-    store.addUnitTypes(types);
+    // Use PDF page order if provided, otherwise fall back to Set insertion order
+    const normalizedOrder = typeOrder?.map(t => normalizeUnitType(t)) ?? [];
+    const orderedTypes = normalizedOrder.length > 0
+      ? normalizedOrder.filter((t, i, arr) => arr.indexOf(t) === i) // deduplicate preserving order
+      : Array.from(new Set(normalized.map(r => r.unitType)));
+    // Add any types from rows that weren't in the order list
+    const remaining = Array.from(new Set(normalized.map(r => r.unitType))).filter(t => !orderedTypes.includes(t));
+    const finalTypes = [...orderedTypes, ...remaining];
+    store.addUnitTypes(finalTypes);
     store.importUnitMappings(normalized);
     setUnitImportedCount(normalized.length);
     setTimeout(() => setUnitImportedCount(null), 4000);

@@ -23,7 +23,7 @@ interface PageSighting {
 }
 
 interface Props {
-  onImport: (rows: Omit<UnitMappingRow, 'selected'>[]) => void;
+  onImport: (rows: Omit<UnitMappingRow, 'selected'>[], typeOrder?: string[]) => void;
   onClose: () => void;
   prefinalPerson?: string;
 }
@@ -82,6 +82,7 @@ type Step = 'upload' | 'processing' | 'review';
 export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<UnitMappingRow[]>([]);
+  const [typeOrder, setTypeOrder] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -117,6 +118,8 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
 
       // Track every sighting of each unit across pages
       const sightings: Map<string, PageSighting[]> = new Map();
+      // Track first page each unit type appears on (for PDF-order sorting)
+      const typeFirstPage: Map<string, number> = new Map();
 
       // Count total pages across all PDFs for progress tracking
       const pdfs: { file: File; pdf: any }[] = [];
@@ -194,6 +197,12 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
             const floor = String(u.floor ?? '').trim();
             if (!num || !type) continue;
 
+            // Track first page each unit type appears on (for PDF-order column sorting)
+            const typeKey = type.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').trim();
+            if (!typeFirstPage.has(typeKey)) {
+              typeFirstPage.set(typeKey, pagesProcessed);
+            }
+
             // Deduplicate by unitNumber+bldg+unitType (NOT floor) to prevent floor-variant duplicates
             const sightingKey = `${keyPart(num)}|${keyPart(bldg)}|${keyPart(type)}`;
             const nextSighting: PageSighting = { unitNumber: num, unitType: type, bldg, floor, page: p, file: file.name };
@@ -252,6 +261,18 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
         return;
       }
 
+      // Build type order sorted by first PDF page appearance
+      const seenTypes = new Map<string, string>(); // normalizedKey -> original display name
+      for (const r of result) {
+        const key = r.unitType.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').trim();
+        if (!seenTypes.has(key)) seenTypes.set(key, r.unitType);
+      }
+      const pdfTypeOrder = Array.from(typeFirstPage.entries())
+        .sort((a, b) => a[1] - b[1])
+        .map(([key]) => seenTypes.get(key))
+        .filter((t): t is string => !!t);
+
+      setTypeOrder(pdfTypeOrder);
       setRows(result);
       setStep('review');
     } catch (err) {
@@ -281,7 +302,7 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
   const handleImport = () => {
     const selected = rows.filter(r => r.selected).map(({ selected: _, ...rest }) => rest);
     if (!selected.length) return;
-    onImport(selected);
+    onImport(selected, typeOrder);
   };
 
   const selectedCount = rows.filter(r => r.selected).length;
