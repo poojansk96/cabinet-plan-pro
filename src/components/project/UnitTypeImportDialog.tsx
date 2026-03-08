@@ -235,14 +235,6 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
         }
       }
 
-      const keyPart = (v: string) => v.toUpperCase().replace(/\s+/g, '').trim();
-      const aliasCounts = new Map<string, number>();
-      for (const unit of extractedUnits) {
-        const aliasKey = normalizeBuildingKey(unit.bldg);
-        if (!aliasKey) continue;
-        aliasCounts.set(aliasKey, (aliasCounts.get(aliasKey) ?? 0) + 1);
-      }
-
       const dominantStructured = Array.from(structuredBuildingStats.entries())
         .sort((a, b) => b[1].count - a[1].count)[0];
       const dominantStructuredKey = dominantStructured?.[0] ?? '';
