@@ -404,6 +404,7 @@ export function usePrefinalStore(projectId: string) {
     cabinetUnitTypes: data.cabinetUnitTypes,
     handleQtyPerSku: data.handleQtyPerSku,
     bidCostPerType: data.bidCostPerType,
+    additionalCostPerType: data.additionalCostPerType,
     stoneRows: data.stoneRows,
     stoneUnitTypes: data.stoneUnitTypes,
     addUnitTypes,
