@@ -36,6 +36,8 @@ function loadData(projectId: string): PrefinalData {
         unitNumbers: [],
         cabinetRows: parsed.cabinetRows || [],
         cabinetUnitTypes: parsed.cabinetUnitTypes || [],
+        handleQtyPerSku: parsed.handleQtyPerSku || {},
+        bidCostPerType: parsed.bidCostPerType || {},
       };
     }
     // Normalize + deduplicate cabinetUnitTypes
