@@ -441,7 +441,7 @@ export function usePrefinalStore(projectId: string) {
 
           updatedNumbers[existingIdx] = {
             ...current,
-            name: current.name || String(m.unitNumber || '').trim(),
+            name: current.name || sanitizeUnitNumber(m.unitNumber),
             bldg: current.bldg || String(m.bldg || '').trim(),
             floor: mergedFloor,
             assignments: normalizeAssignments({ ...current.assignments, [resolvedType]: true }, prev.unitTypes),
