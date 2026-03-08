@@ -122,34 +122,34 @@ function dedupeUnitNumbers(unitNumbers: PrefinalUnitNumber[]): PrefinalUnitNumbe
     const key = makeUnitCompositeKey(unit.name, unit.bldg);
     const existing = map.get(key);
 
-    if (!existing) {
+      if (!existing) {
+        map.set(key, {
+          ...unit,
+          name: sanitizeUnitNumber(unit.name),
+          bldg: String(unit.bldg || '').trim(),
+          floor: String(unit.floor || '').trim(),
+          assignments: { ...unit.assignments },
+        });
+        continue;
+      }
+
+      const existingFloorNum = parseFloorNumber(existing.floor);
+      const incomingFloorNum = parseFloorNumber(unit.floor);
+
+      const pickedFloor = (() => {
+        if (existingFloorNum !== null && incomingFloorNum !== null) return Math.min(existingFloorNum, incomingFloorNum).toString();
+        if (existingFloorNum !== null) return existing.floor;
+        if (incomingFloorNum !== null) return String(unit.floor || '').trim();
+        return existing.floor || String(unit.floor || '').trim();
+      })();
+
       map.set(key, {
-        ...unit,
-        name: String(unit.name || '').trim(),
-        bldg: String(unit.bldg || '').trim(),
-        floor: String(unit.floor || '').trim(),
-        assignments: { ...unit.assignments },
+        ...existing,
+        name: sanitizeUnitNumber(existing.name || unit.name),
+        bldg: pickPreferredBldg(existing.bldg, String(unit.bldg || '').trim()),
+        floor: pickedFloor,
+        assignments: mergeAssignments(existing.assignments, unit.assignments),
       });
-      continue;
-    }
-
-    const existingFloorNum = parseFloorNumber(existing.floor);
-    const incomingFloorNum = parseFloorNumber(unit.floor);
-
-    const pickedFloor = (() => {
-      if (existingFloorNum !== null && incomingFloorNum !== null) return Math.min(existingFloorNum, incomingFloorNum).toString();
-      if (existingFloorNum !== null) return existing.floor;
-      if (incomingFloorNum !== null) return String(unit.floor || '').trim();
-      return existing.floor || String(unit.floor || '').trim();
-    })();
-
-    map.set(key, {
-      ...existing,
-      name: existing.name || String(unit.name || '').trim(),
-      bldg: pickPreferredBldg(existing.bldg, String(unit.bldg || '').trim()),
-      floor: pickedFloor,
-      assignments: mergeAssignments(existing.assignments, unit.assignments),
-    });
   }
 
   return Array.from(map.values());
