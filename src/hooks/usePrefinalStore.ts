@@ -318,6 +318,15 @@ export function usePrefinalStore(projectId: string) {
     });
   }, [projectId]);
 
+  const setAdditionalCost = useCallback((unitType: string, cost: number) => {
+    setData(prev => {
+      const additionalCostPerType = { ...prev.additionalCostPerType, [unitType]: cost };
+      const next = { ...prev, additionalCostPerType };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
   const setBidCost = useCallback((unitType: string, cost: number) => {
     setData(prev => {
       const bidCostPerType = { ...prev.bidCostPerType, [unitType]: cost };
