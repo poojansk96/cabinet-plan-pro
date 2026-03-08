@@ -37,6 +37,67 @@ interface PrefinalData {
   stoneUnitTypes: string[];
 }
 
+function normalizeUnitKeyPart(value: string): string {
+  return String(value || '').toUpperCase().replace(/\s+/g, '').trim();
+}
+
+function normalizeBldgKeyPart(value: string): string {
+  const raw = String(value || '').toUpperCase().trim();
+  if (!raw) return '';
+  return raw
+    .replace(/BUILDING/g, 'BLDG')
+    .replace(/[^A-Z0-9]/g, '');
+}
+
+function makeUnitCompositeKey(name: string, bldg: string): string {
+  return `${normalizeUnitKeyPart(name)}__${normalizeBldgKeyPart(bldg)}`;
+}
+
+function parseFloorNumber(floor: string): number | null {
+  const n = parseInt(String(floor || '').replace(/\D/g, ''), 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function dedupeUnitNumbers(unitNumbers: PrefinalUnitNumber[]): PrefinalUnitNumber[] {
+  const map = new Map<string, PrefinalUnitNumber>();
+
+  for (const unit of unitNumbers) {
+    const key = makeUnitCompositeKey(unit.name, unit.bldg);
+    const existing = map.get(key);
+
+    if (!existing) {
+      map.set(key, {
+        ...unit,
+        name: String(unit.name || '').trim(),
+        bldg: String(unit.bldg || '').trim(),
+        floor: String(unit.floor || '').trim(),
+        assignments: { ...unit.assignments },
+      });
+      continue;
+    }
+
+    const existingFloorNum = parseFloorNumber(existing.floor);
+    const incomingFloorNum = parseFloorNumber(unit.floor);
+
+    const pickedFloor = (() => {
+      if (existingFloorNum !== null && incomingFloorNum !== null) return Math.min(existingFloorNum, incomingFloorNum).toString();
+      if (existingFloorNum !== null) return existing.floor;
+      if (incomingFloorNum !== null) return String(unit.floor || '').trim();
+      return existing.floor || String(unit.floor || '').trim();
+    })();
+
+    map.set(key, {
+      ...existing,
+      name: existing.name || String(unit.name || '').trim(),
+      bldg: existing.bldg || String(unit.bldg || '').trim(),
+      floor: pickedFloor,
+      assignments: { ...existing.assignments, ...unit.assignments },
+    });
+  }
+
+  return Array.from(map.values());
+}
+
 function loadData(projectId: string): PrefinalData {
   try {
     const raw = localStorage.getItem(`prefinal_${projectId}`);
@@ -74,7 +135,14 @@ function loadData(projectId: string): PrefinalData {
       ...r,
       unitType: r.unitType ? r.unitType.trim().toUpperCase().replace(/\s*-\s*/g, '-') : r.unitType,
     }));
-    const unitNumbers = (parsed.unitNumbers || []).map((u: any) => ({ ...u, floor: u.floor || '' }));
+    const rawUnitNumbers = (parsed.unitNumbers || []).map((u: any) => ({
+      ...u,
+      name: String(u.name || '').trim(),
+      bldg: String(u.bldg || '').trim(),
+      floor: String(u.floor || '').trim(),
+      assignments: { ...(u.assignments || {}) },
+    }));
+    const unitNumbers = dedupeUnitNumbers(rawUnitNumbers);
     return { unitTypes: parsed.unitTypes || [], unitNumbers, cabinetRows, cabinetUnitTypes: dedupedCabTypes, handleQtyPerSku: parsed.handleQtyPerSku || {}, bidCostPerType: parsed.bidCostPerType || {}, additionalCostPerType: parsed.additionalCostPerType || {}, stoneRows: parsed.stoneRows || [], stoneUnitTypes: parsed.stoneUnitTypes || [] };
   } catch {
     return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [] };
@@ -209,30 +277,47 @@ export function usePrefinalStore(projectId: string) {
   // ── Import unit mappings (unit# → type with "1" assignment) ────────────
   const importUnitMappings = useCallback((mappings: { unitNumber: string; unitType: string; bldg?: string; floor?: string }[]) => {
     setData(prev => {
-      // Use composite key: unitNumber + bldg to differentiate same unit# across buildings
-      const makeKey = (name: string, bldg: string) => `${name.toUpperCase().trim()}__${bldg.toUpperCase().trim()}`;
+      const baseUnits = dedupeUnitNumbers(
+        prev.unitNumbers.map(u => ({ ...u, assignments: { ...u.assignments } }))
+      );
+
       const existingKeys = new Map<string, number>();
-      prev.unitNumbers.forEach((u, i) => existingKeys.set(makeKey(u.name, u.bldg), i));
-      const newUnits: PrefinalUnitNumber[] = [];
-      // Clone to avoid mutating prev directly
-      const updatedNumbers = prev.unitNumbers.map(u => ({ ...u, assignments: { ...u.assignments } }));
+      baseUnits.forEach((u, i) => existingKeys.set(makeUnitCompositeKey(u.name, u.bldg), i));
+
+      const updatedNumbers = [...baseUnits];
       for (const m of mappings) {
-        const key = makeKey(m.unitNumber, m.bldg || '');
+        const key = makeUnitCompositeKey(m.unitNumber, m.bldg || '');
         const existingIdx = existingKeys.get(key);
+
         if (existingIdx !== undefined) {
+          const current = updatedNumbers[existingIdx];
+          const currentFloorNum = parseFloorNumber(current.floor);
+          const incomingFloorNum = parseFloorNumber(m.floor || '');
+          const mergedFloor = (() => {
+            if (currentFloorNum !== null && incomingFloorNum !== null) return String(Math.min(currentFloorNum, incomingFloorNum));
+            if (currentFloorNum !== null) return current.floor;
+            return (m.floor || '').trim() || current.floor || '';
+          })();
+
           updatedNumbers[existingIdx] = {
-            ...updatedNumbers[existingIdx],
-            bldg: m.bldg || updatedNumbers[existingIdx].bldg || '',
-            floor: m.floor || updatedNumbers[existingIdx].floor || '',
-            assignments: { ...updatedNumbers[existingIdx].assignments, [m.unitType]: true },
+            ...current,
+            name: current.name || String(m.unitNumber || '').trim(),
+            bldg: current.bldg || String(m.bldg || '').trim(),
+            floor: mergedFloor,
+            assignments: { ...current.assignments, [m.unitType]: true },
           };
         } else {
-          const newUnit: PrefinalUnitNumber = { name: m.unitNumber, bldg: m.bldg || '', floor: m.floor || '', assignments: { [m.unitType]: true } };
-          existingKeys.set(key, updatedNumbers.length + newUnits.length);
-          newUnits.push(newUnit);
+          updatedNumbers.push({
+            name: String(m.unitNumber || '').trim(),
+            bldg: String(m.bldg || '').trim(),
+            floor: String(m.floor || '').trim(),
+            assignments: { [m.unitType]: true },
+          });
+          existingKeys.set(key, updatedNumbers.length - 1);
         }
       }
-      const unitNumbers = [...updatedNumbers, ...newUnits];
+
+      const unitNumbers = dedupeUnitNumbers(updatedNumbers);
       const next = { ...prev, unitNumbers };
       saveData(projectId, next);
       return next;
