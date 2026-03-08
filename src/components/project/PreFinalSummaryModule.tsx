@@ -508,12 +508,16 @@ export default function PreFinalSummaryModule({ project }: Props) {
     wsSov.columns = [
       { width: 10 }, { width: 10 }, { width: 14 },
       ...allUnitTypes.map(() => ({ width: 14 })),
-      { width: 14 },
+      { width: 14 }, // Material
+      { width: 14 }, // Labor
+      { width: 14 }, // Tax
+      { width: 14 }, // Total
     ];
 
     wsSov.addRow([]);
-    const sovHeader = wsSov.addRow(['Bldg', 'Floor', 'Unit #', ...allUnitTypes, 'Total']);
+    const sovHeader = wsSov.addRow(['Bldg', 'Floor', 'Unit #', ...allUnitTypes, 'Material', 'Labor', 'Tax', 'Total']);
     sovHeader.height = 120;
+    const matColIdx = 3 + allUnitTypes.length + 1; // 1-indexed column for Material
     sovHeader.eachCell((cell, colNumber) => {
       cell.font = { bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F0' } };
@@ -522,24 +526,56 @@ export default function PreFinalSummaryModule({ project }: Props) {
       if (colNumber > 3 && colNumber <= allUnitTypes.length + 3) {
         cell.alignment = { textRotation: 90, vertical: 'bottom', horizontal: 'center' };
       }
-      if (colNumber === allUnitTypes.length + 4) {
+      if (colNumber >= matColIdx) {
         cell.alignment = { vertical: 'bottom', horizontal: 'center' };
       }
     });
 
-    sortedUnits.forEach(unit => {
+    const sovDataStartRow = 3; // row number where data starts (after blank + header)
+    sortedUnits.forEach((unit, idx) => {
       const typeCells = allUnitTypes.map(t => unit.assignments[t] ? t : '');
-      const assignedTypes = allUnitTypes.filter(t => unit.assignments[t]);
-      const row = wsSov.addRow([unit.bldg || '', unit.floor || '', unit.name, ...typeCells, assignedTypes.join(', ')]);
+      const rowNum = sovDataStartRow + idx;
+      const matCol = String.fromCharCode(64 + matColIdx); // e.g. 'G'
+      const labCol = String.fromCharCode(64 + matColIdx + 1);
+      const taxCol = String.fromCharCode(64 + matColIdx + 2);
+      const totCol = String.fromCharCode(64 + matColIdx + 3);
+      // Material, Labor, Tax left blank; Total = SUM of those 3
+      const row = wsSov.addRow([unit.bldg || '', unit.floor || '', unit.name, ...typeCells, '', '', '']);
+      // Add formula for Total column
+      const totalCell = row.getCell(matColIdx + 3);
+      totalCell.value = { formula: `${matCol}${rowNum + 1}+${labCol}${rowNum + 1}+${taxCol}${rowNum + 1}`, result: 0 } as any;
+      totalCell.numFmt = '$#,##0.00';
       row.eachCell((cell, colNumber) => {
         if (colNumber > 3) cell.alignment = { horizontal: 'center', vertical: 'middle' };
       });
+      // Format Material/Labor/Tax as currency
+      row.getCell(matColIdx).numFmt = '$#,##0.00';
+      row.getCell(matColIdx + 1).numFmt = '$#,##0.00';
+      row.getCell(matColIdx + 2).numFmt = '$#,##0.00';
     });
 
     wsSov.addRow([]);
     const sovTotals = allUnitTypes.map(t => unitTypeTotal(t));
-    const sovGrand = sovTotals.reduce((s, v) => s + v, 0);
-    const sovTotRow = wsSov.addRow(['', '', `TOTAL (${store.unitNumbers.length})`, ...sovTotals, sovGrand]);
+    // Build SUM formulas for Material, Labor, Tax, Total columns
+    const dataEndRow = sovDataStartRow + sortedUnits.length; // row after last data
+    const matCol = String.fromCharCode(64 + matColIdx);
+    const labCol = String.fromCharCode(64 + matColIdx + 1);
+    const taxCol = String.fromCharCode(64 + matColIdx + 2);
+    const totCol = String.fromCharCode(64 + matColIdx + 3);
+    const firstDataExcelRow = sovDataStartRow + 1;
+    const lastDataExcelRow = sovDataStartRow + sortedUnits.length;
+
+    const sovTotRow = wsSov.addRow(['', '', `TOTAL (${store.unitNumbers.length})`, ...sovTotals, '', '', '', '']);
+    // Set SUM formulas for Material, Labor, Tax, Total in total row
+    const totExcelRow = lastDataExcelRow + 2; // +1 for blank row, +1 for this row
+    sovTotRow.getCell(matColIdx).value = { formula: `SUM(${matCol}${firstDataExcelRow}:${matCol}${lastDataExcelRow})`, result: 0 } as any;
+    sovTotRow.getCell(matColIdx + 1).value = { formula: `SUM(${labCol}${firstDataExcelRow}:${labCol}${lastDataExcelRow})`, result: 0 } as any;
+    sovTotRow.getCell(matColIdx + 2).value = { formula: `SUM(${taxCol}${firstDataExcelRow}:${taxCol}${lastDataExcelRow})`, result: 0 } as any;
+    sovTotRow.getCell(matColIdx + 3).value = { formula: `SUM(${totCol}${firstDataExcelRow}:${totCol}${lastDataExcelRow})`, result: 0 } as any;
+    sovTotRow.getCell(matColIdx).numFmt = '$#,##0.00';
+    sovTotRow.getCell(matColIdx + 1).numFmt = '$#,##0.00';
+    sovTotRow.getCell(matColIdx + 2).numFmt = '$#,##0.00';
+    sovTotRow.getCell(matColIdx + 3).numFmt = '$#,##0.00';
     sovTotRow.eachCell((cell, colNumber) => {
       cell.font = { bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
