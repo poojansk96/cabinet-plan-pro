@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { FileUp, Users, LayoutGrid, Plus, Trash2, RotateCcw, Pencil } from 'lucide-react';
 import type { Project, Unit, Cabinet } from '@/types/project';
 import { type LabelRow } from './ShopDrawingImportDialog';
-import CombinedImportDialog from './CombinedImportDialog';
+import ShopDrawingImportDialog from './ShopDrawingImportDialog';
+import UnitTypeImportDialog from './UnitTypeImportDialog';
 import { usePrefinalStore } from '@/hooks/usePrefinalStore';
 
 interface Props {
@@ -33,7 +34,7 @@ export default function PreFinalModule({ project }: Props) {
   const store = usePrefinalStore(project.id);
 
   // ── Unit Count state ──────────────────────────────────────────────────────
-  const [showCombinedImport, setShowCombinedImport] = useState(false);
+  const [showUnitImport, setShowUnitImport] = useState(false);
   const [showAddUnit, setShowAddUnit] = useState(false);
   const [newUnitType, setNewUnitType] = useState('');
   const [newUnitNumber, setNewUnitNumber] = useState('');
@@ -152,43 +153,28 @@ export default function PreFinalModule({ project }: Props) {
   const unitTypeTotal = (type: string) =>
     store.unitNumbers.filter(u => u.assignments[type]).length;
 
-  // ── Combined import handler ─────────────────────────────────────────────
-  const handleCombinedImport = (
-    unitRows: { unitNumber: string; unitType: string; bldg: string }[],
-    cabinetRows: Omit<LabelRow, 'selected' | 'sourceFile'>[]
-  ) => {
-    // Import units
-    if (unitRows.length > 0) {
-      handleUnitImport(unitRows);
-    }
-    // Import cabinets
-    if (cabinetRows.length > 0) {
-      handleCabinetImport(cabinetRows);
-    }
-    setShowCombinedImport(false);
-  };
-
   return (
     <div className="space-y-4">
-      {/* Combined Import Dialog */}
-      {showCombinedImport && (
-        <CombinedImportDialog
-          onImport={handleCombinedImport}
-          onClose={() => setShowCombinedImport(false)}
+      {/* Unit Import Dialog */}
+      {showUnitImport && (
+        <UnitTypeImportDialog
+          onImport={(rows) => {
+            handleUnitImport(rows);
+            setShowUnitImport(false);
+          }}
+          onClose={() => setShowUnitImport(false)}
         />
       )}
 
-      {/* Top-level import button */}
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => setShowCombinedImport(true)}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-md text-xs font-semibold text-white transition-colors"
-          style={{ background: 'hsl(var(--primary))' }}
-        >
-          <FileUp size={13} /> Import 2020 Shop Drawing PDF
-        </button>
-        <span className="text-[10px] text-muted-foreground">Extracts both unit count & cabinet count from the same PDF</span>
-      </div>
+      {/* Cabinet Import Dialog */}
+      {showCabinetImport && (
+        <ShopDrawingImportDialog
+          onImport={(rows, detectedUnitType) => {
+            handleCabinetImport(rows, detectedUnitType);
+          }}
+          onClose={() => setShowCabinetImport(false)}
+        />
+      )}
 
       {/* Sub-tab toggle */}
       <div className="flex items-center gap-1">
@@ -226,6 +212,13 @@ export default function PreFinalModule({ project }: Props) {
               Pre-Final Unit Count
 
               <div className="ml-auto flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => setShowUnitImport(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
+                  style={{ background: 'hsl(var(--primary))' }}
+                >
+                  <FileUp size={12} /> Import from PDF
+                </button>
                 {(store.unitTypes.length > 0 || store.unitNumbers.length > 0) && (
                   <button
                     onClick={() => { if (confirm('Clear all unit count data?')) store.clearUnits(); }}
@@ -475,6 +468,13 @@ export default function PreFinalModule({ project }: Props) {
               Pre-Final Cabinet Count
 
               <div className="ml-auto flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => setShowCabinetImport(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
+                  style={{ background: 'hsl(var(--primary))' }}
+                >
+                  <FileUp size={12} /> Import from PDF
+                </button>
                 {store.cabinetRows.length > 0 && (
                   <button
                     onClick={() => { if (confirm('Clear all cabinet import data?')) store.clearCabinets(); }}
