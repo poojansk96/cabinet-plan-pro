@@ -306,7 +306,7 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
   const handleImport = () => {
     const selected = rows.filter(r => r.selected).map(({ selected: _, ...rest }) => rest);
     if (!selected.length) return;
-    onImport(selected);
+    onImport(selected, typeOrder);
   };
 
   const selectedCount = rows.filter(r => r.selected).length;
