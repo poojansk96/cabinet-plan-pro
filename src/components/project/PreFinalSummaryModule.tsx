@@ -211,7 +211,9 @@ export default function PreFinalSummaryModule({ project }: Props) {
       }
     });
 
-    // Sort units
+    // Freeze rows 1-4 (header area) so headings stay visible when scrolling
+    wsUnits.views = [{ state: 'frozen', xSplit: 0, ySplit: 4 }];
+
     const sortedUnits = [...store.unitNumbers].sort((a, b) => {
       const bldgA = (a.bldg || '').toUpperCase();
       const bldgB = (b.bldg || '').toUpperCase();
@@ -343,6 +345,9 @@ export default function PreFinalSummaryModule({ project }: Props) {
         cell.alignment = { textRotation: 90, vertical: 'bottom', horizontal: 'center' };
       }
     });
+
+    // Freeze: top 3 rows (section headers + unit count ref + column headers) AND first column (SKU Name)
+    wsCabs.views = [{ state: 'frozen', xSplit: 1, ySplit: 3 }];
 
     // Data rows
     groupedSkus.forEach(({ group, skus }) => {
