@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Building2, ArrowLeft, Users, Layers, Wrench, Square, BarChart3, Pencil, ClipboardCheck, FileUp, X } from 'lucide-react';
+import { Building2, ArrowLeft, Users, Layers, Wrench, Square, BarChart3, Pencil, ClipboardCheck, FileUp, X, FileText } from 'lucide-react';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import UnitModule from '@/components/project/UnitModule';
 import CabinetModule from '@/components/project/CabinetModule';
@@ -11,8 +11,9 @@ import PreFinalModule from '@/components/project/PreFinalModule';
 import PreFinalSummaryModule from '@/components/project/PreFinalSummaryModule';
 import SummaryPanel from '@/components/project/SummaryPanel';
 import EditProjectDialog from '@/components/project/EditProjectDialog';
+import ProjectInfoModule from '@/components/project/ProjectInfoModule';
 
-type Tab = 'units' | 'cabinets' | 'accessories' | 'countertops' | 'summary' | 'prefinal-units' | 'prefinal-summary';
+type Tab = 'units' | 'cabinets' | 'accessories' | 'countertops' | 'summary' | 'project-info' | 'prefinal-units' | 'prefinal-summary';
 
 const TAKEOFF_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'units', label: 'Units', icon: <Users size={14} /> },
@@ -23,7 +24,8 @@ const TAKEOFF_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
 ];
 
 const PREFINAL_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
-  { key: 'prefinal-units', label: 'Pre-Final', icon: <ClipboardCheck size={14} /> },
+  { key: 'project-info', label: 'Project Info', icon: <FileText size={14} /> },
+  { key: 'prefinal-units', label: 'Unit & Cabinet Count', icon: <ClipboardCheck size={14} /> },
   { key: 'prefinal-summary', label: 'Summary', icon: <BarChart3 size={14} /> },
 ];
 
@@ -37,7 +39,6 @@ export default function ProjectDetail() {
   const [isDragging, setIsDragging] = useState(false);
   const [showTour, setShowTour] = useState(false);
 
-  // First-run tour: show once per project
   useEffect(() => {
     if (!id) return;
     const key = `tour-shown-${id}`;
@@ -79,7 +80,6 @@ export default function ProjectDetail() {
       onDragLeave={e => { if (e.currentTarget === e.target || !e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false); }}
       onDrop={e => { e.preventDefault(); setIsDragging(false); }}
     >
-      {/* Drag overlay */}
       {isDragging && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'hsl(var(--primary) / 0.12)', backdropFilter: 'blur(4px)' }}>
           <div className="text-center p-8 rounded-2xl border-2 border-dashed" style={{ borderColor: 'hsl(var(--primary))' }}>
@@ -90,7 +90,6 @@ export default function ProjectDetail() {
         </div>
       )}
 
-      {/* First-run tour overlay */}
       {showTour && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
           <div className="bg-card rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 relative">
@@ -140,7 +139,7 @@ export default function ProjectDetail() {
           onClose={() => setShowEdit(false)}
         />
       )}
-      {/* Header — slim */}
+
       <header className="border-b bg-card sticky top-0 z-20" style={{ boxShadow: '0 1px 3px 0 hsl(var(--foreground) / 0.04)' }}>
         <div className="px-4 py-1.5 flex items-center gap-3">
           <Link to="/" className="text-muted-foreground hover:text-foreground" aria-label="Back to dashboard">
@@ -169,7 +168,6 @@ export default function ProjectDetail() {
           </button>
         </div>
 
-        {/* Tabs */}
         <div className="px-4 flex items-end gap-0 overflow-x-auto">
           <div className="flex flex-col">
             <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground px-1 pt-1">Takeoff</span>
@@ -209,7 +207,6 @@ export default function ProjectDetail() {
         </div>
       </header>
 
-      {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
         <main className="flex-1 overflow-auto">
           <div className="p-4">
@@ -218,13 +215,13 @@ export default function ProjectDetail() {
             {activeTab === 'accessories' && <AccessoriesModule {...storeProps} />}
             {activeTab === 'countertops' && <CountertopModule {...storeProps} />}
             {activeTab === 'summary' && <SummaryModule {...storeProps} />}
+            {activeTab === 'project-info' && <ProjectInfoModule project={project} onSave={(updates) => updateProject(project.id, updates)} />}
             {activeTab === 'prefinal-units' && <PreFinalModule key="prefinal" {...storeProps} />}
             {activeTab === 'prefinal-summary' && <PreFinalSummaryModule {...storeProps} />}
           </div>
         </main>
 
-        {/* Summary Panel — light, consistent */}
-        {!activeTab.startsWith('prefinal') && (
+        {!activeTab.startsWith('prefinal') && activeTab !== 'project-info' && (
           <aside className="w-56 flex-shrink-0 hidden lg:block overflow-auto border-l" style={{ borderColor: 'hsl(var(--border))', background: 'hsl(var(--panel-bg))' }}>
             <SummaryPanel project={project} activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab as Tab)} />
           </aside>
