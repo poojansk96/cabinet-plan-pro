@@ -37,6 +37,67 @@ interface PrefinalData {
   stoneUnitTypes: string[];
 }
 
+function normalizeUnitKeyPart(value: string): string {
+  return String(value || '').toUpperCase().replace(/\s+/g, '').trim();
+}
+
+function normalizeBldgKeyPart(value: string): string {
+  const raw = String(value || '').toUpperCase().trim();
+  if (!raw) return '';
+  return raw
+    .replace(/BUILDING/g, 'BLDG')
+    .replace(/[^A-Z0-9]/g, '');
+}
+
+function makeUnitCompositeKey(name: string, bldg: string): string {
+  return `${normalizeUnitKeyPart(name)}__${normalizeBldgKeyPart(bldg)}`;
+}
+
+function parseFloorNumber(floor: string): number | null {
+  const n = parseInt(String(floor || '').replace(/\D/g, ''), 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function dedupeUnitNumbers(unitNumbers: PrefinalUnitNumber[]): PrefinalUnitNumber[] {
+  const map = new Map<string, PrefinalUnitNumber>();
+
+  for (const unit of unitNumbers) {
+    const key = makeUnitCompositeKey(unit.name, unit.bldg);
+    const existing = map.get(key);
+
+    if (!existing) {
+      map.set(key, {
+        ...unit,
+        name: String(unit.name || '').trim(),
+        bldg: String(unit.bldg || '').trim(),
+        floor: String(unit.floor || '').trim(),
+        assignments: { ...unit.assignments },
+      });
+      continue;
+    }
+
+    const existingFloorNum = parseFloorNumber(existing.floor);
+    const incomingFloorNum = parseFloorNumber(unit.floor);
+
+    const pickedFloor = (() => {
+      if (existingFloorNum !== null && incomingFloorNum !== null) return Math.min(existingFloorNum, incomingFloorNum).toString();
+      if (existingFloorNum !== null) return existing.floor;
+      if (incomingFloorNum !== null) return String(unit.floor || '').trim();
+      return existing.floor || String(unit.floor || '').trim();
+    })();
+
+    map.set(key, {
+      ...existing,
+      name: existing.name || String(unit.name || '').trim(),
+      bldg: existing.bldg || String(unit.bldg || '').trim(),
+      floor: pickedFloor,
+      assignments: { ...existing.assignments, ...unit.assignments },
+    });
+  }
+
+  return Array.from(map.values());
+}
+
 function loadData(projectId: string): PrefinalData {
   try {
     const raw = localStorage.getItem(`prefinal_${projectId}`);
@@ -74,7 +135,14 @@ function loadData(projectId: string): PrefinalData {
       ...r,
       unitType: r.unitType ? r.unitType.trim().toUpperCase().replace(/\s*-\s*/g, '-') : r.unitType,
     }));
-    const unitNumbers = (parsed.unitNumbers || []).map((u: any) => ({ ...u, floor: u.floor || '' }));
+    const rawUnitNumbers = (parsed.unitNumbers || []).map((u: any) => ({
+      ...u,
+      name: String(u.name || '').trim(),
+      bldg: String(u.bldg || '').trim(),
+      floor: String(u.floor || '').trim(),
+      assignments: { ...(u.assignments || {}) },
+    }));
+    const unitNumbers = dedupeUnitNumbers(rawUnitNumbers);
     return { unitTypes: parsed.unitTypes || [], unitNumbers, cabinetRows, cabinetUnitTypes: dedupedCabTypes, handleQtyPerSku: parsed.handleQtyPerSku || {}, bidCostPerType: parsed.bidCostPerType || {}, additionalCostPerType: parsed.additionalCostPerType || {}, stoneRows: parsed.stoneRows || [], stoneUnitTypes: parsed.stoneUnitTypes || [] };
   } catch {
     return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [] };
