@@ -493,19 +493,29 @@ export function usePrefinalStore(projectId: string) {
     setData(prev => {
       const canonicalType = resolveExistingTypeName(unitType, [...prev.cabinetUnitTypes, ...prev.unitTypes]);
       const merged: Record<string, PrefinalCabinetRow> = {};
+      const isCornerLazySusan = (sku: string) => /^(LS|LSB)\d+/i.test(sku);
+
       for (const r of prev.cabinetRows) {
         const resolvedType = resolveExistingTypeName(r.unitType, [...prev.cabinetUnitTypes, ...prev.unitTypes]);
-        const key = `${r.sku}__${r.room}__${resolvedType}`;
-        merged[key] = { ...r, unitType: resolvedType };
+        const normSku = String(r.sku || '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+        const key = `${normSku}__${r.room}__${resolvedType}`;
+        merged[key] = { ...r, sku: normSku, unitType: resolvedType };
       }
+
       for (const r of rows) {
-        const key = `${r.sku}__${r.room}__${canonicalType}`;
+        const normSku = String(r.sku || '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+        const key = `${normSku}__${r.room}__${canonicalType}`;
+        const incomingQty = Number(r.quantity) || 1;
+
         if (merged[key]) {
-          merged[key].quantity = Math.max(merged[key].quantity, r.quantity);
+          merged[key].quantity = isCornerLazySusan(normSku)
+            ? Math.max(merged[key].quantity, incomingQty)
+            : merged[key].quantity + incomingQty;
         } else {
-          merged[key] = { ...r, unitType: canonicalType };
+          merged[key] = { ...r, sku: normSku, quantity: incomingQty, unitType: canonicalType };
         }
       }
+
       const cabinetRows = Object.values(merged).sort((a, b) =>
         a.sku.localeCompare(b.sku, undefined, { numeric: true })
       );
