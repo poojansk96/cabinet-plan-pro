@@ -153,43 +153,28 @@ export default function PreFinalModule({ project }: Props) {
   const unitTypeTotal = (type: string) =>
     store.unitNumbers.filter(u => u.assignments[type]).length;
 
-  // ── Combined import handler ─────────────────────────────────────────────
-  const handleCombinedImport = (
-    unitRows: { unitNumber: string; unitType: string; bldg: string }[],
-    cabinetRows: Omit<LabelRow, 'selected' | 'sourceFile'>[]
-  ) => {
-    // Import units
-    if (unitRows.length > 0) {
-      handleUnitImport(unitRows);
-    }
-    // Import cabinets
-    if (cabinetRows.length > 0) {
-      handleCabinetImport(cabinetRows);
-    }
-    setShowCombinedImport(false);
-  };
-
   return (
     <div className="space-y-4">
-      {/* Combined Import Dialog */}
-      {showCombinedImport && (
-        <CombinedImportDialog
-          onImport={handleCombinedImport}
-          onClose={() => setShowCombinedImport(false)}
+      {/* Unit Import Dialog */}
+      {showUnitImport && (
+        <UnitTypeImportDialog
+          onImport={(rows) => {
+            handleUnitImport(rows);
+            setShowUnitImport(false);
+          }}
+          onClose={() => setShowUnitImport(false)}
         />
       )}
 
-      {/* Top-level import button */}
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => setShowCombinedImport(true)}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-md text-xs font-semibold text-white transition-colors"
-          style={{ background: 'hsl(var(--primary))' }}
-        >
-          <FileUp size={13} /> Import 2020 Shop Drawing PDF
-        </button>
-        <span className="text-[10px] text-muted-foreground">Extracts both unit count & cabinet count from the same PDF</span>
-      </div>
+      {/* Cabinet Import Dialog */}
+      {showCabinetImport && (
+        <ShopDrawingImportDialog
+          onImport={(rows, detectedUnitType) => {
+            handleCabinetImport(rows, detectedUnitType);
+          }}
+          onClose={() => setShowCabinetImport(false)}
+        />
+      )}
 
       {/* Sub-tab toggle */}
       <div className="flex items-center gap-1">
