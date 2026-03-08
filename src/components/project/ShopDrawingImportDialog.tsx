@@ -192,8 +192,9 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       if (data.error === 'rate_limit') throw new Error('rate_limit');
       if (data.error === 'credits') throw new Error('credits');
 
-      // Capture detected unit type from AI — update from any page that returns it
-      if (data.unitTypeName && !detectedType) {
+      // Capture detected unit type from PLAN pages only (when items exist)
+      // so cover/title-page noise does not leak into cabinet rows.
+      if (data.unitTypeName && Array.isArray(data.items) && data.items.length > 0 && !detectedType) {
         detectedType = data.unitTypeName;
       }
 
@@ -204,7 +205,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         quantity: c.quantity,
         selected: true,
         sourceFile: file.name,
-        detectedUnitType: data.unitTypeName || detectedType || undefined,
+        detectedUnitType: (data.unitTypeName && Array.isArray(data.items) && data.items.length > 0) ? data.unitTypeName : undefined,
       }));
       allRows.push(...pageRows);
       onPageDone?.();

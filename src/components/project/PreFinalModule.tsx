@@ -73,14 +73,43 @@ export default function PreFinalModule({ project }: Props) {
 
   // ── Cabinet import handler ────────────────────────────────────────────────
   const handleCabinetImport = (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[], detectedUnitType?: string) => {
+    const toTypeKey = (value: string) =>
+      String(value || '')
+        .toUpperCase()
+        .trim()
+        .replace(/^TYPE\s+/, '')
+        .replace(/[^A-Z0-9]/g, '');
+
+    const knownTypes = [...store.unitTypes, ...store.cabinetUnitTypes];
+    const resolveKnownType = (raw: string): string => {
+      const key = toTypeKey(raw);
+      if (!key) return '';
+
+      const exact = knownTypes.find(t => toTypeKey(t) === key);
+      if (exact) return exact;
+
+      const fuzzy = knownTypes.filter(t => {
+        const candidateKey = toTypeKey(t);
+        return candidateKey.includes(key) || key.includes(candidateKey);
+      });
+      return fuzzy.length === 1 ? fuzzy[0] : '';
+    };
+
+    const fallbackType = resolveKnownType(importTargetType) || (importTargetType ? normalizeUnitType(importTargetType) : '');
     const rowsByType = new Map<string, typeof rows>();
+
     for (const row of rows) {
       const rawType = (row as any).detectedUnitType || detectedUnitType || importTargetType || '';
-      const targetType = rawType ? normalizeUnitType(rawType) : '';
-      const finalType = targetType || 'Unassigned';
+      const normalizedIncoming = rawType ? normalizeUnitType(rawType) : '';
+      const knownResolved = resolveKnownType(rawType) || resolveKnownType(normalizedIncoming);
+
+      // If unit types already exist, never create noisy new bucket names from AI.
+      const finalType = knownResolved || fallbackType || (knownTypes.length > 0 ? 'Unassigned' : (normalizedIncoming || 'Unassigned'));
+
       if (!rowsByType.has(finalType)) rowsByType.set(finalType, []);
       rowsByType.get(finalType)!.push(row);
     }
+
     for (const [unitType, typeRows] of rowsByType) {
       if (unitType !== 'Unassigned') {
         store.addCabinetUnitTypes([unitType]);
@@ -90,10 +119,11 @@ export default function PreFinalModule({ project }: Props) {
         unitType
       );
     }
+
     setCabinetImportedCount(rows.length);
     setShowCabinetImport(false);
-    const firstType = Array.from(rowsByType.keys())[0];
-    if (firstType && firstType !== 'Unassigned') setImportTargetType(firstType);
+    const firstType = Array.from(rowsByType.keys()).find(t => t !== 'Unassigned');
+    if (firstType) setImportTargetType(firstType);
     setTimeout(() => setCabinetImportedCount(null), 4000);
   };
   // ── Stone import handler ────────────────────────────────────────────────
