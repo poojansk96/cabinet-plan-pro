@@ -116,6 +116,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       setQuoteVisible(false);
       setTimeout(() => {
         setQuoteIndex(i => (i + 1) % QUOTES.length);
+        setPersonalQuoteIndex(i => (i + 1) % PERSONAL_QUOTES.length);
         setQuoteVisible(true);
       }, 400);
     }, 4000);
