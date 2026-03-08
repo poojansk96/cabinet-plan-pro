@@ -217,7 +217,7 @@ function loadData(projectId: string): PrefinalData {
       floor: String(u.floor || '').trim(),
       assignments: { ...(u.assignments || {}) },
     }));
-    const unitNumbers = dedupeUnitNumbers(rawUnitNumbers);
+    const unitNumbers = dedupeSameTypeSameUnit(dedupeUnitNumbers(rawUnitNumbers));
     return { unitTypes: parsed.unitTypes || [], unitNumbers, cabinetRows, cabinetUnitTypes: dedupedCabTypes, handleQtyPerSku: parsed.handleQtyPerSku || {}, bidCostPerType: parsed.bidCostPerType || {}, additionalCostPerType: parsed.additionalCostPerType || {}, stoneRows: parsed.stoneRows || [], stoneUnitTypes: parsed.stoneUnitTypes || [] };
   } catch {
     return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [] };
