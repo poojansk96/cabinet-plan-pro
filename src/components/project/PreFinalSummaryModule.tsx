@@ -392,6 +392,113 @@ export default function PreFinalSummaryModule({ project }: Props) {
       cell.font = { italic: true, size: 8 };
     }
 
+    // ── Sheet 3: Costing ────────────────────────────────────────────────
+    const wsCosting = wb.addWorksheet('Costing');
+    wsCosting.columns = [
+      { width: 20 }, // Unit Type
+      { width: 10 }, // Qty
+      { width: 16 }, // Cabinet Cost
+      { width: 16 }, // Handle Cost
+      { width: 16 }, // Total
+    ];
+
+    // Header
+    wsCosting.addRow([]);
+    const costHeader = wsCosting.addRow(['Unit Type', 'Qty', 'Cabinet Cost', 'Handle Cost', 'Total']);
+    styleHeader(costHeader);
+    costHeader.eachCell(cell => {
+      cell.alignment = { horizontal: 'center', vertical: 'bottom' };
+    });
+    costHeader.getCell(1).alignment = { horizontal: 'left', vertical: 'bottom' };
+
+    // Compute handle cost per type: sum of (pulls per sku * qty per type) across all SKUs
+    // For now handle cost is just the total pulls count (user can define $/pull later)
+    cabTypes.forEach(t => {
+      const uc = unitCountPerType[t] || 0;
+      const cabinetCost = (store.bidCostPerType[t] || 0) * uc;
+      const handleCount = allSkus.reduce((sum, sku) => {
+        const qty = skuTypeQty[sku]?.[t] || 0;
+        const pulls = store.handleQtyPerSku[sku] || 0;
+        return sum + (qty * pulls * uc);
+      }, 0);
+      const row = wsCosting.addRow([t, uc, cabinetCost, handleCount, cabinetCost + handleCount]);
+      row.getCell(2).alignment = { horizontal: 'center' };
+      row.getCell(3).numFmt = '$#,##0.00';
+      row.getCell(4).alignment = { horizontal: 'center' };
+      row.getCell(5).numFmt = '$#,##0.00';
+    });
+
+    // Totals row
+    wsCosting.addRow([]);
+    const costTotalQty = cabTypes.reduce((s, t) => s + (unitCountPerType[t] || 0), 0);
+    const costTotalCab = cabTypes.reduce((s, t) => s + ((store.bidCostPerType[t] || 0) * (unitCountPerType[t] || 0)), 0);
+    const costTotalHandles = cabTypes.reduce((s, t) => {
+      const uc = unitCountPerType[t] || 0;
+      return s + allSkus.reduce((sum, sku) => sum + ((skuTypeQty[sku]?.[t] || 0) * (store.handleQtyPerSku[sku] || 0) * uc), 0);
+    }, 0);
+    const costTotRow = wsCosting.addRow(['TOTAL', costTotalQty, costTotalCab, costTotalHandles, costTotalCab + costTotalHandles]);
+    costTotRow.eachCell((cell, colNumber) => {
+      cell.font = { bold: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
+      if (colNumber === 2) cell.alignment = { horizontal: 'center' };
+      if (colNumber === 3 || colNumber === 5) cell.numFmt = '$#,##0.00';
+      if (colNumber === 4) cell.alignment = { horizontal: 'center' };
+    });
+
+    // ── Sheet 4: Schedule of Values ─────────────────────────────────────
+    const wsSov = wb.addWorksheet('Schedule of Values');
+
+    // All unique unit types (from unit assignments)
+    const allUnitTypes = store.unitTypes;
+    wsSov.columns = [
+      { width: 10 }, // Bldg
+      { width: 10 }, // Floor
+      { width: 14 }, // Unit #
+      ...allUnitTypes.map(() => ({ width: 14 })),
+      { width: 14 }, // Total
+    ];
+
+    // Header
+    wsSov.addRow([]);
+    const sovHeader = wsSov.addRow(['Bldg', 'Floor', 'Unit #', ...allUnitTypes, 'Total']);
+    sovHeader.height = 120;
+    sovHeader.eachCell((cell, colNumber) => {
+      cell.font = { bold: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F0' } };
+      cell.border = { bottom: { style: 'thin', color: { argb: 'FF999999' } } };
+      cell.alignment = { vertical: 'bottom', wrapText: false };
+      if (colNumber > 3 && colNumber <= allUnitTypes.length + 3) {
+        cell.alignment = { textRotation: 90, vertical: 'bottom', horizontal: 'center' };
+      }
+      if (colNumber === allUnitTypes.length + 4) {
+        cell.alignment = { vertical: 'bottom', horizontal: 'center' };
+      }
+    });
+
+    // Data rows — each unit row shows the unit type name in the matching column
+    sortedUnits.forEach(unit => {
+      const typeCells = allUnitTypes.map(t => {
+        if (unit.assignments[t]) return t;
+        return '';
+      });
+      const assignedTypes = allUnitTypes.filter(t => unit.assignments[t]);
+      const row = wsSov.addRow([unit.bldg || '', unit.floor || '', unit.name, ...typeCells, assignedTypes.join(', ')]);
+      row.eachCell((cell, colNumber) => {
+        if (colNumber > 3) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      });
+    });
+
+    // Totals
+    wsSov.addRow([]);
+    const sovTotals = allUnitTypes.map(t => unitTypeTotal(t));
+    const sovGrand = sovTotals.reduce((s, v) => s + v, 0);
+    const sovTotRow = wsSov.addRow(['', '', `TOTAL (${store.unitNumbers.length})`, ...sovTotals, sovGrand]);
+    sovTotRow.eachCell((cell, colNumber) => {
+      cell.font = { bold: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
+      if (colNumber > 3) cell.alignment = { horizontal: 'center' };
+    });
+
     // Download
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
