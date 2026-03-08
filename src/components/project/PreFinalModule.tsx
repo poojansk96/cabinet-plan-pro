@@ -31,7 +31,7 @@ function normalizeUnitType(raw: string): string {
 }
 
 export default function PreFinalModule({ project }: Props) {
-  const [activeSubTab, setActiveSubTab] = useState<'units' | 'cabinets'>('units');
+  const [activeSubTab, setActiveSubTab] = useState<'units' | 'cabinets' | 'stone'>('units');
   const store = usePrefinalStore(project.id);
 
   // ── Unit Count state ──────────────────────────────────────────────────────
