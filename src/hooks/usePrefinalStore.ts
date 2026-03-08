@@ -456,17 +456,23 @@ export function usePrefinalStore(projectId: string) {
   // ── Cabinet Unit Types (independent columns for cabinet section) ────────
   const addCabinetUnitTypes = useCallback((types: string[]) => {
     setData(prev => {
-      const normalizeKey = (t: string) => t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '').trim();
-      const existingKeys = new Set(prev.cabinetUnitTypes.map(t => normalizeKey(t)));
-      const newTypes = types.filter(t => {
-        const key = normalizeKey(t);
-        if (!key || existingKeys.has(key)) return false;
+      const existingKeys = new Set(prev.cabinetUnitTypes.map(t => normalizeTypeKeyPart(t)));
+      const newTypes: string[] = [];
+      for (const t of types) {
+        const trimmed = String(t || '').trim();
+        const resolved = resolveExistingTypeName(trimmed, [...prev.cabinetUnitTypes, ...prev.unitTypes]);
+        const key = normalizeTypeKeyPart(resolved);
+        if (!key || existingKeys.has(key)) continue;
         existingKeys.add(key);
-        return true;
-      });
+        newTypes.push(resolved);
+      }
       if (!newTypes.length) return prev;
       const cabinetUnitTypes = [...prev.cabinetUnitTypes, ...newTypes];
-      const next = { ...prev, cabinetUnitTypes };
+      const cabinetRows = prev.cabinetRows.map(r => ({
+        ...r,
+        unitType: resolveExistingTypeName(r.unitType, [...cabinetUnitTypes, ...prev.unitTypes]),
+      }));
+      const next = { ...prev, cabinetUnitTypes, cabinetRows };
       saveData(projectId, next);
       return next;
     });
