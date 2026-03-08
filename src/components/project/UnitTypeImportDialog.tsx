@@ -131,6 +131,8 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
 
       // Track every sighting of each unit across pages
       const sightings: Map<string, PageSighting[]> = new Map();
+      const extractedUnits: PageSighting[] = [];
+      const structuredBuildingStats = new Map<string, { count: number; label: string }>();
       // Track first page each unit type appears on (for PDF-order sorting)
       const typeFirstPage: Map<string, number> = new Map();
 
@@ -201,8 +203,6 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
           const pageUnits = data.units ?? [];
           console.log(`Page ${p}/${pdf.numPages} of "${file.name}": found ${pageUnits.length} unit(s)`, pageUnits);
 
-          const keyPart = (v: string) => v.toUpperCase().replace(/\s+/g, '').trim();
-
           for (const u of pageUnits) {
             const num = String(u.unitNumber ?? '').trim();
             const type = String(u.unitType ?? '').trim();
@@ -216,12 +216,18 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
               typeFirstPage.set(typeKey, pagesProcessed);
             }
 
-            // Deduplicate by unitNumber+bldg+unitType (NOT floor) to prevent floor-variant duplicates
-            const sightingKey = `${keyPart(num)}|${keyPart(bldg)}|${keyPart(type)}`;
-            const nextSighting: PageSighting = { unitNumber: num, unitType: type, bldg, floor, page: p, file: file.name };
-            const existing = sightings.get(sightingKey);
-            if (existing) existing.push(nextSighting);
-            else sightings.set(sightingKey, [nextSighting]);
+            extractedUnits.push({ unitNumber: num, unitType: type, bldg, floor, page: p, file: file.name });
+
+            const bldgKey = normalizeBuildingKey(bldg);
+            if (isStructuredBuildingLabel(bldgKey)) {
+              const existing = structuredBuildingStats.get(bldgKey);
+              if (existing) {
+                existing.count += 1;
+                if (bldg.length > existing.label.length) existing.label = bldg;
+              } else {
+                structuredBuildingStats.set(bldgKey, { count: 1, label: bldg });
+              }
+            }
           }
 
           pagesProcessed++;
