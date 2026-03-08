@@ -82,6 +82,7 @@ type Step = 'upload' | 'processing' | 'review';
 export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<UnitMappingRow[]>([]);
+  const [typeOrder, setTypeOrder] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState(0);
