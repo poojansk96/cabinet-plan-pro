@@ -55,7 +55,6 @@ export default function PreFinalModule({ project }: Props) {
     store.addUnitTypes(types);
     store.importUnitMappings(normalized);
     setUnitImportedCount(normalized.length);
-    setShowUnitImport(false);
     setTimeout(() => setUnitImportedCount(null), 4000);
   };
 
