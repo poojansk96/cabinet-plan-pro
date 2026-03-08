@@ -215,6 +215,14 @@ export default function PreFinalModule({ project }: Props) {
         />
       )}
 
+      {/* Stone Import Dialog */}
+      {showStoneImport && (
+        <StonePDFImportDialog
+          onImport={(rows, detectedUnitType) => handleStoneImport(rows, detectedUnitType)}
+          onClose={() => setShowStoneImport(false)}
+        />
+      )}
+
       {/* Sub-tab toggle */}
       <div className="flex items-center gap-1">
         <button
