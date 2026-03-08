@@ -542,6 +542,80 @@ export default function PreFinalSummaryModule({ project }: Props) {
         });
 
         y = (doc as any).lastAutoTable.finalY + 14;
+
+        // ── Section: Total Cabinet Count (cab qty × unit count) ─────
+        if (y > pageH - 100) { doc.addPage(); y = 40; }
+        y = sectionHeader('TOTAL CABINET COUNT (Qty × Unit Count)', y);
+
+        const unitCountPerTypePdf: Record<string, number> = {};
+        for (const t of store.cabinetUnitTypes) {
+          unitCountPerTypePdf[t] = store.unitNumbers.filter(u => u.assignments[t]).length;
+        }
+
+        const tcHead = ['SKU Name', ...store.cabinetUnitTypes, 'Total'];
+        const tcBody: string[][] = [];
+
+        // Unit count reference row
+        tcBody.push(['Unit Count', ...store.cabinetUnitTypes.map(t => String(unitCountPerTypePdf[t] || 0)),
+          String(Object.values(unitCountPerTypePdf).reduce((s, v) => s + v, 0))]);
+
+        groupedSkus.forEach(({ group, skus }) => {
+          tcBody.push([`▸ ${group} (${skus.length})`, ...store.cabinetUnitTypes.map(() => ''), '']);
+          skus.forEach(sku => {
+            const vals = store.cabinetUnitTypes.map(t => {
+              const total = (skuTypeQty[sku]?.[t] || 0) * (unitCountPerTypePdf[t] || 0);
+              return total > 0 ? String(total) : '';
+            });
+            const rowTotal = store.cabinetUnitTypes.reduce((sum, t) =>
+              sum + ((skuTypeQty[sku]?.[t] || 0) * (unitCountPerTypePdf[t] || 0)), 0);
+            tcBody.push([sku, ...vals, String(rowTotal)]);
+          });
+        });
+
+        // Totals
+        const tcColTotals = store.cabinetUnitTypes.map(t =>
+          String(allSkus.reduce((sum, sku) => sum + ((skuTypeQty[sku]?.[t] || 0) * (unitCountPerTypePdf[t] || 0)), 0))
+        );
+        const tcGrandTotal = store.cabinetUnitTypes.reduce((sum, t) =>
+          sum + allSkus.reduce((s, sku) => s + ((skuTypeQty[sku]?.[t] || 0) * (unitCountPerTypePdf[t] || 0)), 0), 0);
+        tcBody.push(['TOTAL', ...tcColTotals, String(tcGrandTotal)]);
+
+        const tcGroupIndices = new Set<number>();
+        let tcIdx = 1; // skip unit count row
+        groupedSkus.forEach(({ skus }) => { tcGroupIndices.add(tcIdx); tcIdx += 1 + skus.length; });
+
+        autoTable(doc, {
+          startY: y,
+          head: [tcHead],
+          body: tcBody,
+          margin: { left: margin, right: margin },
+          styles: { fontSize: 7, cellPadding: 3, textColor: TEXT_DARK, lineColor: [220, 228, 240], lineWidth: 0.5 },
+          headStyles: { fillColor: BLUE_MID, textColor: WHITE, fontStyle: 'bold', fontSize: 7, halign: 'center' },
+          columnStyles: { 0: { halign: 'left', font: 'courier' } },
+          alternateRowStyles: { fillColor: GRAY_LIGHT },
+          didParseCell: (data) => {
+            // Unit count row
+            if (data.row.index === 0) {
+              data.cell.styles.fontStyle = 'bold';
+              data.cell.styles.fillColor = BLUE_LIGHT;
+              data.cell.styles.textColor = BLUE_DARK;
+            }
+            if (tcGroupIndices.has(data.row.index)) {
+              data.cell.styles.fontStyle = 'bold';
+              data.cell.styles.fillColor = [234, 234, 234] as any;
+              data.cell.styles.textColor = TEXT_MID;
+              data.cell.styles.font = 'helvetica';
+            }
+            if (data.row.index === tcBody.length - 1) {
+              data.cell.styles.fontStyle = 'bold';
+              data.cell.styles.fillColor = BLUE_LIGHT;
+              data.cell.styles.textColor = BLUE_DARK;
+            }
+            if (data.column.index > 0) data.cell.styles.halign = 'center';
+          },
+        });
+
+        y = (doc as any).lastAutoTable.finalY + 14;
       }
 
       // Footer on all pages
