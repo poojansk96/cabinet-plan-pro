@@ -89,8 +89,42 @@ export default function PreFinalModule({ project }: Props) {
     if (firstType && firstType !== 'Unassigned') setImportTargetType(firstType);
     setTimeout(() => setCabinetImportedCount(null), 4000);
   };
+  // ── Stone import handler ────────────────────────────────────────────────
+  const handleStoneImport = (rows: StoneExtractedRow[], detectedUnitType?: string) => {
+    const targetType = detectedUnitType ? normalizeUnitType(detectedUnitType) : 'Unassigned';
+    store.addStoneUnitTypes([targetType]);
+    const stoneRows: PrefinalStoneRow[] = rows.filter(r => r.selected !== false).map(r => ({
+      label: r.label,
+      length: r.length,
+      depth: r.depth,
+      splashHeight: r.splashHeight,
+      isIsland: r.isIsland,
+      room: r.room,
+      unitType: targetType,
+    }));
+    store.addStoneImport(stoneRows, targetType);
+    setStoneImportedCount(stoneRows.length);
+    setShowStoneImport(false);
+    setTimeout(() => setStoneImportedCount(null), 4000);
+  };
 
-  // ── Cabinet pivot ──────────────────────────────────────────────────────────
+  // ── Stone pivot ─────────────────────────────────────────────────────────
+  const stoneUnitTypes = (() => {
+    const seen = new Set<string>();
+    return store.stoneUnitTypes.filter(t => {
+      const key = t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '').trim();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  })();
+
+  const calcStoneSqft = (row: PrefinalStoneRow): number => {
+    const effectiveDepth = row.depth + (row.splashHeight ?? 0);
+    return Math.ceil((row.length * effectiveDepth) / 144);
+  };
+
+
   const cabUnitTypes = (() => {
     const seen = new Set<string>();
     return store.cabinetUnitTypes.filter(t => {
