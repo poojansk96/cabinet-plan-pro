@@ -590,6 +590,16 @@ export default function PreFinalModule({ project }: Props) {
                                 );
                               })}
                               <td className="text-center font-mono font-bold">{rowTotal || ''}</td>
+                              <td className="text-center">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  className="est-input text-xs w-12 text-center font-mono"
+                                  value={store.handleQtyPerSku[sku] || ''}
+                                  onChange={e => store.setHandleQty(sku, Number(e.target.value) || 0)}
+                                  placeholder="0"
+                                />
+                              </td>
                               <td>
                                 <button
                                   onClick={() => { if (confirm(`Delete SKU "${sku}"?`)) store.deleteCabinetRow(sku); }}
