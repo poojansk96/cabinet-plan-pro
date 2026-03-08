@@ -5,7 +5,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Project } from '@/types/project';
 import { usePrefinalStore, type PrefinalUnitNumber, type PrefinalCabinetRow } from '@/hooks/usePrefinalStore';
-
+import { formatDoorStyle, formatKitchenTops, formatVanityTops, formatAdditionalTops } from '@/lib/formatSpecs';
 interface Props {
   project: Project;
   [key: string]: unknown;
@@ -95,18 +95,77 @@ export default function PreFinalSummaryModule({ project }: Props) {
   const handleExportExcel = async () => {
     const wb = new ExcelJS.Workbook();
 
+    const allBorders: Partial<ExcelJS.Borders> = {
+      top: { style: 'thin', color: { argb: 'FF999999' } },
+      bottom: { style: 'thin', color: { argb: 'FF999999' } },
+      left: { style: 'thin', color: { argb: 'FF999999' } },
+      right: { style: 'thin', color: { argb: 'FF999999' } },
+    };
+
     const styleHeader = (row: ExcelJS.Row, bgArgb = 'FFD6E4F0') => {
       row.eachCell(cell => {
         cell.font = { bold: true };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
-        cell.border = { bottom: { style: 'thin', color: { argb: 'FF999999' } } };
+        cell.border = allBorders;
       });
     };
 
-    // ── Sheet 1: Pre-Final Unit Count ───────────────────────────────
-    const wsUnits = wb.addWorksheet('Pre-Final Unit Count');
+    const resolveOther = (val?: string, custom?: string) => {
+      if (!val) return '';
+      return val === 'Other' ? (custom || '') : val;
+    };
+
+    // ── Sheet 1: Project Info ───────────────────────────────────────
+    const wsInfo = wb.addWorksheet('Project Info');
+    wsInfo.columns = [{ width: 22 }, { width: 40 }];
+    const sp = project.specs as Record<string, any> | undefined;
+
+    const boldUnderlineLabels = new Set([
+      'Project Name', 'Address', 'Project Super', 'Customer',
+      'Specifications', 'Kitchen Tops', 'Vanity Tops', 'Additional Tops',
+      'Handles & Hardware', 'Sales Tax on Material',
+    ]);
+
+    const infoRows: (string | undefined)[][] = [
+      ['Project Name', project.name],
+      [],
+      ['Address', project.address],
+      ['Type', project.type],
+      ['Notes', project.notes || ''],
+      [],
+      ['Project Super', sp?.projectSuper || ''],
+      ['Customer', sp?.customer || ''],
+      [],
+      ['Specifications', ''],
+      ['Door Style', formatDoorStyle(project.specs)],
+      ['Hinges', resolveOther(sp?.hinges, sp?.hingesCustom)],
+      ['Drawer Box', resolveOther(sp?.drawerBox, sp?.drawerBoxCustom)],
+      ['Drawer Guides', resolveOther(sp?.drawerGuides, sp?.drawerGuidesCustom)],
+      [],
+      ['Kitchen Tops', formatKitchenTops(project.specs)],
+      ['Vanity Tops', formatVanityTops(project.specs)],
+      ...((sp?.additionalTopsEnabled) ? [['Additional Tops', formatAdditionalTops(project.specs)]] : []),
+      [],
+      ['Handles & Hardware', resolveOther(sp?.handlesAndHardware, sp?.handlesCustom)],
+      [],
+      ['Sales Tax on Material', resolveOther(sp?.tax, sp?.taxCustom)],
+      [],
+      ['Generated', new Date().toLocaleString()],
+    ];
+
+    infoRows.forEach(r => {
+      const row = wsInfo.addRow(r);
+      if (r.length > 0 && r[0] && boldUnderlineLabels.has(r[0])) {
+        const cell = row.getCell(1);
+        cell.font = { bold: true, underline: true };
+      }
+    });
+
+    // ── Sheet 2: Unit Count ─────────────────────────────────────────
+    const wsUnits = wb.addWorksheet('Unit Count');
     const unitTypeCols = store.unitTypes.length;
     wsUnits.columns = [
+      { width: 3 },   // blank col A
       { width: 10 },
       { width: 10 },
       { width: 14 },
@@ -117,23 +176,34 @@ export default function PreFinalSummaryModule({ project }: Props) {
     // Row 1: blank
     wsUnits.addRow([]);
 
-    // Row 2: header — Bldg | Floor | Unit # | types... | Total
-    const unitHeader = wsUnits.addRow(['Bldg', 'Floor', 'Unit #', ...store.unitTypes, 'Total']);
+    // Row 2: Title "UNIT COUNT" in col B, bold, with border
+    const titleRow = wsUnits.addRow([]);
+    const titleCell = titleRow.getCell(2);
+    titleCell.value = 'UNIT COUNT';
+    titleCell.font = { bold: true, size: 11 };
+    titleCell.border = allBorders;
+
+    // Row 3: blank
+    wsUnits.addRow([]);
+
+    // Row 4: header — [blank] | Bldg | Floor | Unit # | types... | Total
+    const unitHeader = wsUnits.addRow(['', 'Bldg', 'Floor', 'Unit #', ...store.unitTypes, 'Total']);
     unitHeader.height = 120;
     unitHeader.eachCell((cell, colNumber) => {
+      if (colNumber <= 1) return;
       cell.font = { bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F0' } };
-      cell.border = { bottom: { style: 'thin', color: { argb: 'FF999999' } } };
+      cell.border = allBorders;
       cell.alignment = { vertical: 'bottom', wrapText: false };
-      if (colNumber > 3 && colNumber <= unitTypeCols + 3) {
+      if (colNumber > 4 && colNumber <= unitTypeCols + 4) {
         cell.alignment = { textRotation: 90, vertical: 'bottom', horizontal: 'center' };
       }
-      if (colNumber === unitTypeCols + 4) {
+      if (colNumber === unitTypeCols + 5) {
         cell.alignment = { vertical: 'bottom', horizontal: 'center' };
       }
     });
 
-    // Sort units by Bldg first, then unit name
+    // Sort units
     const sortedUnits = [...store.unitNumbers].sort((a, b) => {
       const bldgA = (a.bldg || '').toUpperCase();
       const bldgB = (b.bldg || '').toUpperCase();
@@ -144,66 +214,64 @@ export default function PreFinalSummaryModule({ project }: Props) {
     sortedUnits.forEach(unit => {
       const flags = store.unitTypes.map(t => unit.assignments[t] ? 1 : '');
       const rowTotal = store.unitTypes.filter(t => unit.assignments[t]).length;
-      const row = wsUnits.addRow([unit.bldg || '', unit.floor || '', unit.name, ...flags, rowTotal]);
+      const row = wsUnits.addRow(['', unit.bldg || '', unit.floor || '', unit.name, ...flags, rowTotal]);
       row.eachCell((cell, colNumber) => {
-        if (colNumber > 3) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        if (colNumber <= 1) return;
+        cell.border = allBorders;
+        if (colNumber > 4) cell.alignment = { horizontal: 'center', vertical: 'middle' };
       });
     });
 
     wsUnits.addRow([]);
     const totals = store.unitTypes.map(t => unitTypeTotal(t));
     const grandTotal = totals.reduce((s, v) => s + v, 0);
-    const totRow = wsUnits.addRow(['', '', `TOTAL (${store.unitNumbers.length})`, ...totals, grandTotal]);
+    const totRow = wsUnits.addRow(['', '', '', `TOTAL (${store.unitNumbers.length})`, ...totals, grandTotal]);
     totRow.eachCell((cell, colNumber) => {
+      if (colNumber <= 1) return;
       cell.font = { bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
-      if (colNumber > 3) cell.alignment = { horizontal: 'center' };
+      cell.border = allBorders;
+      if (colNumber > 4) cell.alignment = { horizontal: 'center' };
     });
 
-    // ── Sheet 2: Pre-Final Cabinet Count ────────────────────────────
-    const wsCabs = wb.addWorksheet('Pre-Final Cabinet Count');
+    // ── Sheet 3: Cabinet Count ──────────────────────────────────────
+    const wsCabs = wb.addWorksheet('Cabinet Count');
     const cabTypes = store.cabinetUnitTypes;
     const nTypes = cabTypes.length;
 
-    // Compute unit counts per cabinet unit type (from unit numbers assignments)
     const unitCountPerType: Record<string, number> = {};
     for (const t of cabTypes) {
       unitCountPerType[t] = store.unitNumbers.filter(u => u.assignments[t]).length;
     }
 
-    // Column layout:
-    // [SKU] [cabTypes...] [Total] [gap] [Pulls/Cab] [cabTypes pulls...] [Pulls Total]
-    // [gap] [Bid Cost] [gap] [Total Cost] [cabTypes pricing...] [Pricing Total]
-    // [gap] [TOTAL CAB COUNT label] [cabTypes total cab...] [Grand Total]
-    const cabCountCols = 1 + nTypes + 1;       // SKU + types + Total
-    const pullsStart = cabCountCols + 1;        // gap col
-    const pullsCols = 1 + nTypes + 1;           // Pulls/Cab + types + Pulls Total
+    const cabCountCols = 1 + nTypes + 1;
+    const pullsStart = cabCountCols + 1;
+    const pullsCols = 1 + nTypes + 1;
     const pricingStart = pullsStart + pullsCols + 1;
-    const pricingCols = 1 + 1 + 1 + nTypes + 1; // Bid Cost + gap + Total Cost + types + total
+    const pricingCols = 1 + 1 + 1 + nTypes + 1; // Bid + Additional + Total + types + total
     const totalCabStart = pricingStart + pricingCols + 1;
 
-    // Set column widths
     const colWidths: { width: number }[] = [];
-    colWidths.push({ width: 22 }); // SKU
+    colWidths.push({ width: 22 });
     for (let i = 0; i < nTypes; i++) colWidths.push({ width: 6 });
-    colWidths.push({ width: 8 }); // Total
-    colWidths.push({ width: 3 }); // gap
-    colWidths.push({ width: 10 }); // Pulls/Cab
+    colWidths.push({ width: 8 });
+    colWidths.push({ width: 3 });
+    colWidths.push({ width: 10 });
     for (let i = 0; i < nTypes; i++) colWidths.push({ width: 6 });
-    colWidths.push({ width: 8 }); // Pulls Total
-    colWidths.push({ width: 3 }); // gap
+    colWidths.push({ width: 8 });
+    colWidths.push({ width: 3 });
     colWidths.push({ width: 10 }); // Bid Cost
-    colWidths.push({ width: 3 }); // gap
+    colWidths.push({ width: 10 }); // Additional
     colWidths.push({ width: 10 }); // Total Cost
     for (let i = 0; i < nTypes; i++) colWidths.push({ width: 8 });
-    colWidths.push({ width: 10 }); // Pricing Total
-    colWidths.push({ width: 3 }); // gap
-    colWidths.push({ width: 14 }); // TOTAL CAB COUNT label
+    colWidths.push({ width: 10 });
+    colWidths.push({ width: 3 });
+    colWidths.push({ width: 14 });
     for (let i = 0; i < nTypes; i++) colWidths.push({ width: 6 });
-    colWidths.push({ width: 8 }); // Grand Total
+    colWidths.push({ width: 8 });
     wsCabs.columns = colWidths;
 
-    // ─── Section headers row ───
+    // Section headers
     const sectionRow = wsCabs.addRow([]);
     sectionRow.getCell(1).value = 'CABINET COUNT';
     sectionRow.getCell(1).font = { bold: true, size: 9 };
@@ -214,7 +282,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
     sectionRow.getCell(totalCabStart + 1).value = 'TOTAL CABINET COUNT';
     sectionRow.getCell(totalCabStart + 1).font = { bold: true, size: 9 };
 
-    // ─── Unit count reference row ───
+    // Unit count reference row
     const unitCountRow = wsCabs.addRow([]);
     unitCountRow.getCell(totalCabStart + 1).value = 'Unit Count';
     unitCountRow.getCell(totalCabStart + 1).font = { bold: true, italic: true, size: 8 };
@@ -232,26 +300,22 @@ export default function PreFinalSummaryModule({ project }: Props) {
     ucTotalCell.font = { bold: true, size: 8 };
     ucTotalCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
 
-    // ─── Header row ───
+    // Header row
     const headerValues: (string | number)[] = [];
-    // Cabinet count header
     headerValues.push('SKU Name');
     cabTypes.forEach(t => headerValues.push(t));
     headerValues.push('Total');
-    headerValues.push(''); // gap
-    // Pulls header
+    headerValues.push('');
     headerValues.push('Pulls/Cab');
     cabTypes.forEach(t => headerValues.push(t));
     headerValues.push('Total');
-    headerValues.push(''); // gap
-    // Pricing header
+    headerValues.push('');
     headerValues.push('Bid Cost');
-    headerValues.push(''); // gap
+    headerValues.push('Additional');
     headerValues.push('Total Cost');
     cabTypes.forEach(t => headerValues.push(t));
     headerValues.push('Total');
-    headerValues.push(''); // gap
-    // Total cabinet count header
+    headerValues.push('');
     headerValues.push('Total Cab Count');
     cabTypes.forEach(t => headerValues.push(t));
     headerValues.push('Grand Total');
@@ -263,17 +327,16 @@ export default function PreFinalSummaryModule({ project }: Props) {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F0' } };
       cell.border = { bottom: { style: 'thin', color: { argb: 'FF999999' } } };
       cell.alignment = { vertical: 'bottom', wrapText: false };
-      // Rotated columns for unit types
       const idx = colNumber - 1;
-      if ((idx >= 1 && idx <= nTypes) || // cab count types
-          (idx >= pullsStart + 1 && idx <= pullsStart + nTypes) || // pulls types
-          (idx >= pricingStart + 3 && idx <= pricingStart + 2 + nTypes) || // pricing types
-          (idx >= totalCabStart + 1 && idx <= totalCabStart + nTypes)) { // total cab types
+      if ((idx >= 1 && idx <= nTypes) ||
+          (idx >= pullsStart + 1 && idx <= pullsStart + nTypes) ||
+          (idx >= pricingStart + 3 && idx <= pricingStart + 2 + nTypes) ||
+          (idx >= totalCabStart + 1 && idx <= totalCabStart + nTypes)) {
         cell.alignment = { textRotation: 90, vertical: 'bottom', horizontal: 'center' };
       }
     });
 
-    // ─── Data rows ───
+    // Data rows
     groupedSkus.forEach(({ group, skus }) => {
       const groupRow = wsCabs.addRow([`${group} (${skus.length})`]);
       groupRow.eachCell(cell => {
@@ -285,7 +348,6 @@ export default function PreFinalSummaryModule({ project }: Props) {
         const rowValues: (string | number)[] = [];
         const pullsPerCab = store.handleQtyPerSku[sku] || 0;
 
-        // Cabinet count section
         rowValues.push(sku);
         cabTypes.forEach(t => {
           const qty = skuTypeQty[sku]?.[t] || 0;
@@ -293,9 +355,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
         });
         const cabRowTotal = cabTypes.reduce((sum, t) => sum + (skuTypeQty[sku]?.[t] || 0), 0);
         rowValues.push(cabRowTotal);
-        rowValues.push(''); // gap
+        rowValues.push('');
 
-        // Pulls section
         rowValues.push(pullsPerCab || '');
         cabTypes.forEach(t => {
           const qty = skuTypeQty[sku]?.[t] || 0;
@@ -304,17 +365,17 @@ export default function PreFinalSummaryModule({ project }: Props) {
         });
         const pullsRowTotal = cabRowTotal * pullsPerCab;
         rowValues.push(pullsRowTotal > 0 ? pullsRowTotal : '');
-        rowValues.push(''); // gap
+        rowValues.push('');
 
-        // Pricing section (per-SKU: bid cost is per type, show '-' for individual SKU rows)
+        // Pricing (per-SKU: show '-')
         rowValues.push('-');
-        rowValues.push(''); // gap
+        rowValues.push('-');
         rowValues.push('-');
         cabTypes.forEach(() => rowValues.push('-'));
         rowValues.push('-');
-        rowValues.push(''); // gap
+        rowValues.push('');
 
-        // Total cabinet count section (cab qty × unit count for that type)
+        // Total cab count
         rowValues.push('');
         cabTypes.forEach(t => {
           const qty = skuTypeQty[sku]?.[t] || 0;
@@ -332,40 +393,37 @@ export default function PreFinalSummaryModule({ project }: Props) {
       });
     });
 
-    // ─── Totals row ───
+    // Totals row
     wsCabs.addRow([]);
     const totValues: (string | number)[] = [];
 
-    // Cabinet count totals
     totValues.push(`TOTAL (${allSkus.length})`);
     const cabColTotals = cabTypes.map(t => allSkus.reduce((sum, sku) => sum + (skuTypeQty[sku]?.[t] || 0), 0));
     cabColTotals.forEach(v => totValues.push(v));
     const cabGrandTotal = cabColTotals.reduce((s, v) => s + v, 0);
     totValues.push(cabGrandTotal);
-    totValues.push(''); // gap
+    totValues.push('');
 
-    // Pulls totals
     totValues.push('');
     const pullsColTotals = cabTypes.map(t =>
       allSkus.reduce((sum, sku) => sum + ((skuTypeQty[sku]?.[t] || 0) * (store.handleQtyPerSku[sku] || 0)), 0)
     );
     pullsColTotals.forEach(v => totValues.push(v || ''));
     totValues.push(pullsColTotals.reduce((s, v) => s + v, 0) || '');
-    totValues.push(''); // gap
-
-    // Pricing totals (bid cost × unit count)
-    const totalBidSum = cabTypes.reduce((sum, t) => sum + ((store.bidCostPerType[t] || 0) * (unitCountPerType[t] || 0)), 0);
     totValues.push('');
-    totValues.push(''); // gap
+
+    const totalBidSum = cabTypes.reduce((sum, t) => sum + ((store.bidCostPerType[t] || 0) * (unitCountPerType[t] || 0)), 0);
+    const totalAdditionalSum = cabTypes.reduce((sum, t) => sum + ((store.additionalCostPerType[t] || 0) * (unitCountPerType[t] || 0)), 0);
     totValues.push(totalBidSum > 0 ? totalBidSum : '');
+    totValues.push(totalAdditionalSum > 0 ? totalAdditionalSum : '');
+    totValues.push((totalBidSum + totalAdditionalSum) > 0 ? (totalBidSum + totalAdditionalSum) : '');
     cabTypes.forEach(t => {
-      const val = (store.bidCostPerType[t] || 0) * (unitCountPerType[t] || 0);
+      const val = ((store.bidCostPerType[t] || 0) + (store.additionalCostPerType[t] || 0)) * (unitCountPerType[t] || 0);
       totValues.push(val > 0 ? val : '');
     });
-    totValues.push(totalBidSum > 0 ? totalBidSum : '');
-    totValues.push(''); // gap
+    totValues.push((totalBidSum + totalAdditionalSum) > 0 ? (totalBidSum + totalAdditionalSum) : '');
+    totValues.push('');
 
-    // Total cabinet count totals
     totValues.push('TOTAL');
     const totalCabColTotals = cabTypes.map(t =>
       allSkus.reduce((sum, sku) => sum + ((skuTypeQty[sku]?.[t] || 0) * (unitCountPerType[t] || 0)), 0)
@@ -380,85 +438,79 @@ export default function PreFinalSummaryModule({ project }: Props) {
       if (colNumber > 1) cell.alignment = { horizontal: 'center' };
     });
 
-    // ─── Bid Cost row (below totals) ───
+    // Bid Cost + Additional row
     const bidRow = wsCabs.addRow([]);
     bidRow.getCell(pricingStart + 1).value = 'Bid Cost/Type';
     bidRow.getCell(pricingStart + 1).font = { bold: true, italic: true, size: 8 };
+    bidRow.getCell(pricingStart + 2).value = 'Additional/Type';
+    bidRow.getCell(pricingStart + 2).font = { bold: true, italic: true, size: 8 };
     for (let i = 0; i < nTypes; i++) {
       const cell = bidRow.getCell(pricingStart + 4 + i);
-      cell.value = store.bidCostPerType[cabTypes[i]] || 0;
+      const bidCost = store.bidCostPerType[cabTypes[i]] || 0;
+      const addCost = store.additionalCostPerType[cabTypes[i]] || 0;
+      cell.value = bidCost + addCost;
       cell.numFmt = '$#,##0.00';
       cell.alignment = { horizontal: 'center' };
       cell.font = { italic: true, size: 8 };
     }
 
-    // ── Sheet 3: Costing ────────────────────────────────────────────────
+    // ── Sheet 4: Costing ────────────────────────────────────────────
     const wsCosting = wb.addWorksheet('Costing');
     wsCosting.columns = [
-      { width: 20 }, // Unit Type
-      { width: 10 }, // Qty
-      { width: 16 }, // Cabinet Cost
-      { width: 16 }, // Handle Cost
-      { width: 16 }, // Total
+      { width: 20 }, { width: 10 }, { width: 16 }, { width: 16 }, { width: 16 }, { width: 16 },
     ];
 
-    // Header
     wsCosting.addRow([]);
-    const costHeader = wsCosting.addRow(['Unit Type', 'Qty', 'Cabinet Cost', 'Handle Cost', 'Total']);
+    const costHeader = wsCosting.addRow(['Unit Type', 'Qty', 'Cabinet Cost', 'Additional', 'Handle Cost', 'Total']);
     styleHeader(costHeader);
     costHeader.eachCell(cell => {
       cell.alignment = { horizontal: 'center', vertical: 'bottom' };
     });
     costHeader.getCell(1).alignment = { horizontal: 'left', vertical: 'bottom' };
 
-    // Compute handle cost per type: sum of (pulls per sku * qty per type) across all SKUs
-    // For now handle cost is just the total pulls count (user can define $/pull later)
     cabTypes.forEach(t => {
       const uc = unitCountPerType[t] || 0;
       const cabinetCost = (store.bidCostPerType[t] || 0) * uc;
+      const additionalCost = (store.additionalCostPerType[t] || 0) * uc;
       const handleCount = allSkus.reduce((sum, sku) => {
         const qty = skuTypeQty[sku]?.[t] || 0;
         const pulls = store.handleQtyPerSku[sku] || 0;
         return sum + (qty * pulls * uc);
       }, 0);
-      const row = wsCosting.addRow([t, uc, cabinetCost, handleCount, cabinetCost + handleCount]);
+      const row = wsCosting.addRow([t, uc, cabinetCost, additionalCost, handleCount, cabinetCost + additionalCost + handleCount]);
       row.getCell(2).alignment = { horizontal: 'center' };
       row.getCell(3).numFmt = '$#,##0.00';
-      row.getCell(4).alignment = { horizontal: 'center' };
-      row.getCell(5).numFmt = '$#,##0.00';
+      row.getCell(4).numFmt = '$#,##0.00';
+      row.getCell(5).alignment = { horizontal: 'center' };
+      row.getCell(6).numFmt = '$#,##0.00';
     });
 
-    // Totals row
     wsCosting.addRow([]);
     const costTotalQty = cabTypes.reduce((s, t) => s + (unitCountPerType[t] || 0), 0);
     const costTotalCab = cabTypes.reduce((s, t) => s + ((store.bidCostPerType[t] || 0) * (unitCountPerType[t] || 0)), 0);
+    const costTotalAdditional = cabTypes.reduce((s, t) => s + ((store.additionalCostPerType[t] || 0) * (unitCountPerType[t] || 0)), 0);
     const costTotalHandles = cabTypes.reduce((s, t) => {
       const uc = unitCountPerType[t] || 0;
       return s + allSkus.reduce((sum, sku) => sum + ((skuTypeQty[sku]?.[t] || 0) * (store.handleQtyPerSku[sku] || 0) * uc), 0);
     }, 0);
-    const costTotRow = wsCosting.addRow(['TOTAL', costTotalQty, costTotalCab, costTotalHandles, costTotalCab + costTotalHandles]);
+    const costTotRow = wsCosting.addRow(['TOTAL', costTotalQty, costTotalCab, costTotalAdditional, costTotalHandles, costTotalCab + costTotalAdditional + costTotalHandles]);
     costTotRow.eachCell((cell, colNumber) => {
       cell.font = { bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
       if (colNumber === 2) cell.alignment = { horizontal: 'center' };
-      if (colNumber === 3 || colNumber === 5) cell.numFmt = '$#,##0.00';
-      if (colNumber === 4) cell.alignment = { horizontal: 'center' };
+      if ([3, 4, 6].includes(colNumber)) cell.numFmt = '$#,##0.00';
+      if (colNumber === 5) cell.alignment = { horizontal: 'center' };
     });
 
-    // ── Sheet 4: Schedule of Values ─────────────────────────────────────
+    // ── Sheet 5: Schedule of Values ─────────────────────────────────
     const wsSov = wb.addWorksheet('Schedule of Values');
-
-    // All unique unit types (from unit assignments)
     const allUnitTypes = store.unitTypes;
     wsSov.columns = [
-      { width: 10 }, // Bldg
-      { width: 10 }, // Floor
-      { width: 14 }, // Unit #
+      { width: 10 }, { width: 10 }, { width: 14 },
       ...allUnitTypes.map(() => ({ width: 14 })),
-      { width: 14 }, // Total
+      { width: 14 },
     ];
 
-    // Header
     wsSov.addRow([]);
     const sovHeader = wsSov.addRow(['Bldg', 'Floor', 'Unit #', ...allUnitTypes, 'Total']);
     sovHeader.height = 120;
@@ -475,12 +527,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
       }
     });
 
-    // Data rows — each unit row shows the unit type name in the matching column
     sortedUnits.forEach(unit => {
-      const typeCells = allUnitTypes.map(t => {
-        if (unit.assignments[t]) return t;
-        return '';
-      });
+      const typeCells = allUnitTypes.map(t => unit.assignments[t] ? t : '');
       const assignedTypes = allUnitTypes.filter(t => unit.assignments[t]);
       const row = wsSov.addRow([unit.bldg || '', unit.floor || '', unit.name, ...typeCells, assignedTypes.join(', ')]);
       row.eachCell((cell, colNumber) => {
@@ -488,7 +536,6 @@ export default function PreFinalSummaryModule({ project }: Props) {
       });
     });
 
-    // Totals
     wsSov.addRow([]);
     const sovTotals = allUnitTypes.map(t => unitTypeTotal(t));
     const sovGrand = sovTotals.reduce((s, v) => s + v, 0);

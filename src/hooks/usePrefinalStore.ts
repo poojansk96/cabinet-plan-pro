@@ -32,6 +32,7 @@ interface PrefinalData {
   cabinetUnitTypes: string[];
   handleQtyPerSku: Record<string, number>;
   bidCostPerType: Record<string, number>;
+  additionalCostPerType: Record<string, number>;
   stoneRows: PrefinalStoneRow[];
   stoneUnitTypes: string[];
 }
@@ -39,7 +40,7 @@ interface PrefinalData {
 function loadData(projectId: string): PrefinalData {
   try {
     const raw = localStorage.getItem(`prefinal_${projectId}`);
-    if (!raw) return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, stoneRows: [], stoneUnitTypes: [] };
+    if (!raw) return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [] };
     const parsed = JSON.parse(raw);
     // Migration: old format had unitRows
     if (parsed.unitRows && !parsed.unitTypes) {
@@ -50,6 +51,7 @@ function loadData(projectId: string): PrefinalData {
         cabinetUnitTypes: parsed.cabinetUnitTypes || [],
         handleQtyPerSku: parsed.handleQtyPerSku || {},
         bidCostPerType: parsed.bidCostPerType || {},
+        additionalCostPerType: parsed.additionalCostPerType || {},
         stoneRows: parsed.stoneRows || [],
         stoneUnitTypes: parsed.stoneUnitTypes || [],
       };
@@ -73,9 +75,9 @@ function loadData(projectId: string): PrefinalData {
       unitType: r.unitType ? r.unitType.trim().toUpperCase().replace(/\s*-\s*/g, '-') : r.unitType,
     }));
     const unitNumbers = (parsed.unitNumbers || []).map((u: any) => ({ ...u, floor: u.floor || '' }));
-    return { unitTypes: parsed.unitTypes || [], unitNumbers, cabinetRows, cabinetUnitTypes: dedupedCabTypes, handleQtyPerSku: parsed.handleQtyPerSku || {}, bidCostPerType: parsed.bidCostPerType || {}, stoneRows: parsed.stoneRows || [], stoneUnitTypes: parsed.stoneUnitTypes || [] };
+    return { unitTypes: parsed.unitTypes || [], unitNumbers, cabinetRows, cabinetUnitTypes: dedupedCabTypes, handleQtyPerSku: parsed.handleQtyPerSku || {}, bidCostPerType: parsed.bidCostPerType || {}, additionalCostPerType: parsed.additionalCostPerType || {}, stoneRows: parsed.stoneRows || [], stoneUnitTypes: parsed.stoneUnitTypes || [] };
   } catch {
-    return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, stoneRows: [], stoneUnitTypes: [] };
+    return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [] };
   }
 }
 
@@ -317,6 +319,15 @@ export function usePrefinalStore(projectId: string) {
     });
   }, [projectId]);
 
+  const setAdditionalCost = useCallback((unitType: string, cost: number) => {
+    setData(prev => {
+      const additionalCostPerType = { ...prev.additionalCostPerType, [unitType]: cost };
+      const next = { ...prev, additionalCostPerType };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
   const setBidCost = useCallback((unitType: string, cost: number) => {
     setData(prev => {
       const bidCostPerType = { ...prev.bidCostPerType, [unitType]: cost };
@@ -384,7 +395,7 @@ export function usePrefinalStore(projectId: string) {
   }, [commit, data]);
 
   const clearAll = useCallback(() => {
-    commit({ unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, stoneRows: [], stoneUnitTypes: [] });
+    commit({ unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [] });
   }, [commit]);
 
   return {
@@ -394,6 +405,7 @@ export function usePrefinalStore(projectId: string) {
     cabinetUnitTypes: data.cabinetUnitTypes,
     handleQtyPerSku: data.handleQtyPerSku,
     bidCostPerType: data.bidCostPerType,
+    additionalCostPerType: data.additionalCostPerType,
     stoneRows: data.stoneRows,
     stoneUnitTypes: data.stoneUnitTypes,
     addUnitTypes,
@@ -414,6 +426,7 @@ export function usePrefinalStore(projectId: string) {
     clearUnits,
     setHandleQty,
     setBidCost,
+    setAdditionalCost,
     addStoneUnitTypes,
     deleteStoneUnitType,
     addStoneImport,
