@@ -50,6 +50,8 @@ function loadData(projectId: string): PrefinalData {
         cabinetUnitTypes: parsed.cabinetUnitTypes || [],
         handleQtyPerSku: parsed.handleQtyPerSku || {},
         bidCostPerType: parsed.bidCostPerType || {},
+        stoneRows: parsed.stoneRows || [],
+        stoneUnitTypes: parsed.stoneUnitTypes || [],
       };
     }
     // Normalize + deduplicate cabinetUnitTypes
