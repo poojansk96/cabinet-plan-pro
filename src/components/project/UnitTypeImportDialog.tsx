@@ -25,7 +25,23 @@ interface PageSighting {
 interface Props {
   onImport: (rows: Omit<UnitMappingRow, 'selected'>[]) => void;
   onClose: () => void;
+  prefinalPerson?: string;
 }
+
+const PERSONAL_QUOTES = [
+  (name: string) => `${name}, you've got this — one unit at a time! 💪`,
+  (name: string) => `Keep going, ${name}! Accuracy is your superpower.`,
+  (name: string) => `${name}, precision like yours builds perfection.`,
+  (name: string) => `You're crushing it, ${name}! Every count matters.`,
+  (name: string) => `${name}, great takeoffs start with great people like you.`,
+  (name: string) => `Stay sharp, ${name} — excellence is in the details!`,
+  (name: string) => `${name}, believe in the process. You're almost there!`,
+  (name: string) => `One page closer, ${name}. You make it look easy! ✨`,
+  (name: string) => `${name}, your dedication to accuracy is inspiring.`,
+  (name: string) => `Trust the grind, ${name}. The results will speak!`,
+  (name: string) => `${name}, legends aren't born — they count cabinets. 😄`,
+  (name: string) => `Focus and flow, ${name}. You're in the zone!`,
+];
 
 const QUOTES = [
   "Measure twice, cut once.",
