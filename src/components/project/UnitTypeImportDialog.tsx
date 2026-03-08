@@ -261,6 +261,22 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
         return;
       }
 
+      // Build type order sorted by first PDF page appearance
+      const orderedTypes = Array.from(typeFirstPage.entries())
+        .sort((a, b) => a[1] - b[1])
+        .map(([_, __], _i, arr) => arr) // we need the original type strings, not normalized keys
+      // Re-derive: get unique types from result in the order they first appeared by page
+      const seenTypes = new Map<string, string>(); // normalizedKey -> original display name
+      for (const r of result) {
+        const key = r.unitType.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').trim();
+        if (!seenTypes.has(key)) seenTypes.set(key, r.unitType);
+      }
+      const pdfTypeOrder = Array.from(typeFirstPage.entries())
+        .sort((a, b) => a[1] - b[1])
+        .map(([key]) => seenTypes.get(key))
+        .filter((t): t is string => !!t);
+
+      setTypeOrder(pdfTypeOrder);
       setRows(result);
       setStep('review');
     } catch (err) {
