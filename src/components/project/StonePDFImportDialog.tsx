@@ -81,7 +81,7 @@ const QUOTES = [
   "Calculating surface areas...",
 ];
 
-export default function StonePDFImportDialog({ onImport, onClose }: Props) {
+export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<StoneExtractedRow[]>([]);
   const [error, setError] = useState('');
@@ -89,6 +89,8 @@ export default function StonePDFImportDialog({ onImport, onClose }: Props) {
   const [totalPages, setTotalPages] = useState(0);
   const [statusMsg, setStatusMsg] = useState('');
   const [quoteIdx, setQuoteIdx] = useState(0);
+  const [personalQuoteIdx, setPersonalQuoteIdx] = useState(0);
+  const [quoteVisible, setQuoteVisible] = useState(true);
   const [detectedType, setDetectedType] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const processingRef = useRef(false);
