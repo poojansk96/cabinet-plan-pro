@@ -134,7 +134,12 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
     const allRows: LabelRow[] = [];
     let detectedType: string | null = null;
 
+    const pageTasks: { p: number; file: File }[] = [];
     for (let p = 1; p <= pdf.numPages; p++) {
+      pageTasks.push({ p, file });
+    }
+
+    const processOnePage = async (p: number) => {
       onStatus(`Rendering "${file.name}" page ${p}/${pdf.numPages}…`);
       const page = await pdf.getPage(p);
       const pageImage = await renderPageToBase64(page);
@@ -147,7 +152,9 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 min
           try {
-            onStatus(`AI reading labels on "${file.name}" page ${p}/${pdf.numPages}${attempt > 1 ? ` (retry ${attempt - 1})` : ''}…`);
+            if (attempt > 1) {
+              onStatus(`AI reading labels on "${file.name}" page ${p}/${pdf.numPages} (retry ${attempt - 1})…`);
+            }
             const res = await fetch(EDGE_FUNCTION_URL, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -172,43 +179,55 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         throw new Error('All attempts failed');
       };
 
-      let aiResponse: Response;
-      try {
-        aiResponse = await fetchWithRetry(JSON.stringify({ pageImage, unitType }));
-      } catch (err: any) {
-        console.warn(`Page ${p} of "${file.name}" timed out after retries, skipping`);
-        continue;
-      }
+      const aiResponse = await fetchWithRetry(JSON.stringify({ pageImage, unitType }));
 
       if (!aiResponse.ok) {
         const status = aiResponse.status;
         if (status === 429) throw new Error('rate_limit');
         if (status === 402) throw new Error('credits');
-        console.warn(`Page ${p} of "${file.name}" failed (${status}), skipping`);
-        continue;
+        throw new Error(`failed (${status})`);
       }
 
       const data = await aiResponse.json();
       if (data.error === 'rate_limit') throw new Error('rate_limit');
       if (data.error === 'credits') throw new Error('credits');
 
-      // Capture detected unit type from PLAN pages only (when items exist)
-      // so cover/title-page noise does not leak into cabinet rows.
-      if (data.unitTypeName && Array.isArray(data.items) && data.items.length > 0 && !detectedType) {
-        detectedType = data.unitTypeName;
-      }
+      return data;
+    };
 
-      const pageRows = (data.items ?? []).map((c: any) => ({
-        sku: c.sku,
-        type: c.type,
-        room: c.room,
-        quantity: c.quantity,
-        selected: true,
-        sourceFile: file.name,
-        detectedUnitType: (data.unitTypeName && Array.isArray(data.items) && data.items.length > 0) ? data.unitTypeName : undefined,
-      }));
-      allRows.push(...pageRows);
-      onPageDone?.();
+    const CONCURRENCY = 3;
+    for (let i = 0; i < pageTasks.length; i += CONCURRENCY) {
+      const batch = pageTasks.slice(i, i + CONCURRENCY);
+      const results = await Promise.allSettled(batch.map(t => processOnePage(t.p)));
+
+      for (let j = 0; j < results.length; j++) {
+        const result = results[j];
+        const { p } = batch[j];
+
+        if (result.status === 'fulfilled') {
+          const data = result.value;
+          // Capture detected unit type from PLAN pages only (when items exist)
+          if (data.unitTypeName && Array.isArray(data.items) && data.items.length > 0 && !detectedType) {
+            detectedType = data.unitTypeName;
+          }
+
+          const pageRows = (data.items ?? []).map((c: any) => ({
+            sku: c.sku,
+            type: c.type,
+            room: c.room,
+            quantity: c.quantity,
+            selected: true,
+            sourceFile: file.name,
+            detectedUnitType: (data.unitTypeName && Array.isArray(data.items) && data.items.length > 0) ? data.unitTypeName : undefined,
+          }));
+          allRows.push(...pageRows);
+        } else {
+          console.warn(`Page ${p} of "${file.name}" failed:`, result.reason?.message);
+          if (result.reason?.message === 'rate_limit') throw new Error('rate_limit');
+          if (result.reason?.message === 'credits') throw new Error('credits');
+        }
+        onPageDone?.();
+      }
     }
     return { rows: allRows, detectedType };
   };
