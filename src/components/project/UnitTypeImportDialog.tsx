@@ -117,6 +117,8 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
 
       // Track every sighting of each unit across pages
       const sightings: Map<string, PageSighting[]> = new Map();
+      // Track first page each unit type appears on (for PDF-order sorting)
+      const typeFirstPage: Map<string, number> = new Map();
 
       // Count total pages across all PDFs for progress tracking
       const pdfs: { file: File; pdf: any }[] = [];
