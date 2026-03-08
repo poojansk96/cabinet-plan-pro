@@ -461,13 +461,6 @@ export default function PreFinalModule({ project }: Props) {
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {activeSubTab === 'cabinets' && (
         <>
-          {showCabinetImport && (
-            <ShopDrawingImportDialog
-              unitType={importTargetType || undefined}
-              onImport={handleCabinetImport}
-              onClose={() => setShowCabinetImport(false)}
-            />
-          )}
 
           {cabinetImportedCount !== null && (
             <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-white" style={{ background: 'hsl(142 71% 45%)' }}>
