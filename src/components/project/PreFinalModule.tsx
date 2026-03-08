@@ -33,7 +33,7 @@ export default function PreFinalModule({ project }: Props) {
   const store = usePrefinalStore(project.id);
 
   // ── Unit Count state ──────────────────────────────────────────────────────
-  const [showUnitImport, setShowUnitImport] = useState(false);
+  const [showCombinedImport, setShowCombinedImport] = useState(false);
   const [showAddUnit, setShowAddUnit] = useState(false);
   const [newUnitType, setNewUnitType] = useState('');
   const [newUnitNumber, setNewUnitNumber] = useState('');
