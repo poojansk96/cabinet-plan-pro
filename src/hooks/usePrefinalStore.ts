@@ -374,7 +374,7 @@ export function usePrefinalStore(projectId: string) {
 
   const updateUnitNumberName = useCallback((index: number, name: string) => {
     setData(prev => {
-      const unitNumbers = prev.unitNumbers.map((u, i) => i === index ? { ...u, name } : u);
+      const unitNumbers = prev.unitNumbers.map((u, i) => i === index ? { ...u, name: sanitizeUnitNumber(name) } : u);
       const next = { ...prev, unitNumbers };
       saveData(projectId, next);
       return next;
