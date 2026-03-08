@@ -50,6 +50,10 @@ export default function PreFinalModule({ project }: Props) {
   const [cabinetImportedCount, setCabinetImportedCount] = useState<number | null>(null);
   const [cabinetChecks, setCabinetChecks] = useState<Record<string, boolean>>({});
 
+  // ── Stone SQFT state ──────────────────────────────────────────────────
+  const [showStoneImport, setShowStoneImport] = useState(false);
+  const [stoneImportedCount, setStoneImportedCount] = useState<number | null>(null);
+
   // ── Unit import handler ───────────────────────────────────────────────────
   const handleUnitImport = (rows: { unitNumber: string; unitType: string; bldg: string }[]) => {
     const normalized = rows.map(r => ({ ...r, unitType: normalizeUnitType(r.unitType) }));
