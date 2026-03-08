@@ -249,7 +249,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
     const unitCountPerType: Record<string, number> = {};
     for (const t of cabTypes) {
-      unitCountPerType[t] = store.unitNumbers.filter(u => u.assignments[t]).length;
+      unitCountPerType[t] = countUnitsForType(t);
     }
 
     const cabCountCols = 1 + nTypes + 1;
