@@ -169,92 +169,123 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
       }
       setProgress(10);
 
-      let pagesProcessed = 0;
+      // Build flat list of page tasks for parallel processing
+      const pageTasks: { file: File; pdf: any; pageNum: number; globalIdx: number }[] = [];
+      let globalIdx = 0;
       for (const { file, pdf } of pdfs) {
-        // Scan ALL pages — the AI will identify title pages and skip others
         for (let p = 1; p <= pdf.numPages; p++) {
-          const page = await pdf.getPage(p);
-          const pageImage = await renderPageToBase64(page);
-
-          const fetchWithRetry = async (attempts = 3): Promise<Response> => {
-            for (let attempt = 1; attempt <= attempts; attempt++) {
-              const controller = new AbortController();
-              const tid = setTimeout(() => controller.abort(), 5 * 60 * 1000);
-              try {
-                const res = await fetch(EDGE_FUNCTION_URL, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ pageImage }),
-                  signal: controller.signal,
-                });
-                clearTimeout(tid);
-                if ((res.status === 503 || res.status === 500) && attempt < attempts) {
-                  console.warn(`Page ${p} attempt ${attempt}: AI unavailable (${res.status}), retrying in ${3 * attempt}s…`);
-                  await new Promise(r => setTimeout(r, 3000 * attempt));
-                  continue;
-                }
-                return res;
-              } catch (err: any) {
-                clearTimeout(tid);
-                if (attempt === attempts) throw err;
-                await new Promise(r => setTimeout(r, 2000));
-              }
-            }
-            throw new Error('All attempts failed');
-          };
-
-          let aiResponse: Response;
-          try {
-            aiResponse = await fetchWithRetry();
-          } catch {
-            console.warn(`Page ${p} of "${file.name}" timed out, skipping`);
-            continue;
-          }
-
-          if (!aiResponse.ok) {
-            const status = aiResponse.status;
-            if (status === 429) { toast.error('AI rate limit reached. Try again shortly.'); setStep('upload'); return; }
-            if (status === 402) { toast.error('AI credits exhausted.'); setStep('upload'); return; }
-            continue;
-          }
-
-          const data = await aiResponse.json();
-          if (data.error === 'rate_limit') { toast.error('AI rate limit reached.'); setStep('upload'); return; }
-          if (data.error === 'credits') { toast.error('AI credits exhausted.'); setStep('upload'); return; }
-
-          const pageUnits = data.units ?? [];
-          console.log(`Page ${p}/${pdf.numPages} of "${file.name}": found ${pageUnits.length} unit(s)`, pageUnits);
-
-          for (const u of pageUnits) {
-            const num = String(u.unitNumber ?? '').trim();
-            const type = String(u.unitType ?? '').trim();
-            const bldg = String(u.bldg ?? '').trim();
-            const floor = String(u.floor ?? '').trim();
-            if (!num) continue;
-
-            // Track first page each unit type appears on (for PDF-order column sorting)
-            const typeKey = type.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').trim();
-            if (!typeFirstPage.has(typeKey)) {
-              typeFirstPage.set(typeKey, pagesProcessed);
-            }
-
-            extractedUnits.push({ unitNumber: num, unitType: type, bldg, floor, page: p, file: file.name });
-
-            const bldgKey = normalizeBuildingKey(bldg);
-            if (isStructuredBuildingLabel(bldgKey)) {
-              const existing = structuredBuildingStats.get(bldgKey);
-              if (existing) {
-                existing.count += 1;
-                if (bldg.length > existing.label.length) existing.label = bldg;
-              } else {
-                structuredBuildingStats.set(bldgKey, { count: 1, label: bldg });
-              }
-            }
-          }
-
-          pagesProcessed++;
-          setProgress(10 + Math.round((pagesProcessed / totalPages) * 85));
+          pageTasks.push({ file, pdf, pageNum: p, globalIdx: globalIdx++ });
         }
+      }
+
+      // Process single page helper
+      const processOnePage = async (task: typeof pageTasks[0]): Promise<{
+        units: PageSighting[];
+        error?: string;
+      }> => {
+        const { file, pdf, pageNum: p } = task;
+        const page = await pdf.getPage(p);
+        const pageImage = await renderPageToBase64(page);
+
+        const fetchWithRetry = async (attempts = 3): Promise<Response> => {
+          for (let attempt = 1; attempt <= attempts; attempt++) {
+            const controller = new AbortController();
+            const tid = setTimeout(() => controller.abort(), 5 * 60 * 1000);
+            try {
+              const res = await fetch(EDGE_FUNCTION_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pageImage }),
+                signal: controller.signal,
+              });
+              clearTimeout(tid);
+              if ((res.status === 503 || res.status === 500) && attempt < attempts) {
+                console.warn(`Page ${p} attempt ${attempt}: AI unavailable (${res.status}), retrying in ${3 * attempt}s…`);
+                await new Promise(r => setTimeout(r, 3000 * attempt));
+                continue;
+              }
+              return res;
+            } catch (err: any) {
+              clearTimeout(tid);
+              if (attempt === attempts) throw err;
+              await new Promise(r => setTimeout(r, 2000));
+            }
+          }
+          throw new Error('All attempts failed');
+        };
+
+        let aiResponse: Response;
+        try {
+          aiResponse = await fetchWithRetry();
+        } catch {
+          console.warn(`Page ${p} of "${file.name}" timed out, skipping`);
+          return { units: [] };
+        }
+
+        if (!aiResponse.ok) {
+          const status = aiResponse.status;
+          if (status === 429) return { units: [], error: 'rate_limit' };
+          if (status === 402) return { units: [], error: 'credits' };
+          return { units: [] };
+        }
+
+        const data = await aiResponse.json();
+        if (data.error === 'rate_limit') return { units: [], error: 'rate_limit' };
+        if (data.error === 'credits') return { units: [], error: 'credits' };
+
+        const pageUnits = data.units ?? [];
+        console.log(`Page ${p}/${pdf.numPages} of "${file.name}": found ${pageUnits.length} unit(s)`, pageUnits);
+
+        const units: PageSighting[] = [];
+        for (const u of pageUnits) {
+          const num = String(u.unitNumber ?? '').trim();
+          const type = String(u.unitType ?? '').trim();
+          const bldg = String(u.bldg ?? '').trim();
+          const floor = String(u.floor ?? '').trim();
+          if (!num) continue;
+          units.push({ unitNumber: num, unitType: type, bldg, floor, page: p, file: file.name });
+        }
+        return { units };
+      };
+
+      // Process pages in batches of 3 concurrently
+      const CONCURRENCY = 3;
+      let pagesProcessed = 0;
+      for (let i = 0; i < pageTasks.length; i += CONCURRENCY) {
+        const batch = pageTasks.slice(i, i + CONCURRENCY);
+        const results = await Promise.allSettled(batch.map(t => processOnePage(t)));
+
+        for (let j = 0; j < results.length; j++) {
+          const result = results[j];
+          const task = batch[j];
+          if (result.status === 'fulfilled') {
+            if (result.value.error === 'rate_limit') { toast.error('AI rate limit reached. Try again shortly.'); setStep('upload'); return; }
+            if (result.value.error === 'credits') { toast.error('AI credits exhausted.'); setStep('upload'); return; }
+
+            for (const unit of result.value.units) {
+              // Track first page each unit type appears on (for PDF-order column sorting)
+              const typeKey = unit.unitType.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').trim();
+              if (!typeFirstPage.has(typeKey)) {
+                typeFirstPage.set(typeKey, task.globalIdx);
+              }
+
+              extractedUnits.push(unit);
+
+              const bldgKey = normalizeBuildingKey(unit.bldg);
+              if (isStructuredBuildingLabel(bldgKey)) {
+                const existing = structuredBuildingStats.get(bldgKey);
+                if (existing) {
+                  existing.count += 1;
+                  if (unit.bldg.length > existing.label.length) existing.label = unit.bldg;
+                } else {
+                  structuredBuildingStats.set(bldgKey, { count: 1, label: unit.bldg });
+                }
+              }
+            }
+          }
+          pagesProcessed++;
+        }
+        setProgress(10 + Math.round((pagesProcessed / totalPages) * 85));
       }
 
       const keyPart = (v: string) => v.toUpperCase().replace(/\s+/g, '').trim();
