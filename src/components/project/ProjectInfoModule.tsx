@@ -185,7 +185,7 @@ export default function ProjectInfoModule({ project, onSave }: Props) {
           <div className="grid grid-cols-3 gap-4">
             {STF('Project Super', 'projectSuper', 'Supervisor name')}
             {STF('Customer', 'customer', 'Customer / client name')}
-            {STF('Takeoff Person', 'takeoffPerson', 'Person doing the takeoff')}
+            {STF('Prefinal Person', 'takeoffPerson', 'Person doing the prefinal')}
           </div>
 
           {/* Door Style */}
