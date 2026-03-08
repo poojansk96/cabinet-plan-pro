@@ -61,6 +61,19 @@ const QUOTES = [
   "The blueprint is where dreams become structure.",
 ];
 
+function normalizeBuildingKey(value: string): string {
+  return String(value || '')
+    .toUpperCase()
+    .trim()
+    .replace(/BUILDINGS?/g, 'BLDG')
+    .replace(/BLDG\.?/g, 'BLDG')
+    .replace(/[^A-Z0-9]/g, '');
+}
+
+function isStructuredBuildingLabel(buildingKey: string): boolean {
+  return /(BLDG|TOWER|WING|BLOCK|PHASE|PODIUM)/.test(buildingKey) || /\d/.test(buildingKey);
+}
+
 async function renderPageToBase64(page: any): Promise<string> {
   const MAX_PX = 4096;
   const baseViewport = page.getViewport({ scale: 1 });
@@ -118,6 +131,8 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
 
       // Track every sighting of each unit across pages
       const sightings: Map<string, PageSighting[]> = new Map();
+      const extractedUnits: PageSighting[] = [];
+      const structuredBuildingStats = new Map<string, { count: number; label: string }>();
       // Track first page each unit type appears on (for PDF-order sorting)
       const typeFirstPage: Map<string, number> = new Map();
 
@@ -188,8 +203,6 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
           const pageUnits = data.units ?? [];
           console.log(`Page ${p}/${pdf.numPages} of "${file.name}": found ${pageUnits.length} unit(s)`, pageUnits);
 
-          const keyPart = (v: string) => v.toUpperCase().replace(/\s+/g, '').trim();
-
           for (const u of pageUnits) {
             const num = String(u.unitNumber ?? '').trim();
             const type = String(u.unitType ?? '').trim();
@@ -203,17 +216,56 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
               typeFirstPage.set(typeKey, pagesProcessed);
             }
 
-            // Deduplicate by unitNumber+bldg+unitType (NOT floor) to prevent floor-variant duplicates
-            const sightingKey = `${keyPart(num)}|${keyPart(bldg)}|${keyPart(type)}`;
-            const nextSighting: PageSighting = { unitNumber: num, unitType: type, bldg, floor, page: p, file: file.name };
-            const existing = sightings.get(sightingKey);
-            if (existing) existing.push(nextSighting);
-            else sightings.set(sightingKey, [nextSighting]);
+            extractedUnits.push({ unitNumber: num, unitType: type, bldg, floor, page: p, file: file.name });
+
+            const bldgKey = normalizeBuildingKey(bldg);
+            if (isStructuredBuildingLabel(bldgKey)) {
+              const existing = structuredBuildingStats.get(bldgKey);
+              if (existing) {
+                existing.count += 1;
+                if (bldg.length > existing.label.length) existing.label = bldg;
+              } else {
+                structuredBuildingStats.set(bldgKey, { count: 1, label: bldg });
+              }
+            }
           }
 
           pagesProcessed++;
           setProgress(10 + Math.round((pagesProcessed / totalPages) * 85));
         }
+      }
+
+      const keyPart = (v: string) => v.toUpperCase().replace(/\s+/g, '').trim();
+      const aliasCounts = new Map<string, number>();
+      for (const unit of extractedUnits) {
+        const aliasKey = normalizeBuildingKey(unit.bldg);
+        if (!aliasKey) continue;
+        aliasCounts.set(aliasKey, (aliasCounts.get(aliasKey) ?? 0) + 1);
+      }
+
+      const dominantStructured = Array.from(structuredBuildingStats.entries())
+        .sort((a, b) => b[1].count - a[1].count)[0];
+      const dominantStructuredKey = dominantStructured?.[0] ?? '';
+      const dominantStructuredLabel = dominantStructured?.[1].label?.trim() ?? '';
+
+      for (const unit of extractedUnits) {
+        const rawBldg = String(unit.bldg || '').trim();
+        const bldgKey = normalizeBuildingKey(rawBldg);
+        const shouldFoldToDominant =
+          !!dominantStructuredKey &&
+          !!bldgKey &&
+          !isStructuredBuildingLabel(bldgKey) &&
+          (aliasCounts.get(bldgKey) ?? 0) <= 2;
+
+        const canonicalBldgKey = shouldFoldToDominant ? dominantStructuredKey : bldgKey;
+        const canonicalBldgLabel = shouldFoldToDominant ? dominantStructuredLabel : rawBldg;
+
+        // Deduplicate by unitNumber+bldg+unitType (NOT floor) after building normalization
+        const sightingKey = `${keyPart(unit.unitNumber)}|${canonicalBldgKey}|${keyPart(unit.unitType)}`;
+        const nextSighting: PageSighting = { ...unit, bldg: canonicalBldgLabel };
+        const existing = sightings.get(sightingKey);
+        if (existing) existing.push(nextSighting);
+        else sightings.set(sightingKey, [nextSighting]);
       }
 
       // Build rows with cross-page conflict detection
