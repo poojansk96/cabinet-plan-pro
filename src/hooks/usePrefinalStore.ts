@@ -406,7 +406,7 @@ export function usePrefinalStore(projectId: string) {
   const importUnitMappings = useCallback((mappings: { unitNumber: string; unitType: string; bldg?: string; floor?: string }[]) => {
     setData(prev => {
       const baseUnits = dedupeUnitNumbers(
-        prev.unitNumbers.map(u => ({ ...u, assignments: { ...u.assignments } }))
+        prev.unitNumbers.map(u => ({ ...u, assignments: normalizeAssignments({ ...u.assignments }, prev.unitTypes) }))
       );
 
       const existingKeys = new Map<string, number>();
@@ -414,6 +414,7 @@ export function usePrefinalStore(projectId: string) {
 
       const updatedNumbers = [...baseUnits];
       for (const m of mappings) {
+        const resolvedType = resolveExistingTypeName(String(m.unitType || '').trim(), prev.unitTypes);
         const key = makeUnitCompositeKey(m.unitNumber, m.bldg || '');
         const existingIdx = existingKeys.get(key);
 
@@ -432,14 +433,14 @@ export function usePrefinalStore(projectId: string) {
             name: current.name || String(m.unitNumber || '').trim(),
             bldg: current.bldg || String(m.bldg || '').trim(),
             floor: mergedFloor,
-            assignments: { ...current.assignments, [m.unitType]: true },
+            assignments: normalizeAssignments({ ...current.assignments, [resolvedType]: true }, prev.unitTypes),
           };
         } else {
           updatedNumbers.push({
             name: String(m.unitNumber || '').trim(),
             bldg: String(m.bldg || '').trim(),
             floor: String(m.floor || '').trim(),
-            assignments: { [m.unitType]: true },
+            assignments: normalizeAssignments({ [resolvedType]: true }, prev.unitTypes),
           });
           existingKeys.set(key, updatedNumbers.length - 1);
         }
