@@ -61,6 +61,19 @@ const QUOTES = [
   "The blueprint is where dreams become structure.",
 ];
 
+function normalizeBuildingKey(value: string): string {
+  return String(value || '')
+    .toUpperCase()
+    .trim()
+    .replace(/BUILDINGS?/g, 'BLDG')
+    .replace(/BLDG\.?/g, 'BLDG')
+    .replace(/[^A-Z0-9]/g, '');
+}
+
+function isStructuredBuildingLabel(buildingKey: string): boolean {
+  return /(BLDG|TOWER|WING|BLOCK|PHASE|PODIUM)/.test(buildingKey) || /\d/.test(buildingKey);
+}
+
 async function renderPageToBase64(page: any): Promise<string> {
   const MAX_PX = 4096;
   const baseViewport = page.getViewport({ scale: 1 });
