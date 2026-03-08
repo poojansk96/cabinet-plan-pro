@@ -185,6 +185,8 @@ Return ONLY valid JSON — no markdown, no explanation:
     console.log(`Pass 1: ${pass1Items.length} items, unitType: ${detectedUnitType}`);
 
     // ── PASS 2: Verification — re-examine image to catch missed SKUs ──
+    // IMPORTANT: never replace Pass 1 entirely, because Pass 2 can miss labels.
+    // Merge both passes and keep the higher quantity per SKU+room.
     let finalItems = pass1Items;
     if (pass1Items.length > 0) {
       const verifyPrompt = `You are an expert millwork estimator doing a SECOND verification pass on a 2020 Design shop drawing PLAN VIEW page.
@@ -231,10 +233,35 @@ Return the COMPLETE corrected list as JSON — no markdown, no explanation:
             const verifyParsed = extractJson(verifyContent);
             const pass2Items = verifyParsed.items ?? [];
             if (pass2Items.length > 0) {
-              finalItems = pass2Items;
-              console.log(`Pass 2: ${pass2Items.length} items (using verified)`);
+              const mergedByKey = new Map<string, any>();
+              for (const item of pass1Items) {
+                const sku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+                const room = String(item?.room ?? 'Kitchen').trim();
+                if (!sku) continue;
+                mergedByKey.set(`${sku}|${room}`, item);
+              }
+              for (const item of pass2Items) {
+                const sku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+                const room = String(item?.room ?? 'Kitchen').trim();
+                if (!sku) continue;
+                const key = `${sku}|${room}`;
+                const existing = mergedByKey.get(key);
+                if (!existing) {
+                  mergedByKey.set(key, item);
+                  continue;
+                }
+                mergedByKey.set(key, {
+                  ...existing,
+                  ...item,
+                  quantity: Math.max(Number(existing.quantity) || 1, Number(item.quantity) || 1),
+                });
+              }
+              finalItems = Array.from(mergedByKey.values());
+              console.log(`Pass 2 merge: pass1=${pass1Items.length}, pass2=${pass2Items.length}, final=${finalItems.length}`);
             }
-          } catch { console.error("Pass 2 JSON parse failed, using Pass 1"); }
+          } catch {
+            console.error("Pass 2 JSON parse failed, using Pass 1");
+          }
         } else {
           console.warn("Pass 2 call failed:", verifyRes.status);
         }
