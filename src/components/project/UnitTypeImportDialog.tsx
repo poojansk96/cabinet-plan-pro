@@ -23,7 +23,7 @@ interface PageSighting {
 }
 
 interface Props {
-  onImport: (rows: Omit<UnitMappingRow, 'selected'>[]) => void;
+  onImport: (rows: Omit<UnitMappingRow, 'selected'>[], typeOrder?: string[]) => void;
   onClose: () => void;
   prefinalPerson?: string;
 }
