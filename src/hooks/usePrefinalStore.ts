@@ -20,12 +20,14 @@ interface PrefinalData {
   unitNumbers: PrefinalUnitNumber[];
   cabinetRows: PrefinalCabinetRow[];
   cabinetUnitTypes: string[];
+  handleQtyPerSku: Record<string, number>;   // SKU → pulls per cabinet (manual)
+  bidCostPerType: Record<string, number>;     // unitType → bid cost (manual)
 }
 
 function loadData(projectId: string): PrefinalData {
   try {
     const raw = localStorage.getItem(`prefinal_${projectId}`);
-    if (!raw) return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [] };
+    if (!raw) return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {} };
     const parsed = JSON.parse(raw);
     // Migration: old format had unitRows
     if (parsed.unitRows && !parsed.unitTypes) {
@@ -34,6 +36,8 @@ function loadData(projectId: string): PrefinalData {
         unitNumbers: [],
         cabinetRows: parsed.cabinetRows || [],
         cabinetUnitTypes: parsed.cabinetUnitTypes || [],
+        handleQtyPerSku: parsed.handleQtyPerSku || {},
+        bidCostPerType: parsed.bidCostPerType || {},
       };
     }
     // Normalize + deduplicate cabinetUnitTypes
@@ -55,9 +59,9 @@ function loadData(projectId: string): PrefinalData {
       unitType: r.unitType ? r.unitType.trim().toUpperCase().replace(/\s*-\s*/g, '-') : r.unitType,
     }));
     const unitNumbers = (parsed.unitNumbers || []).map((u: any) => ({ ...u, floor: u.floor || '' }));
-    return { unitTypes: parsed.unitTypes || [], unitNumbers, cabinetRows, cabinetUnitTypes: dedupedCabTypes };
+    return { unitTypes: parsed.unitTypes || [], unitNumbers, cabinetRows, cabinetUnitTypes: dedupedCabTypes, handleQtyPerSku: parsed.handleQtyPerSku || {}, bidCostPerType: parsed.bidCostPerType || {} };
   } catch {
-    return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [] };
+    return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {} };
   }
 }
 
@@ -290,8 +294,26 @@ export function usePrefinalStore(projectId: string) {
     commit({ ...data, unitTypes: [], unitNumbers: [] });
   }, [commit, data]);
 
+  const setHandleQty = useCallback((sku: string, qty: number) => {
+    setData(prev => {
+      const handleQtyPerSku = { ...prev.handleQtyPerSku, [sku]: qty };
+      const next = { ...prev, handleQtyPerSku };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
+  const setBidCost = useCallback((unitType: string, cost: number) => {
+    setData(prev => {
+      const bidCostPerType = { ...prev.bidCostPerType, [unitType]: cost };
+      const next = { ...prev, bidCostPerType };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
   const clearAll = useCallback(() => {
-    commit({ unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [] });
+    commit({ unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {} });
   }, [commit]);
 
   return {
@@ -299,6 +321,8 @@ export function usePrefinalStore(projectId: string) {
     unitNumbers: data.unitNumbers,
     cabinetRows: data.cabinetRows,
     cabinetUnitTypes: data.cabinetUnitTypes,
+    handleQtyPerSku: data.handleQtyPerSku,
+    bidCostPerType: data.bidCostPerType,
     addUnitTypes,
     deleteUnitType,
     renameUnitType,
@@ -315,6 +339,8 @@ export function usePrefinalStore(projectId: string) {
     deleteCabinetRow,
     clearCabinets,
     clearUnits,
+    setHandleQty,
+    setBidCost,
     clearAll,
   };
 }
