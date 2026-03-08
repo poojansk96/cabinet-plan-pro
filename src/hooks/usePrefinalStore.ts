@@ -426,7 +426,7 @@ export function usePrefinalStore(projectId: string) {
       const updatedNumbers = [...baseUnits];
       for (const m of mappings) {
         const resolvedType = resolveExistingTypeName(String(m.unitType || '').trim(), prev.unitTypes);
-        const key = makeUnitCompositeKey(m.unitNumber, m.bldg || '');
+        const key = makeUnitCompositeKey(sanitizeUnitNumber(m.unitNumber), m.bldg || '');
         const existingIdx = existingKeys.get(key);
 
         if (existingIdx !== undefined) {
