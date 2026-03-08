@@ -394,7 +394,7 @@ export function usePrefinalStore(projectId: string) {
   }, [commit, data]);
 
   const clearAll = useCallback(() => {
-    commit({ unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, stoneRows: [], stoneUnitTypes: [] });
+    commit({ unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [] });
   }, [commit]);
 
   return {
