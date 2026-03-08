@@ -208,7 +208,7 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
             const type = String(u.unitType ?? '').trim();
             const bldg = String(u.bldg ?? '').trim();
             const floor = String(u.floor ?? '').trim();
-            if (!num || !type) continue;
+            if (!num) continue;
 
             // Track first page each unit type appears on (for PDF-order column sorting)
             const typeKey = type.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').trim();

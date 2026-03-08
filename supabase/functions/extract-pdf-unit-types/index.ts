@@ -29,9 +29,10 @@ SKIP THESE PAGE TYPES — return {"bldg":null,"units":[]} immediately:
 
 IF THIS IS A FLOOR PLAN PAGE, EXTRACT:
 
-1. UNIT TYPE (most important):
+1. UNIT TYPE (most important — NEVER leave null or empty):
    - Prefer the title-block type when present (e.g. "TYPE A1 - AS", "UNIT TYPE: A1-3BR", "TYPE C1-2BR", "TYPE PH-A")
-   - For COMMON AREA spaces with a room number (e.g. restroom, office, laundry, mail room), room labels are valid unitType values
+   - For COMMON AREA spaces (restroom, office, laundry, mail room, etc.), use the ROOM LABEL as the unitType (e.g. "Restroom", "Office", "Laundry", "Mail Room")
+   - If you cannot find ANY type label, use the room/space name visible on the plan as unitType
    - Preserve EXACT text including suffixes like "-AS", "-Mirror", "-Rev", "-3BR"
    - Never use sheet numbers, dimensions, cabinet SKUs, or drawing labels as unitType
 
