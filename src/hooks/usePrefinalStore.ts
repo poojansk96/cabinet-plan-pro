@@ -15,13 +15,25 @@ export interface PrefinalCabinetRow {
   unitType: string;
 }
 
+export interface PrefinalStoneRow {
+  label: string;
+  length: number;       // inches
+  depth: number;        // inches
+  splashHeight: number | null;
+  isIsland: boolean;
+  room: string;
+  unitType: string;
+}
+
 interface PrefinalData {
   unitTypes: string[];
   unitNumbers: PrefinalUnitNumber[];
   cabinetRows: PrefinalCabinetRow[];
   cabinetUnitTypes: string[];
-  handleQtyPerSku: Record<string, number>;   // SKU → pulls per cabinet (manual)
-  bidCostPerType: Record<string, number>;     // unitType → bid cost (manual)
+  handleQtyPerSku: Record<string, number>;
+  bidCostPerType: Record<string, number>;
+  stoneRows: PrefinalStoneRow[];
+  stoneUnitTypes: string[];
 }
 
 function loadData(projectId: string): PrefinalData {
