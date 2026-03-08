@@ -392,7 +392,7 @@ export function usePrefinalStore(projectId: string) {
         }
       }
 
-      const unitNumbers = dedupeUnitNumbers(updatedNumbers);
+      const unitNumbers = dedupeSameTypeSameUnit(dedupeUnitNumbers(updatedNumbers));
       const next = { ...prev, unitNumbers };
       saveData(projectId, next);
       return next;
