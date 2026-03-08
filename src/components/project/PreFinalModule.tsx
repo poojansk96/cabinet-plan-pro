@@ -202,7 +202,7 @@ export default function PreFinalModule({ project }: Props) {
             setShowUnitImport(false);
           }}
           onClose={() => setShowUnitImport(false)}
-          prefinalPerson={project.takeoffPerson}
+          prefinalPerson={project.specs?.takeoffPerson}
         />
       )}
 
