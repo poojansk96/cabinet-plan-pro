@@ -697,46 +697,48 @@ export default function PreFinalModule({ project }: Props) {
 
             {/* Bid Cost per Unit Type */}
             {cabUnitTypes.length > 0 && (
-              <div className="px-4 py-3 border-t border-border">
-                <div className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Bid Cost per Unit Type (for pricing in export)</div>
-                <div className="flex flex-wrap gap-3">
-                  {cabUnitTypes.map(type => (
-                    <div key={type} className="flex items-center gap-1.5">
-                      <span className="text-xs font-medium text-foreground truncate max-w-[120px]" title={type}>{type}</span>
-                      <span className="text-xs text-muted-foreground">$</span>
-                      <input
-                        type="number"
-                        min={0}
-                        step={0.01}
-                        className="est-input text-xs w-20 font-mono"
-                        value={store.bidCostPerType[type] || ''}
-                        onChange={e => store.setBidCost(type, Number(e.target.value) || 0)}
-                        placeholder="0.00"
-                      />
-                    </div>
-                  ))}
+              <>
+                <div className="px-4 py-3 border-t border-border">
+                  <div className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Bid Cost per Unit Type (for pricing in export)</div>
+                  <div className="flex flex-wrap gap-3">
+                    {cabUnitTypes.map(type => (
+                      <div key={type} className="flex items-center gap-1.5">
+                        <span className="text-xs font-medium text-foreground truncate max-w-[120px]" title={type}>{type}</span>
+                        <span className="text-xs text-muted-foreground">$</span>
+                        <input
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          className="est-input text-xs w-20 font-mono"
+                          value={store.bidCostPerType[type] || ''}
+                          onChange={e => store.setBidCost(type, Number(e.target.value) || 0)}
+                          placeholder="0.00"
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <div className="px-4 py-3 border-t border-border">
-                <div className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Additional Cost per Unit Type</div>
-                <div className="flex flex-wrap gap-3">
-                  {cabUnitTypes.map(type => (
-                    <div key={type} className="flex items-center gap-1.5">
-                      <span className="text-xs font-medium text-foreground truncate max-w-[120px]" title={type}>{type}</span>
-                      <span className="text-xs text-muted-foreground">$</span>
-                      <input
-                        type="number"
-                        min={0}
-                        step={0.01}
-                        className="est-input text-xs w-20 font-mono"
-                        value={store.additionalCostPerType[type] || ''}
-                        onChange={e => store.setAdditionalCost(type, Number(e.target.value) || 0)}
-                        placeholder="0.00"
-                      />
-                    </div>
-                  ))}
+                <div className="px-4 py-3 border-t border-border">
+                  <div className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Additional Cost per Unit Type</div>
+                  <div className="flex flex-wrap gap-3">
+                    {cabUnitTypes.map(type => (
+                      <div key={type} className="flex items-center gap-1.5">
+                        <span className="text-xs font-medium text-foreground truncate max-w-[120px]" title={type}>{type}</span>
+                        <span className="text-xs text-muted-foreground">$</span>
+                        <input
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          className="est-input text-xs w-20 font-mono"
+                          value={store.additionalCostPerType[type] || ''}
+                          onChange={e => store.setAdditionalCost(type, Number(e.target.value) || 0)}
+                          placeholder="0.00"
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              </>
             )}
           </div>
         </>
