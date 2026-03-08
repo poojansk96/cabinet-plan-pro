@@ -37,8 +37,19 @@ interface PrefinalData {
   stoneUnitTypes: string[];
 }
 
+function sanitizeUnitNumber(value: string): string {
+  return String(value || '')
+    .trim()
+    .replace(/\s+/g, '')
+    .replace(/[\u2010-\u2015]/g, '-')
+    .replace(/[,:;]+$/g, '')
+    .replace(/\.+$/g, '')
+    .replace(/-+$/g, '')
+    .toUpperCase();
+}
+
 function normalizeUnitKeyPart(value: string): string {
-  return String(value || '').toUpperCase().replace(/\s+/g, '').trim();
+  return sanitizeUnitNumber(value);
 }
 
 function normalizeTypeKeyPart(value: string): string {
