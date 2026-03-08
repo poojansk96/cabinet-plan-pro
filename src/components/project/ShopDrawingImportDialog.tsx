@@ -91,7 +91,7 @@ async function renderPageToBase64(page: any): Promise<string> {
   return canvas.toDataURL('image/jpeg', 0.95).split(',')[1];
 }
 
-export default function ShopDrawingImportDialog({ unitType, onImport, onClose }: Props) {
+export default function ShopDrawingImportDialog({ unitType, onImport, onClose, prefinalPerson }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<LabelRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -101,6 +101,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose }:
   const [filterSource, setFilterSource] = useState<string>('all');
   const [detectedUnitType, setDetectedUnitType] = useState<string | null>(null);
   const [quoteIndex, setQuoteIndex] = useState(() => Math.floor(Math.random() * QUOTES.length));
+  const [personalQuoteIndex, setPersonalQuoteIndex] = useState(() => Math.floor(Math.random() * PERSONAL_QUOTES.length));
   const [quoteVisible, setQuoteVisible] = useState(true);
   const [progress, setProgress] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
