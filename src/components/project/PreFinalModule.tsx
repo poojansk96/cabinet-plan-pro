@@ -204,8 +204,8 @@ export default function PreFinalModule({ project }: Props) {
       {/* Unit Import Dialog */}
       {showUnitImport && (
         <UnitTypeImportDialog
-          onImport={(rows) => {
-            handleUnitImport(rows);
+          onImport={(rows, typeOrder) => {
+            handleUnitImport(rows, typeOrder);
             setShowUnitImport(false);
           }}
           onClose={() => setShowUnitImport(false)}
