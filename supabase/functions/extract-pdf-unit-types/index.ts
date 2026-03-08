@@ -152,7 +152,6 @@ function cleanUnits(rawUnits: any[], pageBldg: string | null) {
     .filter((u: any) => u.unitNumber && typeof u.unitNumber === "string")
     .map((u: any) => {
       let unitType = u.unitType ? String(u.unitType).trim() : "";
-      if (ROOM_NAMES.test(unitType)) unitType = "";
       return {
         unitNumber: String(u.unitNumber).trim(),
         unitType,
