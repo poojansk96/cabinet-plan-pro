@@ -448,7 +448,7 @@ export function usePrefinalStore(projectId: string) {
           };
         } else {
           updatedNumbers.push({
-            name: String(m.unitNumber || '').trim(),
+            name: sanitizeUnitNumber(m.unitNumber),
             bldg: String(m.bldg || '').trim(),
             floor: String(m.floor || '').trim(),
             assignments: normalizeAssignments({ [resolvedType]: true }, prev.unitTypes),
