@@ -51,6 +51,7 @@ function loadData(projectId: string): PrefinalData {
         cabinetUnitTypes: parsed.cabinetUnitTypes || [],
         handleQtyPerSku: parsed.handleQtyPerSku || {},
         bidCostPerType: parsed.bidCostPerType || {},
+        additionalCostPerType: parsed.additionalCostPerType || {},
         stoneRows: parsed.stoneRows || [],
         stoneUnitTypes: parsed.stoneUnitTypes || [],
       };
