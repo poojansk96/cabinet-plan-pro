@@ -30,10 +30,10 @@ SKIP THESE PAGE TYPES — return {"bldg":null,"units":[]} immediately:
 IF THIS IS A FLOOR PLAN PAGE, EXTRACT:
 
 1. UNIT TYPE (most important):
-   - Look for prominent text like "TYPE A1 - AS", "UNIT TYPE: A1-3BR", "TYPE C1-2BR", "TYPE PH-A"
-   - Usually in a title block, large, bold, or underlined
-   - NOT a room name, NOT an elevation label, NOT a sheet number, NOT a cabinet SKU
+   - Prefer the title-block type when present (e.g. "TYPE A1 - AS", "UNIT TYPE: A1-3BR", "TYPE C1-2BR", "TYPE PH-A")
+   - For COMMON AREA spaces with a room number (e.g. restroom, office, laundry, mail room), room labels are valid unitType values
    - Preserve EXACT text including suffixes like "-AS", "-Mirror", "-Rev", "-3BR"
+   - Never use sheet numbers, dimensions, cabinet SKUs, or drawing labels as unitType
 
 2. UNIT NUMBERS (CRITICAL — DO NOT MISS ANY):
    - Look for text like "UNIT# 230, 330, 430" or "UNITS: 101, 102, 201, 202"
