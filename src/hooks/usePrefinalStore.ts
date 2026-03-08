@@ -20,6 +20,8 @@ interface PrefinalData {
   unitNumbers: PrefinalUnitNumber[];
   cabinetRows: PrefinalCabinetRow[];
   cabinetUnitTypes: string[];
+  handleQtyPerSku: Record<string, number>;   // SKU → pulls per cabinet (manual)
+  bidCostPerType: Record<string, number>;     // unitType → bid cost (manual)
 }
 
 function loadData(projectId: string): PrefinalData {
