@@ -46,8 +46,27 @@ function normalizeTypeKeyPart(value: string): string {
     .toUpperCase()
     .trim()
     .replace(/^TYPE\s+/, '')
-    .replace(/\s+/g, '')
-    .replace(/-/g, '');
+    .replace(/[^A-Z0-9]/g, '');
+}
+
+function resolveExistingTypeName(type: string, candidates: string[]): string {
+  const incomingKey = normalizeTypeKeyPart(type);
+  if (!incomingKey) return type;
+  const match = candidates.find(c => normalizeTypeKeyPart(c) === incomingKey);
+  return match ?? type;
+}
+
+function normalizeAssignments(
+  assignments: Record<string, boolean>,
+  knownTypes: string[]
+): Record<string, boolean> {
+  const out: Record<string, boolean> = {};
+  for (const [k, v] of Object.entries(assignments || {})) {
+    if (!v) continue;
+    const resolved = resolveExistingTypeName(k, knownTypes);
+    out[resolved] = true;
+  }
+  return out;
 }
 
 function normalizeBldgKeyPart(value: string): string {
@@ -192,33 +211,56 @@ function loadData(projectId: string): PrefinalData {
         stoneUnitTypes: parsed.stoneUnitTypes || [],
       };
     }
-    // Normalize + deduplicate cabinetUnitTypes
+    // Normalize + deduplicate unit types preserving first-seen order
+    const rawUnitTypes: string[] = parsed.unitTypes || [];
+    const seenUnitTypeKeys = new Set<string>();
+    const dedupedUnitTypes: string[] = [];
+    for (const t of rawUnitTypes) {
+      const key = normalizeTypeKeyPart(t);
+      if (!key || seenUnitTypeKeys.has(key)) continue;
+      seenUnitTypeKeys.add(key);
+      dedupedUnitTypes.push(String(t).trim());
+    }
+
+    // Normalize + deduplicate cabinetUnitTypes and align aliases with unitTypes when possible
     const rawCabTypes: string[] = parsed.cabinetUnitTypes || [];
-    const seenNorm = new Set<string>();
+    const seenCabTypeKeys = new Set<string>();
     const dedupedCabTypes: string[] = [];
     for (const t of rawCabTypes) {
-      // Normalize the stored value: uppercase, collapse spaces around hyphens
-      let normalized = t.trim().toUpperCase().replace(/\s*-\s*/g, '-');
-      // Strip "TYPE " prefix for dedup key
-      const key = normalized.replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '');
-      if (!key || seenNorm.has(key)) continue;
-      seenNorm.add(key);
-      dedupedCabTypes.push(normalized);
+      const resolved = resolveExistingTypeName(String(t).trim(), [...dedupedCabTypes, ...dedupedUnitTypes]);
+      const key = normalizeTypeKeyPart(resolved);
+      if (!key || seenCabTypeKeys.has(key)) continue;
+      seenCabTypeKeys.add(key);
+      dedupedCabTypes.push(resolved);
     }
-    // Also normalize cabinetRows unitType values to match
+
+    // Normalize cabinetRows unitType values to canonical type names
     const cabinetRows = (parsed.cabinetRows || []).map((r: any) => ({
       ...r,
-      unitType: r.unitType ? r.unitType.trim().toUpperCase().replace(/\s*-\s*/g, '-') : r.unitType,
+      unitType: resolveExistingTypeName(String(r.unitType || '').trim(), [...dedupedCabTypes, ...dedupedUnitTypes]),
     }));
+
     const rawUnitNumbers = (parsed.unitNumbers || []).map((u: any) => ({
       ...u,
       name: String(u.name || '').trim(),
       bldg: String(u.bldg || '').trim(),
       floor: String(u.floor || '').trim(),
-      assignments: { ...(u.assignments || {}) },
+      assignments: normalizeAssignments(u.assignments || {}, dedupedUnitTypes),
     }));
+
     const unitNumbers = dedupeSameTypeSameUnit(dedupeUnitNumbers(rawUnitNumbers));
-    return { unitTypes: parsed.unitTypes || [], unitNumbers, cabinetRows, cabinetUnitTypes: dedupedCabTypes, handleQtyPerSku: parsed.handleQtyPerSku || {}, bidCostPerType: parsed.bidCostPerType || {}, additionalCostPerType: parsed.additionalCostPerType || {}, stoneRows: parsed.stoneRows || [], stoneUnitTypes: parsed.stoneUnitTypes || [] };
+
+    return {
+      unitTypes: dedupedUnitTypes,
+      unitNumbers,
+      cabinetRows,
+      cabinetUnitTypes: dedupedCabTypes,
+      handleQtyPerSku: parsed.handleQtyPerSku || {},
+      bidCostPerType: parsed.bidCostPerType || {},
+      additionalCostPerType: parsed.additionalCostPerType || {},
+      stoneRows: parsed.stoneRows || [],
+      stoneUnitTypes: parsed.stoneUnitTypes || [],
+    };
   } catch {
     return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [] };
   }
@@ -243,11 +285,22 @@ export function usePrefinalStore(projectId: string) {
   // ── Unit Types (columns) ──────────────────────────────────────────────
   const addUnitTypes = useCallback((types: string[]) => {
     setData(prev => {
-      const existing = new Set(prev.unitTypes);
-      const newTypes = types.filter(t => !existing.has(t));
+      const existingKeys = new Set(prev.unitTypes.map(t => normalizeTypeKeyPart(t)));
+      const newTypes: string[] = [];
+      for (const t of types) {
+        const trimmed = String(t || '').trim();
+        const key = normalizeTypeKeyPart(trimmed);
+        if (!key || existingKeys.has(key)) continue;
+        existingKeys.add(key);
+        newTypes.push(trimmed);
+      }
       if (!newTypes.length) return prev;
       const unitTypes = [...prev.unitTypes, ...newTypes];
-      const next = { ...prev, unitTypes };
+      const unitNumbers = prev.unitNumbers.map(u => ({
+        ...u,
+        assignments: normalizeAssignments(u.assignments, unitTypes),
+      }));
+      const next = { ...prev, unitTypes, unitNumbers };
       saveData(projectId, next);
       return next;
     });
@@ -353,7 +406,7 @@ export function usePrefinalStore(projectId: string) {
   const importUnitMappings = useCallback((mappings: { unitNumber: string; unitType: string; bldg?: string; floor?: string }[]) => {
     setData(prev => {
       const baseUnits = dedupeUnitNumbers(
-        prev.unitNumbers.map(u => ({ ...u, assignments: { ...u.assignments } }))
+        prev.unitNumbers.map(u => ({ ...u, assignments: normalizeAssignments({ ...u.assignments }, prev.unitTypes) }))
       );
 
       const existingKeys = new Map<string, number>();
@@ -361,6 +414,7 @@ export function usePrefinalStore(projectId: string) {
 
       const updatedNumbers = [...baseUnits];
       for (const m of mappings) {
+        const resolvedType = resolveExistingTypeName(String(m.unitType || '').trim(), prev.unitTypes);
         const key = makeUnitCompositeKey(m.unitNumber, m.bldg || '');
         const existingIdx = existingKeys.get(key);
 
@@ -379,14 +433,14 @@ export function usePrefinalStore(projectId: string) {
             name: current.name || String(m.unitNumber || '').trim(),
             bldg: current.bldg || String(m.bldg || '').trim(),
             floor: mergedFloor,
-            assignments: { ...current.assignments, [m.unitType]: true },
+            assignments: normalizeAssignments({ ...current.assignments, [resolvedType]: true }, prev.unitTypes),
           };
         } else {
           updatedNumbers.push({
             name: String(m.unitNumber || '').trim(),
             bldg: String(m.bldg || '').trim(),
             floor: String(m.floor || '').trim(),
-            assignments: { [m.unitType]: true },
+            assignments: normalizeAssignments({ [resolvedType]: true }, prev.unitTypes),
           });
           existingKeys.set(key, updatedNumbers.length - 1);
         }
@@ -402,17 +456,23 @@ export function usePrefinalStore(projectId: string) {
   // ── Cabinet Unit Types (independent columns for cabinet section) ────────
   const addCabinetUnitTypes = useCallback((types: string[]) => {
     setData(prev => {
-      const normalizeKey = (t: string) => t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '').trim();
-      const existingKeys = new Set(prev.cabinetUnitTypes.map(t => normalizeKey(t)));
-      const newTypes = types.filter(t => {
-        const key = normalizeKey(t);
-        if (!key || existingKeys.has(key)) return false;
+      const existingKeys = new Set(prev.cabinetUnitTypes.map(t => normalizeTypeKeyPart(t)));
+      const newTypes: string[] = [];
+      for (const t of types) {
+        const trimmed = String(t || '').trim();
+        const resolved = resolveExistingTypeName(trimmed, [...prev.cabinetUnitTypes, ...prev.unitTypes]);
+        const key = normalizeTypeKeyPart(resolved);
+        if (!key || existingKeys.has(key)) continue;
         existingKeys.add(key);
-        return true;
-      });
+        newTypes.push(resolved);
+      }
       if (!newTypes.length) return prev;
       const cabinetUnitTypes = [...prev.cabinetUnitTypes, ...newTypes];
-      const next = { ...prev, cabinetUnitTypes };
+      const cabinetRows = prev.cabinetRows.map(r => ({
+        ...r,
+        unitType: resolveExistingTypeName(r.unitType, [...cabinetUnitTypes, ...prev.unitTypes]),
+      }));
+      const next = { ...prev, cabinetUnitTypes, cabinetRows };
       saveData(projectId, next);
       return next;
     });
@@ -431,17 +491,19 @@ export function usePrefinalStore(projectId: string) {
   // ── Cabinet imports ───────────────────────────────────────────────────
   const addCabinetImport = useCallback((rows: Omit<PrefinalCabinetRow, never>[], unitType: string) => {
     setData(prev => {
+      const canonicalType = resolveExistingTypeName(unitType, [...prev.cabinetUnitTypes, ...prev.unitTypes]);
       const merged: Record<string, PrefinalCabinetRow> = {};
       for (const r of prev.cabinetRows) {
-        const key = `${r.sku}__${r.room}__${r.unitType}`;
-        merged[key] = { ...r };
+        const resolvedType = resolveExistingTypeName(r.unitType, [...prev.cabinetUnitTypes, ...prev.unitTypes]);
+        const key = `${r.sku}__${r.room}__${resolvedType}`;
+        merged[key] = { ...r, unitType: resolvedType };
       }
       for (const r of rows) {
-        const key = `${r.sku}__${r.room}__${unitType}`;
+        const key = `${r.sku}__${r.room}__${canonicalType}`;
         if (merged[key]) {
           merged[key].quantity = Math.max(merged[key].quantity, r.quantity);
         } else {
-          merged[key] = { ...r, unitType };
+          merged[key] = { ...r, unitType: canonicalType };
         }
       }
       const cabinetRows = Object.values(merged).sort((a, b) =>
