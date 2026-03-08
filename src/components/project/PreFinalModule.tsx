@@ -213,7 +213,7 @@ export default function PreFinalModule({ project }: Props) {
             handleCabinetImport(rows, detectedUnitType);
           }}
           onClose={() => setShowCabinetImport(false)}
-          prefinalPerson={project.takeoffPerson}
+          prefinalPerson={project.specs?.takeoffPerson}
         />
       )}
 
