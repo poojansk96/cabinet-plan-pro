@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Building2, ArrowLeft, Settings2, ChevronRight, ChevronLeft, HelpCircle, Check } from 'lucide-react';
+import { Building2, ArrowLeft, Settings2, HelpCircle } from 'lucide-react';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import type { ProjectType } from '@/types/project';
 
@@ -50,30 +50,9 @@ function Tooltip({ text }: { text: string }) {
   );
 }
 
-function StepIndicator({ step, total }: { step: number; total: number }) {
-  const labels = ['Basic Info', 'Specifications', 'Review'];
-  return (
-    <div className="flex items-center justify-center gap-1 mb-6">
-      {labels.map((label, i) => (
-        <div key={i} className="flex items-center gap-1">
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-            i + 1 < step ? 'bg-green-100 text-green-700' :
-            i + 1 === step ? 'text-white' : 'bg-secondary text-muted-foreground'
-          }`} style={i + 1 === step ? { background: 'hsl(var(--primary))' } : {}}>
-            {i + 1 < step ? <Check size={12} /> : <span>{i + 1}</span>}
-            <span className="hidden sm:inline">{label}</span>
-          </div>
-          {i < total - 1 && <div className={`w-8 h-0.5 rounded ${i + 1 < step ? 'bg-green-300' : 'bg-border'}`} />}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export default function NewProject() {
   const navigate = useNavigate();
   const { createProject } = useProjectStore();
-  const [step, setStep] = useState(1);
 
   const [form, setForm] = useState({
     name: '',
