@@ -327,7 +327,7 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
               style={{ background: 'hsl(var(--primary))' }}
             >
               <FileUp size={18} />
-              Upload Architect Floor Plan
+              Upload Floor Plan
             </button>
             <button
               onClick={() => setShowForm(true)}
