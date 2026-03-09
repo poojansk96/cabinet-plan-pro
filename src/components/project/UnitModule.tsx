@@ -323,17 +323,17 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
           <div className="flex items-center justify-center gap-3 mb-4">
             <button
               onClick={() => setShowPDFImport(true)}
-              className="inline-flex items-center gap-2.5 px-6 py-3 rounded-lg text-base font-bold text-white shadow-lg hover:shadow-xl transition-all"
+              className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-lg text-base font-bold text-white shadow-lg transition-all hover:shadow-xl hover:scale-[1.03]"
               style={{ background: 'hsl(var(--primary))' }}
             >
-              <FileUp size={18} />
+              <FileUp size={20} />
               Upload Floor Plan
             </button>
             <button
               onClick={() => setShowForm(true)}
-              className="inline-flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium border border-border text-muted-foreground hover:bg-secondary transition-colors"
+              className="inline-flex items-center gap-2 px-5 py-3.5 rounded-lg text-sm font-medium border border-border text-muted-foreground transition-all hover:bg-secondary hover:scale-[1.03]"
             >
-              <Plus size={15} />
+              <Plus size={16} />
               Add Units Manually
             </button>
           </div>
