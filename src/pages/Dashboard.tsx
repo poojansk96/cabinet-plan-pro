@@ -358,24 +358,16 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mt-3 mb-2">Export Options</p>
-              <div className="grid grid-cols-4 gap-2">
-                <div className="flex items-center gap-1.5 px-2 py-1.5 rounded" style={{ background: 'hsl(var(--muted) / 0.3)' }}>
-                  <span className="text-xs">📊</span>
-                  <span className="text-[10px] text-muted-foreground">Cabinet Count Report</span>
-                </div>
-                <div className="flex items-center gap-1.5 px-2 py-1.5 rounded" style={{ background: 'hsl(var(--muted) / 0.3)' }}>
-                  <span className="text-xs">📐</span>
-                  <span className="text-[10px] text-muted-foreground">Countertop Sqft Report</span>
-                </div>
-                <div className="flex items-center gap-1.5 px-2 py-1.5 rounded" style={{ background: 'hsl(var(--muted) / 0.3)' }}>
-                  <span className="text-xs">📋</span>
-                  <span className="text-[10px] text-muted-foreground">Unit Type Summary</span>
-                </div>
-                <div className="flex items-center gap-1.5 px-2 py-1.5 rounded" style={{ background: 'hsl(var(--muted) / 0.3)' }}>
-                  <span className="text-xs">🔧</span>
-                  <span className="text-[10px] text-muted-foreground">Hardware & Pulls</span>
-                </div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mt-3 mb-2">Sample Downloads</p>
+              <div className="grid grid-cols-2 gap-2">
+                <a href="#" className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:bg-secondary transition-colors">
+                  <div className="w-4 h-4 rounded-sm flex items-center justify-center text-[8px] font-bold text-white" style={{ background: 'hsl(142, 71%, 40%)' }}>X</div>
+                  <span className="text-[11px] font-medium text-foreground">Download Sample Excel — Cabinet Takeoff</span>
+                </a>
+                <a href="#" className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:bg-secondary transition-colors">
+                  <span className="text-xs">📄</span>
+                  <span className="text-[11px] font-medium text-foreground">Download Sample PDF — Unit Summary</span>
+                </a>
               </div>
               <p className="text-[10px] text-muted-foreground/60 italic text-center mt-3">Generated automatically from uploaded architectural plans and 2020 shop drawings.</p>
             </div>
@@ -404,7 +396,7 @@ export default function Dashboard() {
                   <span className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-sm" style={{ background: 'hsl(var(--primary))' }}>✓</span>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-sm text-foreground">Estimating — Unit, Cabinet & Countertop Detection</h3>
+                      <h3 className="font-semibold text-sm text-foreground">Estimating Output (Excel)</h3>
                       <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700">Live</span>
                       <ChevronDown size={14} className={`ml-auto text-muted-foreground transition-transform ${openFeature === 'estimating' ? 'rotate-180' : ''}`} />
                     </div>
@@ -450,12 +442,12 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {/* Appliance Takeoff — muted roadmap item */}
+                {/* Appliance & appliance counts — muted roadmap item */}
                 <div className="rounded-lg border border-dashed border-border/50 p-3 flex items-center gap-3">
                   <span className="flex-shrink-0 w-6 h-6 rounded flex items-center justify-center text-[10px] bg-muted text-muted-foreground">⚡</span>
                   <div className="flex items-center gap-2 flex-1">
-                    <h3 className="font-medium text-xs text-muted-foreground/70">Appliance Takeoff</h3>
-                    <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-muted text-muted-foreground/60 tracking-wide uppercase">Early Access</span>
+                    <h3 className="font-medium text-xs text-muted-foreground/70">Appliance & Appliance Counts</h3>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-muted text-muted-foreground/60 tracking-wide uppercase">Beta</span>
                   </div>
                 </div>
 
