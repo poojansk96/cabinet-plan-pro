@@ -235,7 +235,7 @@ export default function Dashboard() {
             {/* Hero Section — outcome-first */}
             <div className="text-center py-10 px-6 rounded-2xl mb-6" style={{ background: 'linear-gradient(135deg, hsl(var(--primary) / 0.10), hsl(var(--primary) / 0.03))' }}>
               <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3 leading-tight">
-                Get accurate cabinet & countertop takeoffs in minutes.
+                Get accurate cabinet, countertop & appliance takeoffs in minutes.
               </h2>
               <p className="text-muted-foreground text-sm md:text-base max-w-lg mx-auto leading-relaxed mb-6">
                 Upload plans — we auto-detect units, cabinets, and square feet so you can bid faster.
