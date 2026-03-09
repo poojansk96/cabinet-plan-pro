@@ -446,7 +446,9 @@ export default function PreFinalSummaryModule({ project }: Props) {
         // Cabinet Total = SUM(cab type cols)
         setFormula(
           row.getCell(colCabTotal),
-          safeSum(ref(colCabFirstType, r), ref(colCabFirstType + nTypes - 1, r)),
+          nTypes > 0
+            ? safeSum(ref(colCabFirstType, r), ref(colCabFirstType + nTypes - 1, r))
+            : '0',
           0
         );
 
@@ -459,7 +461,9 @@ export default function PreFinalSummaryModule({ project }: Props) {
         // Pulls Total = SUM(pulls type cols)
         setFormula(
           row.getCell(colPullsTotal),
-          safeSum(ref(colPullsFirstType, r), ref(colPullsFirstType + nTypes - 1, r)),
+          nTypes > 0
+            ? safeSum(ref(colPullsFirstType, r), ref(colPullsFirstType + nTypes - 1, r))
+            : '0',
           0
         );
 
@@ -471,7 +475,9 @@ export default function PreFinalSummaryModule({ project }: Props) {
         }
         setFormula(
           row.getCell(colTotalCabGrand),
-          safeSum(ref(colTotalCabFirstType, r), ref(colTotalCabFirstType + nTypes - 1, r)),
+          nTypes > 0
+            ? safeSum(ref(colTotalCabFirstType, r), ref(colTotalCabFirstType + nTypes - 1, r))
+            : '0',
           0
         );
 
