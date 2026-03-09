@@ -12,8 +12,10 @@ export default function SummaryPanel({ project, activeTab }: Props) {
   const summary = calcProjectSummary(project);
   const isUnitsTab = activeTab === 'units';
   const isCountertopsTab = activeTab === 'countertops';
-  const hideCabinets = isUnitsTab || isCountertopsTab;
-  const hideAccessories = isUnitsTab || isCountertopsTab;
+  const isApplianceTab = activeTab?.startsWith('app-');
+  const hideCabinets = isUnitsTab || isCountertopsTab || isApplianceTab;
+  const hideAccessories = isUnitsTab || isCountertopsTab || isApplianceTab;
+  const hideProjectTotals = isApplianceTab;
 
   // Accuracy / progress score
   const hasUnits = summary.totalUnits > 0;
