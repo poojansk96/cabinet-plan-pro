@@ -389,66 +389,76 @@ export default function Dashboard() {
               </Link>
             </div>
 
-            {/* Benefit-first Feature Cards */}
+            {/* Benefit-first Feature Accordions */}
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 px-1">What You Get</h3>
               <div className="space-y-2">
-                <div className="est-card p-4 flex items-start gap-3 hover:shadow-md transition-shadow">
+                {/* Estimating */}
+                <button
+                  onClick={() => setOpenFeature(openFeature === 'estimating' ? null : 'estimating')}
+                  className="w-full est-card p-4 flex items-start gap-3 hover:shadow-md transition-shadow text-left"
+                >
                   <span className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-sm" style={{ background: 'hsl(var(--primary))' }}>✓</span>
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <h3 className="font-semibold text-sm text-foreground">Automatically detect every unit, floor type & building in your architectural plans</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-sm text-foreground">Estimating — Unit, Cabinet & Countertop Detection</h3>
                       <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700">Live</span>
+                      <ChevronDown size={14} className={`ml-auto text-muted-foreground transition-transform ${openFeature === 'estimating' ? 'rotate-180' : ''}`} />
                     </div>
-                    <ul className="text-xs text-muted-foreground leading-relaxed space-y-0.5 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">Auto-detect every unit, floor type & building. Calculate cabinet quantities and countertop sqft instantly.</p>
+                  </div>
+                </button>
+                {openFeature === 'estimating' && (
+                  <div className="est-card p-4 ml-11 border-l-2 animate-fade-in" style={{ borderLeftColor: 'hsl(var(--primary))' }}>
+                    <ul className="text-xs text-muted-foreground leading-relaxed space-y-1">
                       <li>• Save time — no manual counting</li>
                       <li>• Works with scanned plans & images</li>
                       <li>• Zero manual selection required</li>
-                    </ul>
-                  </div>
-                </div>
-
-                <div className="est-card p-4 flex items-start gap-3 hover:shadow-md transition-shadow">
-                  <span className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-sm bg-orange-500">⟳</span>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <h3 className="font-semibold text-sm text-foreground">Automatically calculate cabinet quantities and countertop square footage</h3>
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-700">Optimizing</span>
-                    </div>
-                    <ul className="text-xs text-muted-foreground leading-relaxed space-y-0.5 mt-1">
                       <li>• Cut errors — AI-verified calculations</li>
                       <li>• Bid faster with instant results</li>
                       <li>• Continuously improving accuracy</li>
                     </ul>
                   </div>
-                </div>
+                )}
 
-                <div className="est-card p-4 flex items-start gap-3 hover:shadow-md transition-shadow">
+                {/* Shop Drawing SKU Extraction */}
+                <button
+                  onClick={() => setOpenFeature(openFeature === 'sku' ? null : 'sku')}
+                  className="w-full est-card p-4 flex items-start gap-3 hover:shadow-md transition-shadow text-left"
+                >
                   <span className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-sm" style={{ background: 'hsl(var(--primary))' }}>✓</span>
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <h3 className="font-semibold text-sm text-foreground">Extract units & cabinet SKUs directly from 2020 shop drawings</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-sm text-foreground">Shop Drawing SKU Extraction</h3>
                       <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700">Live</span>
+                      <ChevronDown size={14} className={`ml-auto text-muted-foreground transition-transform ${openFeature === 'sku' ? 'rotate-180' : ''}`} />
                     </div>
-                    <ul className="text-xs text-muted-foreground leading-relaxed space-y-0.5 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">Extract units & cabinet SKUs directly from 2020 shop drawings with auto Excel generation.</p>
+                  </div>
+                </button>
+                {openFeature === 'sku' && (
+                  <div className="est-card p-4 ml-11 border-l-2 animate-fade-in" style={{ borderLeftColor: 'hsl(var(--primary))' }}>
+                    <ul className="text-xs text-muted-foreground leading-relaxed space-y-1">
                       <li>• Upload shop drawings, get SKU lists</li>
                       <li>• Handles complex multi-page PDFs</li>
                       <li>• Accurate even with scanned drawings</li>
-                      <li>• Counts not only units and cabinets, but also creates an automatic Excel for pulls, costing, and total cabinet counts by type with formulas.</li>
+                      <li>• Auto-generates Excel for pulls, costing, and total cabinet counts by type with formulas</li>
                     </ul>
                   </div>
-                </div>
+                )}
 
+                {/* Appliance Takeoff */}
                 <div className="est-card p-3 flex items-start gap-3 opacity-60">
                   <span className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white shadow-sm bg-muted-foreground">⚡</span>
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-0.5">
+                    <div className="flex items-center gap-2">
                       <h3 className="font-medium text-xs text-muted-foreground">Appliance Takeoff</h3>
                       <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-secondary text-muted-foreground">Coming Soon</span>
                     </div>
-                    <p className="text-[11px] text-muted-foreground/70">Detect appliance quantities per unit and export costing-ready Excel schedules.</p>
+                    <p className="text-[11px] text-muted-foreground/70 mt-0.5">Detect appliance quantities per unit and export costing-ready Excel schedules.</p>
                   </div>
                 </div>
+
                 <div className="est-card p-4 text-center">
                   <p className="text-xs text-muted-foreground">
                     Developed by Poojan K. — for any queries, email at{' '}
