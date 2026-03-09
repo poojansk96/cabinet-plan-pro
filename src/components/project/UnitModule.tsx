@@ -318,7 +318,7 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
 
           <h3 className="text-base font-bold text-foreground mb-2">Upload a floor plan — AI detects units, cabinets & countertops.</h3>
           <p className="text-xs text-muted-foreground mb-4 max-w-lg mx-auto leading-relaxed">
-            Built for commercial estimators — upload architectural plans or 2020 shop drawings to automatically generate Excel schedules with cabinet SKUs, quantities, hardware, and costing formulas.
+            Built for commercial estimators — upload plans or 2020 shop drawings to automatically generate Excel schedules with cabinet SKUs, quantities, hardware, and costing formulas.
           </p>
           <div className="flex items-center justify-center gap-3 mb-4">
             <button
