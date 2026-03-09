@@ -200,7 +200,7 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
             style={{ borderColor: 'hsl(var(--primary))', color: 'hsl(var(--primary))' }}
           >
             <FileUp size={12} />
-            Import from PDF
+            Upload Architect Floor Plan
           </button>
           <button
             onClick={() => setShowForm(!showForm)}
@@ -305,7 +305,7 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
               style={{ background: 'hsl(var(--primary))' }}
             >
               <FileUp size={15} />
-              Import PDF — Auto-detect
+              Upload Architect Floor Plan
             </button>
             <button
               onClick={() => setShowForm(true)}
