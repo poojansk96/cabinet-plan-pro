@@ -16,9 +16,10 @@ interface Props {
   deleteUnit: (projectId: string, unitId: string) => void;
   clearUnits: (projectId: string) => void;
   duplicateUnit: (projectId: string, unitId: string) => void;
+  mode?: 'cabinet' | 'appliance';
 }
 
-export default function UnitModule({ project, selectedUnitId, setSelectedUnitId, addUnit, updateUnit, deleteUnit, clearUnits, duplicateUnit }: Props) {
+export default function UnitModule({ project, selectedUnitId, setSelectedUnitId, addUnit, updateUnit, deleteUnit, clearUnits, duplicateUnit, mode = 'cabinet' }: Props) {
   const [editingCell, setEditingCell] = useState<{ id: string; field: 'unitNumber' | 'bldg' | 'floor' | 'type' | 'notes' } | null>(null);
   const [cellValue, setCellValue] = useState('');
 
