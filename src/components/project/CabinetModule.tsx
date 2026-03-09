@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Plus, Trash2, Layers, FileUp } from 'lucide-react';
+import { Plus, Layers, FileUp } from 'lucide-react';
 import type { Project, Unit, Cabinet, CabinetType, Room } from '@/types/project';
 import { buildSkuSummary } from '@/lib/calculations';
 import CabinetPDFImportDialog from './CabinetPDFImportDialog';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 const CABINET_TYPES: CabinetType[] = ['Base', 'Wall', 'Tall', 'Vanity'];
 const ROOMS: Room[] = ['Kitchen', 'Pantry', 'Laundry', 'Bath', 'Other'];
@@ -33,13 +34,77 @@ function TypeBadge({ type }: { type: CabinetType }) {
   return <span className={cls}>{type[0]}</span>;
 }
 
+type SectionKey = 'elevation' | 'enlarge';
+
+function SectionControls({
+  sectionLabel,
+  unitTypes,
+  importTargetType,
+  setImportTargetType,
+  onImportPDF,
+  onAddCabinet,
+  showForm,
+  setShowForm,
+  selectedUnit,
+  projectHasUnits,
+}: {
+  sectionLabel: string;
+  unitTypes: string[];
+  importTargetType: string;
+  setImportTargetType: (v: string) => void;
+  onImportPDF: () => void;
+  onAddCabinet: () => void;
+  showForm: boolean;
+  setShowForm: (v: boolean) => void;
+  selectedUnit: Unit | undefined;
+  projectHasUnits: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-xs text-muted-foreground">{sectionLabel}</span>
+      <div className="ml-auto flex items-center gap-2 flex-wrap">
+        {unitTypes.length > 0 && (
+          <select
+            className="est-input text-xs h-7 pr-6"
+            value={importTargetType}
+            onChange={e => setImportTargetType(e.target.value)}
+            title="Select unit type to import cabinets for"
+          >
+            <option value="">All unit types</option>
+            {unitTypes.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        )}
+        <button
+          onClick={onImportPDF}
+          disabled={!projectHasUnits}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border transition-colors disabled:opacity-50"
+          style={{ borderColor: 'hsl(var(--primary))', color: 'hsl(var(--primary))' }}
+        >
+          <FileUp size={12} />
+          Import PDF
+        </button>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          disabled={!selectedUnit}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium text-white disabled:opacity-50"
+          style={{ background: 'hsl(var(--primary))' }}
+        >
+          <Plus size={12} />
+          Add Cabinet
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function CabinetModule({ project, selectedUnit, addCabinet, updateCabinet, deleteCabinet }: Props) {
+  const [activeSection, setActiveSection] = useState<SectionKey>('elevation');
   const [form, setForm] = useState(blankCabinet());
   const [showForm, setShowForm] = useState(false);
   const [showPDFImport, setShowPDFImport] = useState(false);
-  // Which unit type to import cabinets into (applies to the first unit found of that type)
   const [importTargetType, setImportTargetType] = useState<string>('');
   const [importedCount, setImportedCount] = useState<number | null>(null);
+  const [importedSection, setImportedSection] = useState<string>('');
 
   const handleAdd = () => {
     if (!selectedUnit || !form.sku.trim()) return;
@@ -47,13 +112,8 @@ export default function CabinetModule({ project, selectedUnit, addCabinet, updat
     setForm(f => ({ ...f, sku: '', notes: '' }));
   };
 
-  const cabinets = selectedUnit?.cabinets ?? [];
-  const skuSummary = selectedUnit ? buildSkuSummary(selectedUnit.cabinets) : [];
-
-  // Distinct unit types in project
   const unitTypes = Array.from(new Set(project.units.map(u => u.type)));
 
-  // Handle PDF cabinet import: apply imported cabinets to all units of the chosen type
   const handlePDFImport = (cabinets: Array<Omit<Cabinet, 'id'>>) => {
     const targetUnits = importTargetType
       ? project.units.filter(u => u.type === importTargetType)
@@ -66,11 +126,12 @@ export default function CabinetModule({ project, selectedUnit, addCabinet, updat
     });
 
     setImportedCount(cabinets.length);
+    setImportedSection(activeSection === 'elevation' ? 'Elevation' : 'Enlarge & Elev.');
     setShowPDFImport(false);
     setTimeout(() => setImportedCount(null), 4000);
   };
 
-  // Type-wise summary: group units by unit type
+  // Summary data
   const unitTypeGroups = project.units.reduce<Record<string, { unitCount: number; base: number; wall: number; tall: number; vanity: number; skus: string[] }>>((acc, u) => {
     if (!acc[u.type]) acc[u.type] = { unitCount: 0, base: 0, wall: 0, tall: 0, vanity: 0, skus: [] };
     acc[u.type].unitCount += 1;
@@ -84,9 +145,53 @@ export default function CabinetModule({ project, selectedUnit, addCabinet, updat
     return acc;
   }, {});
 
+  const addForm = showForm && selectedUnit && (
+    <div className="est-card p-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 mb-2">
+        <div>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Room</label>
+          <select className="est-input w-full" value={form.room} onChange={e => setForm(f => ({ ...f, room: e.target.value as Room }))}>
+            {ROOMS.map(r => <option key={r}>{r}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Type</label>
+          <select className="est-input w-full" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value as CabinetType }))}>
+            {CABINET_TYPES.map(t => <option key={t}>{t}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">SKU *</label>
+          <input className="est-input w-full" value={form.sku} onChange={e => setForm(f => ({ ...f, sku: e.target.value.toUpperCase() }))} placeholder="B24" autoFocus />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">W (in)</label>
+          <input type="number" className="est-input w-full" value={form.width} min={1} onChange={e => setForm(f => ({ ...f, width: +e.target.value }))} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">H (in)</label>
+          <input type="number" className="est-input w-full" value={form.height} min={1} onChange={e => setForm(f => ({ ...f, height: +e.target.value }))} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">D (in)</label>
+          <input type="number" className="est-input w-full" value={form.depth} min={1} onChange={e => setForm(f => ({ ...f, depth: +e.target.value }))} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Qty</label>
+          <input type="number" className="est-input w-full" value={form.quantity} min={1} onChange={e => setForm(f => ({ ...f, quantity: Math.max(1, +e.target.value) }))} />
+        </div>
+        <div className="flex items-end gap-1">
+          <button onClick={handleAdd} disabled={!form.sku.trim()} className="h-7 px-3 rounded text-xs font-medium text-white disabled:opacity-50" style={{ background: 'hsl(var(--primary))' }}>
+            Add
+          </button>
+          <button onClick={() => setShowForm(false)} className="h-7 px-2 rounded text-xs border border-border text-muted-foreground hover:bg-secondary">✕</button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-4">
-      {/* PDF Import Dialog */}
       {showPDFImport && (
         <CabinetPDFImportDialog
           unitType={importTargetType || undefined}
@@ -96,57 +201,69 @@ export default function CabinetModule({ project, selectedUnit, addCabinet, updat
       )}
 
       {/* Header */}
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center gap-2">
         <Layers size={16} className="text-primary flex-shrink-0" />
         <span className="font-semibold text-sm">Cabinet Takeoff</span>
-
-        <div className="ml-auto flex items-center gap-2 flex-wrap">
-          {/* Unit type selector for PDF import */}
-          {unitTypes.length > 0 && (
-            <select
-              className="est-input text-xs h-7 pr-6"
-              value={importTargetType}
-              onChange={e => setImportTargetType(e.target.value)}
-              title="Select unit type to import cabinets for"
-            >
-              <option value="">All unit types</option>
-              {unitTypes.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          )}
-
-          <button
-            onClick={() => setShowPDFImport(true)}
-            disabled={project.units.length === 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border transition-colors disabled:opacity-50"
-            style={{ borderColor: 'hsl(var(--primary))', color: 'hsl(var(--primary))' }}
-          >
-            <FileUp size={12} />
-            Import PDF
-          </button>
-
-          <button
-            onClick={() => setShowForm(!showForm)}
-            disabled={!selectedUnit}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium text-white disabled:opacity-50"
-            style={{ background: 'hsl(var(--primary))' }}
-          >
-            <Plus size={12} />
-            Add Cabinet
-          </button>
-        </div>
       </div>
 
       {/* Import success toast */}
       {importedCount !== null && (
         <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-white" style={{ background: 'hsl(var(--success, 142 71% 45%))' }}>
-          ✓ Successfully imported {importedCount} cabinet{importedCount !== 1 ? 's' : ''} from PDF
+          ✓ Imported {importedCount} cabinet{importedCount !== 1 ? 's' : ''} from {importedSection} PDF
           {importTargetType && <span className="opacity-80 ml-1">into "{importTargetType}" units</span>}
         </div>
       )}
 
-      {/* Unit-type-wise cabinet summary — pivot: SKUs as rows, unit types as rotated columns */}
+      {project.units.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground text-sm">
+          Add units first, then add cabinets.
+        </div>
+      ) : (
+        <Tabs value={activeSection} onValueChange={(v) => { setActiveSection(v as SectionKey); setShowForm(false); }}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="elevation">1) Elevation</TabsTrigger>
+            <TabsTrigger value="enlarge">2) Enlarge &amp; Elev.</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="elevation" className="space-y-3">
+            <p className="text-xs text-muted-foreground">Upload architectural cabinet elevation PDFs to extract cabinets by type.</p>
+            <SectionControls
+              sectionLabel=""
+              unitTypes={unitTypes}
+              importTargetType={importTargetType}
+              setImportTargetType={setImportTargetType}
+              onImportPDF={() => setShowPDFImport(true)}
+              onAddCabinet={() => setShowForm(!showForm)}
+              showForm={showForm}
+              setShowForm={setShowForm}
+              selectedUnit={selectedUnit}
+              projectHasUnits={project.units.length > 0}
+            />
+            {addForm}
+          </TabsContent>
+
+          <TabsContent value="enlarge" className="space-y-3">
+            <p className="text-xs text-muted-foreground">Upload enlarged unit type plans &amp; cabinet elevation PDFs to extract cabinets by type.</p>
+            <SectionControls
+              sectionLabel=""
+              unitTypes={unitTypes}
+              importTargetType={importTargetType}
+              setImportTargetType={setImportTargetType}
+              onImportPDF={() => setShowPDFImport(true)}
+              onAddCabinet={() => setShowForm(!showForm)}
+              showForm={showForm}
+              setShowForm={setShowForm}
+              selectedUnit={selectedUnit}
+              projectHasUnits={project.units.length > 0}
+            />
+            {addForm}
+          </TabsContent>
+        </Tabs>
+      )}
+
+      {/* Cabinet Summary by Unit Type */}
       {Object.keys(unitTypeGroups).length > 0 && (() => {
-        const unitTypes = Object.keys(unitTypeGroups);
+        const types = Object.keys(unitTypeGroups);
         const allSkus = Array.from(new Set(project.units.flatMap(u => u.cabinets.map(c => c.sku)))).sort();
         const skuTypeQty: Record<string, Record<string, number>> = {};
         project.units.forEach(u => {
@@ -163,7 +280,7 @@ export default function CabinetModule({ project, selectedUnit, addCabinet, updat
                 <thead>
                   <tr style={{ height: '120px', verticalAlign: 'bottom' }}>
                     <th className="text-left" style={{ verticalAlign: 'bottom' }}>SKU List</th>
-                    {unitTypes.map(type => (
+                    {types.map(type => (
                       <th key={type} style={{ verticalAlign: 'bottom', padding: '4px 6px' }}>
                         <div style={{
                           writingMode: 'vertical-rl',
@@ -185,7 +302,7 @@ export default function CabinetModule({ project, selectedUnit, addCabinet, updat
                   {allSkus.map(sku => (
                     <tr key={sku}>
                       <td className="font-mono font-medium">{sku}</td>
-                      {unitTypes.map(type => (
+                      {types.map(type => (
                         <td key={type} className="text-center">
                           {skuTypeQty[sku]?.[type] ? '1' : ''}
                         </td>
@@ -198,58 +315,6 @@ export default function CabinetModule({ project, selectedUnit, addCabinet, updat
           </div>
         );
       })()}
-
-      {/* Add form */}
-      {showForm && selectedUnit && (
-        <div className="est-card p-3">
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 mb-2">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Room</label>
-              <select className="est-input w-full" value={form.room} onChange={e => setForm(f => ({ ...f, room: e.target.value as Room }))}>
-                {ROOMS.map(r => <option key={r}>{r}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Type</label>
-              <select className="est-input w-full" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value as CabinetType }))}>
-                {CABINET_TYPES.map(t => <option key={t}>{t}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">SKU *</label>
-              <input className="est-input w-full" value={form.sku} onChange={e => setForm(f => ({ ...f, sku: e.target.value.toUpperCase() }))} placeholder="B24" autoFocus />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">W (in)</label>
-              <input type="number" className="est-input w-full" value={form.width} min={1} onChange={e => setForm(f => ({ ...f, width: +e.target.value }))} />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">H (in)</label>
-              <input type="number" className="est-input w-full" value={form.height} min={1} onChange={e => setForm(f => ({ ...f, height: +e.target.value }))} />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">D (in)</label>
-              <input type="number" className="est-input w-full" value={form.depth} min={1} onChange={e => setForm(f => ({ ...f, depth: +e.target.value }))} />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Qty</label>
-              <input type="number" className="est-input w-full" value={form.quantity} min={1} onChange={e => setForm(f => ({ ...f, quantity: Math.max(1, +e.target.value) }))} />
-            </div>
-            <div className="flex items-end gap-1">
-              <button onClick={handleAdd} disabled={!form.sku.trim()} className="h-7 px-3 rounded text-xs font-medium text-white disabled:opacity-50" style={{ background: 'hsl(var(--primary))' }}>
-                Add
-              </button>
-              <button onClick={() => setShowForm(false)} className="h-7 px-2 rounded text-xs border border-border text-muted-foreground hover:bg-secondary">✕</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {project.units.length === 0 && (
-        <div className="text-center py-12 text-muted-foreground text-sm">
-          Add units first, then add cabinets.
-        </div>
-      )}
     </div>
   );
 }
