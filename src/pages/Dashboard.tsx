@@ -308,7 +308,7 @@ export default function Dashboard() {
               <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'hsl(var(--border))' }}>
                 {/* Mock spreadsheet header */}
                 <div className="flex items-center gap-2 px-3 py-2.5 border-b" style={{ background: 'hsl(var(--muted) / 0.5)', borderColor: 'hsl(var(--border))' }}>
-                  <div className="w-3 h-3 rounded-sm" style={{ background: 'hsl(142, 71%, 45%)' }} />
+                  <div className="w-4 h-4 rounded-sm flex items-center justify-center text-[8px] font-bold text-white" style={{ background: 'hsl(142, 71%, 40%)' }}>X</div>
                   <span className="text-[11px] font-semibold text-foreground">Cabinet Takeoff Report.xlsx</span>
                   <span className="ml-auto px-2 py-0.5 rounded text-[9px] font-semibold" style={{ background: 'hsl(var(--primary) / 0.10)', color: 'hsl(var(--primary))' }}>4 sheets included</span>
                 </div>
@@ -342,12 +342,12 @@ export default function Dashboard() {
                       <div className="px-2.5 py-1.5 text-foreground">{row[4]}</div>
                     </div>
                   ))}
-                  <div className="grid grid-cols-5 border-t-2" style={{ borderColor: 'hsl(var(--primary))' }}>
-                    <div className="px-2.5 py-1.5 font-bold text-foreground border-r" style={{ borderColor: 'hsl(var(--border))' }}>TOTAL</div>
-                    <div className="px-2.5 py-1.5 font-bold text-primary border-r" style={{ borderColor: 'hsl(var(--border))' }}>86</div>
-                    <div className="px-2.5 py-1.5 font-bold text-foreground border-r" style={{ borderColor: 'hsl(var(--border))' }}>38</div>
-                    <div className="px-2.5 py-1.5 font-bold text-foreground border-r" style={{ borderColor: 'hsl(var(--border))' }}>180.8</div>
-                    <div className="px-2.5 py-1.5 font-bold text-foreground">76</div>
+                  <div className="grid grid-cols-5 border-t-2" style={{ borderColor: 'hsl(var(--primary))', background: 'hsl(var(--muted) / 0.5)' }}>
+                    <div className="px-2.5 py-2 font-bold text-foreground border-r" style={{ borderColor: 'hsl(var(--border))' }}>TOTAL</div>
+                    <div className="px-2.5 py-2 font-bold text-primary border-r" style={{ borderColor: 'hsl(var(--border))' }}>86</div>
+                    <div className="px-2.5 py-2 font-bold text-foreground border-r" style={{ borderColor: 'hsl(var(--border))' }}>38</div>
+                    <div className="px-2.5 py-2 font-bold text-foreground border-r" style={{ borderColor: 'hsl(var(--border))' }}>180.8</div>
+                    <div className="px-2.5 py-2 font-bold text-foreground">76</div>
                   </div>
                 </div>
               </div>
