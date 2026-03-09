@@ -262,7 +262,10 @@ export default function Dashboard() {
                  >
                    ▶ Watch 60-Second Demo
                  </a>
-              </div>
+               </div>
+              <p className="text-[11px] text-muted-foreground/50 mt-4 max-w-md mx-auto leading-relaxed">
+                🔒 Plans are processed only to generate reports. Files are not stored and are never accessible to other users or developers.
+              </p>
             </div>
 
             {/* Trust Row */}
