@@ -292,7 +292,7 @@ export default function Dashboard() {
             </div>
 
             {/* Product Flow Visual */}
-            <div className="est-card p-6 mb-6 text-center" style={{ background: 'hsl(var(--primary) / 0.03)' }}>
+            <div className="est-card p-6 mb-10 text-center" style={{ background: 'hsl(var(--primary) / 0.03)' }}>
               <div className="flex items-center justify-center gap-4 flex-wrap">
                 <div className="flex flex-col items-center gap-2">
                   <div className="w-16 h-16 rounded-xl flex items-center justify-center text-3xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>📄</div>
