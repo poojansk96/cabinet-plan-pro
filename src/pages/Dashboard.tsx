@@ -299,6 +299,75 @@ export default function Dashboard() {
               </div>
             </div>
 
+            {/* Example Output Section */}
+            <div className="est-card p-5 mb-6">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4 px-1">Example Output</h3>
+              <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'hsl(var(--border))' }}>
+                {/* Mock spreadsheet header */}
+                <div className="flex items-center gap-2 px-3 py-2 border-b" style={{ background: 'hsl(var(--muted) / 0.5)', borderColor: 'hsl(var(--border))' }}>
+                  <div className="w-3 h-3 rounded-sm" style={{ background: 'hsl(142, 71%, 45%)' }} />
+                  <span className="text-[11px] font-semibold text-foreground">Cabinet_Takeoff_Report.xlsx</span>
+                  <span className="text-[10px] text-muted-foreground ml-auto">4 sheets</span>
+                </div>
+                {/* Mock sheet tabs */}
+                <div className="flex border-b" style={{ borderColor: 'hsl(var(--border))' }}>
+                  <span className="px-3 py-1.5 text-[10px] font-semibold text-primary border-b-2" style={{ borderColor: 'hsl(var(--primary))' }}>Unit Count</span>
+                  <span className="px-3 py-1.5 text-[10px] text-muted-foreground">Cabinet Schedule</span>
+                  <span className="px-3 py-1.5 text-[10px] text-muted-foreground">Countertop Sqft</span>
+                  <span className="px-3 py-1.5 text-[10px] text-muted-foreground">Hardware & Pulls</span>
+                </div>
+                {/* Mock spreadsheet data */}
+                <div className="text-[10px] font-mono" style={{ background: 'hsl(var(--card))' }}>
+                  <div className="grid grid-cols-5 border-b" style={{ borderColor: 'hsl(var(--border))' }}>
+                    <div className="px-2.5 py-1.5 font-bold text-foreground border-r" style={{ background: 'hsl(var(--muted) / 0.3)', borderColor: 'hsl(var(--border))' }}>Unit Type</div>
+                    <div className="px-2.5 py-1.5 font-bold text-foreground border-r" style={{ background: 'hsl(var(--muted) / 0.3)', borderColor: 'hsl(var(--border))' }}>Qty</div>
+                    <div className="px-2.5 py-1.5 font-bold text-foreground border-r" style={{ background: 'hsl(var(--muted) / 0.3)', borderColor: 'hsl(var(--border))' }}>Cabinets</div>
+                    <div className="px-2.5 py-1.5 font-bold text-foreground border-r" style={{ background: 'hsl(var(--muted) / 0.3)', borderColor: 'hsl(var(--border))' }}>CT Sqft</div>
+                    <div className="px-2.5 py-1.5 font-bold text-foreground" style={{ background: 'hsl(var(--muted) / 0.3)' }}>Pulls</div>
+                  </div>
+                  {[
+                    ['1BR-A', '24', '8', '42.5', '16'],
+                    ['1BR-B', '18', '10', '48.0', '20'],
+                    ['2BR', '12', '14', '62.3', '28'],
+                    ['Studio', '32', '6', '28.0', '12'],
+                  ].map((row, i) => (
+                    <div key={i} className="grid grid-cols-5 border-b last:border-b-0" style={{ borderColor: 'hsl(var(--border))' }}>
+                      <div className="px-2.5 py-1.5 text-foreground border-r" style={{ borderColor: 'hsl(var(--border))' }}>{row[0]}</div>
+                      <div className="px-2.5 py-1.5 text-primary font-semibold border-r" style={{ borderColor: 'hsl(var(--border))' }}>{row[1]}</div>
+                      <div className="px-2.5 py-1.5 text-foreground border-r" style={{ borderColor: 'hsl(var(--border))' }}>{row[2]}</div>
+                      <div className="px-2.5 py-1.5 text-foreground border-r" style={{ borderColor: 'hsl(var(--border))' }}>{row[3]}</div>
+                      <div className="px-2.5 py-1.5 text-foreground">{row[4]}</div>
+                    </div>
+                  ))}
+                  <div className="grid grid-cols-5 border-t-2" style={{ borderColor: 'hsl(var(--primary))' }}>
+                    <div className="px-2.5 py-1.5 font-bold text-foreground border-r" style={{ borderColor: 'hsl(var(--border))' }}>TOTAL</div>
+                    <div className="px-2.5 py-1.5 font-bold text-primary border-r" style={{ borderColor: 'hsl(var(--border))' }}>86</div>
+                    <div className="px-2.5 py-1.5 font-bold text-foreground border-r" style={{ borderColor: 'hsl(var(--border))' }}>38</div>
+                    <div className="px-2.5 py-1.5 font-bold text-foreground border-r" style={{ borderColor: 'hsl(var(--border))' }}>180.8</div>
+                    <div className="px-2.5 py-1.5 font-bold text-foreground">76</div>
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-4 gap-2 mt-3">
+                <div className="flex items-center gap-1.5 px-2 py-1.5 rounded" style={{ background: 'hsl(var(--muted) / 0.3)' }}>
+                  <span className="text-xs">📋</span>
+                  <span className="text-[10px] text-muted-foreground">Cabinet schedule</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-2 py-1.5 rounded" style={{ background: 'hsl(var(--muted) / 0.3)' }}>
+                  <span className="text-xs">📐</span>
+                  <span className="text-[10px] text-muted-foreground">Countertop sqft</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-2 py-1.5 rounded" style={{ background: 'hsl(var(--muted) / 0.3)' }}>
+                  <span className="text-xs">🏗️</span>
+                  <span className="text-[10px] text-muted-foreground">Unit type summary</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-2 py-1.5 rounded" style={{ background: 'hsl(var(--muted) / 0.3)' }}>
+                  <span className="text-xs">🔩</span>
+                  <span className="text-[10px] text-muted-foreground">Hardware & pulls</span>
+                </div>
+              </div>
+            </div>
+
             {/* Benefit-first Feature Cards */}
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 px-1">What You Get</h3>
