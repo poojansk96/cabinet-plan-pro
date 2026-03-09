@@ -315,10 +315,26 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
               Add Unit Manually
             </button>
           </div>
-          <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground/70">
-            <span className="flex items-center gap-1">✓ Auto-detect units</span>
-            <span className="flex items-center gap-1">✓ Extract cabinets & SKUs</span>
-            <span className="flex items-center gap-1">✓ Get countertop sqft</span>
+          <div className="mt-5 rounded-xl border border-primary/20 px-5 py-4 text-left max-w-xs mx-auto" style={{ background: 'hsl(var(--primary) / 0.05)' }}>
+            <p className="text-xs font-bold uppercase tracking-wider text-primary mb-2.5">Auto-detects:</p>
+            <ul className="space-y-1.5">
+              <li className="flex items-center gap-2 text-xs font-medium text-foreground">
+                <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ background: 'hsl(var(--primary))' }}>✓</span>
+                Units &amp; unit types
+              </li>
+              <li className="flex items-center gap-2 text-xs font-medium text-foreground">
+                <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ background: 'hsl(var(--primary))' }}>✓</span>
+                Cabinet types &amp; SKUs
+              </li>
+              <li className="flex items-center gap-2 text-xs font-medium text-foreground">
+                <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ background: 'hsl(var(--primary))' }}>✓</span>
+                Countertop square footage
+              </li>
+              <li className="flex items-center gap-2 text-xs font-medium text-foreground">
+                <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ background: 'hsl(var(--primary))' }}>✓</span>
+                Cabinet counts per unit
+              </li>
+            </ul>
           </div>
         </div>
       ) : (
