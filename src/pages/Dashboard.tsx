@@ -283,6 +283,11 @@ export default function Dashboard() {
                 </div>
                 <ArrowRight size={20} className="text-primary" />
                 <div className="flex flex-col items-center gap-1.5">
+                  <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>⚙️</div>
+                  <span className="text-[11px] text-muted-foreground font-medium">Custom Engine</span>
+                </div>
+                <ArrowRight size={20} className="text-primary" />
+                <div className="flex flex-col items-center gap-1.5">
                   <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>🤖</div>
                   <span className="text-[11px] text-muted-foreground font-medium">AI Extracts</span>
                 </div>
