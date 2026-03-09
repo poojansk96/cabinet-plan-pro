@@ -317,9 +317,15 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
             </div>
           </div>
 
-          <h3 className="text-base font-bold text-foreground mb-2">Upload a floor plan — AI detects units, cabinets & countertops.</h3>
+          <h3 className="text-base font-bold text-foreground mb-2">
+            {mode === 'appliance'
+              ? 'Upload a floor plan — AI detects units & appliance quantities.'
+              : 'Upload a floor plan — AI detects units, cabinets & countertops.'}
+          </h3>
           <p className="text-xs text-muted-foreground mb-4 max-w-lg mx-auto leading-relaxed">
-            Built for commercial estimators — upload architectural plans or 2020 shop drawings to automatically generate Excel schedules with cabinet SKUs, quantities, hardware, and costing formulas.
+            {mode === 'appliance'
+              ? 'Built for commercial estimators — upload floor plans to automatically generate Excel schedules with appliance quantities and costing formulas.'
+              : 'Built for commercial estimators — upload architectural plans or 2020 shop drawings to automatically generate Excel schedules with cabinet SKUs, quantities, hardware, and costing formulas.'}
           </p>
           <div className="flex items-center justify-center gap-3 mb-4">
             <button
@@ -351,18 +357,31 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
                   <li className="flex items-center gap-1.5 text-[11px] text-foreground">
                     <span className="text-primary">•</span> Unit count and types
                   </li>
-                  <li className="flex items-center gap-1.5 text-[11px] text-foreground">
-                    <span className="text-primary">•</span> Cabinet types and SKUs
-                  </li>
-                  <li className="flex items-center gap-1.5 text-[11px] text-foreground">
-                    <span className="text-primary">•</span> Cabinet quantities
-                  </li>
-                  <li className="flex items-center gap-1.5 text-[11px] text-foreground">
-                    <span className="text-primary">•</span> Countertop square footage
-                  </li>
-                  <li className="flex items-center gap-1.5 text-[11px] text-foreground">
-                    <span className="text-primary">•</span> Cabinet counts per unit
-                  </li>
+                  {mode === 'appliance' ? (
+                    <>
+                      <li className="flex items-center gap-1.5 text-[11px] text-foreground">
+                        <span className="text-primary">•</span> Appliance quantities
+                      </li>
+                      <li className="flex items-center gap-1.5 text-[11px] text-foreground">
+                        <span className="text-primary">•</span> Appliance types per unit
+                      </li>
+                    </>
+                  ) : (
+                    <>
+                      <li className="flex items-center gap-1.5 text-[11px] text-foreground">
+                        <span className="text-primary">•</span> Cabinet types and SKUs
+                      </li>
+                      <li className="flex items-center gap-1.5 text-[11px] text-foreground">
+                        <span className="text-primary">•</span> Cabinet quantities
+                      </li>
+                      <li className="flex items-center gap-1.5 text-[11px] text-foreground">
+                        <span className="text-primary">•</span> Countertop square footage
+                      </li>
+                      <li className="flex items-center gap-1.5 text-[11px] text-foreground">
+                        <span className="text-primary">•</span> Cabinet counts per unit
+                      </li>
+                    </>
+                  )}
                 </ul>
               </div>
               <div>
@@ -371,15 +390,28 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
                   Export Options
                 </p>
                 <ul className="space-y-1.5">
-                  <li className="flex items-center gap-1.5 text-[11px] text-foreground">
-                    <span className="text-green-600">•</span> Excel takeoff sheets
-                  </li>
-                  <li className="flex items-center gap-1.5 text-[11px] text-foreground">
-                    <span className="text-green-600">•</span> Cabinet schedules
-                  </li>
-                  <li className="flex items-center gap-1.5 text-[11px] text-foreground">
-                    <span className="text-green-600">•</span> Quantity summaries
-                  </li>
+                  {mode === 'appliance' ? (
+                    <>
+                      <li className="flex items-center gap-1.5 text-[11px] text-foreground">
+                        <span className="text-green-600">•</span> Costing-ready Excel
+                      </li>
+                      <li className="flex items-center gap-1.5 text-[11px] text-foreground">
+                        <span className="text-green-600">•</span> Appliance schedules
+                      </li>
+                    </>
+                  ) : (
+                    <>
+                      <li className="flex items-center gap-1.5 text-[11px] text-foreground">
+                        <span className="text-green-600">•</span> Excel takeoff sheets
+                      </li>
+                      <li className="flex items-center gap-1.5 text-[11px] text-foreground">
+                        <span className="text-green-600">•</span> Cabinet schedules
+                      </li>
+                      <li className="flex items-center gap-1.5 text-[11px] text-foreground">
+                        <span className="text-green-600">•</span> Quantity summaries
+                      </li>
+                    </>
+                  )}
                 </ul>
               </div>
             </div>
