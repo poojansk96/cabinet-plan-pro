@@ -301,6 +301,11 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
             </div>
             <div className="text-primary text-lg">→</div>
             <div className="flex flex-col items-center">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>⚙️</div>
+              <span className="text-[10px] text-muted-foreground mt-1">Custom Engine</span>
+            </div>
+            <div className="text-primary text-lg">→</div>
+            <div className="flex flex-col items-center">
               <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>🔍</div>
               <span className="text-[10px] text-muted-foreground mt-1">AI Scans</span>
             </div>
