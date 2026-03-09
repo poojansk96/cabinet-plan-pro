@@ -237,8 +237,11 @@ export default function Dashboard() {
               <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3 leading-tight">
                 Get accurate cabinet, countertop & appliance takeoffs in minutes.
               </h2>
+              <p className="text-muted-foreground text-sm md:text-base max-w-lg mx-auto leading-relaxed mb-1">
+                Auto-detect units, SKUs, appliances and countertop sqft.
+              </p>
               <p className="text-muted-foreground text-sm md:text-base max-w-lg mx-auto leading-relaxed mb-2">
-                Built to automate cabinet, countertop and appliance takeoffs from architectural plans and 2020 shop drawings — generating Excel for costing with all related accessories automatically.
+                Exports ready Excel takeoffs for costing, handles, and schedules.
               </p>
               <p className="text-xs text-muted-foreground/70 mb-6 italic">
                 Designed for multi-unit residential estimating workflows.
@@ -371,6 +374,18 @@ export default function Dashboard() {
                 </div>
               </div>
               <p className="text-[10px] text-muted-foreground/60 italic text-center mt-3">Generated automatically from uploaded architectural plans and 2020 shop drawings.</p>
+            </div>
+
+            {/* Repeated primary CTA */}
+            <div className="text-center mb-6">
+              <Link
+                to="/new"
+                className="inline-flex items-center gap-2.5 px-8 py-3.5 rounded-lg text-base font-bold text-white shadow-lg transition-all hover:shadow-xl hover:scale-[1.03]"
+                style={{ background: 'hsl(var(--primary))' }}
+              >
+                <Upload size={18} />
+                Upload Floor Plan → Generate Takeoff
+              </Link>
             </div>
 
             {/* Benefit-first Feature Cards */}
