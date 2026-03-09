@@ -238,7 +238,7 @@ export default function Dashboard() {
                 Get accurate cabinet, countertop & appliance takeoffs in minutes.
               </h2>
               <p className="text-muted-foreground text-sm md:text-base max-w-lg mx-auto leading-relaxed mb-2">
-                Upload architectural floor plans or 2020 shop drawings. AI automatically detects units, cabinet types, quantities, countertop square footage, and appliance counts — then generates Excel takeoffs instantly.
+                Built to automate cabinet, countertop and appliance takeoffs from architectural plans and 2020 shop drawings — generating Excel for costing with all related accessories automatically.
               </p>
               <p className="text-xs text-muted-foreground/70 mb-6 italic">
                 Designed for multi-unit residential estimating workflows.
