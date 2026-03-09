@@ -307,7 +307,7 @@ export default function Dashboard() {
                   <span className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-sm" style={{ background: 'hsl(var(--primary))' }}>✓</span>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-0.5">
-                      <h3 className="font-semibold text-sm text-foreground">Find every unit in your plans automatically</h3>
+                      <h3 className="font-semibold text-sm text-foreground">Automatically detect every unit, floor type & building in your architectural plans</h3>
                       <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700">Live</span>
                     </div>
                     <ul className="text-xs text-muted-foreground leading-relaxed space-y-0.5 mt-1">
@@ -322,7 +322,7 @@ export default function Dashboard() {
                   <span className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-sm bg-orange-500">⟳</span>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-0.5">
-                      <h3 className="font-semibold text-sm text-foreground">Get cabinet counts & countertop sqft instantly</h3>
+                      <h3 className="font-semibold text-sm text-foreground">Automatically calculate cabinet quantities and countertop square footage</h3>
                       <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-700">Optimizing</span>
                     </div>
                     <ul className="text-xs text-muted-foreground leading-relaxed space-y-0.5 mt-1">
@@ -337,7 +337,7 @@ export default function Dashboard() {
                   <span className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-sm" style={{ background: 'hsl(var(--primary))' }}>✓</span>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-0.5">
-                      <h3 className="font-semibold text-sm text-foreground">Extract SKUs from 2020 Shop Drawings</h3>
+                      <h3 className="font-semibold text-sm text-foreground">Extract units & cabinet SKUs directly from 2020 shop drawings</h3>
                       <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700">Live</span>
                     </div>
                     <ul className="text-xs text-muted-foreground leading-relaxed space-y-0.5 mt-1">
@@ -349,19 +349,14 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="est-card p-4 flex items-start gap-3 hover:shadow-md transition-shadow opacity-80">
-                  <span className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-sm bg-blue-500">⚡</span>
+                <div className="est-card p-3 flex items-start gap-3 opacity-60">
+                  <span className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white shadow-sm bg-muted-foreground">⚡</span>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-0.5">
-                      <h3 className="font-semibold text-sm text-foreground">Get Appliance Takeoff</h3>
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700">Coming Soon</span>
+                      <h3 className="font-medium text-xs text-muted-foreground">Appliance Takeoff</h3>
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-secondary text-muted-foreground">Coming Soon</span>
                     </div>
-                    <ul className="text-xs text-muted-foreground leading-relaxed space-y-0.5 mt-1">
-                      <li>• Upload floor plans to detect appliance quantities per unit</li>
-                      <li>• Auto-generate appliance schedules by unit type</li>
-                      <li>• Export costing-ready Excel with appliance counts & formulas</li>
-                      <li>• Track dishwashers, ranges, microwaves, refrigerators & more</li>
-                    </ul>
+                    <p className="text-[11px] text-muted-foreground/70">Detect appliance quantities per unit and export costing-ready Excel schedules.</p>
                   </div>
                 </div>
                 <div className="est-card p-4 text-center">
