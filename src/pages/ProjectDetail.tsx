@@ -12,7 +12,7 @@ import SummaryPanel from '@/components/project/SummaryPanel';
 import EditProjectDialog from '@/components/project/EditProjectDialog';
 import ProjectInfoModule from '@/components/project/ProjectInfoModule';
 
-type Tab = 'units' | 'cabinets' | 'accessories' | 'countertops' | 'summary' | 'project-info' | 'prefinal-units' | 'prefinal-summary';
+type Tab = 'units' | 'cabinets' | 'countertops' | 'summary' | 'project-info' | 'prefinal-units' | 'prefinal-summary';
 
 const TAKEOFF_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'units', label: 'Units', icon: <Users size={14} /> },
