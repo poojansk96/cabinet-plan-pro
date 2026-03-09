@@ -34,7 +34,7 @@ export default function SummaryPanel({ project, activeTab }: Props) {
       {/* Quick Insights */}
       <div className="rounded-lg p-3 mb-4 border" style={{ borderColor: 'hsl(var(--border))', background: 'hsl(var(--accent))' }}>
         <div className="text-[10px] font-bold uppercase tracking-widest mb-2 text-primary">
-          Project Setup
+          Takeoff Progress
         </div>
         <div className="flex items-center gap-2 mb-2">
           <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'hsl(var(--border))' }}>
@@ -51,15 +51,19 @@ export default function SummaryPanel({ project, activeTab }: Props) {
         <div className="space-y-1">
           <div className="flex items-center gap-1.5 text-[11px]" style={{ color: hasUnits ? 'hsl(142, 71%, 35%)' : undefined }}>
             <span>{hasUnits ? '✓' : '○'}</span>
-            <span className={hasUnits ? '' : 'text-muted-foreground'}>{hasUnits ? `${summary.totalUnits} units detected` : 'Upload plans to detect units'}</span>
+            <span className={hasUnits ? '' : 'text-muted-foreground'}>{hasUnits ? `${summary.totalUnits} units detected` : 'Upload plan'}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px]" style={{ color: hasUnits ? 'hsl(142, 71%, 35%)' : undefined }}>
+            <span>{hasUnits ? '✓' : '○'}</span>
+            <span className={hasUnits ? '' : 'text-muted-foreground'}>Review detected units</span>
           </div>
           <div className="flex items-center gap-1.5 text-[11px]" style={{ color: hasCabinets ? 'hsl(142, 71%, 35%)' : undefined }}>
             <span>{hasCabinets ? '✓' : '○'}</span>
-            <span className={hasCabinets ? '' : 'text-muted-foreground'}>{hasCabinets ? `${summary.totalCabinets} cabinets` : 'Import cabinet data'}</span>
+            <span className={hasCabinets ? '' : 'text-muted-foreground'}>{hasCabinets ? `${summary.totalCabinets} cabinets` : 'Generate cabinet takeoff'}</span>
           </div>
           <div className="flex items-center gap-1.5 text-[11px]" style={{ color: hasCountertops ? 'hsl(142, 71%, 35%)' : undefined }}>
             <span>{hasCountertops ? '✓' : '○'}</span>
-            <span className={hasCountertops ? '' : 'text-muted-foreground'}>{hasCountertops ? `${summary.totalCountertopSqft} sqft countertops` : 'Add countertop data'}</span>
+            <span className={hasCountertops ? '' : 'text-muted-foreground'}>{hasCountertops ? 'Export ready' : 'Export Excel'}</span>
           </div>
         </div>
       </div>
