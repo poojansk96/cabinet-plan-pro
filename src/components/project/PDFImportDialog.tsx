@@ -439,7 +439,7 @@ export default function PDFImportDialog({ onImport, onClose, takeoffPerson }: Pr
           {step === 'upload' && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Upload your floor plan PDF. AI will read the plans and detect <strong>all spaces with cabinet or countertop drawings</strong> — including residential units, laundry rooms, community kitchens, pantries, clubhouses, and more.
+                Upload your architectural floor plan PDF. AI will read the plans and detect <strong>all spaces with cabinet or countertop drawings</strong> — including residential units, laundry rooms, community kitchens, pantries, clubhouses, and more.
               </p>
 
               {/* Drop zone */}
@@ -453,7 +453,7 @@ export default function PDFImportDialog({ onImport, onClose, takeoffPerson }: Pr
                 onClick={() => fileRef.current?.click()}
               >
                 <FileUp size={36} className="mx-auto mb-3 text-muted-foreground" />
-                <p className="font-semibold text-sm text-foreground">Drop your PDF here</p>
+                <p className="font-semibold text-sm text-foreground">Drop your architectural PDF here</p>
                 <p className="text-xs text-muted-foreground mt-1">or click to browse</p>
                 <input ref={fileRef} type="file" accept=".pdf" className="hidden" onChange={handleFile} />
               </div>
