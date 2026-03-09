@@ -238,7 +238,8 @@ export default function Dashboard() {
                 Get accurate cabinet, countertop & appliance takeoffs in minutes.
               </h2>
               <p className="text-muted-foreground text-sm md:text-base max-w-lg mx-auto leading-relaxed mb-6">
-                Upload plans — we auto-detect units, cabinets, and square feet so you can bid faster.
+                Upload architectural floor plans or 2020 shop drawings. AI automatically detects units, cabinet types, quantities, countertop square footage, and appliance counts — then generates Excel takeoffs instantly.
+              </p>
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <Link
