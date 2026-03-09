@@ -233,20 +233,23 @@ export default function Dashboard() {
         {projects.length === 0 ? (
           <div className="py-6 max-w-3xl mx-auto">
             {/* Hero Section — outcome-first */}
-            <div className="text-center py-10 px-6 rounded-2xl mb-6" style={{ background: 'linear-gradient(135deg, hsl(var(--primary) / 0.10), hsl(var(--primary) / 0.03))' }}>
+            <div className="text-center py-12 px-6 rounded-2xl mb-6" style={{ background: 'linear-gradient(145deg, hsl(var(--primary) / 0.14), hsl(var(--primary) / 0.06) 50%, hsl(var(--primary) / 0.02))' }}>
               <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3 leading-tight">
                 Get accurate cabinet, countertop & appliance takeoffs in minutes.
               </h2>
-              <p className="text-muted-foreground text-sm md:text-base max-w-lg mx-auto leading-relaxed mb-6">
+              <p className="text-muted-foreground text-sm md:text-base max-w-lg mx-auto leading-relaxed mb-2">
                 Upload architectural floor plans or 2020 shop drawings. AI automatically detects units, cabinet types, quantities, countertop square footage, and appliance counts — then generates Excel takeoffs instantly.
+              </p>
+              <p className="text-xs text-muted-foreground/70 mb-6 italic">
+                Designed for multi-unit residential estimating workflows.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <Link
                   to="/new"
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all"
+                  className="inline-flex items-center gap-2.5 px-8 py-3.5 rounded-lg text-base font-bold text-white shadow-lg transition-all hover:shadow-xl hover:scale-[1.03]"
                   style={{ background: 'hsl(var(--primary))' }}
                 >
-                  <Upload size={16} />
+                  <Upload size={18} />
                   Upload Floor Plan → Generate Takeoff
                 </Link>
                 <a
@@ -275,26 +278,26 @@ export default function Dashboard() {
             </div>
 
             {/* Product Flow Visual */}
-            <div className="est-card p-5 mb-6 text-center" style={{ background: 'hsl(var(--primary) / 0.03)' }}>
-              <div className="flex items-center justify-center gap-3 flex-wrap">
-                <div className="flex flex-col items-center gap-1.5">
-                  <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>📄</div>
-                  <span className="text-[11px] text-muted-foreground font-medium">Upload PDF</span>
+            <div className="est-card p-6 mb-6 text-center" style={{ background: 'hsl(var(--primary) / 0.03)' }}>
+              <div className="flex items-center justify-center gap-4 flex-wrap">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-16 h-16 rounded-xl flex items-center justify-center text-3xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>📄</div>
+                  <span className="text-xs text-muted-foreground font-medium">Upload PDF</span>
                 </div>
-                <ArrowRight size={20} className="text-primary" />
-                <div className="flex flex-col items-center gap-1.5">
-                  <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>⚙️</div>
-                  <span className="text-[11px] text-muted-foreground font-medium">Custom Engine</span>
+                <ArrowRight size={24} className="text-primary" />
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-16 h-16 rounded-xl flex items-center justify-center text-3xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>⚙️</div>
+                  <span className="text-xs text-muted-foreground font-medium">Custom Engine</span>
                 </div>
-                <ArrowRight size={20} className="text-primary" />
-                <div className="flex flex-col items-center gap-1.5">
-                  <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>🤖</div>
-                  <span className="text-[11px] text-muted-foreground font-medium">AI Extracts</span>
+                <ArrowRight size={24} className="text-primary" />
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-16 h-16 rounded-xl flex items-center justify-center text-3xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>🤖</div>
+                  <span className="text-xs text-muted-foreground font-medium">AI Extracts</span>
                 </div>
-                <ArrowRight size={20} className="text-primary" />
-                <div className="flex flex-col items-center gap-1.5">
-                  <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>📊</div>
-                  <span className="text-[11px] text-muted-foreground font-medium">Full Takeoff</span>
+                <ArrowRight size={24} className="text-primary" />
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-16 h-16 rounded-xl flex items-center justify-center text-3xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>📊</div>
+                  <span className="text-xs text-muted-foreground font-medium">Full Takeoff</span>
                 </div>
               </div>
             </div>
