@@ -68,6 +68,7 @@ COUNTING — CRITICAL:
 - If "DB15" label appears in TWO different spots → quantity 2.
 - If "BF3" label appears once → quantity 1. Do NOT skip small accessories.
 - ACCESSORIES MATTER: BF3, BF6, WF3X30, WF6X30, DWR3, DWR6 — count EVERY single occurrence. These small labels are easy to miss — scan the ENTIRE plan carefully including corners, edges, and between cabinets.
+- FILLER-HEAD BASE CABINETS: B09FH, B06FH, B12FH — these are VERY NARROW rectangles on the plan, often only 6"-12" wide. They appear as thin slivers between larger cabinets or at the end of a run. Their labels are small and easy to overlook. ACTIVELY LOOK FOR THESE — they are commonly missed.
 - SMALL BASE CABINETS: B09FH, B06FH, B12FH etc. — these are small filler-head base cabinets. They appear as very narrow rectangles on the plan. Do NOT skip them.
 - Corner cabinets (LS, LSB) sit at the corner where two walls meet — count only ONCE even if the label appears at the junction of two wall runs.
 - Look for "xN" or "(2)" multiplier notation.
@@ -91,10 +92,11 @@ RULES:
 - SKIP non-SKU text: unit numbers, unit type names, elevation titles, dimension text, page numbers, sheet references, call-out bubbles
 - Read labels EXACTLY as printed — do not invent or guess
 - If NO SKUs found → return {"unitTypeName":"<detected type or null>","items":[]}
+- FINAL SWEEP: After your initial scan, go back and specifically look for these commonly missed SKUs: B09FH, B06FH, B12FH, BF3, BF6, WF3X30, WF6X30, DWR3, DWR6. They appear as very small labels on narrow cabinet shapes. If you find any you missed, add them.
 ${unitType ? \`- Unit type context: \${unitType}\` : ""}
 
 Return ONLY valid JSON — no markdown, no explanation:
-{"unitTypeName":"A1-AS","items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1},{"sku":"DB15","type":"Base","room":"Kitchen","quantity":2},{"sku":"BF3","type":"Accessory","room":"Kitchen","quantity":1}]}\`;
+{"unitTypeName":"A1-AS","items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1},{"sku":"DB15","type":"Base","room":"Kitchen","quantity":2},{"sku":"BF3","type":"Accessory","room":"Kitchen","quantity":1},{"sku":"B09FH","type":"Base","room":"Kitchen","quantity":1}]}\`;
 
     let response: Response | null = null;
     const MAX_RETRIES = 3;
