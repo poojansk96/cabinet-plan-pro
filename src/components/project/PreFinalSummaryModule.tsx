@@ -509,15 +509,19 @@ export default function PreFinalSummaryModule({ project }: Props) {
        0
      );
 
-    // Pulls section totals
-    for (let i = 0; i < nTypes; i++) {
-      setFormula(
-        cabTotRow.getCell(colPullsFirstType + i),
-        `SUM(${excelCol(colPullsFirstType + i)}${dataRangeStartRow}:${excelCol(colPullsFirstType + i)}${dataRangeEndRow})`,
-        0
-      );
-    }
-    setFormula(cabTotRow.getCell(colPullsTotal), `SUM(${excelCol(colPullsTotal)}${dataRangeStartRow}:${excelCol(colPullsTotal)}${dataRangeEndRow})`, 0);
+     // Pulls section totals
+     for (let i = 0; i < nTypes; i++) {
+       setFormula(
+         cabTotRow.getCell(colPullsFirstType + i),
+         safeSumColRange(excelCol(colPullsFirstType + i), dataRangeStartRow, dataRangeEndRow),
+         0
+       );
+     }
+     setFormula(
+       cabTotRow.getCell(colPullsTotal),
+       safeSumColRange(excelCol(colPullsTotal), dataRangeStartRow, dataRangeEndRow),
+       0
+     );
 
     // Pricing totals (will be filled after pricing formulas are applied on data rows)
     setFormula(cabTotRow.getCell(colPricingBid), `SUM(${excelCol(colPricingBid)}${dataRangeStartRow}:${excelCol(colPricingBid)}${dataRangeEndRow})`, 0);
