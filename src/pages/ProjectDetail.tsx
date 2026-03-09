@@ -1,10 +1,9 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Building2, ArrowLeft, Users, Layers, Wrench, Square, BarChart3, Pencil, ClipboardCheck, FileUp, X, FileText } from 'lucide-react';
+import { Building2, ArrowLeft, Users, Layers, Square, BarChart3, Pencil, ClipboardCheck, FileUp, X, FileText } from 'lucide-react';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import UnitModule from '@/components/project/UnitModule';
 import CabinetModule from '@/components/project/CabinetModule';
-import AccessoriesModule from '@/components/project/AccessoriesModule';
 import CountertopModule from '@/components/project/CountertopModule';
 import SummaryModule from '@/components/project/SummaryModule';
 import PreFinalModule from '@/components/project/PreFinalModule';
@@ -13,12 +12,11 @@ import SummaryPanel from '@/components/project/SummaryPanel';
 import EditProjectDialog from '@/components/project/EditProjectDialog';
 import ProjectInfoModule from '@/components/project/ProjectInfoModule';
 
-type Tab = 'units' | 'cabinets' | 'accessories' | 'countertops' | 'summary' | 'project-info' | 'prefinal-units' | 'prefinal-summary';
+type Tab = 'units' | 'cabinets' | 'countertops' | 'summary' | 'project-info' | 'prefinal-units' | 'prefinal-summary';
 
 const TAKEOFF_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'units', label: 'Units', icon: <Users size={14} /> },
   { key: 'cabinets', label: 'Cabinets', icon: <Layers size={14} /> },
-  { key: 'accessories', label: 'Accessories', icon: <Wrench size={14} /> },
   { key: 'countertops', label: 'Countertops', icon: <Square size={14} /> },
   { key: 'summary', label: 'Summary', icon: <BarChart3 size={14} /> },
 ];
@@ -212,7 +210,6 @@ export default function ProjectDetail() {
           <div className="p-4">
             {activeTab === 'units' && <UnitModule {...storeProps} />}
             {activeTab === 'cabinets' && <CabinetModule {...storeProps} />}
-            {activeTab === 'accessories' && <AccessoriesModule {...storeProps} />}
             {activeTab === 'countertops' && <CountertopModule {...storeProps} />}
             {activeTab === 'summary' && <SummaryModule {...storeProps} />}
             {activeTab === 'project-info' && <ProjectInfoModule project={project} onSave={(updates) => updateProject(project.id, updates)} />}
