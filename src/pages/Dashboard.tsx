@@ -304,7 +304,7 @@ export default function Dashboard() {
 
             {/* Example Output Section */}
             <div className="est-card p-5 mb-6">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4 px-1">Example Output</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4 px-1">Example Excel Takeoff Output</h3>
               <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'hsl(var(--border))' }}>
                 {/* Mock spreadsheet header */}
                 <div className="flex items-center gap-2 px-3 py-2 border-b" style={{ background: 'hsl(var(--muted) / 0.5)', borderColor: 'hsl(var(--border))' }}>
