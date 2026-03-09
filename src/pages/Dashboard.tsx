@@ -190,14 +190,24 @@ export default function Dashboard() {
               <p className="text-[11px] text-muted-foreground">Kitchen & Countertop Estimating</p>
             </div>
           </div>
-          <Link
-            to="/new"
-            className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold text-primary-foreground bg-primary hover:bg-primary/90 transition-colors focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label="Create new project"
-          >
-            <Plus size={16} />
-            New Project
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              to="/new"
+              className="hidden md:inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold text-primary-foreground bg-primary hover:bg-primary/90 transition-colors focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Upload Floor Plan"
+            >
+              <Upload size={14} />
+              Upload Floor Plan
+            </Link>
+            <Link
+              to="/new"
+              className="md:hidden flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold text-primary-foreground bg-primary hover:bg-primary/90 transition-colors focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Create new project"
+            >
+              <Plus size={16} />
+              New Project
+            </Link>
+          </div>
         </div>
       </header>
 
