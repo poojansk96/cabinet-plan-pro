@@ -16,8 +16,8 @@ type Tab = 'units' | 'cabinets' | 'countertops' | 'summary' | 'project-info' | '
 
 const TAKEOFF_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'units', label: 'Units', icon: <Users size={14} /> },
-  { key: 'cabinets', label: 'Cabinets', icon: <Layers size={14} /> },
-  { key: 'countertops', label: 'Countertops', icon: <Square size={14} /> },
+  { key: 'cabinets', label: 'Cabinet Takeoff', icon: <Layers size={14} /> },
+  { key: 'countertops', label: 'Countertop Takeoff', icon: <Square size={14} /> },
   { key: 'summary', label: 'Summary', icon: <BarChart3 size={14} /> },
 ];
 
