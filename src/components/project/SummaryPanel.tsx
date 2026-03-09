@@ -87,7 +87,7 @@ export default function SummaryPanel({ project, activeTab }: Props) {
         </>
       )}
 
-      {!isUnitsTab && (
+      {!isUnitsTab && !isApplianceTab && (
         <>
           <div className="text-xs font-bold uppercase tracking-widest mt-4 mb-2 text-primary">
             Countertops
