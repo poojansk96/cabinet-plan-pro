@@ -287,7 +287,7 @@ export default function Dashboard() {
                 <ArrowRight size={24} className="text-primary" />
                 <div className="flex flex-col items-center gap-2">
                   <div className="w-16 h-16 rounded-xl flex items-center justify-center text-3xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>⚙️</div>
-                  <span className="text-xs text-muted-foreground font-medium">Custom Engine</span>
+                  <span className="text-xs text-muted-foreground font-medium">Custom Takeoff Engine</span>
                 </div>
                 <ArrowRight size={24} className="text-primary" />
                 <div className="flex flex-col items-center gap-2">
