@@ -315,7 +315,7 @@ export default function Dashboard() {
                 {/* Mock sheet tabs */}
                 <div className="flex border-b" style={{ borderColor: 'hsl(var(--border))' }}>
                   <span className="px-3 py-1.5 text-[10px] font-semibold text-primary border-b-2" style={{ borderColor: 'hsl(var(--primary))' }}>Unit Count</span>
-                  <span className="px-3 py-1.5 text-[10px] text-muted-foreground">Cabinet Schedule</span>
+                  <span className="px-3 py-1.5 text-[10px] text-muted-foreground">Cabinet Count</span>
                   <span className="px-3 py-1.5 text-[10px] text-muted-foreground">Countertop Sqft</span>
                   <span className="px-3 py-1.5 text-[10px] text-muted-foreground">Hardware & Pulls</span>
                 </div>
@@ -354,7 +354,7 @@ export default function Dashboard() {
               <div className="grid grid-cols-4 gap-2 mt-3">
                 <div className="flex items-center gap-1.5 px-2 py-1.5 rounded" style={{ background: 'hsl(var(--muted) / 0.3)' }}>
                   <span className="text-xs">📋</span>
-                  <span className="text-[10px] text-muted-foreground">Cabinet schedule</span>
+                  <span className="text-[10px] text-muted-foreground">Cabinet count</span>
                 </div>
                 <div className="flex items-center gap-1.5 px-2 py-1.5 rounded" style={{ background: 'hsl(var(--muted) / 0.3)' }}>
                   <span className="text-xs">📐</span>
