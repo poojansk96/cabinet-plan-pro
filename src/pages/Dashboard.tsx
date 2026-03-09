@@ -307,10 +307,10 @@ export default function Dashboard() {
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4 px-1">Example Excel Takeoff Output</h3>
               <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'hsl(var(--border))' }}>
                 {/* Mock spreadsheet header */}
-                <div className="flex items-center gap-2 px-3 py-2 border-b" style={{ background: 'hsl(var(--muted) / 0.5)', borderColor: 'hsl(var(--border))' }}>
+                <div className="flex items-center gap-2 px-3 py-2.5 border-b" style={{ background: 'hsl(var(--muted) / 0.5)', borderColor: 'hsl(var(--border))' }}>
                   <div className="w-3 h-3 rounded-sm" style={{ background: 'hsl(142, 71%, 45%)' }} />
-                  <span className="text-[11px] font-semibold text-foreground">Cabinet_Takeoff_Report.xlsx</span>
-                  <span className="text-[10px] text-muted-foreground ml-auto">4 sheets</span>
+                  <span className="text-[11px] font-semibold text-foreground">Cabinet Takeoff Report.xlsx</span>
+                  <span className="ml-auto px-2 py-0.5 rounded text-[9px] font-semibold" style={{ background: 'hsl(var(--primary) / 0.10)', color: 'hsl(var(--primary))' }}>4 sheets included</span>
                 </div>
                 {/* Mock sheet tabs */}
                 <div className="flex border-b" style={{ borderColor: 'hsl(var(--border))' }}>
