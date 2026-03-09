@@ -442,12 +442,12 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {/* Appliance Takeoff — muted roadmap item */}
+                {/* Appliance & appliance counts — muted roadmap item */}
                 <div className="rounded-lg border border-dashed border-border/50 p-3 flex items-center gap-3">
                   <span className="flex-shrink-0 w-6 h-6 rounded flex items-center justify-center text-[10px] bg-muted text-muted-foreground">⚡</span>
                   <div className="flex items-center gap-2 flex-1">
-                    <h3 className="font-medium text-xs text-muted-foreground/70">Appliance Takeoff</h3>
-                    <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-muted text-muted-foreground/60 tracking-wide uppercase">Early Access</span>
+                    <h3 className="font-medium text-xs text-muted-foreground/70">Appliance & Appliance Counts</h3>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-muted text-muted-foreground/60 tracking-wide uppercase">Beta</span>
                   </div>
                 </div>
 
