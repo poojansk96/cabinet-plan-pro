@@ -254,13 +254,48 @@ export default function PreFinalSummaryModule({ project }: Props) {
       unitCountPerType[t] = countUnitsForType(t);
     }
 
-    const cabCountCols = 1 + nTypes + 1;
-    const pullsStart = cabCountCols + 1;
-    const pullsCols = 1 + nTypes + 1;
-    const pricingStart = pullsStart + pullsCols + 1;
-    const pricingCols = 1 + 1 + 1 + nTypes + 1; // Bid + Additional + Total + types + total
-    const totalCabStart = pricingStart + pricingCols + 1;
+    // Excel helpers
+    const excelCol = (col: number) => {
+      let n = col;
+      let s = '';
+      while (n > 0) {
+        const m = (n - 1) % 26;
+        s = String.fromCharCode(65 + m) + s;
+        n = Math.floor((n - 1) / 26);
+      }
+      return s;
+    };
+    const ref = (col: number, row: number) => `${excelCol(col)}${row}`;
+    const setFormula = (cell: ExcelJS.Cell, formula: string, result: number | string = 0) => {
+      cell.value = { formula, result } as any;
+    };
 
+    // Column layout (1-indexed)
+    const colSku = 1;
+    const colCabFirstType = 2;
+    const colCabTotal = colCabFirstType + nTypes;
+    const colSpacer1 = colCabTotal + 1;
+
+    const colPullsPerCab = colSpacer1 + 1;
+    const colPullsFirstType = colPullsPerCab + 1;
+    const colPullsTotal = colPullsFirstType + nTypes;
+    const colSpacer2 = colPullsTotal + 1;
+
+    const colPricingBid = colSpacer2 + 1;
+    const colPricingAdditional = colSpacer2 + 2;
+    const colPricingTotal = colSpacer2 + 3;
+    const colPricingFirstType = colSpacer2 + 4;
+    const colPricingTypeTotal = colPricingFirstType + nTypes;
+    const colSpacer3 = colPricingTypeTotal + 1;
+
+    const colTotalCabLabel = colSpacer3 + 1;
+    const colTotalCabFirstType = colTotalCabLabel + 1;
+    const colTotalCabGrand = colTotalCabFirstType + nTypes;
+
+    const pricingStart = colSpacer2; // keep naming used below
+    const totalCabStart = colSpacer3; // keep naming used below
+
+    // Column widths (kept consistent with existing layout)
     const colWidths: { width: number }[] = [];
     colWidths.push({ width: 22 });
     for (let i = 0; i < nTypes; i++) colWidths.push({ width: 6 });
@@ -283,28 +318,28 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
     // Section headers
     const sectionRow = wsCabs.addRow([]);
-    sectionRow.getCell(1).value = 'CABINET COUNT';
-    sectionRow.getCell(1).font = { bold: true, size: 9 };
-    sectionRow.getCell(pullsStart + 1).value = 'PULLS';
-    sectionRow.getCell(pullsStart + 1).font = { bold: true, size: 9 };
-    sectionRow.getCell(pricingStart + 1).value = 'PRICING';
-    sectionRow.getCell(pricingStart + 1).font = { bold: true, size: 9 };
-    sectionRow.getCell(totalCabStart + 1).value = 'TOTAL CABINET COUNT';
-    sectionRow.getCell(totalCabStart + 1).font = { bold: true, size: 9 };
+    sectionRow.getCell(colSku).value = 'CABINET COUNT';
+    sectionRow.getCell(colSku).font = { bold: true, size: 9 };
+    sectionRow.getCell(colPullsPerCab).value = 'PULLS';
+    sectionRow.getCell(colPullsPerCab).font = { bold: true, size: 9 };
+    sectionRow.getCell(colPricingBid).value = 'PRICING';
+    sectionRow.getCell(colPricingBid).font = { bold: true, size: 9 };
+    sectionRow.getCell(colTotalCabLabel).value = 'TOTAL CABINET COUNT';
+    sectionRow.getCell(colTotalCabLabel).font = { bold: true, size: 9 };
 
-    // Unit count reference row
+    // Unit count reference row (used by formulas)
     const unitCountRow = wsCabs.addRow([]);
-    unitCountRow.getCell(totalCabStart + 1).value = 'Unit Count';
-    unitCountRow.getCell(totalCabStart + 1).font = { bold: true, italic: true, size: 8 };
+    unitCountRow.getCell(colTotalCabLabel).value = 'Unit Count';
+    unitCountRow.getCell(colTotalCabLabel).font = { bold: true, italic: true, size: 8 };
     for (let i = 0; i < nTypes; i++) {
-      const cell = unitCountRow.getCell(totalCabStart + 2 + i);
+      const cell = unitCountRow.getCell(colTotalCabFirstType + i);
       cell.value = unitCountPerType[cabTypes[i]] || 0;
       cell.alignment = { horizontal: 'center' };
       cell.font = { bold: true, size: 8 };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
     }
     const totalUnitCount = Object.values(unitCountPerType).reduce((s, v) => s + v, 0);
-    const ucTotalCell = unitCountRow.getCell(totalCabStart + 2 + nTypes);
+    const ucTotalCell = unitCountRow.getCell(colTotalCabFirstType + nTypes);
     ucTotalCell.value = totalUnitCount;
     ucTotalCell.alignment = { horizontal: 'center' };
     ucTotalCell.font = { bold: true, size: 8 };
@@ -339,15 +374,17 @@ export default function PreFinalSummaryModule({ project }: Props) {
       cell.alignment = { vertical: 'bottom', wrapText: false };
       const idx = colNumber - 1;
       if ((idx >= 1 && idx <= nTypes) ||
-          (idx >= pullsStart + 1 && idx <= pullsStart + nTypes) ||
-          (idx >= pricingStart + 3 && idx <= pricingStart + 2 + nTypes) ||
-          (idx >= totalCabStart + 1 && idx <= totalCabStart + nTypes)) {
+          (idx >= colPullsFirstType - 1 && idx <= colPullsFirstType - 2 + nTypes) ||
+          (idx >= colPricingFirstType - 1 && idx <= colPricingFirstType - 2 + nTypes) ||
+          (idx >= colTotalCabFirstType - 1 && idx <= colTotalCabFirstType - 2 + nTypes)) {
         cell.alignment = { textRotation: 90, vertical: 'bottom', horizontal: 'center' };
       }
     });
 
     // Freeze: top 3 rows (section headers + unit count ref + column headers) AND first column (SKU Name)
     wsCabs.views = [{ state: 'frozen', xSplit: 1, ySplit: 3 }];
+
+    const dataRangeStartRow = cabHeader.number + 1;
 
     // Data rows
     groupedSkus.forEach(({ group, skus }) => {
@@ -358,113 +395,208 @@ export default function PreFinalSummaryModule({ project }: Props) {
       });
 
       skus.forEach(sku => {
-        const rowValues: (string | number)[] = [];
         const pullsPerCab = store.handleQtyPerSku[sku] || 0;
 
+        // Build row with only the editable inputs + base quantities; everything else becomes formulas
+        const rowValues: (string | number)[] = [];
         rowValues.push(sku);
+
+        // Cabinet quantities per type
         cabTypes.forEach(t => {
           const qty = skuTypeQty[sku]?.[t] || 0;
           rowValues.push(qty > 0 ? qty : '');
         });
-        const cabRowTotal = cabTypes.reduce((sum, t) => sum + (skuTypeQty[sku]?.[t] || 0), 0);
-        rowValues.push(cabRowTotal);
+
+        // Cabinet total (formula set after row is created)
+        rowValues.push('');
         rowValues.push('');
 
+        // Pulls/Cab (editable)
         rowValues.push(pullsPerCab || '');
-        cabTypes.forEach(t => {
-          const qty = skuTypeQty[sku]?.[t] || 0;
-          const pullsTotal = qty * pullsPerCab;
-          rowValues.push(pullsTotal > 0 ? pullsTotal : '');
-        });
-        const pullsRowTotal = cabRowTotal * pullsPerCab;
-        rowValues.push(pullsRowTotal > 0 ? pullsRowTotal : '');
+
+        // Pulls per type + total (formulas)
+        cabTypes.forEach(() => rowValues.push(''));
+        rowValues.push('');
         rowValues.push('');
 
-        // Pricing (per-SKU: show '-')
-        rowValues.push('-');
-        rowValues.push('-');
-        rowValues.push('-');
-        cabTypes.forEach(() => rowValues.push('-'));
-        rowValues.push('-');
+        // Pricing (formulas)
+        rowValues.push('');
+        rowValues.push('');
+        rowValues.push('');
+        cabTypes.forEach(() => rowValues.push(''));
+        rowValues.push('');
         rowValues.push('');
 
-        // Total cab count
+        // Total cabinet count (formulas)
         rowValues.push('');
-        cabTypes.forEach(t => {
-          const qty = skuTypeQty[sku]?.[t] || 0;
-          const uc = unitCountPerType[t] || 0;
-          const total = qty * uc;
-          rowValues.push(total > 0 ? total : '');
-        });
-        const totalCabRowTotal = cabTypes.reduce((sum, t) => sum + ((skuTypeQty[sku]?.[t] || 0) * (unitCountPerType[t] || 0)), 0);
-        rowValues.push(totalCabRowTotal > 0 ? totalCabRowTotal : '');
+        cabTypes.forEach(() => rowValues.push(''));
+        rowValues.push('');
 
         const row = wsCabs.addRow(rowValues);
+        const r = row.number;
+
+        // Cabinet Total = SUM(cab type cols)
+        setFormula(row.getCell(colCabTotal), `SUM(${ref(colCabFirstType, r)}:${ref(colCabFirstType + nTypes - 1, r)})`, 0);
+
+        // Pulls per type = Pulls/Cab * Cabinet Qty
+        for (let i = 0; i < nTypes; i++) {
+          const cabQtyCell = ref(colCabFirstType + i, r);
+          const pullsPerCabCell = ref(colPullsPerCab, r);
+          setFormula(row.getCell(colPullsFirstType + i), `${pullsPerCabCell}*${cabQtyCell}`, 0);
+        }
+        // Pulls Total = SUM(pulls type cols)
+        setFormula(row.getCell(colPullsTotal), `SUM(${ref(colPullsFirstType, r)}:${ref(colPullsFirstType + nTypes - 1, r)})`, 0);
+
+        // Total cabinet count per type = Cabinet Qty * Unit Count (row 2)
+        for (let i = 0; i < nTypes; i++) {
+          const cabQtyCell = ref(colCabFirstType + i, r);
+          const unitCountAbs = `$${excelCol(colTotalCabFirstType + i)}$${unitCountRow.number}`;
+          setFormula(row.getCell(colTotalCabFirstType + i), `${cabQtyCell}*${unitCountAbs}`, 0);
+        }
+        setFormula(row.getCell(colTotalCabGrand), `SUM(${ref(colTotalCabFirstType, r)}:${ref(colTotalCabFirstType + nTypes - 1, r)})`, 0);
+
+        // Pricing (uses per-type Bid/Additional rows written after totals; formulas patched later)
         row.eachCell((cell, colNumber) => {
           if (colNumber > 1) cell.alignment = { horizontal: 'center', vertical: 'middle' };
         });
       });
     });
 
-    // Totals row
+    const dataRangeEndRow = wsCabs.lastRow?.number || dataRangeStartRow;
+
+    // Totals row (all formulas so Excel recalculates after edits)
     wsCabs.addRow([]);
-    const totValues: (string | number)[] = [];
+    const cabTotRow = wsCabs.addRow([]);
+    cabTotRow.getCell(colSku).value = `TOTAL (${allSkus.length})`;
 
-    totValues.push(`TOTAL (${allSkus.length})`);
-    const cabColTotals = cabTypes.map(t => allSkus.reduce((sum, sku) => sum + (skuTypeQty[sku]?.[t] || 0), 0));
-    cabColTotals.forEach(v => totValues.push(v));
-    const cabGrandTotal = cabColTotals.reduce((s, v) => s + v, 0);
-    totValues.push(cabGrandTotal);
-    totValues.push('');
+    // Cabinet section totals
+    for (let i = 0; i < nTypes; i++) {
+      setFormula(
+        cabTotRow.getCell(colCabFirstType + i),
+        `SUM(${excelCol(colCabFirstType + i)}${dataRangeStartRow}:${excelCol(colCabFirstType + i)}${dataRangeEndRow})`,
+        0
+      );
+    }
+    setFormula(cabTotRow.getCell(colCabTotal), `SUM(${excelCol(colCabTotal)}${dataRangeStartRow}:${excelCol(colCabTotal)}${dataRangeEndRow})`, 0);
 
-    totValues.push('');
-    const pullsColTotals = cabTypes.map(t =>
-      allSkus.reduce((sum, sku) => sum + ((skuTypeQty[sku]?.[t] || 0) * (store.handleQtyPerSku[sku] || 0)), 0)
-    );
-    pullsColTotals.forEach(v => totValues.push(v || ''));
-    totValues.push(pullsColTotals.reduce((s, v) => s + v, 0) || '');
-    totValues.push('');
+    // Pulls section totals
+    for (let i = 0; i < nTypes; i++) {
+      setFormula(
+        cabTotRow.getCell(colPullsFirstType + i),
+        `SUM(${excelCol(colPullsFirstType + i)}${dataRangeStartRow}:${excelCol(colPullsFirstType + i)}${dataRangeEndRow})`,
+        0
+      );
+    }
+    setFormula(cabTotRow.getCell(colPullsTotal), `SUM(${excelCol(colPullsTotal)}${dataRangeStartRow}:${excelCol(colPullsTotal)}${dataRangeEndRow})`, 0);
 
-    const totalBidSum = cabTypes.reduce((sum, t) => sum + ((store.bidCostPerType[t] || 0) * (unitCountPerType[t] || 0)), 0);
-    const totalAdditionalSum = cabTypes.reduce((sum, t) => sum + ((store.additionalCostPerType[t] || 0) * (unitCountPerType[t] || 0)), 0);
-    totValues.push(totalBidSum > 0 ? totalBidSum : '');
-    totValues.push(totalAdditionalSum > 0 ? totalAdditionalSum : '');
-    totValues.push((totalBidSum + totalAdditionalSum) > 0 ? (totalBidSum + totalAdditionalSum) : '');
-    cabTypes.forEach(t => {
-      const val = ((store.bidCostPerType[t] || 0) + (store.additionalCostPerType[t] || 0)) * (unitCountPerType[t] || 0);
-      totValues.push(val > 0 ? val : '');
-    });
-    totValues.push((totalBidSum + totalAdditionalSum) > 0 ? (totalBidSum + totalAdditionalSum) : '');
-    totValues.push('');
+    // Pricing totals (will be filled after pricing formulas are applied on data rows)
+    setFormula(cabTotRow.getCell(colPricingBid), `SUM(${excelCol(colPricingBid)}${dataRangeStartRow}:${excelCol(colPricingBid)}${dataRangeEndRow})`, 0);
+    setFormula(cabTotRow.getCell(colPricingAdditional), `SUM(${excelCol(colPricingAdditional)}${dataRangeStartRow}:${excelCol(colPricingAdditional)}${dataRangeEndRow})`, 0);
+    setFormula(cabTotRow.getCell(colPricingTotal), `SUM(${excelCol(colPricingTotal)}${dataRangeStartRow}:${excelCol(colPricingTotal)}${dataRangeEndRow})`, 0);
+    for (let i = 0; i < nTypes; i++) {
+      setFormula(
+        cabTotRow.getCell(colPricingFirstType + i),
+        `SUM(${excelCol(colPricingFirstType + i)}${dataRangeStartRow}:${excelCol(colPricingFirstType + i)}${dataRangeEndRow})`,
+        0
+      );
+    }
+    setFormula(cabTotRow.getCell(colPricingTypeTotal), `SUM(${excelCol(colPricingTypeTotal)}${dataRangeStartRow}:${excelCol(colPricingTypeTotal)}${dataRangeEndRow})`, 0);
 
-    totValues.push('TOTAL');
-    const totalCabColTotals = cabTypes.map(t =>
-      allSkus.reduce((sum, sku) => sum + ((skuTypeQty[sku]?.[t] || 0) * (unitCountPerType[t] || 0)), 0)
-    );
-    totalCabColTotals.forEach(v => totValues.push(v || ''));
-    totValues.push(totalCabColTotals.reduce((s, v) => s + v, 0) || '');
+    // Total cabinet count totals
+    cabTotRow.getCell(colTotalCabLabel).value = 'TOTAL';
+    for (let i = 0; i < nTypes; i++) {
+      setFormula(
+        cabTotRow.getCell(colTotalCabFirstType + i),
+        `SUM(${excelCol(colTotalCabFirstType + i)}${dataRangeStartRow}:${excelCol(colTotalCabFirstType + i)}${dataRangeEndRow})`,
+        0
+      );
+    }
+    setFormula(cabTotRow.getCell(colTotalCabGrand), `SUM(${excelCol(colTotalCabGrand)}${dataRangeStartRow}:${excelCol(colTotalCabGrand)}${dataRangeEndRow})`, 0);
 
-    const cabTotRow = wsCabs.addRow(totValues);
+    // Style totals row
     cabTotRow.eachCell((cell, colNumber) => {
       cell.font = { bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
       if (colNumber > 1) cell.alignment = { horizontal: 'center' };
     });
 
-    // Bid Cost + Additional row
-    const bidRow = wsCabs.addRow([]);
-    bidRow.getCell(pricingStart + 1).value = 'Bid Cost/Type';
-    bidRow.getCell(pricingStart + 1).font = { bold: true, italic: true, size: 8 };
-    bidRow.getCell(pricingStart + 2).value = 'Additional/Type';
-    bidRow.getCell(pricingStart + 2).font = { bold: true, italic: true, size: 8 };
+    // Pricing inputs (editable) + per-type total cost (formula)
+    const bidCostRow = wsCabs.addRow([]);
+    bidCostRow.getCell(colPricingBid).value = 'Bid Cost/Type';
+    bidCostRow.getCell(colPricingBid).font = { bold: true, italic: true, size: 8 };
     for (let i = 0; i < nTypes; i++) {
-      const cell = bidRow.getCell(pricingStart + 4 + i);
-      const bidCost = store.bidCostPerType[cabTypes[i]] || 0;
-      const addCost = store.additionalCostPerType[cabTypes[i]] || 0;
-      cell.value = bidCost + addCost;
+      const cell = bidCostRow.getCell(colPricingFirstType + i);
+      cell.value = store.bidCostPerType[cabTypes[i]] || 0;
       cell.numFmt = '$#,##0.00';
       cell.alignment = { horizontal: 'center' };
       cell.font = { italic: true, size: 8 };
+    }
+
+    const addCostRow = wsCabs.addRow([]);
+    addCostRow.getCell(colPricingAdditional).value = 'Additional/Type';
+    addCostRow.getCell(colPricingAdditional).font = { bold: true, italic: true, size: 8 };
+    for (let i = 0; i < nTypes; i++) {
+      const cell = addCostRow.getCell(colPricingFirstType + i);
+      cell.value = store.additionalCostPerType[cabTypes[i]] || 0;
+      cell.numFmt = '$#,##0.00';
+      cell.alignment = { horizontal: 'center' };
+      cell.font = { italic: true, size: 8 };
+    }
+
+    const totalCostRow = wsCabs.addRow([]);
+    totalCostRow.getCell(colPricingTotal).value = 'Total/Type';
+    totalCostRow.getCell(colPricingTotal).font = { bold: true, italic: true, size: 8 };
+    for (let i = 0; i < nTypes; i++) {
+      const cell = totalCostRow.getCell(colPricingFirstType + i);
+      const bidAbs = `$${excelCol(colPricingFirstType + i)}$${bidCostRow.number}`;
+      const addAbs = `$${excelCol(colPricingFirstType + i)}$${addCostRow.number}`;
+      setFormula(cell, `${bidAbs}+${addAbs}`, 0);
+      cell.numFmt = '$#,##0.00';
+      cell.alignment = { horizontal: 'center' };
+      cell.font = { italic: true, size: 8 };
+    }
+
+    // Patch pricing formulas onto each SKU row now that we know the pricing input row numbers
+    for (let r = dataRangeStartRow; r <= dataRangeEndRow; r++) {
+      // Skip group rows (they have text in SKU column and no numbers elsewhere)
+      const skuVal = wsCabs.getRow(r).getCell(colSku).value;
+      if (typeof skuVal !== 'string' || skuVal.includes('(')) continue;
+
+      const partsBid: string[] = [];
+      const partsAdd: string[] = [];
+      const pricingTypeRefs: string[] = [];
+
+      for (let i = 0; i < nTypes; i++) {
+        const totalCabRef = ref(colTotalCabFirstType + i, r);
+        const bidAbs = `$${excelCol(colPricingFirstType + i)}$${bidCostRow.number}`;
+        const addAbs = `$${excelCol(colPricingFirstType + i)}$${addCostRow.number}`;
+        const totAbs = `$${excelCol(colPricingFirstType + i)}$${totalCostRow.number}`;
+
+        partsBid.push(`(${totalCabRef}*${bidAbs})`);
+        partsAdd.push(`(${totalCabRef}*${addAbs})`);
+
+        const typeCell = wsCabs.getRow(r).getCell(colPricingFirstType + i);
+        setFormula(typeCell, `${totalCabRef}*${totAbs}`, 0);
+        typeCell.numFmt = '$#,##0.00';
+
+        pricingTypeRefs.push(ref(colPricingFirstType + i, r));
+      }
+
+      const rowObj = wsCabs.getRow(r);
+      const bidCell = rowObj.getCell(colPricingBid);
+      const addCell = rowObj.getCell(colPricingAdditional);
+      const totCell = rowObj.getCell(colPricingTotal);
+      const typeTotCell = rowObj.getCell(colPricingTypeTotal);
+
+      setFormula(bidCell, partsBid.length ? partsBid.join('+') : '0', 0);
+      setFormula(addCell, partsAdd.length ? partsAdd.join('+') : '0', 0);
+      setFormula(totCell, `${ref(colPricingBid, r)}+${ref(colPricingAdditional, r)}`, 0);
+      setFormula(typeTotCell, `SUM(${pricingTypeRefs[0]}:${pricingTypeRefs[pricingTypeRefs.length - 1]})`, 0);
+
+      bidCell.numFmt = '$#,##0.00';
+      addCell.numFmt = '$#,##0.00';
+      totCell.numFmt = '$#,##0.00';
+      typeTotCell.numFmt = '$#,##0.00';
     }
 
     // ── Sheet 4: Costing ────────────────────────────────────────────
@@ -481,33 +613,52 @@ export default function PreFinalSummaryModule({ project }: Props) {
     });
     costHeader.getCell(1).alignment = { horizontal: 'left', vertical: 'bottom' };
 
-    cabTypes.forEach(t => {
-      const uc = unitCountPerType[t] || 0;
-      const cabinetCost = (store.bidCostPerType[t] || 0) * uc;
-      const additionalCost = (store.additionalCostPerType[t] || 0) * uc;
-      const handleCount = allSkus.reduce((sum, sku) => {
-        const qty = skuTypeQty[sku]?.[t] || 0;
-        const pulls = store.handleQtyPerSku[sku] || 0;
-        return sum + (qty * pulls * uc);
-      }, 0);
-      const row = wsCosting.addRow([t, uc, cabinetCost, additionalCost, handleCount, cabinetCost + additionalCost + handleCount]);
+    const pullsSumRangeForType = (typeIndex: number) => {
+      const col = colPullsFirstType + typeIndex;
+      return `${excelCol(col)}${dataRangeStartRow}:${excelCol(col)}${dataRangeEndRow}`;
+    };
+
+    cabTypes.forEach((t, i) => {
+      const row = wsCosting.addRow([t, '', '', '', '', '']);
+      const r = row.number;
+
+      // Qty references the Unit Count row in Cabinet Count sheet
+      const qtyRef = `'Cabinet Count'!${ref(colTotalCabFirstType + i, unitCountRow.number)}`;
+      setFormula(row.getCell(2), qtyRef, 0);
       row.getCell(2).alignment = { horizontal: 'center' };
+
+      // Cabinet cost = Qty * BidCost/Type (editable in Cabinet Count sheet)
+      const bidCostRef = `'Cabinet Count'!${ref(colPricingFirstType + i, bidCostRow.number)}`;
+      setFormula(row.getCell(3), `${ref(2, r)}*${bidCostRef}`, 0);
       row.getCell(3).numFmt = '$#,##0.00';
+
+      // Additional = Qty * Additional/Type
+      const addCostRef = `'Cabinet Count'!${ref(colPricingFirstType + i, addCostRow.number)}`;
+      setFormula(row.getCell(4), `${ref(2, r)}*${addCostRef}`, 0);
       row.getCell(4).numFmt = '$#,##0.00';
+
+      // Handle Cost (count) = Qty * SUM(Pulls-per-unit for this type across all SKUs)
+      const pullsSumRef = `SUM('Cabinet Count'!${pullsSumRangeForType(i)})`;
+      setFormula(row.getCell(5), `${ref(2, r)}*${pullsSumRef}`, 0);
       row.getCell(5).alignment = { horizontal: 'center' };
+
+      // Total = Cabinet + Additional + Handles
+      setFormula(row.getCell(6), `${ref(3, r)}+${ref(4, r)}+${ref(5, r)}`, 0);
       row.getCell(6).numFmt = '$#,##0.00';
     });
 
     wsCosting.addRow([]);
-    const costTotalQty = cabTypes.reduce((s, t) => s + (unitCountPerType[t] || 0), 0);
-    const costTotalCab = cabTypes.reduce((s, t) => s + ((store.bidCostPerType[t] || 0) * (unitCountPerType[t] || 0)), 0);
-    const costTotalAdditional = cabTypes.reduce((s, t) => s + ((store.additionalCostPerType[t] || 0) * (unitCountPerType[t] || 0)), 0);
-    const costTotalHandles = cabTypes.reduce((s, t) => {
-      const uc = unitCountPerType[t] || 0;
-      return s + allSkus.reduce((sum, sku) => sum + ((skuTypeQty[sku]?.[t] || 0) * (store.handleQtyPerSku[sku] || 0) * uc), 0);
-    }, 0);
-    const costTotRow = wsCosting.addRow(['TOTAL', costTotalQty, costTotalCab, costTotalAdditional, costTotalHandles, costTotalCab + costTotalAdditional + costTotalHandles]);
-    costTotRow.eachCell((cell, colNumber) => {
+    const totRow = wsCosting.addRow(['TOTAL', '', '', '', '', '']);
+    const firstCostDataRow = 3; // blank row + header row => first data row is 3
+    const lastCostDataRow = 2 + cabTypes.length; // header is row 2
+
+    setFormula(totRow.getCell(2), `SUM(B${firstCostDataRow}:B${lastCostDataRow})`, 0);
+    setFormula(totRow.getCell(3), `SUM(C${firstCostDataRow}:C${lastCostDataRow})`, 0);
+    setFormula(totRow.getCell(4), `SUM(D${firstCostDataRow}:D${lastCostDataRow})`, 0);
+    setFormula(totRow.getCell(5), `SUM(E${firstCostDataRow}:E${lastCostDataRow})`, 0);
+    setFormula(totRow.getCell(6), `SUM(F${firstCostDataRow}:F${lastCostDataRow})`, 0);
+
+    totRow.eachCell((cell, colNumber) => {
       cell.font = { bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
       if (colNumber === 2) cell.alignment = { horizontal: 'center' };
