@@ -1,10 +1,9 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Building2, ArrowLeft, Users, Layers, Wrench, Square, BarChart3, Pencil, ClipboardCheck, FileUp, X, FileText } from 'lucide-react';
+import { Building2, ArrowLeft, Users, Layers, Square, BarChart3, Pencil, ClipboardCheck, FileUp, X, FileText } from 'lucide-react';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import UnitModule from '@/components/project/UnitModule';
 import CabinetModule from '@/components/project/CabinetModule';
-import AccessoriesModule from '@/components/project/AccessoriesModule';
 import CountertopModule from '@/components/project/CountertopModule';
 import SummaryModule from '@/components/project/SummaryModule';
 import PreFinalModule from '@/components/project/PreFinalModule';
