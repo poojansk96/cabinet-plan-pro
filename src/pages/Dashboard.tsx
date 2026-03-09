@@ -322,7 +322,7 @@ export default function Dashboard() {
                   <span className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-sm bg-orange-500">⟳</span>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-0.5">
-                      <h3 className="font-semibold text-sm text-foreground">Get cabinet counts & countertop sqft instantly</h3>
+                      <h3 className="font-semibold text-sm text-foreground">Automatically calculate cabinet quantities and countertop square footage</h3>
                       <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-700">Optimizing</span>
                     </div>
                     <ul className="text-xs text-muted-foreground leading-relaxed space-y-0.5 mt-1">
