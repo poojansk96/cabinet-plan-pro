@@ -667,74 +667,70 @@ export default function PreFinalSummaryModule({ project }: Props) {
     }
 
     // ── Sheet 4: Costing ────────────────────────────────────────────
-    // Layout: BLDG | FLOOR | Unit # | ADA | UNIT TYPE NAME | MATERIAL | LABOR | TAX | Total
-    // One row per unit; unit type name written inline beside unit number (no horizontal type headers)
     const wsCosting = wb.addWorksheet('Costing');
     wsCosting.columns = [
-      { width: 12 }, // Bldg
-      { width: 12 }, // Floor
-      { width: 12 }, // Unit #
-      { width: 6 },  // ADA
-      { width: 36 }, // Unit Type Name
-      { width: 14 }, // Material
-      { width: 10 }, // Labor
-      { width: 10 }, // Tax
-      { width: 12 }, // Total
+      { width: 20 }, { width: 10 }, { width: 16 }, { width: 16 }, { width: 16 }, { width: 16 },
     ];
 
     wsCosting.addRow([]);
-    const costHeader = wsCosting.addRow(['BLDG', 'FLOOR', 'Unit#', 'ADA', 'UNIT TYPE NAME', 'MATERIAL', 'LABOR', 'TAX', 'Total']);
+    const costHeader = wsCosting.addRow(['Unit Type', 'Qty', 'Cabinet Cost', 'Additional', 'Handle Cost', 'Total']);
     styleHeader(costHeader);
     costHeader.eachCell(cell => {
       cell.alignment = { horizontal: 'center', vertical: 'bottom' };
     });
+    costHeader.getCell(1).alignment = { horizontal: 'left', vertical: 'bottom' };
 
-    const costDataStartRow = costHeader.number + 1;
-
-    // Helper: get the assigned type name(s) for a unit (joined if multiple)
-    const getUnitTypeName = (unit: PrefinalUnitNumber): string => {
-      const assigned = store.unitTypes.filter(t => unit.assignments[t]);
-      return assigned.join(' / ');
+    const pullsSumRangeForType = (typeIndex: number) => {
+      const col = colPullsFirstType + typeIndex;
+      return `${excelCol(col)}${dataRangeStartRow}:${excelCol(col)}${dataRangeEndRow}`;
     };
 
-    sortedUnits.forEach(unit => {
-      const typeName = getUnitTypeName(unit);
-      const row = wsCosting.addRow([
-        unit.bldg || '',
-        unit.floor || '',
-        unit.name,
-        '', // ADA — left blank for user to fill
-        typeName,
-        '', // Material — user fills
-        '', // Labor — user fills
-        '', // Tax — user fills
-      ]);
+    cabTypes.forEach((t, i) => {
+      const row = wsCosting.addRow([t, '', '', '', '', '']);
       const r = row.number;
-      // Total = Material + Labor + Tax
-      const totalCell = row.getCell(9);
-      totalCell.value = { formula: `F${r}+G${r}+H${r}`, result: 0 } as any;
-      totalCell.numFmt = '$#,##0.00';
+
+      // Qty references the Unit Count row in Cabinet Count sheet
+      const qtyRef = `'Cabinet Count'!${ref(colTotalCabFirstType + i, unitCountRow.number)}`;
+      setFormula(row.getCell(2), qtyRef, 0);
+      row.getCell(2).alignment = { horizontal: 'center' };
+
+      // Cabinet cost = Qty * BidCost/Type (editable in Cabinet Count sheet)
+      const bidCostRef = `'Cabinet Count'!${ref(colPricingFirstType + i, bidCostRow.number)}`;
+      setFormula(row.getCell(3), `${ref(2, r)}*${bidCostRef}`, 0);
+      row.getCell(3).numFmt = '$#,##0.00';
+
+      // Additional = Qty * Additional/Type
+      const addCostRef = `'Cabinet Count'!${ref(colPricingFirstType + i, addCostRow.number)}`;
+      setFormula(row.getCell(4), `${ref(2, r)}*${addCostRef}`, 0);
+      row.getCell(4).numFmt = '$#,##0.00';
+
+      // Handle Cost (count) = Qty * SUM(Pulls-per-unit for this type across all SKUs)
+      const pullsSumRef = `SUM('Cabinet Count'!${pullsSumRangeForType(i)})`;
+      setFormula(row.getCell(5), `${ref(2, r)}*${pullsSumRef}`, 0);
+      row.getCell(5).alignment = { horizontal: 'center' };
+
+      // Total = Cabinet + Additional + Handles
+      setFormula(row.getCell(6), `${ref(3, r)}+${ref(4, r)}+${ref(5, r)}`, 0);
       row.getCell(6).numFmt = '$#,##0.00';
-      row.getCell(7).numFmt = '$#,##0.00';
-      row.getCell(8).numFmt = '$#,##0.00';
     });
 
-    const costDataEndRow = wsCosting.lastRow?.number || costDataStartRow;
-
     wsCosting.addRow([]);
-    const costTotRow = wsCosting.addRow(['', '', `TOTAL (${sortedUnits.length})`, '', '', '', '', '', '']);
-    setFormula(costTotRow.getCell(6), `SUM(F${costDataStartRow}:F${costDataEndRow})`, 0);
-    setFormula(costTotRow.getCell(7), `SUM(G${costDataStartRow}:G${costDataEndRow})`, 0);
-    setFormula(costTotRow.getCell(8), `SUM(H${costDataStartRow}:H${costDataEndRow})`, 0);
-    setFormula(costTotRow.getCell(9), `SUM(I${costDataStartRow}:I${costDataEndRow})`, 0);
+    const costTotRow = wsCosting.addRow(['TOTAL', '', '', '', '', '']);
+    const firstCostDataRow = 3; // blank row + header row => first data row is 3
+    const lastCostDataRow = 2 + cabTypes.length; // header is row 2
+
+    setFormula(costTotRow.getCell(2), `SUM(B${firstCostDataRow}:B${lastCostDataRow})`, 0);
+    setFormula(costTotRow.getCell(3), `SUM(C${firstCostDataRow}:C${lastCostDataRow})`, 0);
+    setFormula(costTotRow.getCell(4), `SUM(D${firstCostDataRow}:D${lastCostDataRow})`, 0);
+    setFormula(costTotRow.getCell(5), `SUM(E${firstCostDataRow}:E${lastCostDataRow})`, 0);
+    setFormula(costTotRow.getCell(6), `SUM(F${firstCostDataRow}:F${lastCostDataRow})`, 0);
 
     costTotRow.eachCell((cell, colNumber) => {
       cell.font = { bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
-      if ([6, 7, 8, 9].includes(colNumber)) {
-        cell.numFmt = '$#,##0.00';
-        cell.alignment = { horizontal: 'center' };
-      }
+      if (colNumber === 2) cell.alignment = { horizontal: 'center' };
+      if ([3, 4, 6].includes(colNumber)) cell.numFmt = '$#,##0.00';
+      if (colNumber === 5) cell.alignment = { horizontal: 'center' };
     });
 
     // ── Sheet 5: Schedule of Values ─────────────────────────────────
