@@ -237,8 +237,11 @@ export default function Dashboard() {
               <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3 leading-tight">
                 Get accurate cabinet, countertop & appliance takeoffs in minutes.
               </h2>
+              <p className="text-muted-foreground text-sm md:text-base max-w-lg mx-auto leading-relaxed mb-1">
+                Auto-detect units, SKUs, appliances and countertop sqft.
+              </p>
               <p className="text-muted-foreground text-sm md:text-base max-w-lg mx-auto leading-relaxed mb-2">
-                Built to automate cabinet, countertop and appliance takeoffs from architectural plans and 2020 shop drawings — generating Excel for costing with all related accessories automatically.
+                Exports ready Excel takeoffs for costing, handles, and schedules.
               </p>
               <p className="text-xs text-muted-foreground/70 mb-6 italic">
                 Designed for multi-unit residential estimating workflows.
