@@ -311,7 +311,7 @@ export default function PreFinalModule({ project }: Props) {
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
                   style={{ background: 'hsl(var(--primary))' }}
                 >
-                  <FileUp size={12} /> Import from PDF
+                  <FileUp size={12} /> Upload 2020 floor plans
                 </button>
                 {(store.unitTypes.length > 0 || store.unitNumbers.length > 0) && (
                   <button
