@@ -144,6 +144,18 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       const page = await pdf.getPage(p);
       const pageImage = await renderPageToBase64(page);
 
+      // Extract text layer from the PDF page for cross-referencing
+      let pageText = '';
+      try {
+        const textContent = await page.getTextContent();
+        pageText = textContent.items
+          .map((item: any) => item.str)
+          .filter((s: string) => s.trim().length > 0)
+          .join(' ');
+      } catch (e) {
+        console.warn(`Text extraction failed for page ${p}:`, e);
+      }
+
       onStatus(`AI reading labels on "${file.name}" page ${p}/${pdf.numPages}…`);
 
       // Retry helper: try up to 2 times with a 5-minute timeout each attempt
@@ -179,7 +191,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         throw new Error('All attempts failed');
       };
 
-      const aiResponse = await fetchWithRetry(JSON.stringify({ pageImage, unitType }));
+      const aiResponse = await fetchWithRetry(JSON.stringify({ pageImage, unitType, pageText }));
 
       if (!aiResponse.ok) {
         const status = aiResponse.status;
