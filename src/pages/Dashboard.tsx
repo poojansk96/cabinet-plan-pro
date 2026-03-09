@@ -351,22 +351,23 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
-              <div className="grid grid-cols-4 gap-2 mt-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mt-3 mb-2">Export Options</p>
+              <div className="grid grid-cols-4 gap-2">
                 <div className="flex items-center gap-1.5 px-2 py-1.5 rounded" style={{ background: 'hsl(var(--muted) / 0.3)' }}>
-                  <span className="text-xs">📋</span>
-                  <span className="text-[10px] text-muted-foreground">Cabinet count</span>
+                  <span className="text-xs">📊</span>
+                  <span className="text-[10px] text-muted-foreground">Cabinet Count Report</span>
                 </div>
                 <div className="flex items-center gap-1.5 px-2 py-1.5 rounded" style={{ background: 'hsl(var(--muted) / 0.3)' }}>
                   <span className="text-xs">📐</span>
-                  <span className="text-[10px] text-muted-foreground">Countertop sqft</span>
+                  <span className="text-[10px] text-muted-foreground">Countertop Sqft Report</span>
                 </div>
                 <div className="flex items-center gap-1.5 px-2 py-1.5 rounded" style={{ background: 'hsl(var(--muted) / 0.3)' }}>
-                  <span className="text-xs">🏗️</span>
-                  <span className="text-[10px] text-muted-foreground">Unit type summary</span>
+                  <span className="text-xs">📋</span>
+                  <span className="text-[10px] text-muted-foreground">Unit Type Summary</span>
                 </div>
                 <div className="flex items-center gap-1.5 px-2 py-1.5 rounded" style={{ background: 'hsl(var(--muted) / 0.3)' }}>
-                  <span className="text-xs">🔩</span>
-                  <span className="text-[10px] text-muted-foreground">Hardware & pulls</span>
+                  <span className="text-xs">🔧</span>
+                  <span className="text-[10px] text-muted-foreground">Hardware & Pulls</span>
                 </div>
               </div>
             </div>
