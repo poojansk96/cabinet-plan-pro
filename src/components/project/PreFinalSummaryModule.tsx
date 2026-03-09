@@ -563,18 +563,18 @@ export default function PreFinalSummaryModule({ project }: Props) {
       cell.font = { italic: true, size: 8 };
     }
 
-    const totalCostRow = wsCabs.addRow([]);
-    totalCostRow.getCell(colPricingTotal).value = 'Total/Type';
-    totalCostRow.getCell(colPricingTotal).font = { bold: true, italic: true, size: 8 };
-    for (let i = 0; i < nTypes; i++) {
-      const cell = totalCostRow.getCell(colPricingFirstType + i);
-      const bidAbs = `$${excelCol(colPricingFirstType + i)}$${bidCostRow.number}`;
-      const addAbs = `$${excelCol(colPricingFirstType + i)}$${addCostRow.number}`;
-      setFormula(cell, `${bidAbs}+${addAbs}`, 0);
-      cell.numFmt = '$#,##0.00';
-      cell.alignment = { horizontal: 'center' };
-      cell.font = { italic: true, size: 8 };
-    }
+     const totalCostRow = wsCabs.addRow([]);
+     totalCostRow.getCell(colPricingTotal).value = 'Total/Type';
+     totalCostRow.getCell(colPricingTotal).font = { bold: true, italic: true, size: 8 };
+     for (let i = 0; i < nTypes; i++) {
+       const cell = totalCostRow.getCell(colPricingFirstType + i);
+       const bidAbs = `$${excelCol(colPricingFirstType + i)}$${bidCostRow.number}`;
+       const addAbs = `$${excelCol(colPricingFirstType + i)}$${addCostRow.number}`;
+       setFormula(cell, safeAdd(bidAbs, addAbs), 0);
+       cell.numFmt = '$#,##0.00';
+       cell.alignment = { horizontal: 'center' };
+       cell.font = { italic: true, size: 8 };
+     }
 
     // Patch pricing formulas onto each SKU row now that we know the pricing input row numbers
     for (let r = dataRangeStartRow; r <= dataRangeEndRow; r++) {
