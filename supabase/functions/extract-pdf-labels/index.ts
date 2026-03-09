@@ -276,6 +276,88 @@ Return the COMPLETE corrected list as JSON — no markdown, no explanation:
       }
     }
 
+    // ── PASS 3: Targeted hunt for commonly missed small/narrow SKUs ──
+    // Uses gemini-2.5-pro for better visual reasoning on tiny labels
+    const existingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim()));
+    const COMMONLY_MISSED = ['B09FH','B06FH','B12FH','BF3','BF6','WF3X30','WF6X30','FIL3','DWR3','DWR6','CM8','TK','TKRUN','EP','LR','SCRIBE','BP'];
+    const missingCandidates = COMMONLY_MISSED.filter(s => !existingSkus.has(s));
+
+    if (missingCandidates.length > 0 && finalItems.length > 0) {
+      const pass3Prompt = `You are an expert millwork estimator doing a FINAL careful check on a 2020 Design shop drawing PLAN VIEW page.
+
+Previous passes found these SKUs: ${[...existingSkus].join(', ')}
+
+TASK: Look at this plan view image ONE MORE TIME with extreme care. Focus ONLY on finding these SPECIFIC SKUs that may have been MISSED:
+${missingCandidates.join(', ')}
+
+These are typically:
+- B09FH, B06FH, B12FH = Very NARROW filler-head base cabinets, shown as thin/narrow rectangles on the plan. They are easy to overlook because they are so small.
+- BF3, BF6 = Base fillers — tiny narrow strips between cabinets, labeled with small text
+- WF3X30, WF6X30 = Wall fillers — small strips near wall cabinets
+- FIL3, DWR3, DWR6, CM8, TK, TKRUN, EP, LR = Small accessories
+
+INSTRUCTIONS:
+1. Scan the ENTIRE plan view carefully — especially corners, edges between cabinets, and tight spaces
+2. Look for ANY small text labels that match the SKUs listed above
+3. For each one you find, note the SKU, room, and count how many times it appears
+4. If this is an ELEVATION page (front view with dimension lines), return {"items":[]}
+5. Only report SKUs you can ACTUALLY SEE labeled on the drawing — do not guess
+
+Return ONLY the NEWLY FOUND items as JSON — no markdown, no explanation:
+{"items":[{"sku":"B09FH","type":"Base","room":"Kitchen","quantity":1}]}
+If none found, return {"items":[]}`;
+
+      try {
+        const pass3Res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ role: "user", parts: [
+                { inlineData: { mimeType: "image/jpeg", data: pageImage } },
+                { text: pass3Prompt },
+              ]}],
+              generationConfig: { temperature: 0.2, maxOutputTokens: 4096 },
+            }),
+          }
+        );
+
+        if (pass3Res.ok) {
+          const pass3Data = await pass3Res.json();
+          const pass3Content: string = pass3Data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+          console.log("Pass 3 targeted:", pass3Content.slice(0, 500));
+          try {
+            const pass3Parsed = extractJson(pass3Content);
+            const pass3Items = pass3Parsed.items ?? [];
+            if (pass3Items.length > 0) {
+              for (const item of pass3Items) {
+                const sku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+                const room = String(item?.room ?? 'Kitchen').trim();
+                if (!sku) continue;
+                // Only add genuinely new SKUs
+                const key = `${sku}|${room}`;
+                const alreadyExists = finalItems.some((e: any) => {
+                  const eKey = `${String(e?.sku ?? '').toUpperCase().trim()}|${String(e?.room ?? 'Kitchen').trim()}`;
+                  return eKey === key;
+                });
+                if (!alreadyExists) {
+                  finalItems.push(item);
+                  console.log(`Pass 3 found missed SKU: ${sku} (${room}) qty ${item.quantity}`);
+                }
+              }
+            }
+          } catch {
+            console.error("Pass 3 JSON parse failed");
+          }
+        } else {
+          console.warn("Pass 3 call failed:", pass3Res.status);
+        }
+      } catch (e) {
+        console.warn("Pass 3 error:", e);
+      }
+    }
+
     const rawItems = finalItems;
     console.log(`Final: ${rawItems.length} items`);
 
