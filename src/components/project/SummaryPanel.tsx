@@ -61,7 +61,7 @@ export default function SummaryPanel({ project, activeTab }: Props) {
           </div>
           <div className="flex items-center gap-1.5 text-[11px]" style={{ color: hasCabinets ? 'hsl(142, 71%, 35%)' : undefined }}>
             <span>{hasCabinets ? '✓' : '○'}</span>
-            <span className={hasCabinets ? '' : 'text-muted-foreground'}>{hasCabinets ? `${summary.totalCabinets} cabinets` : 'Generate cabinet takeoff'}</span>
+            <span className={hasCabinets ? '' : 'text-muted-foreground'}>{hasCabinets ? `${summary.totalCabinets} cabinets` : (isApplianceTab ? 'Generate appliance takeoff' : 'Generate cabinet takeoff')}</span>
           </div>
           <div className="flex items-center gap-1.5 text-[11px]" style={{ color: hasCountertops ? 'hsl(142, 71%, 35%)' : undefined }}>
             <span>{hasCountertops ? '✓' : '○'}</span>
