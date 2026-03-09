@@ -246,14 +246,14 @@ export default function Dashboard() {
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all"
                   style={{ background: 'hsl(var(--primary))' }}
                 >
-                  <Plus size={16} />
-                  Upload a Plan — Get a Free Takeoff
+                  <Upload size={16} />
+                  Upload Floor Plan → Generate Takeoff
                 </Link>
                 <a
                    href="#demo"
                    className="inline-flex items-center gap-2 px-5 py-3 rounded-lg text-sm font-medium border border-border text-foreground hover:bg-secondary transition-colors"
                  >
-                   ▶ See a 60-sec Demo <span className="text-[11px] text-muted-foreground">(coming soon)</span>
+                   ▶ Watch 60-Second Demo
                  </a>
               </div>
             </div>
