@@ -339,8 +339,18 @@ export default function Dashboard() {
                       <li>• Upload shop drawings, get SKU lists</li>
                       <li>• Handles complex multi-page PDFs</li>
                       <li>• Accurate even with scanned drawings</li>
+                      <li>• Counts not only units and cabinets, but also creates an automatic Excel for pulls, costing, and total cabinet counts by type with formulas.</li>
                     </ul>
                   </div>
+                </div>
+
+                <div className="est-card p-4 text-center">
+                  <p className="text-xs text-muted-foreground">
+                    Need a custom workflow? Email us at{' '}
+                    <a href="mailto:poojansk96@gmail.com" className="text-primary font-semibold hover:underline">
+                      poojansk96@gmail.com
+                    </a>
+                  </p>
                 </div>
               </div>
             </div>
