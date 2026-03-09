@@ -12,8 +12,10 @@ export default function SummaryPanel({ project, activeTab }: Props) {
   const summary = calcProjectSummary(project);
   const isUnitsTab = activeTab === 'units';
   const isCountertopsTab = activeTab === 'countertops';
-  const hideCabinets = isUnitsTab || isCountertopsTab;
-  const hideAccessories = isUnitsTab || isCountertopsTab;
+  const isApplianceTab = activeTab?.startsWith('app-');
+  const hideCabinets = isUnitsTab || isCountertopsTab || isApplianceTab;
+  const hideAccessories = isUnitsTab || isCountertopsTab || isApplianceTab;
+  const hideProjectTotals = isApplianceTab;
 
   // Accuracy / progress score
   const hasUnits = summary.totalUnits > 0;
@@ -68,18 +70,22 @@ export default function SummaryPanel({ project, activeTab }: Props) {
         </div>
       </div>
 
-      <div className="text-xs font-bold uppercase tracking-widest mb-3 text-primary">
-        Project Totals
-      </div>
+      {!hideProjectTotals && (
+        <>
+          <div className="text-xs font-bold uppercase tracking-widest mb-3 text-primary">
+            Project Totals
+          </div>
 
-      <div className="space-y-0">
-        {row('Units', summary.totalUnits)}
-        {!hideCabinets && row('Total Cabinets', summary.totalCabinets)}
-        {!hideCabinets && row('Base Cabinets', summary.totalBase)}
-        {!hideCabinets && row('Wall Cabinets', summary.totalWall)}
-        {!hideCabinets && row('Tall Cabinets', summary.totalTall)}
-        {!hideCabinets && row('Unique SKUs', summary.skuSummary.length)}
-      </div>
+          <div className="space-y-0">
+            {row('Units', summary.totalUnits)}
+            {!hideCabinets && row('Total Cabinets', summary.totalCabinets)}
+            {!hideCabinets && row('Base Cabinets', summary.totalBase)}
+            {!hideCabinets && row('Wall Cabinets', summary.totalWall)}
+            {!hideCabinets && row('Tall Cabinets', summary.totalTall)}
+            {!hideCabinets && row('Unique SKUs', summary.skuSummary.length)}
+          </div>
+        </>
+      )}
 
       {!isUnitsTab && (
         <>
