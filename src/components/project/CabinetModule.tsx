@@ -226,7 +226,7 @@ export default function CabinetModule({ project, selectedUnit, addCabinet, updat
           </TabsList>
 
           <TabsContent value="elevation" className="space-y-3">
-            <p className="text-xs text-muted-foreground">Upload architectural cabinet elevation PDFs to extract cabinets by type.</p>
+            <p className="text-xs text-muted-foreground">Upload cabinet elevation PDFs to extract cabinets by type.</p>
             <SectionControls
               sectionLabel=""
               unitTypes={unitTypes}

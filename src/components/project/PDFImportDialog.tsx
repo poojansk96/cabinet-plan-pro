@@ -453,7 +453,7 @@ export default function PDFImportDialog({ onImport, onClose, takeoffPerson }: Pr
                 onClick={() => fileRef.current?.click()}
               >
                 <FileUp size={36} className="mx-auto mb-3 text-muted-foreground" />
-                <p className="font-semibold text-sm text-foreground">Drop your architectural PDF here</p>
+                <p className="font-semibold text-sm text-foreground">Drop your PDF here</p>
                 <p className="text-xs text-muted-foreground mt-1">or click to browse</p>
                 <input ref={fileRef} type="file" accept=".pdf" className="hidden" onChange={handleFile} />
               </div>
