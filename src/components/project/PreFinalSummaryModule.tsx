@@ -734,83 +734,116 @@ export default function PreFinalSummaryModule({ project }: Props) {
     });
 
     // ── Sheet 5: Schedule of Values ─────────────────────────────────
+    // Flat format: BLDG | FLOOR | Unit# | ADA | UNIT TYPE NAME | MATERIAL | LABOR | TAX | Total
     const wsSov = wb.addWorksheet('Schedule of Values');
-    const allUnitTypes = store.unitTypes;
+
+    // Column layout (1-indexed, col A = 1)
+    // A: blank pad | B: BLDG | C: FLOOR | D: Unit# | E: ADA | F: UNIT TYPE NAME | G: MATERIAL | H: LABOR | I: TAX | J: Total
+    const sovColBldg = 2, sovColFloor = 3, sovColUnit = 4, sovColAda = 5;
+    const sovColTypeName = 6, sovColMat = 7, sovColLab = 8, sovColTax = 9, sovColTotal = 10;
+
     wsSov.columns = [
-      { width: 10 }, { width: 10 }, { width: 14 },
-      ...allUnitTypes.map(() => ({ width: 14 })),
-      { width: 14 }, // Material
-      { width: 14 }, // Labor
-      { width: 14 }, // Tax
-      { width: 14 }, // Total
+      { width: 3 },   // A blank
+      { width: 14 },  // B BLDG
+      { width: 10 },  // C FLOOR
+      { width: 12 },  // D Unit#
+      { width: 8 },   // E ADA
+      { width: 44 },  // F UNIT TYPE NAME
+      { width: 14 },  // G MATERIAL
+      { width: 10 },  // H LABOR
+      { width: 10 },  // I TAX
+      { width: 14 },  // J Total
     ];
 
+    // Row 1: blank
     wsSov.addRow([]);
-    const sovHeader = wsSov.addRow(['Bldg', 'Floor', 'Unit #', ...allUnitTypes, 'Material', 'Labor', 'Tax', 'Total']);
-    sovHeader.height = 120;
-    const matColIdx = 3 + allUnitTypes.length + 1; // 1-indexed column for Material
+
+    // Row 2: Job Name box
+    const sovJobRow = wsSov.addRow([]);
+    const sovJobCell = sovJobRow.getCell(sovColBldg);
+    sovJobCell.value = `Job Name:- ${project.name}`;
+    sovJobCell.font = { bold: true, size: 11 };
+    sovJobCell.border = allBorders;
+
+    // Row 3: blank
+    wsSov.addRow([]);
+
+    // Row 4: Schedule of Values label box
+    const sovLabelRow = wsSov.addRow([]);
+    const sovLabelCell = sovLabelRow.getCell(sovColBldg);
+    sovLabelCell.value = 'SCHEDULE OF VALUES';
+    sovLabelCell.font = { bold: true, size: 11 };
+    sovLabelCell.border = allBorders;
+
+    // Rows 5-6: blank
+    wsSov.addRow([]);
+    wsSov.addRow([]);
+
+    // Row 7: Column headers
+    const sovHeader = wsSov.addRow(['', 'BLDG', 'FLOOR', 'Unit#', 'ADA', 'UNIT TYPE NAME', 'MATERIAL', 'LABOR', 'TAX', 'Total']);
+    sovHeader.height = 30;
     sovHeader.eachCell((cell, colNumber) => {
+      if (colNumber <= 1) return;
       cell.font = { bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F0' } };
-      cell.border = { bottom: { style: 'thin', color: { argb: 'FF999999' } } };
-      cell.alignment = { vertical: 'bottom', wrapText: false };
-      if (colNumber > 3 && colNumber <= allUnitTypes.length + 3) {
-        cell.alignment = { textRotation: 90, vertical: 'bottom', horizontal: 'center' };
-      }
-      if (colNumber >= matColIdx) {
-        cell.alignment = { vertical: 'bottom', horizontal: 'center' };
-      }
+      cell.border = allBorders;
+      cell.alignment = { vertical: 'middle', horizontal: colNumber >= sovColMat ? 'center' : 'left', wrapText: false };
     });
 
-    const sovDataStartRow = 3; // row number where data starts (after blank + header)
-    sortedUnits.forEach((unit, idx) => {
-      const typeCells = allUnitTypes.map(t => unit.assignments[t] ? t : '');
-      const rowNum = sovDataStartRow + idx;
-      const matCol = String.fromCharCode(64 + matColIdx); // e.g. 'G'
-      const labCol = String.fromCharCode(64 + matColIdx + 1);
-      const taxCol = String.fromCharCode(64 + matColIdx + 2);
-      const totCol = String.fromCharCode(64 + matColIdx + 3);
-      // Material, Labor, Tax left blank; Total = SUM of those 3
-      const row = wsSov.addRow([unit.bldg || '', unit.floor || '', unit.name, ...typeCells, '', '', '']);
-      // Add formula for Total column
-      const totalCell = row.getCell(matColIdx + 3);
-      totalCell.value = { formula: `${matCol}${rowNum + 1}+${labCol}${rowNum + 1}+${taxCol}${rowNum + 1}`, result: 0 } as any;
-      totalCell.numFmt = '$#,##0.00';
+    // Freeze top 7 rows
+    wsSov.views = [{ state: 'frozen', xSplit: 0, ySplit: 7 }];
+
+    const sovDataStart = sovHeader.number + 1; // Excel row number of first data row
+
+    sortedUnits.forEach(unit => {
+      // Resolve assigned type name(s) for this unit
+      const assignedTypes = Object.entries(unit.assignments || {})
+        .filter(([, v]) => v)
+        .map(([k]) => k);
+      const unitTypeName = assignedTypes.join(' / ');
+
+      const row = wsSov.addRow([
+        '', unit.bldg || '', unit.floor || '', unit.name, '', unitTypeName, '', '', '',
+      ]);
+      const r = row.number;
+      // Total = MATERIAL + LABOR + TAX (safe)
+      row.getCell(sovColTotal).value = {
+        formula: `IFERROR(${excelCol(sovColMat)}${r}+${excelCol(sovColLab)}${r}+${excelCol(sovColTax)}${r},0)`,
+        result: 0,
+      } as any;
       row.eachCell((cell, colNumber) => {
-        if (colNumber > 3) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        if (colNumber <= 1) return;
+        cell.border = allBorders;
+        if (colNumber >= sovColMat) {
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.numFmt = '$#,##0.00';
+        }
       });
-      // Format Material/Labor/Tax as currency
-      row.getCell(matColIdx).numFmt = '$#,##0.00';
-      row.getCell(matColIdx + 1).numFmt = '$#,##0.00';
-      row.getCell(matColIdx + 2).numFmt = '$#,##0.00';
     });
 
-    wsSov.addRow([]);
-    const sovTotals = allUnitTypes.map(t => unitTypeTotal(t));
-    // Build SUM formulas for Material, Labor, Tax, Total columns
-    const dataEndRow = sovDataStartRow + sortedUnits.length; // row after last data
-    const matCol = String.fromCharCode(64 + matColIdx);
-    const labCol = String.fromCharCode(64 + matColIdx + 1);
-    const taxCol = String.fromCharCode(64 + matColIdx + 2);
-    const totCol = String.fromCharCode(64 + matColIdx + 3);
-    const firstDataExcelRow = sovDataStartRow + 1;
-    const lastDataExcelRow = sovDataStartRow + sortedUnits.length;
+    const sovDataEnd = wsSov.lastRow?.number || sovDataStart;
 
-    const sovTotRow = wsSov.addRow(['', '', `TOTAL (${store.unitNumbers.length})`, ...sovTotals, '', '', '', '']);
-    // Set SUM formulas for Material, Labor, Tax, Total in total row
-    const totExcelRow = lastDataExcelRow + 2; // +1 for blank row, +1 for this row
-    sovTotRow.getCell(matColIdx).value = { formula: `SUM(${matCol}${firstDataExcelRow}:${matCol}${lastDataExcelRow})`, result: 0 } as any;
-    sovTotRow.getCell(matColIdx + 1).value = { formula: `SUM(${labCol}${firstDataExcelRow}:${labCol}${lastDataExcelRow})`, result: 0 } as any;
-    sovTotRow.getCell(matColIdx + 2).value = { formula: `SUM(${taxCol}${firstDataExcelRow}:${taxCol}${lastDataExcelRow})`, result: 0 } as any;
-    sovTotRow.getCell(matColIdx + 3).value = { formula: `SUM(${totCol}${firstDataExcelRow}:${totCol}${lastDataExcelRow})`, result: 0 } as any;
-    sovTotRow.getCell(matColIdx).numFmt = '$#,##0.00';
-    sovTotRow.getCell(matColIdx + 1).numFmt = '$#,##0.00';
-    sovTotRow.getCell(matColIdx + 2).numFmt = '$#,##0.00';
-    sovTotRow.getCell(matColIdx + 3).numFmt = '$#,##0.00';
+    // Blank row then totals
+    wsSov.addRow([]);
+    const sovTotRow = wsSov.addRow([]);
+    sovTotRow.getCell(sovColUnit).value = `TOTAL (${sortedUnits.length})`;
+    sovTotRow.getCell(sovColUnit).font = { bold: true };
+
+    // SUM formulas for MATERIAL, LABOR, TAX, Total
+    [sovColMat, sovColLab, sovColTax, sovColTotal].forEach(col => {
+      const cell = sovTotRow.getCell(col);
+      cell.value = {
+        formula: `IFERROR(SUM(${excelCol(col)}${sovDataStart}:${excelCol(col)}${sovDataEnd}),0)`,
+        result: 0,
+      } as any;
+      cell.numFmt = '$#,##0.00';
+      cell.alignment = { horizontal: 'center' };
+    });
     sovTotRow.eachCell((cell, colNumber) => {
+      if (colNumber <= 1) return;
       cell.font = { bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
-      if (colNumber > 3) cell.alignment = { horizontal: 'center' };
+      cell.border = allBorders;
     });
 
     // Download
