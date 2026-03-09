@@ -54,10 +54,10 @@ TASK 1 — DETECT UNIT TYPE NAME (ALL PAGE TYPES):
 
 TASK 2 — EXTRACT CABINET SKUs (PLAN VIEW PAGES ONLY):
 For each cabinet SKU label on the plan view, extract:
-1. SKU exactly as written (e.g. B24, W3036, T84, VB30, BF3, WF6X30, FIL3, TKRUN96, CM8, LS36-L, DB15)
+1. SKU exactly as written (e.g. B24, W3036, T84, VB30, BF3, WF6X30, FIL3, TKRUN96, CM8, LS36-L, DB15, B09FH, BLW36/3930-L)
 2. Cabinet type by prefix:
-   BASE      → B DB SB CB EB LS LSB
-   WALL      → W UB WC OH
+   BASE      → B DB SB CB EB LS LSB (but NOT BLW/BRW — those are Wall)
+   WALL      → W UB WC OH BLW BRW (BLW = Blind Left Wall, BRW = Blind Right Wall)
    TALL      → T UT TC PT PTC UC
    VANITY    → V VB VD
    ACCESSORY → FIL BF WF BFFIL WFFIL TK TKRUN CM LR EP FP DWR
@@ -67,7 +67,8 @@ COUNTING — CRITICAL:
 - Count EVERY separate SKU label occurrence on the plan view page.
 - If "DB15" label appears in TWO different spots → quantity 2.
 - If "BF3" label appears once → quantity 1. Do NOT skip small accessories.
-- ACCESSORIES MATTER: BF3, BF6, WF3X30, WF6X30 — count every occurrence.
+- ACCESSORIES MATTER: BF3, BF6, WF3X30, WF6X30, DWR3, DWR6 — count EVERY single occurrence. These small labels are easy to miss — scan the ENTIRE plan carefully including corners, edges, and between cabinets.
+- SMALL BASE CABINETS: B09FH, B06FH, B12FH etc. — these are small filler-head base cabinets. They appear as very narrow rectangles on the plan. Do NOT skip them.
 - Corner cabinets (LS, LSB) sit at the corner where two walls meet — count only ONCE even if the label appears at the junction of two wall runs.
 - Look for "xN" or "(2)" multiplier notation.
 
@@ -79,16 +80,21 @@ STACKED / ADJACENT LABELS — CRITICAL:
 - NEVER concatenate or merge adjacent labels into a single SKU. Each distinct text string that matches a valid SKU pattern is its OWN cabinet entry.
 - If you see a cabinet outline with multiple labels near it, each label is a separate cabinet item.
 
+ELEVATION PAGE DETECTION — VERY IMPORTANT:
+- If you see cabinet DOORS and DRAWERS as tall rectangles with DIMENSION LINES showing heights (e.g. 32 7/8", 65 3/4"), this is an ELEVATION page.
+- Elevation pages show the SAME cabinets already on the plan view. Extracting from both causes DOUBLE-COUNTING.
+- When in doubt whether a page is plan view or elevation, return EMPTY items: {"unitTypeName":"<detected type>","items":[]}
+
 RULES:
-- Valid SKU: starts with a LETTER, contains at least one NUMBER (e.g. B24, BF3, DB15, W3036)
+- Valid SKU: starts with a LETTER, contains at least one NUMBER (e.g. B24, BF3, DB15, W3036, B09FH)
 - SKIP appliances: REF REFRIG DW DISHWASHER RANGE HOOD MICRO OTR OVEN
 - SKIP non-SKU text: unit numbers, unit type names, elevation titles, dimension text, page numbers, sheet references, call-out bubbles
 - Read labels EXACTLY as printed — do not invent or guess
 - If NO SKUs found → return {"unitTypeName":"<detected type or null>","items":[]}
-${unitType ? `- Unit type context: ${unitType}` : ""}
+${unitType ? \`- Unit type context: \${unitType}\` : ""}
 
 Return ONLY valid JSON — no markdown, no explanation:
-{"unitTypeName":"A1-AS","items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1},{"sku":"DB15","type":"Base","room":"Kitchen","quantity":2},{"sku":"BF3","type":"Accessory","room":"Kitchen","quantity":1}]}`;
+{"unitTypeName":"A1-AS","items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1},{"sku":"DB15","type":"Base","room":"Kitchen","quantity":2},{"sku":"BF3","type":"Accessory","room":"Kitchen","quantity":1}]}\`;
 
     let response: Response | null = null;
     const MAX_RETRIES = 3;
@@ -293,12 +299,15 @@ Return the COMPLETE corrected list as JSON — no markdown, no explanation:
         return true;
       })
       .map((c: any) => {
-        const rawType = String(c.type ?? "Base").trim();
+        const sku = String(c.sku).toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+        let rawType = String(c.type ?? "Base").trim();
+        // Force-correct BLW/BRW to Wall (Blind Left/Right Wall) — AI sometimes classifies as Base
+        if (/^BLW|^BRW/i.test(sku)) rawType = "Wall";
         const normalizedType = rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase();
         const rawRoom = String(c.room ?? "Kitchen").trim();
         const normalizedRoom = rawRoom.charAt(0).toUpperCase() + rawRoom.slice(1).toLowerCase();
         return {
-          sku: String(c.sku).toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, ''),
+          sku,
           type: normalizedType,
           room: normalizedRoom,
           quantity: Number(c.quantity) || 1,
