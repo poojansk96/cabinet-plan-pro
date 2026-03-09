@@ -334,7 +334,7 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
               className="inline-flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium border border-border text-muted-foreground hover:bg-secondary transition-colors"
             >
               <Plus size={15} />
-              Add Manually
+              Add Units Manually
             </button>
           </div>
           {/* What the AI extracts - Product explanation */}
