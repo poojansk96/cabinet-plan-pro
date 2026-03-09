@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Building2, ArrowLeft, Users, Layers, Square, BarChart3, Pencil, ClipboardCheck, FileUp, X, FileText } from 'lucide-react';
+import { Building2, ArrowLeft, Users, Layers, Square, BarChart3, Pencil, ClipboardCheck, FileUp, X, FileText, Zap } from 'lucide-react';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import UnitModule from '@/components/project/UnitModule';
 import CabinetModule from '@/components/project/CabinetModule';
@@ -11,14 +11,21 @@ import PreFinalSummaryModule from '@/components/project/PreFinalSummaryModule';
 import SummaryPanel from '@/components/project/SummaryPanel';
 import EditProjectDialog from '@/components/project/EditProjectDialog';
 import ProjectInfoModule from '@/components/project/ProjectInfoModule';
+import ApplianceModule from '@/components/project/ApplianceModule';
 
-type Tab = 'units' | 'cabinets' | 'countertops' | 'summary' | 'project-info' | 'prefinal-units' | 'prefinal-summary';
+type Tab = 'units' | 'cabinets' | 'countertops' | 'summary' | 'project-info' | 'prefinal-units' | 'prefinal-summary' | 'app-units' | 'app-takeoff' | 'app-summary';
 
-const TAKEOFF_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
+const CABINET_TAKEOFF_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'units', label: 'Units', icon: <Users size={14} /> },
   { key: 'cabinets', label: 'Cabinet Takeoff', icon: <Layers size={14} /> },
   { key: 'countertops', label: 'Countertop Takeoff', icon: <Square size={14} /> },
   { key: 'summary', label: 'Summary', icon: <BarChart3 size={14} /> },
+];
+
+const APPLIANCE_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
+  { key: 'app-units', label: 'Units', icon: <Users size={14} /> },
+  { key: 'app-takeoff', label: 'Appliance Takeoff', icon: <Zap size={14} /> },
+  { key: 'app-summary', label: 'Appliance Summary', icon: <BarChart3 size={14} /> },
 ];
 
 const PREFINAL_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
