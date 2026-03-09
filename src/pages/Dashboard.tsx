@@ -342,12 +342,12 @@ export default function Dashboard() {
                       <div className="px-2.5 py-1.5 text-foreground">{row[4]}</div>
                     </div>
                   ))}
-                  <div className="grid grid-cols-5 border-t-2" style={{ borderColor: 'hsl(var(--primary))' }}>
-                    <div className="px-2.5 py-1.5 font-bold text-foreground border-r" style={{ borderColor: 'hsl(var(--border))' }}>TOTAL</div>
-                    <div className="px-2.5 py-1.5 font-bold text-primary border-r" style={{ borderColor: 'hsl(var(--border))' }}>86</div>
-                    <div className="px-2.5 py-1.5 font-bold text-foreground border-r" style={{ borderColor: 'hsl(var(--border))' }}>38</div>
-                    <div className="px-2.5 py-1.5 font-bold text-foreground border-r" style={{ borderColor: 'hsl(var(--border))' }}>180.8</div>
-                    <div className="px-2.5 py-1.5 font-bold text-foreground">76</div>
+                  <div className="grid grid-cols-5 border-t-2" style={{ borderColor: 'hsl(var(--primary))', background: 'hsl(var(--muted) / 0.5)' }}>
+                    <div className="px-2.5 py-2 font-bold text-foreground border-r" style={{ borderColor: 'hsl(var(--border))' }}>TOTAL</div>
+                    <div className="px-2.5 py-2 font-bold text-primary border-r" style={{ borderColor: 'hsl(var(--border))' }}>86</div>
+                    <div className="px-2.5 py-2 font-bold text-foreground border-r" style={{ borderColor: 'hsl(var(--border))' }}>38</div>
+                    <div className="px-2.5 py-2 font-bold text-foreground border-r" style={{ borderColor: 'hsl(var(--border))' }}>180.8</div>
+                    <div className="px-2.5 py-2 font-bold text-foreground">76</div>
                   </div>
                 </div>
               </div>
