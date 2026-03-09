@@ -15,7 +15,6 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
-    // Accepts a single page image per call — client loops pages
     const { pageImage, scaleFactor, scaleLabel, unitType } = await req.json();
 
     if (!pageImage || typeof pageImage !== "string") {
@@ -25,12 +24,21 @@ serve(async (req) => {
       });
     }
 
-    const prompt = `You are an expert millwork estimator analyzing a cabinet ELEVATION drawing image.
+    const prompt = `You are an expert millwork estimator analyzing a cabinet ELEVATION or ENLARGED PLAN drawing image.
 
 Drawing scale: ${scaleLabel ?? `1:${scaleFactor}`}  — 1 inch on paper = ${scaleFactor} real inches.
 
-TASK:
-Look at every cabinet box visible in this elevation drawing and extract:
+TASK — TWO PARTS:
+
+**PART A — Unit Type Detection**
+Look at the drawing title block, header text, or page title. Extract the UNIT TYPE name if visible.
+Examples: "TYPE A", "UNIT 1B", "TYPE A1-AS", "TYPE C - MIRROR", "TOWNHOME A", etc.
+- Strip any "ENLARGED" or "ELEVATION" prefix — keep only the unit type identifier.
+- If this is a common-area page (LOBBY, AMENITY, CLUBHOUSE, LEASING, etc.) set unitTypeName to that area name.
+- If no unit type is identifiable, set unitTypeName to null.
+
+**PART B — Cabinet Extraction**
+Look at every cabinet box visible in this elevation or enlarged plan drawing and extract:
 1. SKU / model label (e.g. B24, W3036, T84, VB30, DB30, UB1530, etc.)
 2. Width in real-world inches — read dimension labels first, then measure the box visually and multiply by ${scaleFactor}
 3. Height in real-world inches — read from label or use default
@@ -46,13 +54,13 @@ Look at every cabinet box visible in this elevation drawing and extract:
 RULES:
 - SKIP appliances: REF REFRIG REFRIGERATOR DW DISHWASHER RANGE HOOD MICROWAVE OTR OVEN
 - A valid SKU must start with a LETTER and contain at least one number
-- If this page is a FLOOR PLAN (top-down view with no elevation), return {"cabinets":[]}
+- If this page is a FLOOR PLAN (top-down view with no elevation and no enlarged plan), return {"unitTypeName":null,"cabinets":[]}
 - If no cabinet SKUs are readable, still try to extract boxes by visual measurement and position
 - Round all dimensions to nearest whole inch
 ${unitType ? `- Unit type context: ${unitType}` : ""}
 
 Return ONLY valid JSON — no markdown fences, no explanation:
-{"cabinets":[{"sku":"B24","type":"Base","room":"Kitchen","width":24,"height":34,"depth":24,"quantity":1}]}`;
+{"unitTypeName":"Type A","cabinets":[{"sku":"B24","type":"Base","room":"Kitchen","width":24,"height":34,"depth":24,"quantity":1}]}`;
 
     let response: Response | null = null;
     const MAX_RETRIES = 3;
@@ -83,13 +91,13 @@ Return ONLY valid JSON — no markdown fences, no explanation:
         console.warn(`AI unavailable (${response.status}), attempt ${attempt + 1}/${MAX_RETRIES}:`, errText.slice(0, 200));
         response = null;
         if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
-        return new Response(JSON.stringify({ error: "AI model temporarily unavailable. Please try again in a moment.", cabinets: [] }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ error: "AI model temporarily unavailable. Please try again in a moment.", cabinets: [], unitTypeName: null }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       break;
     }
 
     if (!response) {
-      return new Response(JSON.stringify({ error: "AI model temporarily unavailable. Please try again in a moment.", cabinets: [] }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "AI model temporarily unavailable. Please try again in a moment.", cabinets: [], unitTypeName: null }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (!response.ok) {
@@ -107,7 +115,7 @@ Return ONLY valid JSON — no markdown fences, no explanation:
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      return new Response(JSON.stringify({ error: `AI error: ${response.status}`, cabinets: [] }), {
+      return new Response(JSON.stringify({ error: `AI error: ${response.status}`, cabinets: [], unitTypeName: null }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -117,9 +125,8 @@ Return ONLY valid JSON — no markdown fences, no explanation:
     const content: string = aiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
     console.log("AI raw response:", content.slice(0, 800));
 
-    let parsed: { cabinets: any[] } = { cabinets: [] };
+    let parsed: { cabinets: any[]; unitTypeName?: string | null } = { cabinets: [], unitTypeName: null };
     try {
-      // Strip markdown fences if model wraps in them
       const cleaned = content
         .replace(/^```json\s*/i, "")
         .replace(/^```\s*/i, "")
@@ -128,6 +135,17 @@ Return ONLY valid JSON — no markdown fences, no explanation:
       parsed = JSON.parse(cleaned);
     } catch {
       console.error("JSON parse failed, raw:", content.slice(0, 500));
+    }
+
+    // Normalize unitTypeName
+    let unitTypeName: string | null = parsed.unitTypeName ?? null;
+    if (unitTypeName) {
+      unitTypeName = unitTypeName.trim();
+      // Strip "TYPE " prefix for normalization but keep the rest
+      if (/^type\s+/i.test(unitTypeName)) {
+        unitTypeName = unitTypeName.replace(/^type\s+/i, "").trim();
+      }
+      if (!unitTypeName) unitTypeName = null;
     }
 
     const cabinets = (parsed.cabinets ?? [])
@@ -142,7 +160,7 @@ Return ONLY valid JSON — no markdown fences, no explanation:
         quantity: Number(c.quantity) || 1,
       }));
 
-    return new Response(JSON.stringify({ cabinets }), {
+    return new Response(JSON.stringify({ cabinets, unitTypeName }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {

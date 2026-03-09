@@ -8,11 +8,12 @@ const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ext
 interface CabinetRow extends Omit<Cabinet, 'id'> {
   selected: boolean;
   sourceFile?: string;
+  detectedUnitType?: string;
 }
 
 interface Props {
   unitType?: string;
-  onImport: (cabinets: Array<Omit<Cabinet, 'id'>>) => void;
+  onImport: (cabinets: Array<Omit<Cabinet, 'id'> & { detectedUnitType?: string }>) => void;
   onClose: () => void;
 }
 
@@ -68,7 +69,6 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
     return isNaN(n) || n <= 0 ? null : n;
   };
 
-  /** Process a single PDF file — calls edge function once per page for reliability */
   const processSingleFile = async (
     file: File,
     scaleFactor: number,
@@ -83,7 +83,6 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
     for (let p = 1; p <= pdf.numPages; p++) {
       onStatus(`Rendering "${file.name}" page ${p}/${pdf.numPages}…`);
       const page = await pdf.getPage(p);
-      // Render at 1.5× — enough for AI to read, keeps payload small
       const pageImage = await renderPageToBase64(page, 1.5);
 
       onStatus(`AI analyzing "${file.name}" page ${p}/${pdf.numPages}…`);
@@ -99,12 +98,14 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
         if (status === 429) throw new Error('rate_limit');
         if (status === 402) throw new Error('credits');
         console.warn(`Page ${p} of "${file.name}" failed (${status}), skipping`);
-        continue; // skip this page, continue with next
+        continue;
       }
 
       const data = await aiResponse.json();
       if (data.error === 'rate_limit') throw new Error('rate_limit');
       if (data.error === 'credits') throw new Error('credits');
+
+      const pageUnitType: string | undefined = data.unitTypeName ?? undefined;
 
       const pageCabinets = (data.cabinets ?? []).map((c: any) => ({
         sku: c.sku,
@@ -117,6 +118,7 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
         notes: '',
         selected: true,
         sourceFile: file.name,
+        detectedUnitType: pageUnitType,
       }));
       allCabinets.push(...pageCabinets);
     }
@@ -145,7 +147,6 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
         import.meta.url
       ).toString();
 
-      // Merge cabinets by key across all files
       const allCabinets: Record<string, CabinetRow> = {};
       let filesProcessed = 0;
 
@@ -154,7 +155,7 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
         try {
           const cabinets = await processSingleFile(file, scaleFactor, scaleLabel, pdfjsLib, setProcessingStatus);
           for (const cab of cabinets) {
-            const key = `${cab.sku}__${cab.type}__${cab.room}__${cab.width}__${cab.height}__${cab.depth}__${cab.sourceFile}`;
+            const key = `${cab.sku}__${cab.type}__${cab.room}__${cab.width}__${cab.height}__${cab.depth}__${cab.sourceFile}__${cab.detectedUnitType ?? ''}`;
             if (allCabinets[key]) {
               allCabinets[key].quantity += cab.quantity;
             } else {
@@ -171,6 +172,7 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
       }
 
       const merged = Object.values(allCabinets).sort((a, b) =>
+        (a.detectedUnitType ?? '').localeCompare(b.detectedUnitType ?? '') ||
         a.sku.localeCompare(b.sku, undefined, { numeric: true })
       );
 
@@ -219,11 +221,14 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
       setRows(prev => {
         const merged: Record<string, CabinetRow> = {};
         for (const cab of [...prev, ...newCabinets]) {
-          const key = `${cab.sku}__${cab.type}__${cab.room}__${cab.width}__${cab.height}__${cab.depth}__${cab.sourceFile}`;
+          const key = `${cab.sku}__${cab.type}__${cab.room}__${cab.width}__${cab.height}__${cab.depth}__${cab.sourceFile}__${cab.detectedUnitType ?? ''}`;
           if (merged[key]) merged[key].quantity += cab.quantity;
           else merged[key] = { ...cab };
         }
-        return Object.values(merged).sort((a, b) => a.sku.localeCompare(b.sku, undefined, { numeric: true }));
+        return Object.values(merged).sort((a, b) =>
+          (a.detectedUnitType ?? '').localeCompare(b.detectedUnitType ?? '') ||
+          a.sku.localeCompare(b.sku, undefined, { numeric: true })
+        );
       });
       setStep('review');
     } catch (err) {
@@ -274,13 +279,14 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
   };
 
   const sourceFiles = Array.from(new Set(rows.map(r => r.sourceFile ?? 'Unknown')));
+  const detectedUnitTypes = Array.from(new Set(rows.map(r => r.detectedUnitType).filter(Boolean))) as string[];
   const visibleRows = filterSource === 'all' ? rows : rows.filter(r => r.sourceFile === filterSource);
   const selectedCount = rows.filter(r => r.selected).length;
   const isCustomScale = COMMON_SCALES[selectedScaleIdx].factor === -1;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
-      <div className="bg-card rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col border border-border">
+      <div className="bg-card rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col border border-border">
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
@@ -307,7 +313,7 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
           {step === 'upload' && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Upload one or more <strong>cabinet elevation PDFs</strong>. The AI renders each page as an image, visually identifies cabinet boxes, and measures widths using your drawing scale. All files are merged into one review table.
+                Upload one or more <strong>cabinet elevation or enlarged plan PDFs</strong>. The AI renders each page as an image, detects the unit type from drawing titles, visually identifies cabinet boxes, and measures widths using your drawing scale. All files are merged into one review table grouped by unit type.
               </p>
 
               {/* Scale selector */}
@@ -345,7 +351,7 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
                 </div>
               </div>
 
-              {/* Drop zone — multiple files */}
+              {/* Drop zone */}
               <div
                 className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors ${
                   dragging ? 'border-primary bg-accent' : 'border-border hover:border-primary hover:bg-accent/50'
@@ -356,12 +362,11 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
                 onClick={() => fileRef.current?.click()}
               >
                 <FileUp size={36} className="mx-auto mb-3 text-muted-foreground" />
-                <p className="font-semibold text-sm text-foreground">Drop cabinet elevation PDFs here</p>
+                <p className="font-semibold text-sm text-foreground">Drop cabinet elevation / enlarged plan PDFs here</p>
                 <p className="text-xs text-muted-foreground mt-1">or click to browse — you can select multiple files</p>
                 <input ref={fileRef} type="file" accept=".pdf" multiple className="hidden" onChange={handleFileSelect} />
               </div>
 
-              {/* Queued file list preview */}
               {queuedFiles.length > 0 && (
                 <div className="space-y-1">
                   {queuedFiles.map((f, i) => (
@@ -384,9 +389,9 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
               <div className="text-xs text-muted-foreground bg-secondary rounded-lg p-3 border border-border space-y-1">
                 <p className="flex items-center gap-1.5">
                   <Sparkles size={11} className="text-primary flex-shrink-0" />
-                  <strong>Vision AI:</strong> Each page is rendered as a high-resolution image and analyzed by a multimodal AI — just like an estimator reading an elevation. Cabinet boxes are identified visually and widths are measured using your scale.
+                  <strong>Vision AI:</strong> Each page is rendered as a high-resolution image and analyzed by a multimodal AI — just like an estimator reading an elevation. Cabinet boxes are identified visually, widths measured using your scale, and unit types auto-detected from drawing titles.
                 </p>
-                <p>Works with <strong>any PDF</strong> including scanned drawings and CAD exports. Select all elevation sheets at once to merge them into one take-off list.</p>
+                <p>Works with <strong>any PDF</strong> including scanned drawings, CAD exports, enlarged plans, and elevations. Select all sheets at once to merge them into one take-off list grouped by unit type.</p>
               </div>
             </div>
           )}
@@ -399,7 +404,7 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
                 <Sparkles size={14} className="absolute -top-1 -right-1 text-primary" />
               </div>
               <p className="font-semibold text-sm text-center max-w-sm">{processingStatus}</p>
-              <p className="text-xs text-muted-foreground">Rendering pages and analyzing elevation drawings…</p>
+              <p className="text-xs text-muted-foreground">Rendering pages and analyzing drawings…</p>
             </div>
           )}
 
@@ -410,12 +415,16 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
                 <CheckCircle size={18} className="text-primary flex-shrink-0" />
                 <div className="flex-1 text-sm">
                   <strong className="text-foreground">{rows.length} cabinet line items detected</strong>
+                  {detectedUnitTypes.length > 0 && (
+                    <span className="text-muted-foreground ml-2">
+                      across {detectedUnitTypes.length} unit type{detectedUnitTypes.length !== 1 ? 's' : ''}: {detectedUnitTypes.join(', ')}
+                    </span>
+                  )}
                   {sourceFiles.length > 1 && (
                     <span className="text-muted-foreground ml-2">from {sourceFiles.length} files</span>
                   )}
                   <span className="text-muted-foreground ml-2">— review and edit before importing</span>
                 </div>
-                {/* Add more files button */}
                 <button
                   onClick={() => addMoreRef.current?.click()}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
@@ -463,10 +472,11 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
               </div>
 
               <div className="border border-border rounded-lg overflow-hidden overflow-x-auto">
-                <table className="est-table" style={{ whiteSpace: 'nowrap', minWidth: sourceFiles.length > 1 ? '820px' : '700px' }}>
+                <table className="est-table" style={{ whiteSpace: 'nowrap', minWidth: '850px' }}>
                   <thead>
                     <tr>
                       <th className="w-8"></th>
+                      <th>Unit Type</th>
                       <th>SKU</th>
                       <th>Type</th>
                       <th>Room</th>
@@ -489,6 +499,15 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
                               checked={row.selected}
                               onChange={e => updateRow(globalIdx, { selected: e.target.checked })}
                               className="cursor-pointer"
+                            />
+                          </td>
+                          <td>
+                            <input
+                              className="est-input text-xs w-24"
+                              value={row.detectedUnitType ?? ''}
+                              onChange={e => updateRow(globalIdx, { detectedUnitType: e.target.value || undefined })}
+                              placeholder="—"
+                              title="Detected unit type from drawing title"
                             />
                           </td>
                           <td>
