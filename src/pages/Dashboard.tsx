@@ -407,7 +407,7 @@ export default function Dashboard() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <h3 className="font-semibold text-sm text-foreground">Estimating Output (Excel)</h3>
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700">Live</span>
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background: 'hsl(142, 71%, 95%)', color: 'hsl(142, 71%, 30%)' }}>Live</span>
                       <ChevronDown size={14} className={`ml-auto text-muted-foreground transition-transform ${openFeature === 'estimating' ? 'rotate-180' : ''}`} />
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">Auto-detect every unit, floor type & building. Calculate cabinet quantities and countertop sqft instantly.</p>
