@@ -444,24 +444,36 @@ export default function PreFinalSummaryModule({ project }: Props) {
         const r = row.number;
 
         // Cabinet Total = SUM(cab type cols)
-        setFormula(row.getCell(colCabTotal), `SUM(${ref(colCabFirstType, r)}:${ref(colCabFirstType + nTypes - 1, r)})`, 0);
+        setFormula(
+          row.getCell(colCabTotal),
+          safeSum(ref(colCabFirstType, r), ref(colCabFirstType + nTypes - 1, r)),
+          0
+        );
 
-        // Pulls per type = Pulls/Cab * Cabinet Qty
+        // Pulls per type = Pulls/Cab * Cabinet Qty (safe: blank/text => 0)
         for (let i = 0; i < nTypes; i++) {
           const cabQtyCell = ref(colCabFirstType + i, r);
           const pullsPerCabCell = ref(colPullsPerCab, r);
-          setFormula(row.getCell(colPullsFirstType + i), `${pullsPerCabCell}*${cabQtyCell}`, 0);
+          setFormula(row.getCell(colPullsFirstType + i), safeMul(pullsPerCabCell, cabQtyCell), 0);
         }
         // Pulls Total = SUM(pulls type cols)
-        setFormula(row.getCell(colPullsTotal), `SUM(${ref(colPullsFirstType, r)}:${ref(colPullsFirstType + nTypes - 1, r)})`, 0);
+        setFormula(
+          row.getCell(colPullsTotal),
+          safeSum(ref(colPullsFirstType, r), ref(colPullsFirstType + nTypes - 1, r)),
+          0
+        );
 
         // Total cabinet count per type = Cabinet Qty * Unit Count (row 2)
         for (let i = 0; i < nTypes; i++) {
           const cabQtyCell = ref(colCabFirstType + i, r);
           const unitCountAbs = `$${excelCol(colTotalCabFirstType + i)}$${unitCountRow.number}`;
-          setFormula(row.getCell(colTotalCabFirstType + i), `${cabQtyCell}*${unitCountAbs}`, 0);
+          setFormula(row.getCell(colTotalCabFirstType + i), safeMul(cabQtyCell, unitCountAbs), 0);
         }
-        setFormula(row.getCell(colTotalCabGrand), `SUM(${ref(colTotalCabFirstType, r)}:${ref(colTotalCabFirstType + nTypes - 1, r)})`, 0);
+        setFormula(
+          row.getCell(colTotalCabGrand),
+          safeSum(ref(colTotalCabFirstType, r), ref(colTotalCabFirstType + nTypes - 1, r)),
+          0
+        );
 
         // Pricing (uses per-type Bid/Additional rows written after totals; formulas patched later)
         row.eachCell((cell, colNumber) => {
