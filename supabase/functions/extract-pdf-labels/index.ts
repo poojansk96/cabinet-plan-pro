@@ -6,8 +6,121 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-serve(async (req) => {
+// ── Helpers ──
 
+function extractJson(raw: string): any {
+  let cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
+  const firstBrace = cleaned.indexOf('{');
+  if (firstBrace !== -1) cleaned = cleaned.substring(firstBrace);
+  try { return JSON.parse(cleaned); } catch {}
+  // Recover truncated JSON
+  const itemsMatch = cleaned.match(/"items"\s*:\s*\[/);
+  if (itemsMatch) {
+    const arrStart = cleaned.indexOf('[', cleaned.indexOf('"items"'));
+    const lastCompleteItem = cleaned.lastIndexOf('}');
+    if (arrStart !== -1 && lastCompleteItem > arrStart) {
+      const itemsStr = cleaned.substring(arrStart, lastCompleteItem + 1) + ']';
+      const typeMatch = cleaned.match(/"unitTypeName"\s*:\s*"([^"]*?)"/);
+      const unitTypeName = typeMatch ? typeMatch[1] : null;
+      try {
+        const items = JSON.parse(itemsStr);
+        console.log(`Recovered ${items.length} items from truncated JSON`);
+        return { unitTypeName, items };
+      } catch {}
+    }
+  }
+  let attempt = cleaned;
+  for (let i = 0; i < 5; i++) {
+    attempt += ']}';
+    try { return JSON.parse(attempt); } catch {}
+  }
+  throw new Error("Could not parse JSON");
+}
+
+async function callGemini(
+  apiKey: string,
+  model: string,
+  pageImage: string,
+  prompt: string,
+  temperature = 0.1,
+  maxTokens = 8192,
+): Promise<string> {
+  const MAX_RETRIES = 3;
+  let response: Response | null = null;
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [
+              { inlineData: { mimeType: "image/jpeg", data: pageImage } },
+              { text: prompt },
+            ]}],
+            generationConfig: { temperature, maxOutputTokens: maxTokens },
+          }),
+        },
+      );
+    } catch (fetchErr) {
+      console.error(`AI fetch error (attempt ${attempt + 1}):`, fetchErr);
+      if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
+      throw fetchErr;
+    }
+
+    if (response.status === 503 || response.status === 500) {
+      console.warn(`AI unavailable (${response.status}), attempt ${attempt + 1}/${MAX_RETRIES}`);
+      response = null;
+      if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
+      throw new Error("AI model temporarily unavailable");
+    }
+    break;
+  }
+
+  if (!response) throw new Error("AI model temporarily unavailable");
+  if (response.status === 429) throw new Error("rate_limit");
+  if (response.status === 402) throw new Error("credits");
+  if (!response.ok) {
+    const errText = await response.text();
+    console.error("AI gateway error:", response.status, errText);
+    throw new Error(`AI error: ${response.status}`);
+  }
+
+  const aiData = await response.json();
+  return aiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+}
+
+// SKU patterns for text-layer extraction
+const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|UB|WC|OH|BLW|BRW|T|UT|TC|PT|PTC|UC|V|VB|VD|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR)\d[\w\-\/]*/gi;
+const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
+
+function extractSkusFromText(pageText: string): string[] {
+  if (!pageText) return [];
+  const matches = pageText.match(SKU_PATTERN) || [];
+  const skus = new Set<string>();
+  for (const m of matches) {
+    const upper = m.toUpperCase().trim();
+    if (APPLIANCE_RE.test(upper)) continue;
+    if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) continue;
+    skus.add(upper);
+  }
+  return [...skus];
+}
+
+function classifySku(sku: string): string {
+  if (/^(BLW|BRW)/i.test(sku)) return "Wall";
+  if (/^(W|UB|WC|OH)\d/i.test(sku)) return "Wall";
+  if (/^(T|UT|TC|PT|PTC|UC)\d/i.test(sku)) return "Tall";
+  if (/^(V|VB|VD)\d/i.test(sku)) return "Vanity";
+  if (/^(FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR)\d/i.test(sku)) return "Accessory";
+  return "Base";
+}
+
+// ── Main handler ──
+
+serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -16,7 +129,7 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
-    const { pageImage, unitType } = await req.json();
+    const { pageImage, unitType, pageText } = await req.json();
 
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage (base64 string) required" }), {
@@ -25,6 +138,13 @@ serve(async (req) => {
       });
     }
 
+    // ── Extract SKUs from PDF text layer (instant, no AI needed) ──
+    const textLayerSkus = extractSkusFromText(pageText ?? "");
+    if (textLayerSkus.length > 0) {
+      console.log(`Text layer found ${textLayerSkus.length} SKUs: ${textLayerSkus.join(', ')}`);
+    }
+
+    // ── PASS 1: Primary extraction with gemini-2.5-pro ──
     const prompt = `You are an expert millwork estimator reading a 2020 Design shop drawing page.
 
 These are 2020 Design software shop drawings. They contain THREE types of pages:
@@ -69,17 +189,13 @@ COUNTING — CRITICAL:
 - If "BF3" label appears once → quantity 1. Do NOT skip small accessories.
 - ACCESSORIES MATTER: BF3, BF6, WF3X30, WF6X30, DWR3, DWR6 — count EVERY single occurrence. These small labels are easy to miss — scan the ENTIRE plan carefully including corners, edges, and between cabinets.
 - FILLER-HEAD BASE CABINETS: B09FH, B06FH, B12FH — these are VERY NARROW rectangles on the plan, often only 6"-12" wide. They appear as thin slivers between larger cabinets or at the end of a run. Their labels are small and easy to overlook. ACTIVELY LOOK FOR THESE — they are commonly missed.
-- SMALL BASE CABINETS: B09FH, B06FH, B12FH etc. — these are small filler-head base cabinets. They appear as very narrow rectangles on the plan. Do NOT skip them.
 - Corner cabinets (LS, LSB) sit at the corner where two walls meet — count only ONCE even if the label appears at the junction of two wall runs.
 - Look for "xN" or "(2)" multiplier notation.
-
+${textLayerSkus.length > 0 ? `\nIMPORTANT - TEXT LAYER CROSS-REFERENCE:\nThe PDF text layer contains these SKUs: ${textLayerSkus.join(', ')}\nMake sure ALL of these appear in your extraction if they are visible as labels on the plan view. If a SKU from this list is missing from your results, look harder for it.\n` : ''}
 STACKED / ADJACENT LABELS — CRITICAL:
 - On plan views, TWO or MORE SKU labels may appear STACKED VERTICALLY or placed very close together near the SAME cabinet location. These are SEPARATE cabinets, NOT one combined SKU.
 - Example: "W1230" on one line and "VDC2430" on the next line → these are TWO different cabinets: W1230 (qty 1) AND VDC2430 (qty 1).
-- Example: "B12FH" near "LS36-R" → TWO different cabinets, not one.
-- Example: "HAUC15X82", "HCOC3082", "HCDBC15" stacked → THREE separate cabinets, each qty 1.
 - NEVER concatenate or merge adjacent labels into a single SKU. Each distinct text string that matches a valid SKU pattern is its OWN cabinet entry.
-- If you see a cabinet outline with multiple labels near it, each label is a separate cabinet item.
 
 ELEVATION PAGE DETECTION — VERY IMPORTANT:
 - If you see cabinet DOORS and DRAWERS as tall rectangles with DIMENSION LINES showing heights (e.g. 32 7/8", 65 3/4"), this is an ELEVATION page.
@@ -93,97 +209,21 @@ RULES:
 - Read labels EXACTLY as printed — do not invent or guess
 - If NO SKUs found → return {"unitTypeName":"<detected type or null>","items":[]}
 - FINAL SWEEP: After your initial scan, go back and specifically look for these commonly missed SKUs: B09FH, B06FH, B12FH, BF3, BF6, WF3X30, WF6X30, DWR3, DWR6. They appear as very small labels on narrow cabinet shapes. If you find any you missed, add them.
-${unitType ? \`- Unit type context: \${unitType}\` : ""}
+${unitType ? `- Unit type context: ${unitType}` : ""}
 
 Return ONLY valid JSON — no markdown, no explanation:
-{"unitTypeName":"A1-AS","items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1},{"sku":"DB15","type":"Base","room":"Kitchen","quantity":2},{"sku":"BF3","type":"Accessory","room":"Kitchen","quantity":1},{"sku":"B09FH","type":"Base","room":"Kitchen","quantity":1}]}\`;
+{"unitTypeName":"A1-AS","items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1},{"sku":"DB15","type":"Base","room":"Kitchen","quantity":2},{"sku":"BF3","type":"Accessory","room":"Kitchen","quantity":1},{"sku":"B09FH","type":"Base","room":"Kitchen","quantity":1}]}`;
 
-    let response: Response | null = null;
-    const MAX_RETRIES = 3;
-    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-      try {
-        response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${GEMINI_API_KEY}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ role: "user", parts: [
-                { inlineData: { mimeType: "image/jpeg", data: pageImage } },
-                { text: prompt },
-              ]}],
-              generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
-            }),
-          }
-        );
-      } catch (fetchErr) {
-        console.error(`AI fetch error (attempt ${attempt + 1}):`, fetchErr);
-        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
-        throw fetchErr;
-      }
-
-      if (response.status === 503 || response.status === 500) {
-        const errText = await response.text();
-        console.warn(`AI unavailable (${response.status}), attempt ${attempt + 1}/${MAX_RETRIES}:`, errText.slice(0, 200));
-        response = null;
-        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
-        return new Response(JSON.stringify({ error: "AI model temporarily unavailable. Please try again in a moment.", items: [] }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-      break;
+    let content = "";
+    try {
+      content = await callGemini(GEMINI_API_KEY, "gemini-2.5-pro", pageImage, prompt, 0.1, 8192);
+    } catch (e: any) {
+      if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: e.message, items: [] }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    if (!response) {
-      return new Response(JSON.stringify({ error: "AI model temporarily unavailable. Please try again in a moment.", items: [] }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("AI gateway error:", response.status, errText);
-      if (response.status === 429) return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      if (response.status === 402) return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      return new Response(JSON.stringify({ error: `AI error: ${response.status}`, items: [] }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    const aiData = await response.json();
-    const content: string = aiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
     console.log("AI Pass 1 raw:", content.slice(0, 800));
-
-    function extractJson(raw: string): any {
-      let cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
-      // Find the FIRST top-level '{' that starts the JSON object
-      const firstBrace = cleaned.indexOf('{');
-      if (firstBrace !== -1) {
-        cleaned = cleaned.substring(firstBrace);
-      }
-      // Try parsing as-is first
-      try { return JSON.parse(cleaned); } catch {}
-      // If truncated, try to recover: close any open arrays/objects
-      // Find "items" array and extract whatever items we got
-      const itemsMatch = cleaned.match(/"items"\s*:\s*\[/);
-      if (itemsMatch) {
-        const arrStart = cleaned.indexOf('[', cleaned.indexOf('"items"'));
-        // Find the last complete item (ending with })
-        const lastCompleteItem = cleaned.lastIndexOf('}');
-        if (arrStart !== -1 && lastCompleteItem > arrStart) {
-          const itemsStr = cleaned.substring(arrStart, lastCompleteItem + 1) + ']';
-          // Extract unitTypeName if present
-          const typeMatch = cleaned.match(/"unitTypeName"\s*:\s*"([^"]*?)"/);
-          const unitTypeName = typeMatch ? typeMatch[1] : null;
-          try {
-            const items = JSON.parse(itemsStr);
-            console.log(`Recovered ${items.length} items from truncated JSON`);
-            return { unitTypeName, items };
-          } catch {}
-        }
-      }
-      // Last resort: try closing braces
-      let attempt = cleaned;
-      for (let i = 0; i < 5; i++) {
-        attempt += ']}';
-        try { return JSON.parse(attempt); } catch {}
-      }
-      throw new Error("Could not parse JSON");
-    }
 
     let parsed: { items: any[]; unitTypeName?: string | null } = { items: [] };
     try { parsed = extractJson(content); } catch { console.error("Pass 1 JSON parse failed:", content.slice(0, 500)); }
@@ -192,184 +232,146 @@ Return ONLY valid JSON — no markdown, no explanation:
     const pass1Items = parsed.items ?? [];
     console.log(`Pass 1: ${pass1Items.length} items, unitType: ${detectedUnitType}`);
 
-    // ── PASS 2: Verification — re-examine image to catch missed SKUs ──
-    // IMPORTANT: never replace Pass 1 entirely, because Pass 2 can miss labels.
-    // Merge both passes and keep the higher quantity per SKU+room.
+    // ── PASS 2: Verification with gemini-2.5-flash (FAST) ──
     let finalItems = pass1Items;
     if (pass1Items.length > 0) {
       const verifyPrompt = `You are an expert millwork estimator doing a SECOND verification pass on a 2020 Design shop drawing PLAN VIEW page.
 
 Pass 1 found these cabinet SKUs:
 ${JSON.stringify(pass1Items)}
-
+${textLayerSkus.length > 0 ? `\nThe PDF text layer contains these SKUs: ${textLayerSkus.join(', ')}\nAny SKU from this text list that is NOT in Pass 1 results is likely MISSED — look carefully for it.\n` : ''}
 Your job: Look at the SAME image again VERY carefully and check for:
-1. MISSED SKUs — any cabinet label visible on the plan view that is NOT in the list above. Pay special attention to small accessories like BF3, BF6, WF3X30, WF6X30, FIL3, TK, CM, LR, EP.
-2. WRONG quantities — if a SKU label appears multiple times in different locations, the quantity should match the number of occurrences (e.g. DB15 appearing twice = quantity 2).
+1. MISSED SKUs — any cabinet label visible on the plan view that is NOT in the list above. Pay special attention to: B09FH, B06FH, B12FH, BF3, BF6, WF3X30, WF6X30, FIL3, TK, CM, LR, EP, DWR3, DWR6.
+2. WRONG quantities — if a SKU label appears multiple times in different locations, the quantity should match the number of occurrences.
 3. FALSE entries — any SKU in the list that does NOT actually appear as a label on this page.
 
 IMPORTANT:
 - Only extract from PLAN VIEW (top-down) pages. If this is an elevation (front view), return {"items":[]}.
 - SKIP appliances (REF, DW, RANGE, HOOD, MICRO, OTR, OVEN, etc.)
 - Read labels EXACTLY as printed.
-- Corner cabinets (LS, LSB): count only ONCE even if at junction of two walls.
-- STACKED LABELS: If multiple SKU labels appear stacked vertically or adjacent near one cabinet location (e.g. "W1230" above "VDC2430", or "HAUC15X82" / "HCOC3082" / "HCDBC15"), each is a SEPARATE cabinet entry. NEVER merge them into one SKU.
+- STACKED LABELS: Each is a SEPARATE cabinet entry. NEVER merge them.
 
 Return the COMPLETE corrected list as JSON — no markdown, no explanation:
 {"items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1}]}`;
 
       try {
-        const verifyRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${GEMINI_API_KEY}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ role: "user", parts: [
-                { inlineData: { mimeType: "image/jpeg", data: pageImage } },
-                { text: verifyPrompt },
-              ]}],
-              generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
-            }),
-          }
-        );
-
-        if (verifyRes.ok) {
-          const verifyData = await verifyRes.json();
-          const verifyContent: string = verifyData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-          console.log("Pass 2 verify:", verifyContent.slice(0, 800));
-          try {
-            const verifyParsed = extractJson(verifyContent);
-            const pass2Items = verifyParsed.items ?? [];
-            if (pass2Items.length > 0) {
-              const mergedByKey = new Map<string, any>();
-              for (const item of pass1Items) {
-                const sku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
-                const room = String(item?.room ?? 'Kitchen').trim();
-                if (!sku) continue;
-                mergedByKey.set(`${sku}|${room}`, item);
-              }
-              for (const item of pass2Items) {
-                const sku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
-                const room = String(item?.room ?? 'Kitchen').trim();
-                if (!sku) continue;
-                const key = `${sku}|${room}`;
-                const existing = mergedByKey.get(key);
-                if (!existing) {
-                  mergedByKey.set(key, item);
-                  continue;
-                }
-                mergedByKey.set(key, {
-                  ...existing,
-                  ...item,
-                  quantity: Math.max(Number(existing.quantity) || 1, Number(item.quantity) || 1),
-                });
-              }
-              finalItems = Array.from(mergedByKey.values());
-              console.log(`Pass 2 merge: pass1=${pass1Items.length}, pass2=${pass2Items.length}, final=${finalItems.length}`);
+        // Use flash for speed — Pass 1 already used pro for accuracy
+        const verifyContent = await callGemini(GEMINI_API_KEY, "gemini-2.5-flash", pageImage, verifyPrompt, 0.1, 8192);
+        console.log("Pass 2 verify:", verifyContent.slice(0, 800));
+        try {
+          const verifyParsed = extractJson(verifyContent);
+          const pass2Items = verifyParsed.items ?? [];
+          if (pass2Items.length > 0) {
+            const mergedByKey = new Map<string, any>();
+            for (const item of pass1Items) {
+              const sku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+              const room = String(item?.room ?? 'Kitchen').trim();
+              if (!sku) continue;
+              mergedByKey.set(`${sku}|${room}`, item);
             }
-          } catch {
-            console.error("Pass 2 JSON parse failed, using Pass 1");
+            for (const item of pass2Items) {
+              const sku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+              const room = String(item?.room ?? 'Kitchen').trim();
+              if (!sku) continue;
+              const key = `${sku}|${room}`;
+              const existing = mergedByKey.get(key);
+              if (!existing) {
+                mergedByKey.set(key, item);
+                continue;
+              }
+              mergedByKey.set(key, {
+                ...existing,
+                ...item,
+                quantity: Math.max(Number(existing.quantity) || 1, Number(item.quantity) || 1),
+              });
+            }
+            finalItems = Array.from(mergedByKey.values());
+            console.log(`Pass 2 merge: pass1=${pass1Items.length}, pass2=${pass2Items.length}, final=${finalItems.length}`);
           }
-        } else {
-          console.warn("Pass 2 call failed:", verifyRes.status);
+        } catch {
+          console.error("Pass 2 JSON parse failed, using Pass 1");
         }
       } catch (e) {
-        console.warn("Pass 2 error, using Pass 1:", e);
+        console.log("Pass 2 error, using Pass 1:", e);
       }
     }
 
-    // ── PASS 3: Targeted hunt for commonly missed small/narrow SKUs ──
-    // Uses gemini-2.5-pro for better visual reasoning on tiny labels
-    const existingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim()));
+    // ── PASS 3: Text-layer cross-reference — add SKUs found in text but missed by vision ──
+    const existingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '')));
+    const textOnlySkus = textLayerSkus.filter(s => !existingSkus.has(s));
+
+    if (textOnlySkus.length > 0 && finalItems.length > 0) {
+      console.log(`Text cross-ref: ${textOnlySkus.length} SKUs in text but missing from AI: ${textOnlySkus.join(', ')}`);
+      // These are SKUs the PDF text layer says exist but AI vision missed.
+      // Add them with quantity 1 — the text layer confirms they're on this page.
+      for (const sku of textOnlySkus) {
+        const type = classifySku(sku);
+        finalItems.push({ sku, type, room: "Kitchen", quantity: 1 });
+        console.log(`Text cross-ref added: ${sku} (${type})`);
+      }
+    }
+
+    // ── PASS 4: Targeted hunt for commonly missed SKUs (fast, uses flash) ──
+    const updatedExistingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim()));
     const COMMONLY_MISSED = ['B09FH','B06FH','B12FH','BF3','BF6','WF3X30','WF6X30','FIL3','DWR3','DWR6','CM8','TK','TKRUN','EP','LR','SCRIBE','BP'];
-    const missingCandidates = COMMONLY_MISSED.filter(s => !existingSkus.has(s));
+    const missingCandidates = COMMONLY_MISSED.filter(s => !updatedExistingSkus.has(s));
 
     if (missingCandidates.length > 0 && finalItems.length > 0) {
-      const pass3Prompt = `You are an expert millwork estimator doing a FINAL careful check on a 2020 Design shop drawing PLAN VIEW page.
+      console.log(`Pass 4 hunting for: ${missingCandidates.join(', ')}`);
+      const pass4Prompt = `You are an expert millwork estimator doing a FINAL careful check on a 2020 Design shop drawing PLAN VIEW page.
 
-Previous passes found these SKUs: ${[...existingSkus].join(', ')}
+Previous passes found these SKUs: ${[...updatedExistingSkus].join(', ')}
 
-TASK: Look at this plan view image ONE MORE TIME with extreme care. Focus ONLY on finding these SPECIFIC SKUs that may have been MISSED:
+TASK: Look at this plan view image ONE MORE TIME. Focus ONLY on finding these SPECIFIC SKUs that may have been MISSED:
 ${missingCandidates.join(', ')}
 
 These are typically:
-- B09FH, B06FH, B12FH = Very NARROW filler-head base cabinets, shown as thin/narrow rectangles on the plan. They are easy to overlook because they are so small.
-- BF3, BF6 = Base fillers — tiny narrow strips between cabinets, labeled with small text
+- B09FH, B06FH, B12FH = Very NARROW filler-head base cabinets (6"-12" wide), shown as thin slivers
+- BF3, BF6 = Base fillers — tiny narrow strips between cabinets
 - WF3X30, WF6X30 = Wall fillers — small strips near wall cabinets
 - FIL3, DWR3, DWR6, CM8, TK, TKRUN, EP, LR = Small accessories
 
-INSTRUCTIONS:
-1. Scan the ENTIRE plan view carefully — especially corners, edges between cabinets, and tight spaces
-2. Look for ANY small text labels that match the SKUs listed above
-3. For each one you find, note the SKU, room, and count how many times it appears
-4. If this is an ELEVATION page (front view with dimension lines), return {"items":[]}
-5. Only report SKUs you can ACTUALLY SEE labeled on the drawing — do not guess
+If this is an ELEVATION page, return {"items":[]}.
+Only report SKUs you can ACTUALLY SEE — do not guess.
 
-Return ONLY the NEWLY FOUND items as JSON — no markdown, no explanation:
+Return ONLY NEWLY FOUND items as JSON — no markdown:
 {"items":[{"sku":"B09FH","type":"Base","room":"Kitchen","quantity":1}]}
 If none found, return {"items":[]}`;
 
       try {
-        const pass3Res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${GEMINI_API_KEY}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ role: "user", parts: [
-                { inlineData: { mimeType: "image/jpeg", data: pageImage } },
-                { text: pass3Prompt },
-              ]}],
-              generationConfig: { temperature: 0.2, maxOutputTokens: 4096 },
-            }),
-          }
-        );
-
-        if (pass3Res.ok) {
-          const pass3Data = await pass3Res.json();
-          const pass3Content: string = pass3Data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-          console.log("Pass 3 targeted:", pass3Content.slice(0, 500));
-          try {
-            const pass3Parsed = extractJson(pass3Content);
-            const pass3Items = pass3Parsed.items ?? [];
-            if (pass3Items.length > 0) {
-              for (const item of pass3Items) {
-                const sku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
-                const room = String(item?.room ?? 'Kitchen').trim();
-                if (!sku) continue;
-                // Only add genuinely new SKUs
-                const key = `${sku}|${room}`;
-                const alreadyExists = finalItems.some((e: any) => {
-                  const eKey = `${String(e?.sku ?? '').toUpperCase().trim()}|${String(e?.room ?? 'Kitchen').trim()}`;
-                  return eKey === key;
-                });
-                if (!alreadyExists) {
-                  finalItems.push(item);
-                  console.log(`Pass 3 found missed SKU: ${sku} (${room}) qty ${item.quantity}`);
-                }
-              }
+        // Use flash for speed since we already spent time budget on pro
+        const pass4Content = await callGemini(GEMINI_API_KEY, "gemini-2.5-flash", pageImage, pass4Prompt, 0.2, 4096);
+        console.log("Pass 4 targeted:", pass4Content.slice(0, 500));
+        try {
+          const pass4Parsed = extractJson(pass4Content);
+          const pass4Items = pass4Parsed.items ?? [];
+          for (const item of pass4Items) {
+            const sku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+            const room = String(item?.room ?? 'Kitchen').trim();
+            if (!sku) continue;
+            const key = `${sku}|${room}`;
+            const alreadyExists = finalItems.some((e: any) => {
+              const eKey = `${String(e?.sku ?? '').toUpperCase().trim()}|${String(e?.room ?? 'Kitchen').trim()}`;
+              return eKey === key;
+            });
+            if (!alreadyExists) {
+              finalItems.push(item);
+              console.log(`Pass 4 found: ${sku} (${room}) qty ${item.quantity}`);
             }
-          } catch {
-            console.error("Pass 3 JSON parse failed");
           }
-        } else {
-          console.warn("Pass 3 call failed:", pass3Res.status);
+        } catch {
+          console.error("Pass 4 JSON parse failed");
         }
       } catch (e) {
-        console.warn("Pass 3 error:", e);
+        console.log("Pass 4 error:", e);
       }
     }
 
-    const rawItems = finalItems;
-    console.log(`Final: ${rawItems.length} items`);
+    console.log(`Final: ${finalItems.length} items`);
 
-    // Filter: must start with letter AND contain a number (real SKU, not labels/titles)
-    // Appliance prefixes to reject
-    const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
-
-    // SKUs that are valid even without digits
+    // ── Normalize and filter ──
     const NO_DIGIT_OK = /^(BP|SCRIBE)$/i;
-    const items = (rawItems)
+    const items = (finalItems)
       .filter((c: any) => c.sku && /^[A-Za-z]/.test(c.sku) && (/\d/.test(c.sku) || NO_DIGIT_OK.test(String(c.sku).trim())))
       .filter((c: any) => {
         const upper = String(c.sku).toUpperCase().trim();
@@ -385,21 +387,14 @@ If none found, return {"items":[]}`;
       .map((c: any) => {
         const sku = String(c.sku).toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
         let rawType = String(c.type ?? "Base").trim();
-        // Force-correct BLW/BRW to Wall (Blind Left/Right Wall) — AI sometimes classifies as Base
         if (/^BLW|^BRW/i.test(sku)) rawType = "Wall";
         const normalizedType = rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase();
         const rawRoom = String(c.room ?? "Kitchen").trim();
         const normalizedRoom = rawRoom.charAt(0).toUpperCase() + rawRoom.slice(1).toLowerCase();
-        return {
-          sku,
-          type: normalizedType,
-          room: normalizedRoom,
-          quantity: Number(c.quantity) || 1,
-        };
+        return { sku, type: normalizedType, room: normalizedRoom, quantity: Number(c.quantity) || 1 };
       });
 
-    // Deduplicate by SKU+room.
-    // Corner Lazy Susan SKUs (LS/LSB) appear on two adjacent elevations for one cabinet — use max.
+    // Deduplicate
     const isCornerLazySusan = (sku: string) => /^(LS|LSB)\d+/i.test(sku);
     const deduped = new Map<string, { sku: string; type: string; room: string; quantity: number }>();
     for (const item of items) {
