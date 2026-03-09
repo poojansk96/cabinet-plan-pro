@@ -278,26 +278,26 @@ export default function Dashboard() {
             </div>
 
             {/* Product Flow Visual */}
-            <div className="est-card p-5 mb-6 text-center" style={{ background: 'hsl(var(--primary) / 0.03)' }}>
-              <div className="flex items-center justify-center gap-3 flex-wrap">
-                <div className="flex flex-col items-center gap-1.5">
-                  <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>📄</div>
-                  <span className="text-[11px] text-muted-foreground font-medium">Upload PDF</span>
+            <div className="est-card p-6 mb-6 text-center" style={{ background: 'hsl(var(--primary) / 0.03)' }}>
+              <div className="flex items-center justify-center gap-4 flex-wrap">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-16 h-16 rounded-xl flex items-center justify-center text-3xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>📄</div>
+                  <span className="text-xs text-muted-foreground font-medium">Upload PDF</span>
                 </div>
-                <ArrowRight size={20} className="text-primary" />
-                <div className="flex flex-col items-center gap-1.5">
-                  <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>⚙️</div>
-                  <span className="text-[11px] text-muted-foreground font-medium">Custom Engine</span>
+                <ArrowRight size={24} className="text-primary" />
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-16 h-16 rounded-xl flex items-center justify-center text-3xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>⚙️</div>
+                  <span className="text-xs text-muted-foreground font-medium">Custom Engine</span>
                 </div>
-                <ArrowRight size={20} className="text-primary" />
-                <div className="flex flex-col items-center gap-1.5">
-                  <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>🤖</div>
-                  <span className="text-[11px] text-muted-foreground font-medium">AI Extracts</span>
+                <ArrowRight size={24} className="text-primary" />
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-16 h-16 rounded-xl flex items-center justify-center text-3xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>🤖</div>
+                  <span className="text-xs text-muted-foreground font-medium">AI Extracts</span>
                 </div>
-                <ArrowRight size={20} className="text-primary" />
-                <div className="flex flex-col items-center gap-1.5">
-                  <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>📊</div>
-                  <span className="text-[11px] text-muted-foreground font-medium">Full Takeoff</span>
+                <ArrowRight size={24} className="text-primary" />
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-16 h-16 rounded-xl flex items-center justify-center text-3xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>📊</div>
+                  <span className="text-xs text-muted-foreground font-medium">Full Takeoff</span>
                 </div>
               </div>
             </div>
