@@ -346,7 +346,7 @@ export default function Dashboard() {
 
                 <div className="est-card p-4 text-center">
                   <p className="text-xs text-muted-foreground">
-                    Need a custom workflow? Email us at{' '}
+                    Developed by Poojan K. — for any queries, email at{' '}
                     <a href="mailto:poojansk96@gmail.com" className="text-primary font-semibold hover:underline">
                       poojansk96@gmail.com
                     </a>
