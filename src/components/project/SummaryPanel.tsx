@@ -34,7 +34,7 @@ export default function SummaryPanel({ project, activeTab }: Props) {
       {/* Quick Insights */}
       <div className="rounded-lg p-3 mb-4 border" style={{ borderColor: 'hsl(var(--border))', background: 'hsl(var(--accent))' }}>
         <div className="text-[10px] font-bold uppercase tracking-widest mb-2 text-primary">
-          Completion
+          Project Setup
         </div>
         <div className="flex items-center gap-2 mb-2">
           <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'hsl(var(--border))' }}>
