@@ -337,26 +337,51 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
               Add Manually
             </button>
           </div>
-          <div className="rounded-xl border border-primary/20 px-5 py-3.5 text-left max-w-xs mx-auto" style={{ background: 'hsl(var(--primary) / 0.05)' }}>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-primary mb-2">Auto-detects:</p>
-            <ul className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-              <li className="flex items-center gap-1.5 text-[11px] font-medium text-foreground">
-                <span className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0" style={{ background: 'hsl(var(--primary))' }}>✓</span>
-                Units &amp; types
-              </li>
-              <li className="flex items-center gap-1.5 text-[11px] font-medium text-foreground">
-                <span className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0" style={{ background: 'hsl(var(--primary))' }}>✓</span>
-                Cabinet SKUs
-              </li>
-              <li className="flex items-center gap-1.5 text-[11px] font-medium text-foreground">
-                <span className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0" style={{ background: 'hsl(var(--primary))' }}>✓</span>
-                Countertop sqft
-              </li>
-              <li className="flex items-center gap-1.5 text-[11px] font-medium text-foreground">
-                <span className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0" style={{ background: 'hsl(var(--primary))' }}>✓</span>
-                Cabinet counts
-              </li>
-            </ul>
+          {/* What the AI extracts - Product explanation */}
+          <div className="rounded-xl border border-border px-6 py-5 text-left max-w-md mx-auto" style={{ background: 'hsl(var(--muted) / 0.3)' }}>
+            <h4 className="text-sm font-bold text-foreground mb-4 text-center">What the AI Extracts</h4>
+            <div className="grid grid-cols-2 gap-5">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-primary mb-2.5 flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded flex items-center justify-center text-[10px]" style={{ background: 'hsl(var(--primary) / 0.15)' }}>🔍</span>
+                  Automatically Detects
+                </p>
+                <ul className="space-y-1.5">
+                  <li className="flex items-center gap-1.5 text-[11px] text-foreground">
+                    <span className="text-primary">•</span> Unit count and types
+                  </li>
+                  <li className="flex items-center gap-1.5 text-[11px] text-foreground">
+                    <span className="text-primary">•</span> Cabinet types and SKUs
+                  </li>
+                  <li className="flex items-center gap-1.5 text-[11px] text-foreground">
+                    <span className="text-primary">•</span> Cabinet quantities
+                  </li>
+                  <li className="flex items-center gap-1.5 text-[11px] text-foreground">
+                    <span className="text-primary">•</span> Countertop square footage
+                  </li>
+                  <li className="flex items-center gap-1.5 text-[11px] text-foreground">
+                    <span className="text-primary">•</span> Cabinet counts per unit
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-green-600 mb-2.5 flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded flex items-center justify-center text-[10px]" style={{ background: 'hsl(142 71% 45% / 0.15)' }}>📊</span>
+                  Export Options
+                </p>
+                <ul className="space-y-1.5">
+                  <li className="flex items-center gap-1.5 text-[11px] text-foreground">
+                    <span className="text-green-600">•</span> Excel takeoff sheets
+                  </li>
+                  <li className="flex items-center gap-1.5 text-[11px] text-foreground">
+                    <span className="text-green-600">•</span> Cabinet schedules
+                  </li>
+                  <li className="flex items-center gap-1.5 text-[11px] text-foreground">
+                    <span className="text-green-600">•</span> Quantity summaries
+                  </li>
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
       ) : (
