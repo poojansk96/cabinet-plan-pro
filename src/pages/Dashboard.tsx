@@ -358,24 +358,16 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mt-3 mb-2">Export Options</p>
-              <div className="grid grid-cols-4 gap-2">
-                <div className="flex items-center gap-1.5 px-2 py-1.5 rounded" style={{ background: 'hsl(var(--muted) / 0.3)' }}>
-                  <span className="text-xs">📊</span>
-                  <span className="text-[10px] text-muted-foreground">Cabinet Count Report</span>
-                </div>
-                <div className="flex items-center gap-1.5 px-2 py-1.5 rounded" style={{ background: 'hsl(var(--muted) / 0.3)' }}>
-                  <span className="text-xs">📐</span>
-                  <span className="text-[10px] text-muted-foreground">Countertop Sqft Report</span>
-                </div>
-                <div className="flex items-center gap-1.5 px-2 py-1.5 rounded" style={{ background: 'hsl(var(--muted) / 0.3)' }}>
-                  <span className="text-xs">📋</span>
-                  <span className="text-[10px] text-muted-foreground">Unit Type Summary</span>
-                </div>
-                <div className="flex items-center gap-1.5 px-2 py-1.5 rounded" style={{ background: 'hsl(var(--muted) / 0.3)' }}>
-                  <span className="text-xs">🔧</span>
-                  <span className="text-[10px] text-muted-foreground">Hardware & Pulls</span>
-                </div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mt-3 mb-2">Sample Downloads</p>
+              <div className="grid grid-cols-2 gap-2">
+                <a href="#" className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:bg-secondary transition-colors">
+                  <div className="w-4 h-4 rounded-sm flex items-center justify-center text-[8px] font-bold text-white" style={{ background: 'hsl(142, 71%, 40%)' }}>X</div>
+                  <span className="text-[11px] font-medium text-foreground">Download Sample Excel — Cabinet Takeoff</span>
+                </a>
+                <a href="#" className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:bg-secondary transition-colors">
+                  <span className="text-xs">📄</span>
+                  <span className="text-[11px] font-medium text-foreground">Download Sample PDF — Unit Summary</span>
+                </a>
               </div>
               <p className="text-[10px] text-muted-foreground/60 italic text-center mt-3">Generated automatically from uploaded architectural plans and 2020 shop drawings.</p>
             </div>
