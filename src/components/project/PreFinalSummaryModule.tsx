@@ -495,15 +495,19 @@ export default function PreFinalSummaryModule({ project }: Props) {
     const cabTotRow = wsCabs.addRow([]);
     cabTotRow.getCell(colSku).value = `TOTAL (${allSkus.length})`;
 
-    // Cabinet section totals
-    for (let i = 0; i < nTypes; i++) {
-      setFormula(
-        cabTotRow.getCell(colCabFirstType + i),
-        `SUM(${excelCol(colCabFirstType + i)}${dataRangeStartRow}:${excelCol(colCabFirstType + i)}${dataRangeEndRow})`,
-        0
-      );
-    }
-    setFormula(cabTotRow.getCell(colCabTotal), `SUM(${excelCol(colCabTotal)}${dataRangeStartRow}:${excelCol(colCabTotal)}${dataRangeEndRow})`, 0);
+     // Cabinet section totals
+     for (let i = 0; i < nTypes; i++) {
+       setFormula(
+         cabTotRow.getCell(colCabFirstType + i),
+         safeSumColRange(excelCol(colCabFirstType + i), dataRangeStartRow, dataRangeEndRow),
+         0
+       );
+     }
+     setFormula(
+       cabTotRow.getCell(colCabTotal),
+       safeSumColRange(excelCol(colCabTotal), dataRangeStartRow, dataRangeEndRow),
+       0
+     );
 
     // Pulls section totals
     for (let i = 0; i < nTypes; i++) {
