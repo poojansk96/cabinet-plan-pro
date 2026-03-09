@@ -299,12 +299,15 @@ Return the COMPLETE corrected list as JSON — no markdown, no explanation:
         return true;
       })
       .map((c: any) => {
-        const rawType = String(c.type ?? "Base").trim();
+        const sku = String(c.sku).toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+        let rawType = String(c.type ?? "Base").trim();
+        // Force-correct BLW/BRW to Wall (Blind Left/Right Wall) — AI sometimes classifies as Base
+        if (/^BLW|^BRW/i.test(sku)) rawType = "Wall";
         const normalizedType = rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase();
         const rawRoom = String(c.room ?? "Kitchen").trim();
         const normalizedRoom = rawRoom.charAt(0).toUpperCase() + rawRoom.slice(1).toLowerCase();
         return {
-          sku: String(c.sku).toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, ''),
+          sku,
           type: normalizedType,
           room: normalizedRoom,
           quantity: Number(c.quantity) || 1,
