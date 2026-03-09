@@ -344,7 +344,7 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-primary mb-2.5 flex items-center gap-1.5">
                   <span className="w-4 h-4 rounded flex items-center justify-center text-[10px]" style={{ background: 'hsl(var(--primary) / 0.15)' }}>🔍</span>
-                  Automatically Detects
+                  AI Detects
                 </p>
                 <ul className="space-y-1.5">
                   <li className="flex items-center gap-1.5 text-[11px] text-foreground">
