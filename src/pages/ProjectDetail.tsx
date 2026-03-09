@@ -175,9 +175,27 @@ export default function ProjectDetail() {
 
         <div className="px-4 flex items-end gap-0 overflow-x-auto">
           <div className="flex flex-col">
-            <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground px-1 pt-1">Takeoff</span>
+            <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground px-1 pt-1">Cabinet Takeoff</span>
             <div className="flex">
-              {TAKEOFF_TABS.map((tab) => (
+              {CABINET_TAKEOFF_TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`module-tab flex items-center gap-1.5 mr-1 ${activeTab === tab.key ? 'active' : ''}`}
+                  aria-selected={activeTab === tab.key}
+                  role="tab"
+                >
+                  {tab.icon}
+                  <span className="hidden sm:inline">{tab.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="w-px my-1 mx-4 bg-border flex-shrink-0 self-stretch" />
+          <div className="flex flex-col">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground px-1 pt-1">Appliance Takeoff</span>
+            <div className="flex">
+              {APPLIANCE_TABS.map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
@@ -219,6 +237,9 @@ export default function ProjectDetail() {
             {activeTab === 'cabinets' && <CabinetModule {...storeProps} />}
             {activeTab === 'countertops' && <CountertopModule {...storeProps} />}
             {activeTab === 'summary' && <SummaryModule {...storeProps} />}
+            {activeTab === 'app-units' && <UnitModule {...storeProps} />}
+            {activeTab === 'app-takeoff' && <ApplianceModule {...storeProps} />}
+            {activeTab === 'app-summary' && <ApplianceModule {...storeProps} />}
             {activeTab === 'project-info' && <ProjectInfoModule project={project} onSave={(updates) => updateProject(project.id, updates)} />}
             {activeTab === 'prefinal-units' && <PreFinalModule key="prefinal" {...storeProps} />}
             {activeTab === 'prefinal-summary' && <PreFinalSummaryModule {...storeProps} />}
