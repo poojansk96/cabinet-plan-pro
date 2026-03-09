@@ -439,7 +439,7 @@ export default function PDFImportDialog({ onImport, onClose, takeoffPerson }: Pr
           {step === 'upload' && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Upload your floor plan PDF. AI will read the plans and detect <strong>all spaces with cabinet or countertop drawings</strong> — including residential units, laundry rooms, community kitchens, pantries, clubhouses, and more.
+                Upload your architectural floor plan PDF. AI will read the plans and detect <strong>all spaces with cabinet or countertop drawings</strong> — including residential units, laundry rooms, community kitchens, pantries, clubhouses, and more.
               </p>
 
               {/* Drop zone */}
