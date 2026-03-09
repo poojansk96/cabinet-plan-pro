@@ -270,6 +270,14 @@ export default function PreFinalSummaryModule({ project }: Props) {
       cell.value = { formula, result } as any;
     };
 
+    // Excel-safe wrappers to prevent #VALUE!/errors when inputs are blank/text
+    const n = (expr: string) => `N(${expr})`;
+    const safeMul = (a: string, b: string) => `IFERROR(${n(a)}*${n(b)},0)`;
+    const safeAdd = (a: string, b: string) => `IFERROR(${n(a)}+${n(b)},0)`;
+    const safeSum = (startRef: string, endRef: string) => `IFERROR(SUM(${startRef}:${endRef}),0)`;
+    const safeSumColRange = (colRef: string, startRow: number, endRow: number) =>
+      `IFERROR(SUM(${colRef}${startRow}:${colRef}${endRow}),0)`;
+
     // Column layout (1-indexed)
     const colSku = 1;
     const colCabFirstType = 2;
