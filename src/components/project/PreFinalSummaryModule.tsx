@@ -648,17 +648,17 @@ export default function PreFinalSummaryModule({ project }: Props) {
     });
 
     wsCosting.addRow([]);
-    const totRow = wsCosting.addRow(['TOTAL', '', '', '', '', '']);
+    const costTotRow = wsCosting.addRow(['TOTAL', '', '', '', '', '']);
     const firstCostDataRow = 3; // blank row + header row => first data row is 3
     const lastCostDataRow = 2 + cabTypes.length; // header is row 2
 
-    setFormula(totRow.getCell(2), `SUM(B${firstCostDataRow}:B${lastCostDataRow})`, 0);
-    setFormula(totRow.getCell(3), `SUM(C${firstCostDataRow}:C${lastCostDataRow})`, 0);
-    setFormula(totRow.getCell(4), `SUM(D${firstCostDataRow}:D${lastCostDataRow})`, 0);
-    setFormula(totRow.getCell(5), `SUM(E${firstCostDataRow}:E${lastCostDataRow})`, 0);
-    setFormula(totRow.getCell(6), `SUM(F${firstCostDataRow}:F${lastCostDataRow})`, 0);
+    setFormula(costTotRow.getCell(2), `SUM(B${firstCostDataRow}:B${lastCostDataRow})`, 0);
+    setFormula(costTotRow.getCell(3), `SUM(C${firstCostDataRow}:C${lastCostDataRow})`, 0);
+    setFormula(costTotRow.getCell(4), `SUM(D${firstCostDataRow}:D${lastCostDataRow})`, 0);
+    setFormula(costTotRow.getCell(5), `SUM(E${firstCostDataRow}:E${lastCostDataRow})`, 0);
+    setFormula(costTotRow.getCell(6), `SUM(F${firstCostDataRow}:F${lastCostDataRow})`, 0);
 
-    totRow.eachCell((cell, colNumber) => {
+    costTotRow.eachCell((cell, colNumber) => {
       cell.font = { bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
       if (colNumber === 2) cell.alignment = { horizontal: 'center' };
