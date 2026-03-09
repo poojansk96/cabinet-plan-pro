@@ -315,7 +315,7 @@ export default function Dashboard() {
                 {/* Mock sheet tabs */}
                 <div className="flex border-b" style={{ borderColor: 'hsl(var(--border))' }}>
                   <span className="px-3 py-1.5 text-[10px] font-semibold text-primary border-b-2" style={{ borderColor: 'hsl(var(--primary))' }}>Unit Count</span>
-                  <span className="px-3 py-1.5 text-[10px] text-muted-foreground">Cabinet Schedule</span>
+                  <span className="px-3 py-1.5 text-[10px] text-muted-foreground">Cabinet Count</span>
                   <span className="px-3 py-1.5 text-[10px] text-muted-foreground">Countertop Sqft</span>
                   <span className="px-3 py-1.5 text-[10px] text-muted-foreground">Hardware & Pulls</span>
                 </div>
