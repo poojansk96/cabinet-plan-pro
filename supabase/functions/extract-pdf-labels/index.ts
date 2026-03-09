@@ -92,10 +92,11 @@ RULES:
 - SKIP non-SKU text: unit numbers, unit type names, elevation titles, dimension text, page numbers, sheet references, call-out bubbles
 - Read labels EXACTLY as printed — do not invent or guess
 - If NO SKUs found → return {"unitTypeName":"<detected type or null>","items":[]}
+- FINAL SWEEP: After your initial scan, go back and specifically look for these commonly missed SKUs: B09FH, B06FH, B12FH, BF3, BF6, WF3X30, WF6X30, DWR3, DWR6. They appear as very small labels on narrow cabinet shapes. If you find any you missed, add them.
 ${unitType ? \`- Unit type context: \${unitType}\` : ""}
 
 Return ONLY valid JSON — no markdown, no explanation:
-{"unitTypeName":"A1-AS","items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1},{"sku":"DB15","type":"Base","room":"Kitchen","quantity":2},{"sku":"BF3","type":"Accessory","room":"Kitchen","quantity":1}]}\`;
+{"unitTypeName":"A1-AS","items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1},{"sku":"DB15","type":"Base","room":"Kitchen","quantity":2},{"sku":"BF3","type":"Accessory","room":"Kitchen","quantity":1},{"sku":"B09FH","type":"Base","room":"Kitchen","quantity":1}]}\`;
 
     let response: Response | null = null;
     const MAX_RETRIES = 3;
