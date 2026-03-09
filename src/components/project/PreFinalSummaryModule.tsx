@@ -582,41 +582,54 @@ export default function PreFinalSummaryModule({ project }: Props) {
       const skuVal = wsCabs.getRow(r).getCell(colSku).value;
       if (typeof skuVal !== 'string' || skuVal.includes('(')) continue;
 
-      const partsBid: string[] = [];
-      const partsAdd: string[] = [];
-      const pricingTypeRefs: string[] = [];
+       const partsBid: string[] = [];
+       const partsAdd: string[] = [];
+       const pricingTypeRefs: string[] = [];
 
-      for (let i = 0; i < nTypes; i++) {
-        const totalCabRef = ref(colTotalCabFirstType + i, r);
-        const bidAbs = `$${excelCol(colPricingFirstType + i)}$${bidCostRow.number}`;
-        const addAbs = `$${excelCol(colPricingFirstType + i)}$${addCostRow.number}`;
-        const totAbs = `$${excelCol(colPricingFirstType + i)}$${totalCostRow.number}`;
+       const rowObj = wsCabs.getRow(r);
+       const bidCell = rowObj.getCell(colPricingBid);
+       const addCell = rowObj.getCell(colPricingAdditional);
+       const totCell = rowObj.getCell(colPricingTotal);
+       const typeTotCell = rowObj.getCell(colPricingTypeTotal);
 
-        partsBid.push(`(${totalCabRef}*${bidAbs})`);
-        partsAdd.push(`(${totalCabRef}*${addAbs})`);
+       // If there are no cabinet unit types yet, keep pricing as 0s (prevents invalid SUM ranges)
+       if (nTypes === 0) {
+         setFormula(bidCell, '0', 0);
+         setFormula(addCell, '0', 0);
+         setFormula(totCell, '0', 0);
+         setFormula(typeTotCell, '0', 0);
+         continue;
+       }
 
-        const typeCell = wsCabs.getRow(r).getCell(colPricingFirstType + i);
-        setFormula(typeCell, `${totalCabRef}*${totAbs}`, 0);
-        typeCell.numFmt = '$#,##0.00';
+       for (let i = 0; i < nTypes; i++) {
+         const totalCabRef = ref(colTotalCabFirstType + i, r);
+         const bidAbs = `$${excelCol(colPricingFirstType + i)}$${bidCostRow.number}`;
+         const addAbs = `$${excelCol(colPricingFirstType + i)}$${addCostRow.number}`;
+         const totAbs = `$${excelCol(colPricingFirstType + i)}$${totalCostRow.number}`;
 
-        pricingTypeRefs.push(ref(colPricingFirstType + i, r));
-      }
+         partsBid.push(safeMul(totalCabRef, bidAbs));
+         partsAdd.push(safeMul(totalCabRef, addAbs));
 
-      const rowObj = wsCabs.getRow(r);
-      const bidCell = rowObj.getCell(colPricingBid);
-      const addCell = rowObj.getCell(colPricingAdditional);
-      const totCell = rowObj.getCell(colPricingTotal);
-      const typeTotCell = rowObj.getCell(colPricingTypeTotal);
+         const typeCell = rowObj.getCell(colPricingFirstType + i);
+         setFormula(typeCell, safeMul(totalCabRef, totAbs), 0);
+         typeCell.numFmt = '$#,##0.00';
 
-      setFormula(bidCell, partsBid.length ? partsBid.join('+') : '0', 0);
-      setFormula(addCell, partsAdd.length ? partsAdd.join('+') : '0', 0);
-      setFormula(totCell, `${ref(colPricingBid, r)}+${ref(colPricingAdditional, r)}`, 0);
-      setFormula(typeTotCell, `SUM(${pricingTypeRefs[0]}:${pricingTypeRefs[pricingTypeRefs.length - 1]})`, 0);
+         pricingTypeRefs.push(ref(colPricingFirstType + i, r));
+       }
 
-      bidCell.numFmt = '$#,##0.00';
-      addCell.numFmt = '$#,##0.00';
-      totCell.numFmt = '$#,##0.00';
-      typeTotCell.numFmt = '$#,##0.00';
+       setFormula(bidCell, partsBid.length ? partsBid.join('+') : '0', 0);
+       setFormula(addCell, partsAdd.length ? partsAdd.join('+') : '0', 0);
+       setFormula(totCell, safeAdd(ref(colPricingBid, r), ref(colPricingAdditional, r)), 0);
+       setFormula(
+         typeTotCell,
+         pricingTypeRefs.length ? safeSum(pricingTypeRefs[0], pricingTypeRefs[pricingTypeRefs.length - 1]) : '0',
+         0
+       );
+
+       bidCell.numFmt = '$#,##0.00';
+       addCell.numFmt = '$#,##0.00';
+       totCell.numFmt = '$#,##0.00';
+       typeTotCell.numFmt = '$#,##0.00';
     }
 
     // ── Sheet 4: Costing ────────────────────────────────────────────
