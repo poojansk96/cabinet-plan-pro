@@ -294,7 +294,7 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
       {project.units.length === 0 ? (
         <div className="text-center py-16">
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 text-3xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>📄</div>
-          <h3 className="text-lg font-bold text-foreground mb-1.5">No units yet — upload a plan to begin</h3>
+          <h3 className="text-lg font-bold text-foreground mb-1.5">Upload a floor plan — AI will detect every unit, cabinet type, and countertop automatically.</h3>
           <p className="text-sm text-muted-foreground mb-5 max-w-sm mx-auto">
             Upload your architectural PDF and we'll auto-detect every unit, type, floor, and building.
           </p>
