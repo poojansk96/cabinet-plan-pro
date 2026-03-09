@@ -523,18 +523,34 @@ export default function PreFinalSummaryModule({ project }: Props) {
        0
      );
 
-    // Pricing totals (will be filled after pricing formulas are applied on data rows)
-    setFormula(cabTotRow.getCell(colPricingBid), `SUM(${excelCol(colPricingBid)}${dataRangeStartRow}:${excelCol(colPricingBid)}${dataRangeEndRow})`, 0);
-    setFormula(cabTotRow.getCell(colPricingAdditional), `SUM(${excelCol(colPricingAdditional)}${dataRangeStartRow}:${excelCol(colPricingAdditional)}${dataRangeEndRow})`, 0);
-    setFormula(cabTotRow.getCell(colPricingTotal), `SUM(${excelCol(colPricingTotal)}${dataRangeStartRow}:${excelCol(colPricingTotal)}${dataRangeEndRow})`, 0);
-    for (let i = 0; i < nTypes; i++) {
-      setFormula(
-        cabTotRow.getCell(colPricingFirstType + i),
-        `SUM(${excelCol(colPricingFirstType + i)}${dataRangeStartRow}:${excelCol(colPricingFirstType + i)}${dataRangeEndRow})`,
-        0
-      );
-    }
-    setFormula(cabTotRow.getCell(colPricingTypeTotal), `SUM(${excelCol(colPricingTypeTotal)}${dataRangeStartRow}:${excelCol(colPricingTypeTotal)}${dataRangeEndRow})`, 0);
+     // Pricing totals (safe so blanks/missing data never show #VALUE!)
+     setFormula(
+       cabTotRow.getCell(colPricingBid),
+       safeSumColRange(excelCol(colPricingBid), dataRangeStartRow, dataRangeEndRow),
+       0
+     );
+     setFormula(
+       cabTotRow.getCell(colPricingAdditional),
+       safeSumColRange(excelCol(colPricingAdditional), dataRangeStartRow, dataRangeEndRow),
+       0
+     );
+     setFormula(
+       cabTotRow.getCell(colPricingTotal),
+       safeSumColRange(excelCol(colPricingTotal), dataRangeStartRow, dataRangeEndRow),
+       0
+     );
+     for (let i = 0; i < nTypes; i++) {
+       setFormula(
+         cabTotRow.getCell(colPricingFirstType + i),
+         safeSumColRange(excelCol(colPricingFirstType + i), dataRangeStartRow, dataRangeEndRow),
+         0
+       );
+     }
+     setFormula(
+       cabTotRow.getCell(colPricingTypeTotal),
+       safeSumColRange(excelCol(colPricingTypeTotal), dataRangeStartRow, dataRangeEndRow),
+       0
+     );
 
     // Total cabinet count totals
     cabTotRow.getCell(colTotalCabLabel).value = 'TOTAL';
