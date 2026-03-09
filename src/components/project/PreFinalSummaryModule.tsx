@@ -552,16 +552,20 @@ export default function PreFinalSummaryModule({ project }: Props) {
        0
      );
 
-    // Total cabinet count totals
-    cabTotRow.getCell(colTotalCabLabel).value = 'TOTAL';
-    for (let i = 0; i < nTypes; i++) {
-      setFormula(
-        cabTotRow.getCell(colTotalCabFirstType + i),
-        `SUM(${excelCol(colTotalCabFirstType + i)}${dataRangeStartRow}:${excelCol(colTotalCabFirstType + i)}${dataRangeEndRow})`,
-        0
-      );
-    }
-    setFormula(cabTotRow.getCell(colTotalCabGrand), `SUM(${excelCol(colTotalCabGrand)}${dataRangeStartRow}:${excelCol(colTotalCabGrand)}${dataRangeEndRow})`, 0);
+     // Total cabinet count totals
+     cabTotRow.getCell(colTotalCabLabel).value = 'TOTAL';
+     for (let i = 0; i < nTypes; i++) {
+       setFormula(
+         cabTotRow.getCell(colTotalCabFirstType + i),
+         safeSumColRange(excelCol(colTotalCabFirstType + i), dataRangeStartRow, dataRangeEndRow),
+         0
+       );
+     }
+     setFormula(
+       cabTotRow.getCell(colTotalCabGrand),
+       safeSumColRange(excelCol(colTotalCabGrand), dataRangeStartRow, dataRangeEndRow),
+       0
+     );
 
     // Style totals row
     cabTotRow.eachCell((cell, colNumber) => {
