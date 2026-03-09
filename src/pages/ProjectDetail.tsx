@@ -211,7 +211,7 @@ export default function ProjectDetail() {
           </div>
           <div className="w-px my-1 mx-4 bg-border flex-shrink-0 self-stretch" />
           <div className="flex flex-col">
-            <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground px-1 pt-1">Prefinal</span>
+            <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground px-1 pt-1">Prefinal - 2020 Shops</span>
             <div className="flex">
               {PREFINAL_TABS.map((tab) => (
                 <button
