@@ -370,6 +370,7 @@ export default function Dashboard() {
                   <span className="text-[10px] text-muted-foreground">Hardware & Pulls</span>
                 </div>
               </div>
+              <p className="text-[10px] text-muted-foreground/60 italic text-center mt-3">Generated automatically from uploaded architectural plans and 2020 shop drawings.</p>
             </div>
 
             {/* Benefit-first Feature Cards */}
