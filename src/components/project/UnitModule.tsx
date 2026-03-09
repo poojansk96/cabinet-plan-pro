@@ -292,47 +292,64 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
       )}
 
       {project.units.length === 0 ? (
-        <div className="text-center py-16">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 text-3xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>📄</div>
-          <h3 className="text-lg font-bold text-foreground mb-1.5">Upload a floor plan — AI will detect every unit, cabinet type, and countertop automatically.</h3>
-          <p className="text-sm text-muted-foreground mb-5 max-w-sm mx-auto">
-            Upload an architectural floor plan PDF. The system automatically identifies unit types, cabinet layouts, SKUs, and countertop quantities.
+        <div className="text-center py-10">
+          {/* Illustration of detection flow */}
+          <div className="flex items-center justify-center gap-2 mb-5">
+            <div className="flex flex-col items-center">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>📄</div>
+              <span className="text-[10px] text-muted-foreground mt-1">Your PDF</span>
+            </div>
+            <div className="text-primary text-lg">→</div>
+            <div className="flex flex-col items-center">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>🔍</div>
+              <span className="text-[10px] text-muted-foreground mt-1">AI Scans</span>
+            </div>
+            <div className="text-primary text-lg">→</div>
+            <div className="flex flex-col items-center">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>📊</div>
+              <span className="text-[10px] text-muted-foreground mt-1">Full Takeoff</span>
+            </div>
+          </div>
+
+          <h3 className="text-base font-bold text-foreground mb-1">Upload a floor plan — AI detects units, cabinets & countertops.</h3>
+          <p className="text-xs text-muted-foreground mb-4 max-w-sm mx-auto">
+            The system automatically identifies unit types, cabinet layouts, SKUs, and countertop quantities.
           </p>
-          <div className="flex items-center justify-center gap-3 mb-5">
+          <div className="flex items-center justify-center gap-3 mb-4">
             <button
               onClick={() => setShowPDFImport(true)}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all"
+              className="inline-flex items-center gap-2.5 px-6 py-3 rounded-lg text-base font-bold text-white shadow-lg hover:shadow-xl transition-all"
               style={{ background: 'hsl(var(--primary))' }}
             >
-              <FileUp size={15} />
+              <FileUp size={18} />
               Upload Architect Floor Plan
             </button>
             <button
               onClick={() => setShowForm(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border border-border text-muted-foreground hover:bg-secondary transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium border border-border text-muted-foreground hover:bg-secondary transition-colors"
             >
               <Plus size={15} />
-              Add Unit Manually
+              Add Manually
             </button>
           </div>
-          <div className="mt-5 rounded-xl border border-primary/20 px-5 py-4 text-left max-w-xs mx-auto" style={{ background: 'hsl(var(--primary) / 0.05)' }}>
-            <p className="text-xs font-bold uppercase tracking-wider text-primary mb-2.5">Auto-detects:</p>
-            <ul className="space-y-1.5">
-              <li className="flex items-center gap-2 text-xs font-medium text-foreground">
-                <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ background: 'hsl(var(--primary))' }}>✓</span>
-                Units &amp; unit types
+          <div className="rounded-xl border border-primary/20 px-5 py-3.5 text-left max-w-xs mx-auto" style={{ background: 'hsl(var(--primary) / 0.05)' }}>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-primary mb-2">Auto-detects:</p>
+            <ul className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+              <li className="flex items-center gap-1.5 text-[11px] font-medium text-foreground">
+                <span className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0" style={{ background: 'hsl(var(--primary))' }}>✓</span>
+                Units &amp; types
               </li>
-              <li className="flex items-center gap-2 text-xs font-medium text-foreground">
-                <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ background: 'hsl(var(--primary))' }}>✓</span>
-                Cabinet types &amp; SKUs
+              <li className="flex items-center gap-1.5 text-[11px] font-medium text-foreground">
+                <span className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0" style={{ background: 'hsl(var(--primary))' }}>✓</span>
+                Cabinet SKUs
               </li>
-              <li className="flex items-center gap-2 text-xs font-medium text-foreground">
-                <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ background: 'hsl(var(--primary))' }}>✓</span>
-                Countertop square footage
+              <li className="flex items-center gap-1.5 text-[11px] font-medium text-foreground">
+                <span className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0" style={{ background: 'hsl(var(--primary))' }}>✓</span>
+                Countertop sqft
               </li>
-              <li className="flex items-center gap-2 text-xs font-medium text-foreground">
-                <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ background: 'hsl(var(--primary))' }}>✓</span>
-                Cabinet counts per unit
+              <li className="flex items-center gap-1.5 text-[11px] font-medium text-foreground">
+                <span className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0" style={{ background: 'hsl(var(--primary))' }}>✓</span>
+                Cabinet counts
               </li>
             </ul>
           </div>
