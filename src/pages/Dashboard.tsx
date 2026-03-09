@@ -383,7 +383,7 @@ export default function Dashboard() {
             </div>
 
             {/* Repeated primary CTA */}
-            <div className="text-center mb-6">
+            <div className="text-center mb-10">
               <Link
                 to="/new"
                 className="inline-flex items-center gap-2.5 px-8 py-3.5 rounded-lg text-base font-bold text-white shadow-lg transition-all hover:shadow-xl hover:scale-[1.03]"
