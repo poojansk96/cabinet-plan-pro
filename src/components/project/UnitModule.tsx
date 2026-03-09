@@ -316,9 +316,9 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
             </div>
           </div>
 
-          <h3 className="text-base font-bold text-foreground mb-1">Upload a floor plan — AI detects units, cabinets & countertops.</h3>
-          <p className="text-xs text-muted-foreground mb-4 max-w-sm mx-auto">
-            The system automatically identifies unit types, cabinet layouts, SKUs, and countertop quantities.
+          <h3 className="text-base font-bold text-foreground mb-2">Upload a floor plan — AI detects units, cabinets & countertops.</h3>
+          <p className="text-xs text-muted-foreground mb-4 max-w-lg mx-auto leading-relaxed">
+            AI-powered cabinet and countertop takeoff tool — upload architectural plans or 2020 shop drawings to automatically generate Excel schedules with cabinet SKUs, quantities, hardware, and costing formulas.
           </p>
           <div className="flex items-center justify-center gap-3 mb-4">
             <button
