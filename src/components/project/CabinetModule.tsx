@@ -33,15 +33,11 @@ function TypeBadge({ type }: { type: CabinetType }) {
   return <span className={cls}>{type[0]}</span>;
 }
 
-/** Normalize a unit type string for matching (uppercase, strip "TYPE " prefix, remove whitespace/hyphens) */
-function normalizeTypeKey(raw: string): string {
-  return raw.toUpperCase().replace(/^TYPE\s+/i, '').replace(/[\s\-]/g, '');
-}
-
 export default function CabinetModule({ project, selectedUnit, addCabinet, updateCabinet, deleteCabinet }: Props) {
   const [form, setForm] = useState(blankCabinet());
   const [showForm, setShowForm] = useState(false);
   const [showPDFImport, setShowPDFImport] = useState(false);
+  // Which unit type to import cabinets into (applies to the first unit found of that type)
   const [importTargetType, setImportTargetType] = useState<string>('');
   const [importedCount, setImportedCount] = useState<number | null>(null);
 
@@ -57,61 +53,17 @@ export default function CabinetModule({ project, selectedUnit, addCabinet, updat
   // Distinct unit types in project
   const unitTypes = Array.from(new Set(project.units.map(u => u.type)));
 
-  // Handle PDF cabinet import: route cabinets by detected unit type to matching project units
-  const handlePDFImport = (cabinets: Array<Omit<Cabinet, 'id'> & { detectedUnitType?: string }>) => {
-    // Build a map of normalized project unit type → unit ids
-    const typeToUnits: Record<string, string[]> = {};
-    for (const u of project.units) {
-      const key = normalizeTypeKey(u.type);
-      if (!typeToUnits[key]) typeToUnits[key] = [];
-      typeToUnits[key].push(u.id);
-    }
+  // Handle PDF cabinet import: apply imported cabinets to all units of the chosen type
+  const handlePDFImport = (cabinets: Array<Omit<Cabinet, 'id'>>) => {
+    const targetUnits = importTargetType
+      ? project.units.filter(u => u.type === importTargetType)
+      : project.units;
 
-    // Group imported cabinets by their detected unit type
-    const grouped: Record<string, Array<Omit<Cabinet, 'id'>>> = {};
-    const unmatched: Array<Omit<Cabinet, 'id'>> = [];
-
-    for (const { detectedUnitType, ...cab } of cabinets) {
-      if (detectedUnitType) {
-        const key = normalizeTypeKey(detectedUnitType);
-        if (typeToUnits[key]) {
-          if (!grouped[key]) grouped[key] = [];
-          grouped[key].push(cab);
-        } else {
-          // Detected type doesn't match any project unit type — use fallback
-          unmatched.push(cab);
-        }
-      } else {
-        unmatched.push(cab);
-      }
-    }
-
-    let totalAdded = 0;
-
-    // Add grouped cabinets to matching unit types
-    for (const [typeKey, cabs] of Object.entries(grouped)) {
-      const unitIds = typeToUnits[typeKey];
-      for (const unitId of unitIds) {
-        for (const cab of cabs) {
-          addCabinet(project.id, unitId, cab);
-          totalAdded++;
-        }
-      }
-    }
-
-    // Add unmatched cabinets to target type or all units
-    if (unmatched.length > 0) {
-      const targetUnits = importTargetType
-        ? project.units.filter(u => u.type === importTargetType)
-        : project.units;
-
-      for (const unit of targetUnits) {
-        for (const cab of unmatched) {
-          addCabinet(project.id, unit.id, cab);
-          totalAdded++;
-        }
-      }
-    }
+    targetUnits.forEach(unit => {
+      cabinets.forEach(cab => {
+        addCabinet(project.id, unit.id, cab);
+      });
+    });
 
     setImportedCount(cabinets.length);
     setShowPDFImport(false);
@@ -155,7 +107,7 @@ export default function CabinetModule({ project, selectedUnit, addCabinet, updat
               className="est-input text-xs h-7 pr-6"
               value={importTargetType}
               onChange={e => setImportTargetType(e.target.value)}
-              title="Select unit type to import cabinets for (unmatched cabinets go here)"
+              title="Select unit type to import cabinets for"
             >
               <option value="">All unit types</option>
               {unitTypes.map(t => <option key={t} value={t}>{t}</option>)}
@@ -188,11 +140,11 @@ export default function CabinetModule({ project, selectedUnit, addCabinet, updat
       {importedCount !== null && (
         <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-white" style={{ background: 'hsl(var(--success, 142 71% 45%))' }}>
           ✓ Successfully imported {importedCount} cabinet{importedCount !== 1 ? 's' : ''} from PDF
-          {importTargetType && <span className="opacity-80 ml-1">— unmatched into "{importTargetType}" units</span>}
+          {importTargetType && <span className="opacity-80 ml-1">into "{importTargetType}" units</span>}
         </div>
       )}
 
-      {/* Unit-type-wise cabinet summary */}
+      {/* Unit-type-wise cabinet summary — pivot: SKUs as rows, unit types as rotated columns */}
       {Object.keys(unitTypeGroups).length > 0 && (() => {
         const unitTypes = Object.keys(unitTypeGroups);
         const allSkus = Array.from(new Set(project.units.flatMap(u => u.cabinets.map(c => c.sku)))).sort();
