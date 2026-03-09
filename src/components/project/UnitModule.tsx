@@ -294,25 +294,25 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
       {project.units.length === 0 ? (
         <div className="text-center py-10">
           {/* Illustration of detection flow */}
-          <div className="flex items-center justify-center gap-2 mb-5">
+          <div className="flex items-center justify-center gap-3 mb-5">
             <div className="flex flex-col items-center">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>📄</div>
-              <span className="text-[10px] text-muted-foreground mt-1">Your PDF</span>
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl transition-transform hover:scale-110" style={{ background: 'hsl(var(--primary) / 0.10)' }}>📄</div>
+              <span className="text-[10px] text-muted-foreground mt-1.5">Your PDF</span>
             </div>
-            <div className="text-primary text-lg">→</div>
+            <div className="text-primary text-xl font-medium">→</div>
             <div className="flex flex-col items-center">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>⚙️</div>
-              <span className="text-[10px] text-muted-foreground mt-1">Custom Engine</span>
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl transition-transform hover:scale-110" style={{ background: 'hsl(var(--primary) / 0.10)' }}>⚙️</div>
+              <span className="text-[10px] text-muted-foreground mt-1.5">Custom Engine</span>
             </div>
-            <div className="text-primary text-lg">→</div>
+            <div className="text-primary text-xl font-medium">→</div>
             <div className="flex flex-col items-center">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>🔍</div>
-              <span className="text-[10px] text-muted-foreground mt-1">AI Scans</span>
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl transition-transform hover:scale-110" style={{ background: 'hsl(var(--primary) / 0.10)' }}>🔍</div>
+              <span className="text-[10px] text-muted-foreground mt-1.5">AI Scans</span>
             </div>
-            <div className="text-primary text-lg">→</div>
+            <div className="text-primary text-xl font-medium">→</div>
             <div className="flex flex-col items-center">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>📊</div>
-              <span className="text-[10px] text-muted-foreground mt-1">Full Takeoff</span>
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl transition-transform hover:scale-110" style={{ background: 'hsl(var(--primary) / 0.10)' }}>📊</div>
+              <span className="text-[10px] text-muted-foreground mt-1.5">Full Takeoff</span>
             </div>
           </div>
 
