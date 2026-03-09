@@ -196,18 +196,18 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowPDFImport(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border transition-colors"
+            className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium border transition-all hover:scale-[1.03] hover:shadow-md"
             style={{ borderColor: 'hsl(var(--primary))', color: 'hsl(var(--primary))' }}
           >
-            <FileUp size={12} />
+            <FileUp size={14} />
             Upload Floor plan
           </button>
           <button
             onClick={() => setShowForm(!showForm)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium text-white"
+            className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium text-white transition-all hover:scale-[1.03] hover:shadow-md"
             style={{ background: 'hsl(var(--primary))' }}
           >
-            <Plus size={12} />
+            <Plus size={14} />
             Add Unit
           </button>
         </div>
@@ -294,25 +294,25 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
       {project.units.length === 0 ? (
         <div className="text-center py-10">
           {/* Illustration of detection flow */}
-          <div className="flex items-center justify-center gap-2 mb-5">
+          <div className="flex items-center justify-center gap-3 mb-5">
             <div className="flex flex-col items-center">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>📄</div>
-              <span className="text-[10px] text-muted-foreground mt-1">Your PDF</span>
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl transition-transform hover:scale-110" style={{ background: 'hsl(var(--primary) / 0.10)' }}>📄</div>
+              <span className="text-[10px] text-muted-foreground mt-1.5">Your PDF</span>
             </div>
-            <div className="text-primary text-lg">→</div>
+            <div className="text-primary text-xl font-medium">→</div>
             <div className="flex flex-col items-center">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>⚙️</div>
-              <span className="text-[10px] text-muted-foreground mt-1">Custom Engine</span>
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl transition-transform hover:scale-110" style={{ background: 'hsl(var(--primary) / 0.10)' }}>⚙️</div>
+              <span className="text-[10px] text-muted-foreground mt-1.5">Custom Engine</span>
             </div>
-            <div className="text-primary text-lg">→</div>
+            <div className="text-primary text-xl font-medium">→</div>
             <div className="flex flex-col items-center">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>🔍</div>
-              <span className="text-[10px] text-muted-foreground mt-1">AI Scans</span>
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl transition-transform hover:scale-110" style={{ background: 'hsl(var(--primary) / 0.10)' }}>🔍</div>
+              <span className="text-[10px] text-muted-foreground mt-1.5">AI Scans</span>
             </div>
-            <div className="text-primary text-lg">→</div>
+            <div className="text-primary text-xl font-medium">→</div>
             <div className="flex flex-col items-center">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style={{ background: 'hsl(var(--primary) / 0.10)' }}>📊</div>
-              <span className="text-[10px] text-muted-foreground mt-1">Full Takeoff</span>
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl transition-transform hover:scale-110" style={{ background: 'hsl(var(--primary) / 0.10)' }}>📊</div>
+              <span className="text-[10px] text-muted-foreground mt-1.5">Full Takeoff</span>
             </div>
           </div>
 
@@ -323,17 +323,17 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
           <div className="flex items-center justify-center gap-3 mb-4">
             <button
               onClick={() => setShowPDFImport(true)}
-              className="inline-flex items-center gap-2.5 px-6 py-3 rounded-lg text-base font-bold text-white shadow-lg hover:shadow-xl transition-all"
+              className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-lg text-base font-bold text-white shadow-lg transition-all hover:shadow-xl hover:scale-[1.03]"
               style={{ background: 'hsl(var(--primary))' }}
             >
-              <FileUp size={18} />
+              <FileUp size={20} />
               Upload Floor Plan
             </button>
             <button
               onClick={() => setShowForm(true)}
-              className="inline-flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium border border-border text-muted-foreground hover:bg-secondary transition-colors"
+              className="inline-flex items-center gap-2 px-5 py-3.5 rounded-lg text-sm font-medium border border-border text-muted-foreground transition-all hover:bg-secondary hover:scale-[1.03]"
             >
-              <Plus size={15} />
+              <Plus size={16} />
               Add Units Manually
             </button>
           </div>
