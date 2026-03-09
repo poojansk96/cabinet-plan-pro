@@ -137,6 +137,7 @@ export default function Dashboard() {
   const [introOpen, setIntroOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [openFeature, setOpenFeature] = useState<string | null>(null);
 
   const handleDelete = (id: string) => {
     if (window.confirm('Delete this project? This cannot be undone.')) {
