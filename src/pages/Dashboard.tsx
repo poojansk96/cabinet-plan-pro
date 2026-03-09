@@ -244,17 +244,14 @@ export default function Dashboard() {
         {projects.length === 0 ? (
           <div className="py-6 max-w-3xl mx-auto">
             {/* Hero Section — outcome-first */}
-            <div className="text-center py-12 px-6 rounded-2xl mb-6" style={{ background: 'linear-gradient(145deg, hsl(var(--primary) / 0.14), hsl(var(--primary) / 0.06) 50%, hsl(var(--primary) / 0.02))' }}>
-              <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3 leading-tight">
+            <div className="text-center py-14 px-6 rounded-2xl mb-10" style={{ background: 'linear-gradient(145deg, hsl(var(--primary) / 0.14), hsl(var(--primary) / 0.06) 50%, hsl(var(--primary) / 0.02))' }}>
+              <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4 leading-tight">
                 Get accurate cabinet, countertop & appliance takeoffs in minutes.
               </h2>
-              <p className="text-muted-foreground text-sm md:text-base max-w-lg mx-auto leading-relaxed mb-1">
-                Auto-detect units, SKUs, appliances and countertop sqft.
+              <p className="text-muted-foreground text-sm md:text-base max-w-xl mx-auto mb-2" style={{ lineHeight: '1.6' }}>
+                Auto-detect units, cabinet SKUs, appliance counts and countertop sqft from plans and 2020 shop drawings — export ready Excel reports for costing, parts, and handles.
               </p>
-              <p className="text-muted-foreground text-sm md:text-base max-w-lg mx-auto leading-relaxed mb-2">
-                Exports ready Excel takeoffs for costing, handles, and schedules.
-              </p>
-              <p className="text-xs text-muted-foreground/70 mb-6 italic">
+              <p className="text-xs text-muted-foreground/70 mb-8 italic">
                 Designed for multi-unit residential estimating workflows.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -273,7 +270,7 @@ export default function Dashboard() {
                    ▶ Watch 60-Second Demo
                  </a>
                </div>
-              <p className="text-[11px] text-muted-foreground/50 mt-4 max-w-md mx-auto leading-relaxed">
+              <p className="text-[11px] text-muted-foreground/50 mt-5 max-w-md mx-auto" style={{ lineHeight: '1.5' }}>
                 🔒 Plans are processed only to generate reports. Files are not stored and are never accessible to other users or developers.
               </p>
             </div>
