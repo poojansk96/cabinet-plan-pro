@@ -237,7 +237,7 @@ export default function ProjectDetail() {
             {activeTab === 'cabinets' && <CabinetModule {...storeProps} />}
             {activeTab === 'countertops' && <CountertopModule {...storeProps} />}
             {activeTab === 'summary' && <SummaryModule {...storeProps} />}
-            {activeTab === 'app-units' && <UnitModule {...storeProps} />}
+            {activeTab === 'app-units' && <UnitModule {...storeProps} mode="appliance" />}
             {activeTab === 'app-takeoff' && <ApplianceModule {...storeProps} />}
             {activeTab === 'app-summary' && <ApplianceModule {...storeProps} />}
             {activeTab === 'project-info' && <ProjectInfoModule project={project} onSave={(updates) => updateProject(project.id, updates)} />}
