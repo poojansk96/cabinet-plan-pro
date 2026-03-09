@@ -316,71 +316,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Example Output Section */}
-            <div className="max-w-2xl mx-auto mb-10">
-              <div className="est-card p-6" style={{ boxShadow: '0 4px 24px -4px hsl(var(--foreground) / 0.08), 0 2px 8px -2px hsl(var(--foreground) / 0.04)' }}>
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 px-1">Example Excel Takeoff</h3>
-                <p className="text-[11px] text-muted-foreground/70 mb-4 px-1">Generated from uploaded plans.</p>
-                <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'hsl(var(--border))' }}>
-                  {/* Mock spreadsheet header */}
-                  <div className="flex items-center gap-2 px-3 py-2.5 border-b" style={{ background: 'hsl(var(--muted) / 0.5)', borderColor: 'hsl(var(--border))' }}>
-                    <div className="w-4 h-4 rounded-sm flex items-center justify-center text-[8px] font-bold text-white" style={{ background: 'hsl(142, 71%, 40%)' }}>X</div>
-                    <span className="text-[11px] font-semibold text-foreground">Cabinet Takeoff Report.xlsx</span>
-                    <span className="ml-auto px-2 py-0.5 rounded text-[9px] font-semibold" style={{ background: 'hsl(var(--primary) / 0.10)', color: 'hsl(var(--primary))' }}>4 sheets included</span>
-                  </div>
-                  {/* Mock sheet tabs */}
-                  <div className="flex border-b" style={{ borderColor: 'hsl(var(--border))' }}>
-                    <span className="px-3 py-1.5 text-[10px] font-semibold text-primary border-b-2" style={{ borderColor: 'hsl(var(--primary))' }}>Unit Count</span>
-                    <span className="px-3 py-1.5 text-[10px] text-muted-foreground">Cabinet Count</span>
-                    <span className="px-3 py-1.5 text-[10px] text-muted-foreground">Countertop Sqft</span>
-                    <span className="px-3 py-1.5 text-[10px] text-muted-foreground">Hardware & Pulls</span>
-                  </div>
-                  {/* Mock spreadsheet data */}
-                  <div className="text-[11px] font-mono" style={{ background: 'hsl(var(--card))' }}>
-                    <div className="grid grid-cols-5 border-b" style={{ borderColor: 'hsl(var(--border))' }}>
-                      <div className="px-3 py-2 font-bold text-foreground border-r" style={{ background: 'hsl(var(--muted) / 0.3)', borderColor: 'hsl(var(--border))' }}>Unit Type</div>
-                      <div className="px-3 py-2 font-bold text-foreground border-r" style={{ background: 'hsl(var(--muted) / 0.3)', borderColor: 'hsl(var(--border))' }}>Qty</div>
-                      <div className="px-3 py-2 font-bold text-foreground border-r" style={{ background: 'hsl(var(--muted) / 0.3)', borderColor: 'hsl(var(--border))' }}>Cabinets</div>
-                      <div className="px-3 py-2 font-bold text-foreground border-r" style={{ background: 'hsl(var(--muted) / 0.3)', borderColor: 'hsl(var(--border))' }}>CT Sqft</div>
-                      <div className="px-3 py-2 font-bold text-foreground" style={{ background: 'hsl(var(--muted) / 0.3)' }}>Pulls</div>
-                    </div>
-                    {[
-                      ['1BR-A', '24', '8', '42.5', '16'],
-                      ['1BR-B', '18', '10', '48.0', '20'],
-                      ['2BR', '12', '14', '62.3', '28'],
-                      ['Studio', '32', '6', '28.0', '12'],
-                    ].map((row, i) => (
-                      <div key={i} className="grid grid-cols-5 border-b last:border-b-0" style={{ borderColor: 'hsl(var(--border))' }}>
-                        <div className="px-3 py-2 text-foreground border-r" style={{ borderColor: 'hsl(var(--border))' }}>{row[0]}</div>
-                        <div className="px-3 py-2 text-primary font-semibold border-r" style={{ borderColor: 'hsl(var(--border))' }}>{row[1]}</div>
-                        <div className="px-3 py-2 text-foreground border-r" style={{ borderColor: 'hsl(var(--border))' }}>{row[2]}</div>
-                        <div className="px-3 py-2 text-foreground border-r" style={{ borderColor: 'hsl(var(--border))' }}>{row[3]}</div>
-                        <div className="px-3 py-2 text-foreground">{row[4]}</div>
-                      </div>
-                    ))}
-                    <div className="grid grid-cols-5 border-t-2" style={{ borderColor: 'hsl(var(--primary))', background: 'hsl(var(--muted) / 0.5)' }}>
-                      <div className="px-3 py-2.5 font-bold text-foreground border-r" style={{ borderColor: 'hsl(var(--border))' }}>TOTAL</div>
-                      <div className="px-3 py-2.5 font-bold text-primary border-r" style={{ borderColor: 'hsl(var(--border))' }}>86</div>
-                      <div className="px-3 py-2.5 font-bold text-foreground border-r" style={{ borderColor: 'hsl(var(--border))' }}>38</div>
-                      <div className="px-3 py-2.5 font-bold text-foreground border-r" style={{ borderColor: 'hsl(var(--border))' }}>180.8</div>
-                      <div className="px-3 py-2.5 font-bold text-foreground">76</div>
-                    </div>
-                  </div>
-                </div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mt-4 mb-2">Sample Downloads</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <a href="#" className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:bg-secondary transition-colors">
-                    <div className="w-4 h-4 rounded-sm flex items-center justify-center text-[8px] font-bold text-white" style={{ background: 'hsl(142, 71%, 40%)' }}>X</div>
-                    <span className="text-[11px] font-medium text-foreground">Download Sample Excel — Cabinet Takeoff</span>
-                  </a>
-                  <a href="#" className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:bg-secondary transition-colors">
-                    <span className="text-xs">📄</span>
-                    <span className="text-[11px] font-medium text-foreground">Download Sample PDF — Unit Summary</span>
-                  </a>
-                </div>
-                <p className="text-[10px] text-muted-foreground/60 italic text-center mt-3">Generated automatically from uploaded architectural plans and 2020 shop drawings.</p>
-              </div>
-            </div>
+            {/* Example Output Section — hidden for now, will add back later */}
 
             {/* Repeated primary CTA */}
             <div className="text-center mb-10">
