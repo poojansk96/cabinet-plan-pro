@@ -308,7 +308,7 @@ export default function Dashboard() {
               <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'hsl(var(--border))' }}>
                 {/* Mock spreadsheet header */}
                 <div className="flex items-center gap-2 px-3 py-2.5 border-b" style={{ background: 'hsl(var(--muted) / 0.5)', borderColor: 'hsl(var(--border))' }}>
-                  <div className="w-3 h-3 rounded-sm" style={{ background: 'hsl(142, 71%, 45%)' }} />
+                  <div className="w-4 h-4 rounded-sm flex items-center justify-center text-[8px] font-bold text-white" style={{ background: 'hsl(142, 71%, 40%)' }}>X</div>
                   <span className="text-[11px] font-semibold text-foreground">Cabinet Takeoff Report.xlsx</span>
                   <span className="ml-auto px-2 py-0.5 rounded text-[9px] font-semibold" style={{ background: 'hsl(var(--primary) / 0.10)', color: 'hsl(var(--primary))' }}>4 sheets included</span>
                 </div>
