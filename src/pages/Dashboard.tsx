@@ -262,7 +262,10 @@ export default function Dashboard() {
                  >
                    ▶ Watch 60-Second Demo
                  </a>
-              </div>
+               </div>
+              <p className="text-[11px] text-muted-foreground/50 mt-4 max-w-md mx-auto leading-relaxed">
+                🔒 Plans are processed only to generate reports. Files are not stored and are never accessible to other users or developers.
+              </p>
             </div>
 
             {/* Trust Row */}
@@ -447,15 +450,12 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {/* Appliance Takeoff */}
-                <div className="est-card p-3 flex items-start gap-3 opacity-60">
-                  <span className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white shadow-sm bg-muted-foreground">⚡</span>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-medium text-xs text-muted-foreground">Appliance Takeoff</h3>
-                      <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-secondary text-muted-foreground">Coming Soon</span>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground/70 mt-0.5">Detect appliance quantities per unit and export costing-ready Excel schedules.</p>
+                {/* Appliance Takeoff — muted roadmap item */}
+                <div className="rounded-lg border border-dashed border-border/50 p-3 flex items-center gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 rounded flex items-center justify-center text-[10px] bg-muted text-muted-foreground">⚡</span>
+                  <div className="flex items-center gap-2 flex-1">
+                    <h3 className="font-medium text-xs text-muted-foreground/70">Appliance Takeoff</h3>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-muted text-muted-foreground/60 tracking-wide uppercase">Early Access</span>
                   </div>
                 </div>
 
