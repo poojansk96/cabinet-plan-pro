@@ -210,7 +210,6 @@ export default function ProjectDetail() {
           <div className="p-4">
             {activeTab === 'units' && <UnitModule {...storeProps} />}
             {activeTab === 'cabinets' && <CabinetModule {...storeProps} />}
-            {activeTab === 'accessories' && <AccessoriesModule {...storeProps} />}
             {activeTab === 'countertops' && <CountertopModule {...storeProps} />}
             {activeTab === 'summary' && <SummaryModule {...storeProps} />}
             {activeTab === 'project-info' && <ProjectInfoModule project={project} onSave={(updates) => updateProject(project.id, updates)} />}
