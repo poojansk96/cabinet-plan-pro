@@ -337,7 +337,7 @@ export default function Dashboard() {
                   <span className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-sm" style={{ background: 'hsl(var(--primary))' }}>✓</span>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-0.5">
-                      <h3 className="font-semibold text-sm text-foreground">Extract SKUs from 2020 Shop Drawings</h3>
+                      <h3 className="font-semibold text-sm text-foreground">Extract units & cabinet SKUs directly from 2020 shop drawings</h3>
                       <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700">Live</span>
                     </div>
                     <ul className="text-xs text-muted-foreground leading-relaxed space-y-0.5 mt-1">
