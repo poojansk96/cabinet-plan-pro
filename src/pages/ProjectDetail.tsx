@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Building2, ArrowLeft, Users, Layers, Square, BarChart3, Pencil, ClipboardCheck, FileUp, X, FileText } from 'lucide-react';
+import { Building2, ArrowLeft, Users, Layers, Square, BarChart3, Pencil, ClipboardCheck, FileUp, X, FileText, Zap } from 'lucide-react';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import UnitModule from '@/components/project/UnitModule';
 import CabinetModule from '@/components/project/CabinetModule';
@@ -11,14 +11,21 @@ import PreFinalSummaryModule from '@/components/project/PreFinalSummaryModule';
 import SummaryPanel from '@/components/project/SummaryPanel';
 import EditProjectDialog from '@/components/project/EditProjectDialog';
 import ProjectInfoModule from '@/components/project/ProjectInfoModule';
+import ApplianceModule from '@/components/project/ApplianceModule';
 
-type Tab = 'units' | 'cabinets' | 'countertops' | 'summary' | 'project-info' | 'prefinal-units' | 'prefinal-summary';
+type Tab = 'units' | 'cabinets' | 'countertops' | 'summary' | 'project-info' | 'prefinal-units' | 'prefinal-summary' | 'app-units' | 'app-takeoff' | 'app-summary';
 
-const TAKEOFF_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
+const CABINET_TAKEOFF_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'units', label: 'Units', icon: <Users size={14} /> },
   { key: 'cabinets', label: 'Cabinet Takeoff', icon: <Layers size={14} /> },
   { key: 'countertops', label: 'Countertop Takeoff', icon: <Square size={14} /> },
   { key: 'summary', label: 'Summary', icon: <BarChart3 size={14} /> },
+];
+
+const APPLIANCE_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
+  { key: 'app-units', label: 'Units', icon: <Users size={14} /> },
+  { key: 'app-takeoff', label: 'Appliance Takeoff', icon: <Zap size={14} /> },
+  { key: 'app-summary', label: 'Appliance Summary', icon: <BarChart3 size={14} /> },
 ];
 
 const PREFINAL_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
@@ -168,9 +175,27 @@ export default function ProjectDetail() {
 
         <div className="px-4 flex items-end gap-0 overflow-x-auto">
           <div className="flex flex-col">
-            <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground px-1 pt-1">Takeoff</span>
+            <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground px-1 pt-1">Cabinet Takeoff</span>
             <div className="flex">
-              {TAKEOFF_TABS.map((tab) => (
+              {CABINET_TAKEOFF_TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`module-tab flex items-center gap-1.5 mr-1 ${activeTab === tab.key ? 'active' : ''}`}
+                  aria-selected={activeTab === tab.key}
+                  role="tab"
+                >
+                  {tab.icon}
+                  <span className="hidden sm:inline">{tab.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="w-px my-1 mx-4 bg-border flex-shrink-0 self-stretch" />
+          <div className="flex flex-col">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground px-1 pt-1">Appliance Takeoff</span>
+            <div className="flex">
+              {APPLIANCE_TABS.map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
@@ -212,6 +237,9 @@ export default function ProjectDetail() {
             {activeTab === 'cabinets' && <CabinetModule {...storeProps} />}
             {activeTab === 'countertops' && <CountertopModule {...storeProps} />}
             {activeTab === 'summary' && <SummaryModule {...storeProps} />}
+            {activeTab === 'app-units' && <UnitModule {...storeProps} />}
+            {activeTab === 'app-takeoff' && <ApplianceModule {...storeProps} />}
+            {activeTab === 'app-summary' && <ApplianceModule {...storeProps} />}
             {activeTab === 'project-info' && <ProjectInfoModule project={project} onSave={(updates) => updateProject(project.id, updates)} />}
             {activeTab === 'prefinal-units' && <PreFinalModule key="prefinal" {...storeProps} />}
             {activeTab === 'prefinal-summary' && <PreFinalSummaryModule {...storeProps} />}
