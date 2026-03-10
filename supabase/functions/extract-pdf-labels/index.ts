@@ -93,9 +93,19 @@ async function callGemini(
 }
 
 // SKU patterns for text-layer extraction
-const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|UB|WC|OH|BLW|BRW|T|UT|TC|PT|PTC|UC|V|VB|VD|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR)\d[\w\-\/]*/gi;
+const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|UB|WC|OH|BLW|BRW|T|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR)\d[\w\-\/]*/gi;
 const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
+const SKU_PREFIX_RE = /^(BLW|BRW|DB|SB|CB|EB|LSB|LS|BFFIL|WFFIL|TKRUN|TK|BF|WF|FIL|CM|LR|EP|FP|DWR|VDC|VB|VD|WC|UB|OH|PTC|PT|UTC|UT|TC|UC|W|T|V|B)\d/i;
 
+function isValidSku(s: string): boolean {
+  const upper = s.toUpperCase().trim();
+  if (!upper || upper.length < 2) return false;
+  if (APPLIANCE_RE.test(upper)) return false;
+  if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) return false;
+  return SKU_PREFIX_RE.test(upper);
+}
+
+// Returns both unique SKUs and occurrence counts for quantity cross-referencing
 function extractSkusFromText(pageText: string): string[] {
   if (!pageText) return [];
   const matches = pageText.match(SKU_PATTERN) || [];
@@ -109,13 +119,91 @@ function extractSkusFromText(pageText: string): string[] {
   return [...skus];
 }
 
+function extractSkuCounts(pageText: string): Map<string, number> {
+  if (!pageText) return new Map();
+  const matches = pageText.match(SKU_PATTERN) || [];
+  const counts = new Map<string, number>();
+  for (const m of matches) {
+    const upper = m.toUpperCase().trim();
+    if (APPLIANCE_RE.test(upper)) continue;
+    if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) continue;
+    counts.set(upper, (counts.get(upper) || 0) + 1);
+  }
+  return counts;
+}
+
 function classifySku(sku: string): string {
   if (/^(BLW|BRW)/i.test(sku)) return "Wall";
   if (/^(W|UB|WC|OH)\d/i.test(sku)) return "Wall";
   if (/^(T|UT|TC|PT|PTC|UC)\d/i.test(sku)) return "Tall";
-  if (/^(V|VB|VD)\d/i.test(sku)) return "Vanity";
+  if (/^(V|VB|VD|VDC)\d/i.test(sku)) return "Vanity";
   if (/^(FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR)\d/i.test(sku)) return "Accessory";
   return "Base";
+}
+
+// Split merged/concatenated SKUs that the AI incorrectly combined
+// e.g. "W1530-BLW24/2730-R" → ["W1530-L", "BLW24/2730-R"] or ["W1530", "BLW24/2730-R"]
+// e.g. "W1230WDC2430" → ["W1230", "WDC2430"]
+function splitMergedSkus(items: any[]): any[] {
+  const result: any[] = [];
+  for (const item of items) {
+    const sku = String(item?.sku ?? '').toUpperCase().trim();
+    if (!sku) { result.push(item); continue; }
+
+    // Try splitting on hyphen boundaries where both parts look like valid SKUs
+    // Pattern: VALID_SKU-VALID_SKU (but not BLW24/2730-R which has valid trailing -R)
+    const hyphenParts = sku.split('-');
+    if (hyphenParts.length >= 2) {
+      // Try to find a split point where left and right are both valid SKUs
+      for (let i = 1; i < hyphenParts.length; i++) {
+        const left = hyphenParts.slice(0, i).join('-');
+        const right = hyphenParts.slice(i).join('-');
+        if (isValidSku(left) && isValidSku(right)) {
+          console.log(`Split merged SKU: "${sku}" → "${left}" + "${right}"`);
+          result.push({ ...item, sku: left, type: classifySku(left), quantity: 1 });
+          result.push({ ...item, sku: right, type: classifySku(right), quantity: 1 });
+          break;
+        }
+      }
+      // If no valid split found, check if it's a valid single SKU
+      if (result.length === 0 || result[result.length - 1].sku !== hyphenParts.slice(1).join('-').toUpperCase()) {
+        // No split happened — try concatenation split (no hyphen)
+        const joined = sku.replace(/-/g, '');
+        let didSplitConcat = false;
+        // Try to find where a second SKU prefix starts within the string
+        for (let pos = 2; pos < joined.length - 1; pos++) {
+          const left2 = joined.substring(0, pos);
+          const right2 = joined.substring(pos);
+          if (isValidSku(left2) && isValidSku(right2)) {
+            console.log(`Split concatenated SKU: "${sku}" → "${left2}" + "${right2}"`);
+            result.push({ ...item, sku: left2, type: classifySku(left2), quantity: 1 });
+            result.push({ ...item, sku: right2, type: classifySku(right2), quantity: 1 });
+            didSplitConcat = true;
+            break;
+          }
+        }
+        if (!didSplitConcat) {
+          result.push(item);
+        }
+      }
+    } else {
+      // No hyphens — check for concatenated SKUs like "W1230WDC2430"
+      let didSplit = false;
+      for (let pos = 2; pos < sku.length - 1; pos++) {
+        const left = sku.substring(0, pos);
+        const right = sku.substring(pos);
+        if (isValidSku(left) && isValidSku(right)) {
+          console.log(`Split concatenated SKU: "${sku}" → "${left}" + "${right}"`);
+          result.push({ ...item, sku: left, type: classifySku(left), quantity: 1 });
+          result.push({ ...item, sku: right, type: classifySku(right), quantity: 1 });
+          didSplit = true;
+          break;
+        }
+      }
+      if (!didSplit) result.push(item);
+    }
+  }
+  return result;
 }
 
 // ── Main handler ──
