@@ -255,6 +255,7 @@ export default function PreFinalModule({ project }: Props) {
           }}
           onClose={() => setShowCabinetImport(false)}
           prefinalPerson={project.specs?.takeoffPerson}
+          speedMode={speedMode}
         />
       )}
 
