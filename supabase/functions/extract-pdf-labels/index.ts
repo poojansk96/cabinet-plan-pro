@@ -313,12 +313,12 @@ Return the COMPLETE corrected list as JSON — no markdown, no explanation:
       }
     }
 
-    // ── PASS 4: Targeted hunt for commonly missed SKUs (fast, uses flash) ──
+    // ── PASS 4: Targeted hunt for commonly missed SKUs (SKIP in fast mode) ──
     const updatedExistingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim()));
     const COMMONLY_MISSED = ['B09FH','B06FH','B12FH','BF3','BF6','WF3X30','WF6X30','FIL3','DWR3','DWR6','CM8','TK','TKRUN','EP','LR','SCRIBE','BP'];
     const missingCandidates = COMMONLY_MISSED.filter(s => !updatedExistingSkus.has(s));
 
-    if (missingCandidates.length > 0 && finalItems.length > 0) {
+    if (missingCandidates.length > 0 && finalItems.length > 0 && !isFastMode) {
       console.log(`Pass 4 hunting for: ${missingCandidates.join(', ')}`);
       const pass4Prompt = `You are an expert millwork estimator doing a FINAL careful check on a 2020 Design shop drawing PLAN VIEW page.
 
@@ -341,7 +341,6 @@ Return ONLY NEWLY FOUND items as JSON — no markdown:
 If none found, return {"items":[]}`;
 
       try {
-        // Use flash for speed since we already spent time budget on pro
         const pass4Content = await callGemini(GEMINI_API_KEY, "gemini-2.5-flash", pageImage, pass4Prompt, 0.2, 4096);
         console.log("Pass 4 targeted:", pass4Content.slice(0, 500));
         try {
@@ -367,6 +366,8 @@ If none found, return {"items":[]}`;
       } catch (e) {
         console.log("Pass 4 error:", e);
       }
+    } else if (isFastMode) {
+      console.log("Fast mode: skipping Pass 4 targeted hunt");
     }
 
     console.log(`Final: ${finalItems.length} items`);
