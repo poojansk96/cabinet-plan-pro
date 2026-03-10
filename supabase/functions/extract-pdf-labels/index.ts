@@ -390,15 +390,11 @@ Return the COMPLETE corrected list as JSON — no markdown:
       }
     }
 
-    // Enforce text-layer minimum quantities on ALL existing items
-    for (const item of finalItems) {
-      const sku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
-      const textQty = textSkuCounts.get(sku);
-      if (textQty && textQty > (Number(item.quantity) || 1)) {
-        console.log(`Text qty enforcement: ${sku} AI=${item.quantity} → text=${textQty}`);
-        item.quantity = textQty;
-      }
-    }
+    // NOTE: Text-layer quantity enforcement REMOVED.
+    // The text layer often double-counts SKUs that appear in legends, notes, title blocks,
+    // or call-out bubbles — not just the plan view labels. The AI vision model is more
+    // reliable for quantity since it understands drawing context. Text cross-ref above
+    // is still used to ADD missing SKUs, but we no longer override AI quantities upward.
 
     // ── PASS 4: Targeted hunt for commonly missed SKUs (SKIP in fast mode) ──
     const updatedExistingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim()));

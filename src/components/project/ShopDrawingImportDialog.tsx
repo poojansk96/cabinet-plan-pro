@@ -35,7 +35,7 @@ export interface LabelRow {
 
 interface Props {
   unitType?: string;
-  onImport: (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[], detectedUnitType?: string) => void;
+  onImport: (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[], detectedUnitType?: string, typeOrder?: string[]) => void;
   onClose: () => void;
   prefinalPerson?: string;
   speedMode?: 'fast' | 'thorough';
