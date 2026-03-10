@@ -289,6 +289,24 @@ export default function PreFinalModule({ project }: Props) {
         >
           <Square size={13} /> Stone - SQFT
         </button>
+
+        {/* Speed mode toggle */}
+        <div className="ml-auto flex items-center gap-1.5 bg-muted rounded-md p-0.5">
+          <button
+            onClick={() => setSpeedMode('fast')}
+            className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${speedMode === 'fast' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            title="Single AI pass — faster but may miss rare SKUs"
+          >
+            ⚡ Fast
+          </button>
+          <button
+            onClick={() => setSpeedMode('thorough')}
+            className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${speedMode === 'thorough' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            title="Multi-pass AI verification — slower but catches more edge cases"
+          >
+            🔍 Thorough
+          </button>
+        </div>
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
