@@ -218,7 +218,8 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
-    const { pageImage } = await req.json();
+    const { pageImage, speedMode } = await req.json();
+    const isFastMode = speedMode === 'fast';
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -265,10 +266,11 @@ serve(async (req) => {
     const firstPassUnits = cleanUnits(parsed.units, parsed.bldg || null);
     console.log("Pass 1 units:", firstPassUnits.length, JSON.stringify(firstPassUnits.map(u => `${u.bldg}/${u.unitNumber}`)));
 
-    // PASS 2: Verification — re-send the image with first-pass results for the AI to double-check
+    // PASS 2: Verification — re-send the image with first-pass results (SKIP in fast mode)
     let finalUnits = firstPassUnits;
-    try {
-      const VERIFY_PROMPT = `You are verifying extracted unit data from a 2020 Design shop drawing page.
+    if (!isFastMode) {
+      try {
+        const VERIFY_PROMPT = `You are verifying extracted unit data from a 2020 Design shop drawing page.
 
 FIRST: Is this a FLOOR PLAN (top-down view) page? If NOT (it's an elevation, countertop drawing, title-only page, or any other non-floor-plan page), return {"bldg":null,"units":[]}.
 
@@ -284,45 +286,47 @@ If it IS a floor plan page, verify:
 Return the corrected JSON (same format), no other text. Each entry MUST have a "bldg" field:
 {"bldg":null,"units":[{"unitNumber":"1A","unitType":"TYPE 1 - AS","floor":"1","bldg":"BLDG 1"}]}`;
 
-      const verifyBody = JSON.stringify({
-        contents: [{ role: "user", parts: [
-          { inlineData: { mimeType: "image/jpeg", data: pageImage } },
-          { text: VERIFY_PROMPT + "\n\nPreviously extracted data:\n" + JSON.stringify({ bldg: parsed.bldg || null, units: firstPassUnits }) },
-        ]}],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 4096 },
-      });
+        const verifyBody = JSON.stringify({
+          contents: [{ role: "user", parts: [
+            { inlineData: { mimeType: "image/jpeg", data: pageImage } },
+            { text: VERIFY_PROMPT + "\n\nPreviously extracted data:\n" + JSON.stringify({ bldg: parsed.bldg || null, units: firstPassUnits }) },
+          ]}],
+          generationConfig: { temperature: 0.1, maxOutputTokens: 4096 },
+        });
 
-      const verifyRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-        { method: "POST", headers: { "Content-Type": "application/json" }, body: verifyBody }
-      );
+        const verifyRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+          { method: "POST", headers: { "Content-Type": "application/json" }, body: verifyBody }
+        );
 
-      if (verifyRes.ok) {
-        const verifyData = await verifyRes.json();
-        const verifyContent = verifyData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-        console.log("AI Pass 2 (verify) response:", verifyContent.slice(0, 500));
-        const verifyParsed = extractJSON(verifyContent);
-        const verifiedUnits = cleanUnits(verifyParsed.units, verifyParsed.bldg || parsed.bldg || null);
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json();
+          const verifyContent = verifyData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+          console.log("AI Pass 2 (verify) response:", verifyContent.slice(0, 500));
+          const verifyParsed = extractJSON(verifyContent);
+          const verifiedUnits = cleanUnits(verifyParsed.units, verifyParsed.bldg || parsed.bldg || null);
 
-        if (verifiedUnits.length > 0) {
-          // Merge: keep all units from both passes, deduplicate
-          const merged = new Map<string, typeof finalUnits[0]>();
-          const makeKey = (u: typeof finalUnits[0]) => `${u.unitNumber.toUpperCase().replace(/\s+/g, '')}__${normalizeBldgKey(u.bldg)}`;
-          for (const u of firstPassUnits) merged.set(makeKey(u), u);
-          for (const u of verifiedUnits) merged.set(makeKey(u), u);
-          finalUnits = Array.from(merged.values());
-          finalUnits.sort((a, b) => {
-            const bldgCmp = (a.bldg || '').localeCompare(b.bldg || '', undefined, { numeric: true });
-            if (bldgCmp !== 0) return bldgCmp;
-            return a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true });
-          });
+          if (verifiedUnits.length > 0) {
+            const merged = new Map<string, typeof finalUnits[0]>();
+            const makeKey = (u: typeof finalUnits[0]) => `${u.unitNumber.toUpperCase().replace(/\s+/g, '')}__${normalizeBldgKey(u.bldg)}`;
+            for (const u of firstPassUnits) merged.set(makeKey(u), u);
+            for (const u of verifiedUnits) merged.set(makeKey(u), u);
+            finalUnits = Array.from(merged.values());
+            finalUnits.sort((a, b) => {
+              const bldgCmp = (a.bldg || '').localeCompare(b.bldg || '', undefined, { numeric: true });
+              if (bldgCmp !== 0) return bldgCmp;
+              return a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true });
+            });
+          }
+          console.log("Pass 2 verified units:", finalUnits.length);
+        } else {
+          console.warn("Verification pass failed with status:", verifyRes.status, "— using Pass 1 results");
         }
-        console.log("Pass 2 verified units:", finalUnits.length);
-      } else {
-        console.warn("Verification pass failed with status:", verifyRes.status, "— using Pass 1 results");
+      } catch (verifyErr) {
+        console.warn("Verification pass error:", verifyErr, "— using Pass 1 results");
       }
-    } catch (verifyErr) {
-      console.warn("Verification pass error:", verifyErr, "— using Pass 1 results");
+    } else {
+      console.log("Fast mode: skipping Pass 2 verification");
     }
 
     console.log("Final units:", finalUnits.length, JSON.stringify(finalUnits.map(u => `${u.bldg}/${u.unitNumber}`)));

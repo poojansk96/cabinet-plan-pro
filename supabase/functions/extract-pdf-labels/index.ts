@@ -129,7 +129,8 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
-    const { pageImage, unitType, pageText } = await req.json();
+    const { pageImage, unitType, pageText, speedMode } = await req.json();
+    const isFastMode = speedMode === 'fast';
 
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage (base64 string) required" }), {
@@ -232,9 +233,9 @@ Return ONLY valid JSON — no markdown, no explanation:
     const pass1Items = parsed.items ?? [];
     console.log(`Pass 1: ${pass1Items.length} items, unitType: ${detectedUnitType}`);
 
-    // ── PASS 2: Verification with gemini-2.5-flash (FAST) ──
+    // ── PASS 2: Verification with gemini-2.5-flash (SKIP in fast mode) ──
     let finalItems = pass1Items;
-    if (pass1Items.length > 0) {
+    if (pass1Items.length > 0 && !isFastMode) {
       const verifyPrompt = `You are an expert millwork estimator doing a SECOND verification pass on a 2020 Design shop drawing PLAN VIEW page.
 
 Pass 1 found these cabinet SKUs:
@@ -255,7 +256,6 @@ Return the COMPLETE corrected list as JSON — no markdown, no explanation:
 {"items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1}]}`;
 
       try {
-        // Use flash for speed — Pass 1 already used pro for accuracy
         const verifyContent = await callGemini(GEMINI_API_KEY, "gemini-2.5-flash", pageImage, verifyPrompt, 0.1, 8192);
         console.log("Pass 2 verify:", verifyContent.slice(0, 800));
         try {
@@ -294,6 +294,8 @@ Return the COMPLETE corrected list as JSON — no markdown, no explanation:
       } catch (e) {
         console.log("Pass 2 error, using Pass 1:", e);
       }
+    } else if (isFastMode) {
+      console.log("Fast mode: skipping Pass 2 verification");
     }
 
     // ── PASS 3: Text-layer cross-reference — add SKUs found in text but missed by vision ──
@@ -311,12 +313,12 @@ Return the COMPLETE corrected list as JSON — no markdown, no explanation:
       }
     }
 
-    // ── PASS 4: Targeted hunt for commonly missed SKUs (fast, uses flash) ──
+    // ── PASS 4: Targeted hunt for commonly missed SKUs (SKIP in fast mode) ──
     const updatedExistingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim()));
     const COMMONLY_MISSED = ['B09FH','B06FH','B12FH','BF3','BF6','WF3X30','WF6X30','FIL3','DWR3','DWR6','CM8','TK','TKRUN','EP','LR','SCRIBE','BP'];
     const missingCandidates = COMMONLY_MISSED.filter(s => !updatedExistingSkus.has(s));
 
-    if (missingCandidates.length > 0 && finalItems.length > 0) {
+    if (missingCandidates.length > 0 && finalItems.length > 0 && !isFastMode) {
       console.log(`Pass 4 hunting for: ${missingCandidates.join(', ')}`);
       const pass4Prompt = `You are an expert millwork estimator doing a FINAL careful check on a 2020 Design shop drawing PLAN VIEW page.
 
@@ -339,7 +341,6 @@ Return ONLY NEWLY FOUND items as JSON — no markdown:
 If none found, return {"items":[]}`;
 
       try {
-        // Use flash for speed since we already spent time budget on pro
         const pass4Content = await callGemini(GEMINI_API_KEY, "gemini-2.5-flash", pageImage, pass4Prompt, 0.2, 4096);
         console.log("Pass 4 targeted:", pass4Content.slice(0, 500));
         try {
@@ -365,6 +366,8 @@ If none found, return {"items":[]}`;
       } catch (e) {
         console.log("Pass 4 error:", e);
       }
+    } else if (isFastMode) {
+      console.log("Fast mode: skipping Pass 4 targeted hunt");
     }
 
     console.log(`Final: ${finalItems.length} items`);

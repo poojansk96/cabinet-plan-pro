@@ -38,6 +38,7 @@ interface Props {
   onImport: (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[], detectedUnitType?: string) => void;
   onClose: () => void;
   prefinalPerson?: string;
+  speedMode?: 'fast' | 'thorough';
 }
 
 const PERSONAL_QUOTES = [
@@ -91,7 +92,7 @@ async function renderPageToBase64(page: any): Promise<string> {
   return canvas.toDataURL('image/jpeg', 0.95).split(',')[1];
 }
 
-export default function ShopDrawingImportDialog({ unitType, onImport, onClose, prefinalPerson }: Props) {
+export default function ShopDrawingImportDialog({ unitType, onImport, onClose, prefinalPerson, speedMode = 'fast' }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<LabelRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -191,7 +192,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         throw new Error('All attempts failed');
       };
 
-      const aiResponse = await fetchWithRetry(JSON.stringify({ pageImage, unitType, pageText }));
+      const aiResponse = await fetchWithRetry(JSON.stringify({ pageImage, unitType, pageText, speedMode }));
 
       if (!aiResponse.ok) {
         const status = aiResponse.status;
