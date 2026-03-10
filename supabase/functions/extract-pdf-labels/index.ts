@@ -321,8 +321,16 @@ Return ONLY valid JSON — no markdown, no explanation:
     try { parsed = extractJson(content); } catch { console.error("Pass 1 JSON parse failed:", content.slice(0, 500)); }
 
     const detectedUnitType = parsed.unitTypeName ?? null;
-    const pass1Items = parsed.items ?? [];
-    console.log(`Pass 1: ${pass1Items.length} items, unitType: ${detectedUnitType}`);
+    const pass1Raw = parsed.items ?? [];
+    // Split any merged/concatenated SKUs from Pass 1
+    const pass1Items = splitMergedSkus(pass1Raw);
+    console.log(`Pass 1: ${pass1Raw.length} raw → ${pass1Items.length} after split, unitType: ${detectedUnitType}`);
+
+    // Extract text layer occurrence counts for qty enforcement
+    const textSkuCounts = extractSkuCounts(pageText ?? "");
+    if (textSkuCounts.size > 0) {
+      console.log(`Text layer counts: ${[...textSkuCounts.entries()].map(([k,v]) => `${k}:${v}`).join(', ')}`);
+    }
 
     // ── PASS 2: Verification with gemini-2.5-flash (SKIP in fast mode) ──
     let finalItems = pass1Items;
@@ -331,19 +339,14 @@ Return ONLY valid JSON — no markdown, no explanation:
 
 Pass 1 found these cabinet SKUs:
 ${JSON.stringify(pass1Items)}
-${textLayerSkus.length > 0 ? `\nThe PDF text layer contains these SKUs: ${textLayerSkus.join(', ')}\nAny SKU from this text list that is NOT in Pass 1 results is likely MISSED — look carefully for it.\n` : ''}
+${textLayerSkus.length > 0 ? `\nThe PDF text layer contains these SKUs with occurrence counts: ${[...textSkuCounts.entries()].map(([k,v]) => `${k} (×${v})`).join(', ')}\nIf a SKU appears multiple times in text, its quantity should be AT LEAST that count.\n` : ''}
 Your job: Look at the SAME image again VERY carefully and check for:
-1. MISSED SKUs — any cabinet label visible on the plan view that is NOT in the list above. Pay special attention to: B09FH, B06FH, B12FH, BF3, BF6, WF3X30, WF6X30, FIL3, TK, CM, LR, EP, DWR3, DWR6.
-2. WRONG quantities — if a SKU label appears multiple times in different locations, the quantity should match the number of occurrences.
-3. FALSE entries — any SKU in the list that does NOT actually appear as a label on this page.
+1. MISSED SKUs — especially BF3, BF6, WF3X30, WF6X30, FIL3, DWR3, DWR6.
+2. WRONG quantities — match actual label occurrences on the page.
+3. MERGED LABELS — if any SKU looks like two labels combined (e.g. "W1530-BLW24/2730-R" is actually "W1530" + "BLW24/2730-R"), split them into SEPARATE entries.
+4. STACKED LABELS: "W1230" above "VDC2430" = TWO separate cabinets. NEVER merge into one string.
 
-IMPORTANT:
-- Only extract from PLAN VIEW (top-down) pages. If this is an elevation (front view), return {"items":[]}.
-- SKIP appliances (REF, DW, RANGE, HOOD, MICRO, OTR, OVEN, etc.)
-- Read labels EXACTLY as printed.
-- STACKED LABELS: Each is a SEPARATE cabinet entry. NEVER merge them.
-
-Return the COMPLETE corrected list as JSON — no markdown, no explanation:
+Return the COMPLETE corrected list as JSON — no markdown:
 {"items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1}]}`;
 
       try {
@@ -351,7 +354,8 @@ Return the COMPLETE corrected list as JSON — no markdown, no explanation:
         console.log("Pass 2 verify:", verifyContent.slice(0, 800));
         try {
           const verifyParsed = extractJson(verifyContent);
-          const pass2Items = verifyParsed.items ?? [];
+          const pass2Raw = verifyParsed.items ?? [];
+          const pass2Items = splitMergedSkus(pass2Raw);
           if (pass2Items.length > 0) {
             const mergedByKey = new Map<string, any>();
             for (const item of pass1Items) {
@@ -389,18 +393,27 @@ Return the COMPLETE corrected list as JSON — no markdown, no explanation:
       console.log("Fast mode: skipping Pass 2 verification");
     }
 
-    // ── PASS 3: Text-layer cross-reference — add SKUs found in text but missed by vision ──
+    // ── PASS 3: Text-layer cross-reference — add missing SKUs AND enforce minimum quantities ──
     const existingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '')));
     const textOnlySkus = textLayerSkus.filter(s => !existingSkus.has(s));
 
     if (textOnlySkus.length > 0 && finalItems.length > 0) {
       console.log(`Text cross-ref: ${textOnlySkus.length} SKUs in text but missing from AI: ${textOnlySkus.join(', ')}`);
-      // These are SKUs the PDF text layer says exist but AI vision missed.
-      // Add them with quantity 1 — the text layer confirms they're on this page.
       for (const sku of textOnlySkus) {
         const type = classifySku(sku);
-        finalItems.push({ sku, type, room: "Kitchen", quantity: 1 });
-        console.log(`Text cross-ref added: ${sku} (${type})`);
+        const textQty = textSkuCounts.get(sku) || 1;
+        finalItems.push({ sku, type, room: "Kitchen", quantity: textQty });
+        console.log(`Text cross-ref added: ${sku} (${type}) qty ${textQty}`);
+      }
+    }
+
+    // Enforce text-layer minimum quantities on ALL existing items
+    for (const item of finalItems) {
+      const sku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+      const textQty = textSkuCounts.get(sku);
+      if (textQty && textQty > (Number(item.quantity) || 1)) {
+        console.log(`Text qty enforcement: ${sku} AI=${item.quantity} → text=${textQty}`);
+        item.quantity = textQty;
       }
     }
 
@@ -420,15 +433,16 @@ ${missingCandidates.join(', ')}
 
 These are typically:
 - B09FH, B06FH, B12FH = Very NARROW filler-head base cabinets (6"-12" wide), shown as thin slivers
-- BF3, BF6 = Base fillers — tiny narrow strips between cabinets
+- BF3, BF6 = Base fillers — tiny narrow strips between cabinets. Count EVERY occurrence — if you see BF3 in 4 different spots, quantity = 4.
 - WF3X30, WF6X30 = Wall fillers — small strips near wall cabinets
 - FIL3, DWR3, DWR6, CM8, TK, TKRUN, EP, LR = Small accessories
 
 If this is an ELEVATION page, return {"items":[]}.
 Only report SKUs you can ACTUALLY SEE — do not guess.
+Report the CORRECT QUANTITY for each (count every occurrence on the page).
 
 Return ONLY NEWLY FOUND items as JSON — no markdown:
-{"items":[{"sku":"B09FH","type":"Base","room":"Kitchen","quantity":1}]}
+{"items":[{"sku":"BF3","type":"Accessory","room":"Kitchen","quantity":4}]}
 If none found, return {"items":[]}`;
 
       try {
