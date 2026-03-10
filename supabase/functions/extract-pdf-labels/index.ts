@@ -93,9 +93,19 @@ async function callGemini(
 }
 
 // SKU patterns for text-layer extraction
-const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|UB|WC|OH|BLW|BRW|T|UT|TC|PT|PTC|UC|V|VB|VD|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR)\d[\w\-\/]*/gi;
+const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|UB|WC|OH|BLW|BRW|T|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR)\d[\w\-\/]*/gi;
 const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
+const SKU_PREFIX_RE = /^(BLW|BRW|DB|SB|CB|EB|LSB|LS|BFFIL|WFFIL|TKRUN|TK|BF|WF|FIL|CM|LR|EP|FP|DWR|VDC|VB|VD|WC|UB|OH|PTC|PT|UTC|UT|TC|UC|W|T|V|B)\d/i;
 
+function isValidSku(s: string): boolean {
+  const upper = s.toUpperCase().trim();
+  if (!upper || upper.length < 2) return false;
+  if (APPLIANCE_RE.test(upper)) return false;
+  if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) return false;
+  return SKU_PREFIX_RE.test(upper);
+}
+
+// Returns both unique SKUs and occurrence counts for quantity cross-referencing
 function extractSkusFromText(pageText: string): string[] {
   if (!pageText) return [];
   const matches = pageText.match(SKU_PATTERN) || [];
@@ -109,13 +119,74 @@ function extractSkusFromText(pageText: string): string[] {
   return [...skus];
 }
 
+function extractSkuCounts(pageText: string): Map<string, number> {
+  if (!pageText) return new Map();
+  const matches = pageText.match(SKU_PATTERN) || [];
+  const counts = new Map<string, number>();
+  for (const m of matches) {
+    const upper = m.toUpperCase().trim();
+    if (APPLIANCE_RE.test(upper)) continue;
+    if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) continue;
+    counts.set(upper, (counts.get(upper) || 0) + 1);
+  }
+  return counts;
+}
+
 function classifySku(sku: string): string {
   if (/^(BLW|BRW)/i.test(sku)) return "Wall";
   if (/^(W|UB|WC|OH)\d/i.test(sku)) return "Wall";
   if (/^(T|UT|TC|PT|PTC|UC)\d/i.test(sku)) return "Tall";
-  if (/^(V|VB|VD)\d/i.test(sku)) return "Vanity";
+  if (/^(V|VB|VD|VDC)\d/i.test(sku)) return "Vanity";
   if (/^(FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR)\d/i.test(sku)) return "Accessory";
   return "Base";
+}
+
+// Split merged/concatenated SKUs that the AI incorrectly combined
+// e.g. "W1530-BLW24/2730-R" → ["W1530-L", "BLW24/2730-R"] or ["W1530", "BLW24/2730-R"]
+// e.g. "W1230WDC2430" → ["W1230", "WDC2430"]
+function splitMergedSkus(items: any[]): any[] {
+  const result: any[] = [];
+  for (const item of items) {
+    const sku = String(item?.sku ?? '').toUpperCase().trim();
+    if (!sku) { result.push(item); continue; }
+
+    let wasSplit = false;
+
+    // Try splitting on hyphen boundaries where both parts look like valid SKUs
+    const hyphenParts = sku.split('-');
+    if (hyphenParts.length >= 2) {
+      for (let i = 1; i < hyphenParts.length; i++) {
+        const left = hyphenParts.slice(0, i).join('-');
+        const right = hyphenParts.slice(i).join('-');
+        if (isValidSku(left) && isValidSku(right)) {
+          console.log(`Split merged SKU: "${sku}" → "${left}" + "${right}"`);
+          result.push({ ...item, sku: left, type: classifySku(left), quantity: 1 });
+          result.push({ ...item, sku: right, type: classifySku(right), quantity: 1 });
+          wasSplit = true;
+          break;
+        }
+      }
+    }
+
+    // If no hyphen split, try concatenation split (no separator)
+    if (!wasSplit) {
+      const plain = sku.replace(/-/g, '');
+      for (let pos = 2; pos < plain.length - 1; pos++) {
+        const left = plain.substring(0, pos);
+        const right = plain.substring(pos);
+        if (isValidSku(left) && isValidSku(right)) {
+          console.log(`Split concatenated SKU: "${sku}" → "${left}" + "${right}"`);
+          result.push({ ...item, sku: left, type: classifySku(left), quantity: 1 });
+          result.push({ ...item, sku: right, type: classifySku(right), quantity: 1 });
+          wasSplit = true;
+          break;
+        }
+      }
+    }
+
+    if (!wasSplit) result.push(item);
+  }
+  return result;
 }
 
 // ── Main handler ──
@@ -193,10 +264,13 @@ COUNTING — CRITICAL:
 - Corner cabinets (LS, LSB) sit at the corner where two walls meet — count only ONCE even if the label appears at the junction of two wall runs.
 - Look for "xN" or "(2)" multiplier notation.
 ${textLayerSkus.length > 0 ? `\nIMPORTANT - TEXT LAYER CROSS-REFERENCE:\nThe PDF text layer contains these SKUs: ${textLayerSkus.join(', ')}\nMake sure ALL of these appear in your extraction if they are visible as labels on the plan view. If a SKU from this list is missing from your results, look harder for it.\n` : ''}
-STACKED / ADJACENT LABELS — CRITICAL:
-- On plan views, TWO or MORE SKU labels may appear STACKED VERTICALLY or placed very close together near the SAME cabinet location. These are SEPARATE cabinets, NOT one combined SKU.
-- Example: "W1230" on one line and "VDC2430" on the next line → these are TWO different cabinets: W1230 (qty 1) AND VDC2430 (qty 1).
-- NEVER concatenate or merge adjacent labels into a single SKU. Each distinct text string that matches a valid SKU pattern is its OWN cabinet entry.
+STACKED / ADJACENT LABELS — ABSOLUTELY CRITICAL (MOST COMMON ERROR):
+- On plan views, TWO or MORE SKU labels may appear STACKED VERTICALLY or placed very close together near the SAME cabinet location. These are ALWAYS SEPARATE cabinets, NEVER one combined SKU.
+- Example: "W1230" on one line and "VDC2430" below it → TWO separate cabinets: W1230 (qty 1) AND VDC2430 (qty 1). Do NOT return "W1230VDC2430".
+- Example: "W1530" near "BLW24/2730-R" → TWO separate cabinets: W1530 (qty 1) AND BLW24/2730-R (qty 1). Do NOT return "W1530-BLW24/2730-R".
+- Example: "W3018B" appearing twice on the page → ONE entry with quantity 2.
+- NEVER concatenate or merge adjacent labels into a single SKU string. Each distinct text label is its OWN entry.
+- If you see a long SKU string that contains TWO recognizable prefixes (like "W1530BLW24"), SPLIT them into separate items.
 
 ELEVATION PAGE DETECTION — VERY IMPORTANT:
 - If you see cabinet DOORS and DRAWERS as tall rectangles with DIMENSION LINES showing heights (e.g. 32 7/8", 65 3/4"), this is an ELEVATION page.
@@ -230,8 +304,16 @@ Return ONLY valid JSON — no markdown, no explanation:
     try { parsed = extractJson(content); } catch { console.error("Pass 1 JSON parse failed:", content.slice(0, 500)); }
 
     const detectedUnitType = parsed.unitTypeName ?? null;
-    const pass1Items = parsed.items ?? [];
-    console.log(`Pass 1: ${pass1Items.length} items, unitType: ${detectedUnitType}`);
+    const pass1Raw = parsed.items ?? [];
+    // Split any merged/concatenated SKUs from Pass 1
+    const pass1Items = splitMergedSkus(pass1Raw);
+    console.log(`Pass 1: ${pass1Raw.length} raw → ${pass1Items.length} after split, unitType: ${detectedUnitType}`);
+
+    // Extract text layer occurrence counts for qty enforcement
+    const textSkuCounts = extractSkuCounts(pageText ?? "");
+    if (textSkuCounts.size > 0) {
+      console.log(`Text layer counts: ${[...textSkuCounts.entries()].map(([k,v]) => `${k}:${v}`).join(', ')}`);
+    }
 
     // ── PASS 2: Verification with gemini-2.5-flash (SKIP in fast mode) ──
     let finalItems = pass1Items;
@@ -240,19 +322,14 @@ Return ONLY valid JSON — no markdown, no explanation:
 
 Pass 1 found these cabinet SKUs:
 ${JSON.stringify(pass1Items)}
-${textLayerSkus.length > 0 ? `\nThe PDF text layer contains these SKUs: ${textLayerSkus.join(', ')}\nAny SKU from this text list that is NOT in Pass 1 results is likely MISSED — look carefully for it.\n` : ''}
+${textLayerSkus.length > 0 ? `\nThe PDF text layer contains these SKUs with occurrence counts: ${[...textSkuCounts.entries()].map(([k,v]) => `${k} (×${v})`).join(', ')}\nIf a SKU appears multiple times in text, its quantity should be AT LEAST that count.\n` : ''}
 Your job: Look at the SAME image again VERY carefully and check for:
-1. MISSED SKUs — any cabinet label visible on the plan view that is NOT in the list above. Pay special attention to: B09FH, B06FH, B12FH, BF3, BF6, WF3X30, WF6X30, FIL3, TK, CM, LR, EP, DWR3, DWR6.
-2. WRONG quantities — if a SKU label appears multiple times in different locations, the quantity should match the number of occurrences.
-3. FALSE entries — any SKU in the list that does NOT actually appear as a label on this page.
+1. MISSED SKUs — especially BF3, BF6, WF3X30, WF6X30, FIL3, DWR3, DWR6.
+2. WRONG quantities — match actual label occurrences on the page.
+3. MERGED LABELS — if any SKU looks like two labels combined (e.g. "W1530-BLW24/2730-R" is actually "W1530" + "BLW24/2730-R"), split them into SEPARATE entries.
+4. STACKED LABELS: "W1230" above "VDC2430" = TWO separate cabinets. NEVER merge into one string.
 
-IMPORTANT:
-- Only extract from PLAN VIEW (top-down) pages. If this is an elevation (front view), return {"items":[]}.
-- SKIP appliances (REF, DW, RANGE, HOOD, MICRO, OTR, OVEN, etc.)
-- Read labels EXACTLY as printed.
-- STACKED LABELS: Each is a SEPARATE cabinet entry. NEVER merge them.
-
-Return the COMPLETE corrected list as JSON — no markdown, no explanation:
+Return the COMPLETE corrected list as JSON — no markdown:
 {"items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1}]}`;
 
       try {
@@ -260,7 +337,8 @@ Return the COMPLETE corrected list as JSON — no markdown, no explanation:
         console.log("Pass 2 verify:", verifyContent.slice(0, 800));
         try {
           const verifyParsed = extractJson(verifyContent);
-          const pass2Items = verifyParsed.items ?? [];
+          const pass2Raw = verifyParsed.items ?? [];
+          const pass2Items = splitMergedSkus(pass2Raw);
           if (pass2Items.length > 0) {
             const mergedByKey = new Map<string, any>();
             for (const item of pass1Items) {
@@ -298,18 +376,27 @@ Return the COMPLETE corrected list as JSON — no markdown, no explanation:
       console.log("Fast mode: skipping Pass 2 verification");
     }
 
-    // ── PASS 3: Text-layer cross-reference — add SKUs found in text but missed by vision ──
+    // ── PASS 3: Text-layer cross-reference — add missing SKUs AND enforce minimum quantities ──
     const existingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '')));
     const textOnlySkus = textLayerSkus.filter(s => !existingSkus.has(s));
 
     if (textOnlySkus.length > 0 && finalItems.length > 0) {
       console.log(`Text cross-ref: ${textOnlySkus.length} SKUs in text but missing from AI: ${textOnlySkus.join(', ')}`);
-      // These are SKUs the PDF text layer says exist but AI vision missed.
-      // Add them with quantity 1 — the text layer confirms they're on this page.
       for (const sku of textOnlySkus) {
         const type = classifySku(sku);
-        finalItems.push({ sku, type, room: "Kitchen", quantity: 1 });
-        console.log(`Text cross-ref added: ${sku} (${type})`);
+        const textQty = textSkuCounts.get(sku) || 1;
+        finalItems.push({ sku, type, room: "Kitchen", quantity: textQty });
+        console.log(`Text cross-ref added: ${sku} (${type}) qty ${textQty}`);
+      }
+    }
+
+    // Enforce text-layer minimum quantities on ALL existing items
+    for (const item of finalItems) {
+      const sku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+      const textQty = textSkuCounts.get(sku);
+      if (textQty && textQty > (Number(item.quantity) || 1)) {
+        console.log(`Text qty enforcement: ${sku} AI=${item.quantity} → text=${textQty}`);
+        item.quantity = textQty;
       }
     }
 
@@ -329,15 +416,16 @@ ${missingCandidates.join(', ')}
 
 These are typically:
 - B09FH, B06FH, B12FH = Very NARROW filler-head base cabinets (6"-12" wide), shown as thin slivers
-- BF3, BF6 = Base fillers — tiny narrow strips between cabinets
+- BF3, BF6 = Base fillers — tiny narrow strips between cabinets. Count EVERY occurrence — if you see BF3 in 4 different spots, quantity = 4.
 - WF3X30, WF6X30 = Wall fillers — small strips near wall cabinets
 - FIL3, DWR3, DWR6, CM8, TK, TKRUN, EP, LR = Small accessories
 
 If this is an ELEVATION page, return {"items":[]}.
 Only report SKUs you can ACTUALLY SEE — do not guess.
+Report the CORRECT QUANTITY for each (count every occurrence on the page).
 
 Return ONLY NEWLY FOUND items as JSON — no markdown:
-{"items":[{"sku":"B09FH","type":"Base","room":"Kitchen","quantity":1}]}
+{"items":[{"sku":"BF3","type":"Accessory","room":"Kitchen","quantity":4}]}
 If none found, return {"items":[]}`;
 
       try {
