@@ -334,6 +334,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       let pagesProcessed = 0;
       let allRows: LabelRow[] = [];
       let firstDetectedType: string | null = null;
+      const collectedTypeOrder: string[] = [];
       for (let i = 0; i < files.length; i++) {
         setProcessingStatus(`Processing file ${i + 1} of ${files.length}: "${files[i].name}"…`);
         try {
@@ -344,6 +345,10 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
           });
           allRows = mergeRows(result.rows, allRows);
           if (!firstDetectedType && result.detectedType) firstDetectedType = result.detectedType;
+          // Collect type order from each file, preserving page order across files
+          for (const t of result.typeOrder) {
+            if (!collectedTypeOrder.includes(t)) collectedTypeOrder.push(t);
+          }
         } catch (err: any) {
           if (err.message === 'rate_limit') { toast.error('AI rate limit reached. Try again shortly.'); setStep('upload'); return; }
           if (err.message === 'credits') { toast.error('AI credits exhausted.'); setStep('upload'); return; }
@@ -355,6 +360,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       setProgress(100);
       setRows(allRows);
       if (firstDetectedType) setDetectedUnitType(firstDetectedType);
+      setTypeOrder(collectedTypeOrder);
       setFilterSource('all');
       setStep('review');
     } catch (err) {
