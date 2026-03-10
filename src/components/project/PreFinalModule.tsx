@@ -30,9 +30,12 @@ function normalizeUnitType(raw: string): string {
   return s;
 }
 
+export type SpeedMode = 'fast' | 'thorough';
+
 export default function PreFinalModule({ project }: Props) {
   const [activeSubTab, setActiveSubTab] = useState<'units' | 'cabinets' | 'stone'>('units');
   const store = usePrefinalStore(project.id);
+  const [speedMode, setSpeedMode] = useState<SpeedMode>('fast');
 
   // ── Unit Count state ──────────────────────────────────────────────────────
   const [showUnitImport, setShowUnitImport] = useState(false);
