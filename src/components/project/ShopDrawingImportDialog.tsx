@@ -38,6 +38,7 @@ interface Props {
   onImport: (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[], detectedUnitType?: string) => void;
   onClose: () => void;
   prefinalPerson?: string;
+  speedMode?: 'fast' | 'thorough';
 }
 
 const PERSONAL_QUOTES = [
