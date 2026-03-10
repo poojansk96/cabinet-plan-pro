@@ -163,8 +163,7 @@ function cleanUnits(rawUnits: any[], pageBldg: string | null) {
         floor: u.floor ? `Floor ${String(u.floor).trim().replace(/^Floor\s*/i, '')}` : null,
       };
     })
-    .filter(u => isValidUnitNumber(u.unitNumber))
-    .filter(u => !/^\d$/.test(u.unitNumber));
+    .filter(u => isValidUnitNumber(u.unitNumber));
 
   // Find the dominant structured building label on this page
   const bldgCounts = new Map<string, { count: number; label: string }>();
