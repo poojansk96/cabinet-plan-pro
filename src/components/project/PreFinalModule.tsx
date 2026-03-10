@@ -269,8 +269,8 @@ export default function PreFinalModule({ project }: Props) {
       {/* Cabinet Import Dialog */}
       {showCabinetImport && (
         <ShopDrawingImportDialog
-          onImport={(rows, detectedUnitType) => {
-            handleCabinetImport(rows, detectedUnitType);
+          onImport={(rows, detectedUnitType, importTypeOrder) => {
+            handleCabinetImport(rows, detectedUnitType, importTypeOrder);
           }}
           onClose={() => setShowCabinetImport(false)}
           prefinalPerson={project.specs?.takeoffPerson}
