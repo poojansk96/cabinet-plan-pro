@@ -130,11 +130,12 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
     pdfjsLib: any,
     onStatus: (msg: string) => void,
     onPageDone?: () => void,
-  ): Promise<{ rows: LabelRow[]; detectedType: string | null }> => {
+  ): Promise<{ rows: LabelRow[]; detectedType: string | null; typeOrder: string[] }> => {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const allRows: LabelRow[] = [];
     let detectedType: string | null = null;
+    const pageTypeOrder: string[] = [];
 
     const pageTasks: { p: number; file: File }[] = [];
     for (let p = 1; p <= pdf.numPages; p++) {
