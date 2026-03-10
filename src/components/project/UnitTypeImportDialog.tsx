@@ -26,6 +26,7 @@ interface Props {
   onImport: (rows: Omit<UnitMappingRow, 'selected'>[], typeOrder?: string[]) => void;
   onClose: () => void;
   prefinalPerson?: string;
+  speedMode?: 'fast' | 'thorough';
 }
 
 const PERSONAL_QUOTES = [
