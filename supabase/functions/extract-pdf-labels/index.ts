@@ -281,10 +281,13 @@ COUNTING — CRITICAL:
 - Corner cabinets (LS, LSB) sit at the corner where two walls meet — count only ONCE even if the label appears at the junction of two wall runs.
 - Look for "xN" or "(2)" multiplier notation.
 ${textLayerSkus.length > 0 ? `\nIMPORTANT - TEXT LAYER CROSS-REFERENCE:\nThe PDF text layer contains these SKUs: ${textLayerSkus.join(', ')}\nMake sure ALL of these appear in your extraction if they are visible as labels on the plan view. If a SKU from this list is missing from your results, look harder for it.\n` : ''}
-STACKED / ADJACENT LABELS — CRITICAL:
-- On plan views, TWO or MORE SKU labels may appear STACKED VERTICALLY or placed very close together near the SAME cabinet location. These are SEPARATE cabinets, NOT one combined SKU.
-- Example: "W1230" on one line and "VDC2430" on the next line → these are TWO different cabinets: W1230 (qty 1) AND VDC2430 (qty 1).
-- NEVER concatenate or merge adjacent labels into a single SKU. Each distinct text string that matches a valid SKU pattern is its OWN cabinet entry.
+STACKED / ADJACENT LABELS — ABSOLUTELY CRITICAL (MOST COMMON ERROR):
+- On plan views, TWO or MORE SKU labels may appear STACKED VERTICALLY or placed very close together near the SAME cabinet location. These are ALWAYS SEPARATE cabinets, NEVER one combined SKU.
+- Example: "W1230" on one line and "VDC2430" below it → TWO separate cabinets: W1230 (qty 1) AND VDC2430 (qty 1). Do NOT return "W1230VDC2430".
+- Example: "W1530" near "BLW24/2730-R" → TWO separate cabinets: W1530 (qty 1) AND BLW24/2730-R (qty 1). Do NOT return "W1530-BLW24/2730-R".
+- Example: "W3018B" appearing twice on the page → ONE entry with quantity 2.
+- NEVER concatenate or merge adjacent labels into a single SKU string. Each distinct text label is its OWN entry.
+- If you see a long SKU string that contains TWO recognizable prefixes (like "W1530BLW24"), SPLIT them into separate items.
 
 ELEVATION PAGE DETECTION — VERY IMPORTANT:
 - If you see cabinet DOORS and DRAWERS as tall rectangles with DIMENSION LINES showing heights (e.g. 32 7/8", 65 3/4"), this is an ELEVATION page.
