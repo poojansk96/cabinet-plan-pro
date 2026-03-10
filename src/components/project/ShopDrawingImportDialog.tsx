@@ -221,8 +221,13 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         if (result.status === 'fulfilled') {
           const data = result.value;
           // Capture detected unit type from PLAN pages only (when items exist)
-          if (data.unitTypeName && Array.isArray(data.items) && data.items.length > 0 && !detectedType) {
-            detectedType = data.unitTypeName;
+          if (data.unitTypeName && Array.isArray(data.items) && data.items.length > 0) {
+            if (!detectedType) detectedType = data.unitTypeName;
+            // Track type order as they appear across pages
+            const normType = String(data.unitTypeName).trim();
+            if (normType && !pageTypeOrder.includes(normType)) {
+              pageTypeOrder.push(normType);
+            }
           }
 
           const pageRows = (data.items ?? []).map((c: any) => ({
