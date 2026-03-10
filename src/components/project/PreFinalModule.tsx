@@ -266,8 +266,8 @@ export default function PreFinalModule({ project }: Props) {
         />
       )}
 
-      {/* Sub-tab toggle */}
-      <div className="flex items-center gap-1">
+      {/* Sub-tab toggle + speed mode */}
+      <div className="flex items-center gap-1 flex-wrap">
         <button
           onClick={() => setActiveSubTab('units')}
           className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-xs font-medium transition-colors ${activeSubTab === 'units' ? 'text-white' : 'text-muted-foreground border border-border hover:bg-secondary'}`}
