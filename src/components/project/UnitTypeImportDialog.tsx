@@ -115,7 +115,7 @@ async function renderPageToBase64(page: any): Promise<string> {
 
 type Step = 'upload' | 'processing' | 'review';
 
-export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson }: Props) {
+export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson, speedMode = 'fast' }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<UnitMappingRow[]>([]);
   const [typeOrder, setTypeOrder] = useState<string[]>([]);
