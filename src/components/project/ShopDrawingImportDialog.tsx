@@ -92,7 +92,7 @@ async function renderPageToBase64(page: any): Promise<string> {
   return canvas.toDataURL('image/jpeg', 0.95).split(',')[1];
 }
 
-export default function ShopDrawingImportDialog({ unitType, onImport, onClose, prefinalPerson }: Props) {
+export default function ShopDrawingImportDialog({ unitType, onImport, onClose, prefinalPerson, speedMode = 'fast' }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<LabelRow[]>([]);
   const [error, setError] = useState<string | null>(null);
