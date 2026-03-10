@@ -35,7 +35,7 @@ export interface LabelRow {
 
 interface Props {
   unitType?: string;
-  onImport: (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[], detectedUnitType?: string) => void;
+  onImport: (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[], detectedUnitType?: string, typeOrder?: string[]) => void;
   onClose: () => void;
   prefinalPerson?: string;
   speedMode?: 'fast' | 'thorough';
@@ -101,6 +101,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
   const [queuedFiles, setQueuedFiles] = useState<File[]>([]);
   const [filterSource, setFilterSource] = useState<string>('all');
   const [detectedUnitType, setDetectedUnitType] = useState<string | null>(null);
+  const [typeOrder, setTypeOrder] = useState<string[]>([]);
   const [quoteIndex, setQuoteIndex] = useState(() => Math.floor(Math.random() * QUOTES.length));
   const [personalQuoteIndex, setPersonalQuoteIndex] = useState(() => Math.floor(Math.random() * PERSONAL_QUOTES.length));
   const [quoteVisible, setQuoteVisible] = useState(true);
@@ -129,11 +130,12 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
     pdfjsLib: any,
     onStatus: (msg: string) => void,
     onPageDone?: () => void,
-  ): Promise<{ rows: LabelRow[]; detectedType: string | null }> => {
+  ): Promise<{ rows: LabelRow[]; detectedType: string | null; typeOrder: string[] }> => {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const allRows: LabelRow[] = [];
     let detectedType: string | null = null;
+    const pageTypeOrder: string[] = [];
 
     const pageTasks: { p: number; file: File }[] = [];
     for (let p = 1; p <= pdf.numPages; p++) {
@@ -220,8 +222,13 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         if (result.status === 'fulfilled') {
           const data = result.value;
           // Capture detected unit type from PLAN pages only (when items exist)
-          if (data.unitTypeName && Array.isArray(data.items) && data.items.length > 0 && !detectedType) {
-            detectedType = data.unitTypeName;
+          if (data.unitTypeName && Array.isArray(data.items) && data.items.length > 0) {
+            if (!detectedType) detectedType = data.unitTypeName;
+            // Track type order as they appear across pages
+            const normType = String(data.unitTypeName).trim();
+            if (normType && !pageTypeOrder.includes(normType)) {
+              pageTypeOrder.push(normType);
+            }
           }
 
           const pageRows = (data.items ?? []).map((c: any) => ({
@@ -242,7 +249,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         onPageDone?.();
       }
     }
-    return { rows: allRows, detectedType };
+    return { rows: allRows, detectedType, typeOrder: pageTypeOrder };
   };
 
   const mergeRows = (incoming: LabelRow[], existing: LabelRow[] = []): LabelRow[] => {
@@ -327,6 +334,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       let pagesProcessed = 0;
       let allRows: LabelRow[] = [];
       let firstDetectedType: string | null = null;
+      const collectedTypeOrder: string[] = [];
       for (let i = 0; i < files.length; i++) {
         setProcessingStatus(`Processing file ${i + 1} of ${files.length}: "${files[i].name}"…`);
         try {
@@ -337,6 +345,10 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
           });
           allRows = mergeRows(result.rows, allRows);
           if (!firstDetectedType && result.detectedType) firstDetectedType = result.detectedType;
+          // Collect type order from each file, preserving page order across files
+          for (const t of result.typeOrder) {
+            if (!collectedTypeOrder.includes(t)) collectedTypeOrder.push(t);
+          }
         } catch (err: any) {
           if (err.message === 'rate_limit') { toast.error('AI rate limit reached. Try again shortly.'); setStep('upload'); return; }
           if (err.message === 'credits') { toast.error('AI credits exhausted.'); setStep('upload'); return; }
@@ -348,6 +360,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       setProgress(100);
       setRows(allRows);
       if (firstDetectedType) setDetectedUnitType(firstDetectedType);
+      setTypeOrder(collectedTypeOrder);
       setFilterSource('all');
       setStep('review');
     } catch (err) {
@@ -421,7 +434,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
   const handleImport = () => {
     const selected = rows.filter(r => r.selected).map(({ selected: _, sourceFile: __, ...rest }) => rest);
     if (selected.length === 0) return;
-    onImport(selected, detectedUnitType ?? undefined);
+    onImport(selected, detectedUnitType ?? undefined, typeOrder.length > 0 ? typeOrder : undefined);
   };
 
   const sourceFiles = Array.from(new Set(rows.map(r => r.sourceFile ?? 'Unknown')));

@@ -75,7 +75,7 @@ export default function PreFinalModule({ project }: Props) {
   };
 
   // ── Cabinet import handler ────────────────────────────────────────────────
-  const handleCabinetImport = (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[], detectedUnitType?: string) => {
+  const handleCabinetImport = (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[], detectedUnitType?: string, importTypeOrder?: string[]) => {
     const toTypeKey = (value: string) =>
       String(value || '')
         .toUpperCase()
@@ -100,6 +100,8 @@ export default function PreFinalModule({ project }: Props) {
 
     const fallbackType = resolveKnownType(importTargetType) || (importTargetType ? normalizeUnitType(importTargetType) : '');
     const rowsByType = new Map<string, typeof rows>();
+    // Track order of types as they appear (PDF page order)
+    const orderedTypes: string[] = [];
 
     for (const row of rows) {
       const rawType = (row as any).detectedUnitType || detectedUnitType || importTargetType || '';
@@ -111,12 +113,29 @@ export default function PreFinalModule({ project }: Props) {
 
       if (!rowsByType.has(finalType)) rowsByType.set(finalType, []);
       rowsByType.get(finalType)!.push(row);
+      if (!orderedTypes.includes(finalType)) orderedTypes.push(finalType);
+    }
+
+    // Use PDF page order from import if available, otherwise use row insertion order
+    if (importTypeOrder && importTypeOrder.length > 0) {
+      const normalizedOrder = importTypeOrder.map(t => {
+        const norm = normalizeUnitType(t);
+        const resolved = resolveKnownType(t) || resolveKnownType(norm);
+        return resolved || norm;
+      }).filter((t, i, arr) => arr.indexOf(t) === i);
+      // Add types in PDF page order, then any remaining
+      const remaining = orderedTypes.filter(t => !normalizedOrder.includes(t));
+      const finalOrder = [...normalizedOrder.filter(t => orderedTypes.includes(t)), ...remaining];
+      store.addCabinetUnitTypes(finalOrder.filter(t => t !== 'Unassigned'));
+    } else {
+      for (const unitType of orderedTypes) {
+        if (unitType !== 'Unassigned') {
+          store.addCabinetUnitTypes([unitType]);
+        }
+      }
     }
 
     for (const [unitType, typeRows] of rowsByType) {
-      if (unitType !== 'Unassigned') {
-        store.addCabinetUnitTypes([unitType]);
-      }
       store.addCabinetImport(
         typeRows.map(r => ({ sku: r.sku, type: r.type, room: r.room, quantity: r.quantity, unitType })),
         unitType
@@ -250,8 +269,8 @@ export default function PreFinalModule({ project }: Props) {
       {/* Cabinet Import Dialog */}
       {showCabinetImport && (
         <ShopDrawingImportDialog
-          onImport={(rows, detectedUnitType) => {
-            handleCabinetImport(rows, detectedUnitType);
+          onImport={(rows, detectedUnitType, importTypeOrder) => {
+            handleCabinetImport(rows, detectedUnitType, importTypeOrder);
           }}
           onClose={() => setShowCabinetImport(false)}
           prefinalPerson={project.specs?.takeoffPerson}
