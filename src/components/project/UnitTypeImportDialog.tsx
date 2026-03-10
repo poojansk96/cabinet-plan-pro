@@ -196,7 +196,7 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
               const res = await fetch(EDGE_FUNCTION_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pageImage }),
+                body: JSON.stringify({ pageImage, speedMode }),
                 signal: controller.signal,
               });
               clearTimeout(tid);

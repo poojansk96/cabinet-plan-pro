@@ -192,7 +192,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         throw new Error('All attempts failed');
       };
 
-      const aiResponse = await fetchWithRetry(JSON.stringify({ pageImage, unitType, pageText }));
+      const aiResponse = await fetchWithRetry(JSON.stringify({ pageImage, unitType, pageText, speedMode }));
 
       if (!aiResponse.ok) {
         const status = aiResponse.status;
