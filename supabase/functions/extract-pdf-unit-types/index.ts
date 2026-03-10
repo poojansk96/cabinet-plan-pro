@@ -218,7 +218,8 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
-    const { pageImage } = await req.json();
+    const { pageImage, speedMode } = await req.json();
+    const isFastMode = speedMode === 'fast';
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
