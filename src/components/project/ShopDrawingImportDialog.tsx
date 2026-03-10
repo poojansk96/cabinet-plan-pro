@@ -249,7 +249,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         onPageDone?.();
       }
     }
-    return { rows: allRows, detectedType };
+    return { rows: allRows, detectedType, typeOrder: pageTypeOrder };
   };
 
   const mergeRows = (incoming: LabelRow[], existing: LabelRow[] = []): LabelRow[] => {
