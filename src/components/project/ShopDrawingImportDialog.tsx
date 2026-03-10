@@ -101,6 +101,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
   const [queuedFiles, setQueuedFiles] = useState<File[]>([]);
   const [filterSource, setFilterSource] = useState<string>('all');
   const [detectedUnitType, setDetectedUnitType] = useState<string | null>(null);
+  const [typeOrder, setTypeOrder] = useState<string[]>([]);
   const [quoteIndex, setQuoteIndex] = useState(() => Math.floor(Math.random() * QUOTES.length));
   const [personalQuoteIndex, setPersonalQuoteIndex] = useState(() => Math.floor(Math.random() * PERSONAL_QUOTES.length));
   const [quoteVisible, setQuoteVisible] = useState(true);
