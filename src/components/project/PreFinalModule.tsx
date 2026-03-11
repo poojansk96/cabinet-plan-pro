@@ -183,7 +183,24 @@ export default function PreFinalModule({ project }: Props) {
     return Math.ceil((row.length * effectiveDepth) / 144);
   };
 
-
+        {activeSubTab === 'units' && (
+          <div className="ml-auto flex items-center gap-1 bg-muted rounded-lg p-1">
+            <button
+              onClick={() => setSpeedMode('fast')}
+              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${speedMode === 'fast' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              title="Single AI pass — faster but may miss rare SKUs"
+            >
+              ⚡ Fast
+            </button>
+            <button
+              onClick={() => setSpeedMode('thorough')}
+              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${speedMode === 'thorough' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              title="Multi-pass AI verification — slower but catches more edge cases"
+            >
+              🔍 Thorough
+            </button>
+          </div>
+        )}
   const cabUnitTypes = (() => {
     const seen = new Set<string>();
     return store.cabinetUnitTypes.filter(t => {
