@@ -193,21 +193,13 @@ export default function PreFinalModule({ project }: Props) {
       return true;
     });
   })();
-  // Force-classify accessory SKUs regardless of what AI returned
-  const classifySkuType = (sku: string, aiType: string): string => {
-    const upper = sku.toUpperCase();
-    if (/^(FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR)\d/i.test(upper)) return 'Accessory';
-    if (/^(BLW|BRW)/i.test(upper)) return 'Wall';
-    return aiType;
-  };
-
   const allSkus = Array.from(new Set(store.cabinetRows.map(r => r.sku))).sort();
   const skuTypeQty: Record<string, Record<string, number>> = {};
   const skuCabType: Record<string, string> = {};
   store.cabinetRows.forEach(r => {
     if (!skuTypeQty[r.sku]) skuTypeQty[r.sku] = {};
     skuTypeQty[r.sku][r.unitType] = Math.max(skuTypeQty[r.sku][r.unitType] || 0, r.quantity);
-    if (!skuCabType[r.sku]) skuCabType[r.sku] = classifySkuType(r.sku, r.type);
+    if (!skuCabType[r.sku]) skuCabType[r.sku] = r.type;
   });
 
   const parseSkuDims = (sku: string): { width: number; height: number } => {

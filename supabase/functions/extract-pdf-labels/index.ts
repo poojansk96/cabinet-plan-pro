@@ -301,8 +301,7 @@ Return ONLY valid JSON — no markdown, no explanation:
     console.log("AI Pass 1 raw:", content.slice(0, 800));
 
     let parsed: { items: any[]; unitTypeName?: string | null } = { items: [] };
-    let pass1ParsedOk = false;
-    try { parsed = extractJson(content); pass1ParsedOk = true; } catch { console.error("Pass 1 JSON parse failed:", content.slice(0, 500)); }
+    try { parsed = extractJson(content); } catch { console.error("Pass 1 JSON parse failed:", content.slice(0, 500)); }
 
     const detectedUnitType = parsed.unitTypeName ?? null;
     const pass1Raw = parsed.items ?? [];
@@ -377,33 +376,12 @@ Return the COMPLETE corrected list as JSON — no markdown:
       console.log("Fast mode: skipping Pass 2 verification");
     }
 
-    // ── PASS 3: Text-layer cross-reference — add missing SKUs ──
-    // Only seed from text layer when:
-    //   a) Pass 1 found items but missed some SKUs (always add missing ones), OR
-    //   b) Pass 1 genuinely FAILED (parse error / empty response) — the AI couldn't read the page
-    // Do NOT seed when Pass 1 successfully returned {"items":[]} — that means the AI
-    // intentionally classified this as elevation/title page. Seeding would cause duplication
-    // because elevation pages contain the same SKU labels in their text layer.
+    // ── PASS 3: Text-layer cross-reference — add missing SKUs AND enforce minimum quantities ──
     const existingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '')));
     const textOnlySkus = textLayerSkus.filter(s => !existingSkus.has(s));
 
-    const pass1IntentionallyEmpty = pass1ParsedOk && pass1Items.length === 0;
-
-    if (textOnlySkus.length > 0 && !pass1IntentionallyEmpty) {
-      // Pass 1 found items but missed some — add them
+    if (textOnlySkus.length > 0 && finalItems.length > 0) {
       console.log(`Text cross-ref: ${textOnlySkus.length} SKUs in text but missing from AI: ${textOnlySkus.join(', ')}`);
-      for (const sku of textOnlySkus) {
-        const type = classifySku(sku);
-        const textQty = textSkuCounts.get(sku) || 1;
-        finalItems.push({ sku, type, room: "Kitchen", quantity: textQty });
-        console.log(`Text cross-ref added: ${sku} (${type}) qty ${textQty}`);
-      }
-    } else if (textOnlySkus.length > 0 && pass1IntentionallyEmpty) {
-      // Pass 1 deliberately returned empty — this is an elevation/title page, skip seeding
-      console.log(`Pass 1 intentionally empty (elevation/title) — skipping text seeding of ${textOnlySkus.length} SKUs to avoid duplication`);
-    } else if (!pass1ParsedOk && textOnlySkus.length > 0) {
-      // Pass 1 parse failed — seed from text layer as fallback
-      console.log(`Pass 1 parse failed, seeding ${textOnlySkus.length} SKUs from text layer`);
       for (const sku of textOnlySkus) {
         const type = classifySku(sku);
         const textQty = textSkuCounts.get(sku) || 1;
