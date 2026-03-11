@@ -147,18 +147,6 @@ function getBaseSku(sku: string): string {
   return sku.replace(/-(L|R)$/i, '');
 }
 
-// Detect elevation pages via text-layer dimension patterns (e.g. 32 7/8", 65 3/4")
-function looksLikeElevation(text: string): boolean {
-  if (!text) return false;
-  // Match dimension notations with fractions and inch marks
-  const dimPattern = /\d+\s+\d+\/\d+\s*[""\u201D]/g;
-  const wholeDimPattern = /\b\d{2,3}\s*[""\u201D]/g;
-  const fracMatches = (text.match(dimPattern) || []).length;
-  const wholeMatches = (text.match(wholeDimPattern) || []).length;
-  const hasElevWord = /\bELEV(ATION)?\b/i.test(text);
-  // 3+ dimension notations strongly suggests elevation
-  return fracMatches >= 3 || (fracMatches >= 1 && wholeMatches >= 3) || (hasElevWord && (fracMatches + wholeMatches) >= 2);
-}
 
 // Split merged/concatenated SKUs that the AI incorrectly combined
 // e.g. "W1530-BLW24/2730-R" → ["W1530-L", "BLW24/2730-R"] or ["W1530", "BLW24/2730-R"]
