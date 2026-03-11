@@ -404,7 +404,17 @@ Return the COMPLETE corrected list as JSON — no markdown:
 
     // ── PASS 3: Text-layer cross-reference — add missing SKUs AND enforce minimum quantities ──
     const existingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '')));
-    const textOnlySkus = textLayerSkus.filter(s => !existingSkus.has(s));
+    // Also track base SKUs (without -L/-R suffix) to prevent adding variants as duplicates
+    const existingBaseSkus = new Set([...existingSkus].map(getBaseSku));
+    const textOnlySkus = textLayerSkus.filter(s => {
+      if (existingSkus.has(s)) return false;
+      // If a base variant already exists (e.g. B09FH found, skip B09FH-L from text)
+      if (existingBaseSkus.has(getBaseSku(s))) {
+        console.log(`Text cross-ref: skipping "${s}" — base variant "${getBaseSku(s)}" already exists`);
+        return false;
+      }
+      return true;
+    });
 
     if (textOnlySkus.length > 0 && finalItems.length > 0) {
       console.log(`Text cross-ref: ${textOnlySkus.length} SKUs in text but missing from AI: ${textOnlySkus.join(', ')}`);
@@ -416,11 +426,20 @@ Return the COMPLETE corrected list as JSON — no markdown:
       }
     }
 
-    // NOTE: Text-layer quantity enforcement REMOVED.
-    // The text layer often double-counts SKUs that appear in legends, notes, title blocks,
-    // or call-out bubbles — not just the plan view labels. The AI vision model is more
-    // reliable for quantity since it understands drawing context. Text cross-ref above
-    // is still used to ADD missing SKUs, but we no longer override AI quantities upward.
+    // ── Accessory quantity boost from text layer ──
+    // For small accessory SKUs (BF, WF, DWR), the AI vision often undercounts.
+    // Use text layer occurrence count as minimum qty when it's higher than AI qty.
+    // Safe for accessories since they rarely appear in legends/title blocks.
+    for (const item of finalItems) {
+      const sku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+      if (/^(BF|WF|DWR)\d/i.test(sku)) {
+        const textQty = textSkuCounts.get(sku) || 0;
+        if (textQty > Number(item.quantity)) {
+          console.log(`Accessory qty boost: ${sku} AI=${item.quantity} → text=${textQty}`);
+          item.quantity = textQty;
+        }
+      }
+    }
 
     // ── PASS 4: Targeted hunt for commonly missed SKUs (SKIP in fast mode) ──
     const updatedExistingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim()));
