@@ -530,18 +530,19 @@ If none found, return {"items":[]}`;
         return { sku, type: normalizedType, room: normalizedRoom, quantity: Number(c.quantity) || 1 };
       });
 
-    // Deduplicate
+    // Deduplicate — merge -L/-R variants into base SKU (handedness is install-time, not part identity)
     const isCornerLazySusan = (sku: string) => /^(LS|LSB)\d+/i.test(sku);
     const deduped = new Map<string, { sku: string; type: string; room: string; quantity: number }>();
     for (const item of items) {
-      const key = `${item.sku}|${item.room}`;
+      const baseSku = getBaseSku(item.sku);
+      const key = `${baseSku}|${item.room}`;
       const existing = deduped.get(key);
       if (existing) {
-        existing.quantity = isCornerLazySusan(item.sku)
+        existing.quantity = isCornerLazySusan(baseSku)
           ? Math.max(existing.quantity, item.quantity)
           : existing.quantity + item.quantity;
       } else {
-        deduped.set(key, { ...item });
+        deduped.set(key, { ...item, sku: baseSku });
       }
     }
 
