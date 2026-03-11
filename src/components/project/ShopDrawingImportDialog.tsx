@@ -210,7 +210,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       return data;
     };
 
-    const CONCURRENCY = 3;
+    const CONCURRENCY = 1; // Sequential to avoid Gemini API rate limits (multi-pass = multiple calls per page)
     for (let i = 0; i < pageTasks.length; i += CONCURRENCY) {
       const batch = pageTasks.slice(i, i + CONCURRENCY);
       const results = await Promise.allSettled(batch.map(t => processOnePage(t.p)));
