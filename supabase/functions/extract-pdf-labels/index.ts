@@ -147,18 +147,6 @@ function getBaseSku(sku: string): string {
   return sku.replace(/-(L|R)$/i, '');
 }
 
-// Detect elevation pages via text-layer dimension patterns (e.g. 32 7/8", 65 3/4")
-function looksLikeElevation(text: string): boolean {
-  if (!text) return false;
-  // Match dimension notations with fractions and inch marks
-  const dimPattern = /\d+\s+\d+\/\d+\s*[""\u201D]/g;
-  const wholeDimPattern = /\b\d{2,3}\s*[""\u201D]/g;
-  const fracMatches = (text.match(dimPattern) || []).length;
-  const wholeMatches = (text.match(wholeDimPattern) || []).length;
-  const hasElevWord = /\bELEV(ATION)?\b/i.test(text);
-  // 3+ dimension notations strongly suggests elevation
-  return fracMatches >= 3 || (fracMatches >= 1 && wholeMatches >= 3) || (hasElevWord && (fracMatches + wholeMatches) >= 2);
-}
 
 // Split merged/concatenated SKUs that the AI incorrectly combined
 // e.g. "W1530-BLW24/2730-R" → ["W1530-L", "BLW24/2730-R"] or ["W1530", "BLW24/2730-R"]
@@ -235,11 +223,6 @@ serve(async (req) => {
       console.log(`Text layer found ${textLayerSkus.length} SKUs: ${textLayerSkus.join(', ')}`);
     }
 
-    // ── Detect elevation page from text layer ──
-    const elevationDetected = looksLikeElevation(pageText ?? "");
-    if (elevationDetected) {
-      console.log("Text layer suggests ELEVATION page (dimension patterns found)");
-    }
 
     // ── PASS 1: Primary extraction with gemini-2.5-pro ──
     const prompt = `You are an expert millwork estimator reading a 2020 Design shop drawing page.
@@ -289,7 +272,7 @@ COUNTING — CRITICAL:
 - Corner cabinets (LS, LSB) sit at the corner where two walls meet — count only ONCE even if the label appears at the junction of two wall runs.
 - Look for "xN" or "(2)" multiplier notation.
 ${textLayerSkus.length > 0 ? `\nIMPORTANT - TEXT LAYER CROSS-REFERENCE:\nThe PDF text layer contains these SKUs: ${textLayerSkus.join(', ')}\nMake sure ALL of these appear in your extraction if they are visible as labels on the plan view. If a SKU from this list is missing from your results, look harder for it.\n` : ''}
-${elevationDetected ? `\n⚠️ STRONG WARNING: Text layer analysis detected MULTIPLE DIMENSION NOTATIONS (e.g. 32 7/8", 65 3/4") on this page. This is a very strong indicator that this is an ELEVATION page, NOT a plan view. If this is an elevation, return {"unitTypeName":"<detected type>","items":[]}. Do NOT extract cabinets from elevation views — they will cause double-counting.\n` : ''}
+
 STACKED / ADJACENT LABELS — ABSOLUTELY CRITICAL (MOST COMMON ERROR):
 - On plan views, TWO or MORE SKU labels may appear STACKED VERTICALLY or placed very close together near the SAME cabinet location. These are ALWAYS SEPARATE cabinets, NEVER one combined SKU.
 - Example: "W1230" on one line and "VDC2430" below it → TWO separate cabinets: W1230 (qty 1) AND VDC2430 (qty 1). Do NOT return "W1230VDC2430".
