@@ -235,6 +235,12 @@ serve(async (req) => {
       console.log(`Text layer found ${textLayerSkus.length} SKUs: ${textLayerSkus.join(', ')}`);
     }
 
+    // ── Detect elevation page from text layer ──
+    const elevationDetected = looksLikeElevation(pageText ?? "");
+    if (elevationDetected) {
+      console.log("Text layer suggests ELEVATION page (dimension patterns found)");
+    }
+
     // ── PASS 1: Primary extraction with gemini-2.5-pro ──
     const prompt = `You are an expert millwork estimator reading a 2020 Design shop drawing page.
 
