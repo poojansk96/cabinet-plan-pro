@@ -70,6 +70,12 @@ async function callGemini(
       throw fetchErr;
     }
 
+    if (response.status === 429) {
+      console.warn(`AI rate limited (429), attempt ${attempt + 1}/${MAX_RETRIES}`);
+      response = null;
+      if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 5000 * (attempt + 1))); continue; }
+      throw new Error("rate_limit");
+    }
     if (response.status === 503 || response.status === 500) {
       console.warn(`AI unavailable (${response.status}), attempt ${attempt + 1}/${MAX_RETRIES}`);
       response = null;
@@ -80,7 +86,6 @@ async function callGemini(
   }
 
   if (!response) throw new Error("AI model temporarily unavailable");
-  if (response.status === 429) throw new Error("rate_limit");
   if (response.status === 402) throw new Error("credits");
   if (!response.ok) {
     const errText = await response.text();
