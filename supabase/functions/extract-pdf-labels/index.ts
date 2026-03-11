@@ -102,6 +102,8 @@ function isValidSku(s: string): boolean {
   if (!upper || upper.length < 2) return false;
   if (APPLIANCE_RE.test(upper)) return false;
   if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) return false;
+  // Filter callout / sheet references containing "/"
+  if (upper.includes('/') && !(/^(BLW|BRW)\d/i.test(upper))) return false;
   return SKU_PREFIX_RE.test(upper);
 }
 
@@ -286,6 +288,9 @@ RULES:
 - Valid SKU: starts with a LETTER, contains at least one NUMBER (e.g. B24, BF3, DB15, W3036, B09FH)
 - SKIP appliances: REF REFRIG DW DISHWASHER RANGE HOOD MICRO OTR OVEN
 - SKIP non-SKU text: unit numbers, unit type names, elevation titles, dimension text, page numbers, sheet references, call-out bubbles
+- SKIP CALLOUT / SHEET REFERENCES: Text like "B1/A4-403", "A404", "A3-201", "B2/A5-100" are architectural callout bubbles or sheet cross-references, NOT cabinet SKUs. They typically contain "/" or are single-letter prefixes (A, C, D, E, etc.) followed by numbers without matching any cabinet prefix pattern. DO NOT extract these.
+- A valid cabinet SKU must start with one of these EXACT prefixes: B, DB, SB, CB, EB, LS, LSB, W, UB, WC, OH, BLW, BRW, T, UT, TC, PT, PTC, UC, V, VB, VD, VDC, FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR. If the label does not start with one of these prefixes, it is NOT a cabinet.
+- DOOR CONFIGURATION SUFFIXES: Labels like "SB36B-1D", "B33-1D", "B24-2D" are the SAME cabinet as "SB36", "B33", "B24" — the "-1D"/"-2D"/"B-1D" suffix just indicates door count. Do NOT report both the base SKU and its door-config variant. Report only the BASE SKU (e.g., "SB36" not "SB36B-1D", "B33" not "B33-1D").
 - Read labels EXACTLY as printed — do not invent or guess
 - If NO SKUs found → return {"unitTypeName":"<detected type or null>","items":[]}
 - FINAL SWEEP: After your initial scan, go back and specifically look for these commonly missed SKUs: B09FH, B06FH, B12FH, BF3, BF6, WF3X30, WF6X30, DWR3, DWR6. They appear as very small labels on narrow cabinet shapes. If you find any you missed, add them.
@@ -544,10 +549,16 @@ If none found, return {"items":[]}`;
         if (/^TYPE\s/i.test(upper)) return false;
         if (/^WALL\s+[A-Z]$/i.test(upper)) return false;
         if (/^[A-Z]\d?-[A-Z]/i.test(upper) && upper.length <= 4) return false;
+        // Filter callout / sheet references containing "/" (e.g. "B1/A4-403")
+        if (upper.includes('/') && !(/^(BLW|BRW)\d/i.test(upper))) return false;
+        // Must match a known cabinet prefix — catches "A404", "C301" etc.
+        if (!SKU_PREFIX_RE.test(upper) && !NO_DIGIT_OK.test(upper)) return false;
         return true;
       })
       .map((c: any) => {
-        const sku = String(c.sku).toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+        let sku = String(c.sku).toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+        // Strip door-configuration suffixes: "-1D", "-2D", "B-1D", "B-2D"
+        sku = sku.replace(/B?-\d+D$/i, '');
         let rawType = String(c.type ?? "Base").trim();
         if (/^BLW|^BRW/i.test(sku)) rawType = "Wall";
         const normalizedType = rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase();
@@ -565,7 +576,7 @@ If none found, return {"items":[]}`;
       if (existing) {
         existing.quantity = isCornerLazySusan(item.sku)
           ? Math.max(existing.quantity, item.quantity)
-          : existing.quantity + item.quantity;
+          : Math.max(existing.quantity, item.quantity);  // Use MAX within same page to avoid variant double-count
       } else {
         deduped.set(key, { ...item });
       }

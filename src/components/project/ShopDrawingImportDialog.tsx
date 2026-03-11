@@ -253,19 +253,21 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
   };
 
   const mergeRows = (incoming: LabelRow[], existing: LabelRow[] = []): LabelRow[] => {
-    // SUM quantities across pages, except LS/LSB corner cabinets (use max).
+    // For items within the SAME unit type: use MAX qty across pages (same cabinet seen on multiple pages).
+    // For items across DIFFERENT unit types: keep separate (different unit types = different physical units).
+    // Corner cabinets (LS/LSB) always use MAX.
     const merged: Record<string, LabelRow> = {};
     const isCornerLazySusan = (sku: string) => /^(LS|LSB)\d+/i.test(sku);
 
     for (const r of [...existing, ...incoming]) {
-      const normSku = r.sku.toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+      const normSku = r.sku.toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '')
+        .replace(/B?-\d+D$/i, ''); // Strip door-config suffix (e.g. -1D, B-1D)
       // Include detectedUnitType in key so quantities stay separated per type
       const unitTypeKey = (r as any).detectedUnitType || '__none__';
       const key = `${normSku}__${r.room}__${unitTypeKey}`;
       if (merged[key]) {
-        merged[key].quantity = isCornerLazySusan(normSku)
-          ? Math.max(merged[key].quantity, r.quantity)
-          : merged[key].quantity + r.quantity;
+        // Use MAX instead of SUM — multiple pages of the same unit type show the SAME cabinets
+        merged[key].quantity = Math.max(merged[key].quantity, r.quantity);
       } else {
         merged[key] = { ...r, sku: normSku };
       }
