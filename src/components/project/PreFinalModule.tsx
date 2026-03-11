@@ -196,10 +196,13 @@ export default function PreFinalModule({ project }: Props) {
   const allSkus = Array.from(new Set(store.cabinetRows.map(r => r.sku))).sort();
   const skuTypeQty: Record<string, Record<string, number>> = {};
   const skuCabType: Record<string, string> = {};
+  const ACCESSORY_PREFIXES = /^(BF|WF|DWR|TF|FIL|EP|FP|TK|SCRIBE|BP)\d*/i;
   store.cabinetRows.forEach(r => {
     if (!skuTypeQty[r.sku]) skuTypeQty[r.sku] = {};
     skuTypeQty[r.sku][r.unitType] = Math.max(skuTypeQty[r.sku][r.unitType] || 0, r.quantity);
-    if (!skuCabType[r.sku]) skuCabType[r.sku] = r.type;
+    const isAccessory = ACCESSORY_PREFIXES.test(r.sku.replace(/\s/g, ''));
+    if (!skuCabType[r.sku]) skuCabType[r.sku] = isAccessory ? 'Accessory' : r.type;
+    else if (isAccessory) skuCabType[r.sku] = 'Accessory';
   });
 
   const parseSkuDims = (sku: string): { width: number; height: number } => {
