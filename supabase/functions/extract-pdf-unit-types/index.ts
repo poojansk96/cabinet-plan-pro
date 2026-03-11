@@ -272,13 +272,21 @@ serve(async (req) => {
       try {
         const VERIFY_PROMPT = `You are verifying extracted unit data from a 2020 Design shop drawing page.
 
-FIRST: Is this a FLOOR PLAN (top-down view) page? If NOT (it's an elevation, countertop drawing, title-only page, or any other non-floor-plan page), return {"bldg":null,"units":[]}.
+This page may show ANY type of drawing that contains cabinet/millwork information:
+- Standard apartment floor plans (top-down view)
+- Common area plans (restroom, laundry, mail room, office, community room, package room, etc.)
+- Enlarged unit plans
+- Plan view drawings of ANY space
 
-If it IS a floor plan page, verify:
-- Is the UNIT TYPE correct? Prefer title-block unit type when present; for numbered common areas (restroom, office, laundry, mail room), room labels are valid unitType values.
+**CRITICAL**: If Pass 1 found valid units, do NOT return an empty list unless you are 100% certain the page contains NO unit/room identifiers at all. Common areas with unit numbers (e.g., "103", "110", "115") are VALID entries.
+
+**IMPORTANT**: Do NOT reject a page just because it shows a single room (restroom, laundry, mail room). These are valid units that need cabinets.
+
+Verify:
+- Is the UNIT TYPE correct? Prefer title-block unit type when present; for common areas (restroom, office, laundry, mail room, community room, package room), use the ROOM LABEL as unitType.
 - Are ALL unit numbers captured? Re-read the comma-separated list CHARACTER BY CHARACTER. Add any missing ones.
 - Are there FALSE entries (cabinet SKUs like W3030, HASB48B, room names like "Island")? Remove them.
-- ONLY apartment/suite unit numbers should remain (e.g., 230, 101, A-502, PH-1).
+- ONLY apartment/suite unit numbers or common area room numbers should remain (e.g., 230, 101, A-502, PH-1, 103, 110).
 - **CRITICAL**: If the page lists MULTIPLE BUILDINGS (e.g., "BLDG 1, BLDG 3"), EACH unit number must appear ONCE PER BUILDING with the correct "bldg" field.
 - **IMPORTANT**: Use ONLY the structured building label (e.g., "BLDG 1", "Building A"). Do NOT use the project/apartment name as a building value.
 - Check if any buildings were missed.
@@ -311,12 +319,20 @@ Return the corrected JSON (same format), no other text. Each entry MUST have a "
             const makeKey = (u: typeof finalUnits[0]) => `${u.unitNumber.toUpperCase().replace(/\s+/g, '')}__${normalizeBldgKey(u.bldg)}`;
             for (const u of firstPassUnits) merged.set(makeKey(u), u);
             for (const u of verifiedUnits) merged.set(makeKey(u), u);
-            finalUnits = Array.from(merged.values());
-            finalUnits.sort((a, b) => {
+            const mergedUnits = Array.from(merged.values());
+            mergedUnits.sort((a, b) => {
               const bldgCmp = (a.bldg || '').localeCompare(b.bldg || '', undefined, { numeric: true });
               if (bldgCmp !== 0) return bldgCmp;
               return a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true });
             });
+            // Safety: never let Pass 2 reduce count below Pass 1
+            if (mergedUnits.length >= firstPassUnits.length) {
+              finalUnits = mergedUnits;
+            } else {
+              console.warn(`Pass 2 merge would reduce ${firstPassUnits.length} → ${mergedUnits.length} units, keeping Pass 1`);
+            }
+          } else {
+            console.log("Pass 2 returned empty — keeping Pass 1 results");
           }
           console.log("Pass 2 verified units:", finalUnits.length);
         } else {
