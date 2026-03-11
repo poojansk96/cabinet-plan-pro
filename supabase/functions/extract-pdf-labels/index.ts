@@ -102,6 +102,8 @@ function isValidSku(s: string): boolean {
   if (!upper || upper.length < 2) return false;
   if (APPLIANCE_RE.test(upper)) return false;
   if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) return false;
+  // Filter callout / sheet references containing "/"
+  if (upper.includes('/') && !(/^(BLW|BRW)\d/i.test(upper))) return false;
   return SKU_PREFIX_RE.test(upper);
 }
 
