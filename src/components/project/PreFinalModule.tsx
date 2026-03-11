@@ -196,13 +196,10 @@ export default function PreFinalModule({ project }: Props) {
   const allSkus = Array.from(new Set(store.cabinetRows.map(r => r.sku))).sort();
   const skuTypeQty: Record<string, Record<string, number>> = {};
   const skuCabType: Record<string, string> = {};
-  const ACCESSORY_PREFIXES = /^(BF|WF|DWR|TF|FIL|EP|FP|TK|SCRIBE|BP)\d*/i;
   store.cabinetRows.forEach(r => {
     if (!skuTypeQty[r.sku]) skuTypeQty[r.sku] = {};
-    skuTypeQty[r.sku][r.unitType] = (skuTypeQty[r.sku][r.unitType] || 0) + r.quantity;
-    const isAccessory = ACCESSORY_PREFIXES.test(r.sku.replace(/\s/g, ''));
-    if (!skuCabType[r.sku]) skuCabType[r.sku] = isAccessory ? 'Accessory' : r.type;
-    else if (isAccessory) skuCabType[r.sku] = 'Accessory';
+    skuTypeQty[r.sku][r.unitType] = Math.max(skuTypeQty[r.sku][r.unitType] || 0, r.quantity);
+    if (!skuCabType[r.sku]) skuCabType[r.sku] = r.type;
   });
 
   const parseSkuDims = (sku: string): { width: number; height: number } => {
@@ -277,7 +274,7 @@ export default function PreFinalModule({ project }: Props) {
           }}
           onClose={() => setShowCabinetImport(false)}
           prefinalPerson={project.specs?.takeoffPerson}
-          speedMode="thorough"
+          speedMode={speedMode}
         />
       )}
 
@@ -314,24 +311,23 @@ export default function PreFinalModule({ project }: Props) {
           <Square size={13} /> Stone - SQFT
         </button>
 
-        {activeSubTab === 'units' && (
-          <div className="ml-auto flex items-center gap-1 bg-muted rounded-lg p-1">
-            <button
-              onClick={() => setSpeedMode('fast')}
-              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${speedMode === 'fast' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="Single AI pass — faster but may miss rare SKUs"
-            >
-              ⚡ Fast
-            </button>
-            <button
-              onClick={() => setSpeedMode('thorough')}
-              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${speedMode === 'thorough' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="Multi-pass AI verification — slower but catches more edge cases"
-            >
-              🔍 Thorough
-            </button>
-          </div>
-        )}
+        {/* Speed mode toggle */}
+        <div className="ml-auto flex items-center gap-1 bg-muted rounded-lg p-1">
+          <button
+            onClick={() => setSpeedMode('fast')}
+            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${speedMode === 'fast' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            title="Single AI pass — faster but may miss rare SKUs"
+          >
+            ⚡ Fast
+          </button>
+          <button
+            onClick={() => setSpeedMode('thorough')}
+            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${speedMode === 'thorough' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            title="Multi-pass AI verification — slower but catches more edge cases"
+          >
+            🔍 Thorough
+          </button>
+        </div>
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════ */}

@@ -141,27 +141,6 @@ function classifySku(sku: string): string {
   return "Base";
 }
 
-// Strip trailing -L or -R suffix (installation handedness) for dedup/comparison.
-// In 2020 Design, B18-R and B18-L are the same cabinet part — handedness is install-time.
-function getBaseSku(sku: string): string {
-  return sku.replace(/-(L|R)$/i, '');
-}
-
-function isQuantitySensitiveSku(sku: string): boolean {
-  return /^(B\d{2}FH|BF|WF|DWR|FIL|BFFIL|WFFIL|TKRUN|TK|CM|LR|EP|FP|BP|SCRIBE)/i.test(sku);
-}
-
-function getTextCountForSku(sku: string, counts: Map<string, number>): number {
-  const target = getBaseSku(String(sku).toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, ''));
-  let total = 0;
-  for (const [rawSku, count] of counts.entries()) {
-    const normalized = getBaseSku(String(rawSku).toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, ''));
-    if (normalized === target) total += count;
-  }
-  return total;
-}
-
-
 // Split merged/concatenated SKUs that the AI incorrectly combined
 // e.g. "W1530-BLW24/2730-R" → ["W1530-L", "BLW24/2730-R"] or ["W1530", "BLW24/2730-R"]
 // e.g. "W1230WDC2430" → ["W1230", "WDC2430"]
@@ -237,7 +216,6 @@ serve(async (req) => {
       console.log(`Text layer found ${textLayerSkus.length} SKUs: ${textLayerSkus.join(', ')}`);
     }
 
-
     // ── PASS 1: Primary extraction with gemini-2.5-pro ──
     const prompt = `You are an expert millwork estimator reading a 2020 Design shop drawing page.
 
@@ -286,7 +264,6 @@ COUNTING — CRITICAL:
 - Corner cabinets (LS, LSB) sit at the corner where two walls meet — count only ONCE even if the label appears at the junction of two wall runs.
 - Look for "xN" or "(2)" multiplier notation.
 ${textLayerSkus.length > 0 ? `\nIMPORTANT - TEXT LAYER CROSS-REFERENCE:\nThe PDF text layer contains these SKUs: ${textLayerSkus.join(', ')}\nMake sure ALL of these appear in your extraction if they are visible as labels on the plan view. If a SKU from this list is missing from your results, look harder for it.\n` : ''}
-
 STACKED / ADJACENT LABELS — ABSOLUTELY CRITICAL (MOST COMMON ERROR):
 - On plan views, TWO or MORE SKU labels may appear STACKED VERTICALLY or placed very close together near the SAME cabinet location. These are ALWAYS SEPARATE cabinets, NEVER one combined SKU.
 - Example: "W1230" on one line and "VDC2430" below it → TWO separate cabinets: W1230 (qty 1) AND VDC2430 (qty 1). Do NOT return "W1230VDC2430".
@@ -345,10 +322,10 @@ Return ONLY valid JSON — no markdown, no explanation:
 
 Pass 1 found these cabinet SKUs:
 ${JSON.stringify(pass1Items)}
-${textLayerSkus.length > 0 ? `\nThe PDF text layer mentions these SKUs with OCR occurrence counts: ${[...textSkuCounts.entries()].map(([k,v]) => `${k} (×${v})`).join(', ')}\nUse OCR counts ONLY as hints for what to double-check. OCR can repeat the same visible label more than once, so final quantity must come from the image itself, not from text alone.\n` : ''}
+${textLayerSkus.length > 0 ? `\nThe PDF text layer contains these SKUs with occurrence counts: ${[...textSkuCounts.entries()].map(([k,v]) => `${k} (×${v})`).join(', ')}\nIf a SKU appears multiple times in text, its quantity should be AT LEAST that count.\n` : ''}
 Your job: Look at the SAME image again VERY carefully and check for:
 1. MISSED SKUs — especially BF3, BF6, WF3X30, WF6X30, FIL3, DWR3, DWR6.
-2. WRONG quantities — match ACTUAL visible label occurrences on the page image.
+2. WRONG quantities — match actual label occurrences on the page.
 3. MERGED LABELS — if any SKU looks like two labels combined (e.g. "W1530-BLW24/2730-R" is actually "W1530" + "BLW24/2730-R"), split them into SEPARATE entries.
 4. STACKED LABELS: "W1230" above "VDC2430" = TWO separate cabinets. NEVER merge into one string.
 
@@ -399,74 +376,53 @@ Return the COMPLETE corrected list as JSON — no markdown:
       console.log("Fast mode: skipping Pass 2 verification");
     }
 
-    // ── PASS 3: Text-layer cross-reference — add safer missing SKUs, defer sensitive quantity checks to Pass 4 ──
+    // ── PASS 3: Text-layer cross-reference — add missing SKUs AND enforce minimum quantities ──
     const existingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '')));
-    const existingBaseSkus = new Set([...existingSkus].map(getBaseSku));
-    const textOnlySkus = textLayerSkus.filter(s => {
-      if (existingSkus.has(s)) return false;
-      if (existingBaseSkus.has(getBaseSku(s))) {
-        console.log(`Text cross-ref: skipping "${s}" — base variant "${getBaseSku(s)}" already exists`);
-        return false;
-      }
-      return true;
-    });
-    const cautiousTextOnlySkus = textOnlySkus.filter(isQuantitySensitiveSku);
-    const safeTextOnlySkus = textOnlySkus.filter(s => !isQuantitySensitiveSku(s));
+    const textOnlySkus = textLayerSkus.filter(s => !existingSkus.has(s));
 
-    if (safeTextOnlySkus.length > 0 && finalItems.length > 0) {
-      console.log(`Text cross-ref: ${safeTextOnlySkus.length} safer SKUs in text but missing from AI: ${safeTextOnlySkus.join(', ')}`);
-      for (const sku of safeTextOnlySkus) {
+    if (textOnlySkus.length > 0 && finalItems.length > 0) {
+      console.log(`Text cross-ref: ${textOnlySkus.length} SKUs in text but missing from AI: ${textOnlySkus.join(', ')}`);
+      for (const sku of textOnlySkus) {
         const type = classifySku(sku);
-        const textQty = Math.max(1, getTextCountForSku(sku, textSkuCounts));
+        const textQty = textSkuCounts.get(sku) || 1;
         finalItems.push({ sku, type, room: "Kitchen", quantity: textQty });
         console.log(`Text cross-ref added: ${sku} (${type}) qty ${textQty}`);
       }
     }
-    if (cautiousTextOnlySkus.length > 0) {
-      console.log(`Text cross-ref flagged for visual confirmation: ${cautiousTextOnlySkus.join(', ')}`);
-    }
 
-    // ── PASS 4: Targeted visual review for missed/uncertain small SKUs (SKIP in fast mode) ──
-    const updatedExistingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '')));
-    const updatedExistingBaseSkus = new Set([...updatedExistingSkus].map(getBaseSku));
+    // NOTE: Text-layer quantity enforcement REMOVED.
+    // The text layer often double-counts SKUs that appear in legends, notes, title blocks,
+    // or call-out bubbles — not just the plan view labels. The AI vision model is more
+    // reliable for quantity since it understands drawing context. Text cross-ref above
+    // is still used to ADD missing SKUs, but we no longer override AI quantities upward.
+
+    // ── PASS 4: Targeted hunt for commonly missed SKUs (SKIP in fast mode) ──
+    const updatedExistingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim()));
     const COMMONLY_MISSED = ['B09FH','B06FH','B12FH','BF3','BF6','WF3X30','WF6X30','FIL3','DWR3','DWR6','CM8','TK','TKRUN','EP','LR','SCRIBE','BP'];
-    const missingCandidates = COMMONLY_MISSED.filter(s => !updatedExistingSkus.has(s) && !updatedExistingBaseSkus.has(getBaseSku(s)));
-    const quantityReviewCandidates = Array.from(new Set(
-      finalItems
-        .map((item: any) => String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, ''))
-        .filter(sku => !!sku && isQuantitySensitiveSku(sku))
-    )).filter(sku => {
-      const baseSku = getBaseSku(sku);
-      const aiTotal = finalItems.reduce((sum: number, item: any) => {
-        const itemSku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
-        return getBaseSku(itemSku) === baseSku ? sum + (Number(item?.quantity) || 1) : sum;
-      }, 0);
-      const textQty = getTextCountForSku(sku, textSkuCounts);
-      return textQty > 0 && textQty !== aiTotal;
-    });
-    const pass4Candidates = Array.from(new Set([...missingCandidates, ...cautiousTextOnlySkus, ...quantityReviewCandidates]));
+    const missingCandidates = COMMONLY_MISSED.filter(s => !updatedExistingSkus.has(s));
 
-    if (pass4Candidates.length > 0 && (finalItems.length > 0 || textLayerSkus.length > 0) && !isFastMode) {
-      console.log(`Pass 4 targeted review: ${pass4Candidates.join(', ')}`);
-      const candidateHints = pass4Candidates
-        .map(sku => `${sku}${getTextCountForSku(sku, textSkuCounts) > 0 ? ` (OCR hint ×${getTextCountForSku(sku, textSkuCounts)})` : ''}`)
-        .join(', ');
+    if (missingCandidates.length > 0 && finalItems.length > 0 && !isFastMode) {
+      console.log(`Pass 4 hunting for: ${missingCandidates.join(', ')}`);
       const pass4Prompt = `You are an expert millwork estimator doing a FINAL careful check on a 2020 Design shop drawing PLAN VIEW page.
 
-Previous passes found these SKUs: ${[...updatedExistingSkus].join(', ') || 'none'}
+Previous passes found these SKUs: ${[...updatedExistingSkus].join(', ')}
 
-TASK: Look at this plan view image ONE MORE TIME. Focus ONLY on these SPECIFIC SKUs and determine whether they are present and their EXACT visible quantity:
-${candidateHints}
+TASK: Look at this plan view image ONE MORE TIME. Focus ONLY on finding these SPECIFIC SKUs that may have been MISSED:
+${missingCandidates.join(', ')}
 
-IMPORTANT:
-- Count only visibly distinct labeled cabinet/accessory occurrences on the image.
-- The PDF text layer/OCR may repeat the same visible label more than once. Use the IMAGE as the source of truth for quantity.
-- If the same SKU appears in different rooms, return separate entries by room.
-- Only report SKUs you can ACTUALLY SEE — do not guess.
+These are typically:
+- B09FH, B06FH, B12FH = Very NARROW filler-head base cabinets (6"-12" wide), shown as thin slivers
+- BF3, BF6 = Base fillers — tiny narrow strips between cabinets. Count EVERY occurrence — if you see BF3 in 4 different spots, quantity = 4.
+- WF3X30, WF6X30 = Wall fillers — small strips near wall cabinets
+- FIL3, DWR3, DWR6, CM8, TK, TKRUN, EP, LR = Small accessories
 
-Return ONLY the reviewed SKUs you can confirm as JSON — no markdown:
-{"items":[{"sku":"BF3","type":"Accessory","room":"Kitchen","quantity":1}]}
-If none can be confirmed, return {"items":[]}`;
+If this is an ELEVATION page, return {"items":[]}.
+Only report SKUs you can ACTUALLY SEE — do not guess.
+Report the CORRECT QUANTITY for each (count every occurrence on the page).
+
+Return ONLY NEWLY FOUND items as JSON — no markdown:
+{"items":[{"sku":"BF3","type":"Accessory","room":"Kitchen","quantity":4}]}
+If none found, return {"items":[]}`;
 
       try {
         const pass4Content = await callGemini(GEMINI_API_KEY, "gemini-2.5-flash", pageImage, pass4Prompt, 0.2, 4096);
@@ -478,26 +434,14 @@ If none can be confirmed, return {"items":[]}`;
             const sku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
             const room = String(item?.room ?? 'Kitchen').trim();
             if (!sku) continue;
-            const normalizedItem = {
-              ...item,
-              sku,
-              room,
-              quantity: Math.max(1, Number(item?.quantity) || 1),
-            };
-            const existingIndex = finalItems.findIndex((e: any) => {
-              const eSku = String(e?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
-              const eRoom = String(e?.room ?? 'Kitchen').trim();
-              return getBaseSku(eSku) === getBaseSku(sku) && eRoom === room;
+            const key = `${sku}|${room}`;
+            const alreadyExists = finalItems.some((e: any) => {
+              const eKey = `${String(e?.sku ?? '').toUpperCase().trim()}|${String(e?.room ?? 'Kitchen').trim()}`;
+              return eKey === key;
             });
-            if (existingIndex >= 0) {
-              const previousQty = Number(finalItems[existingIndex]?.quantity) || 1;
-              finalItems[existingIndex] = { ...finalItems[existingIndex], ...normalizedItem };
-              if (previousQty !== normalizedItem.quantity) {
-                console.log(`Pass 4 corrected: ${sku} (${room}) ${previousQty} → ${normalizedItem.quantity}`);
-              }
-            } else {
-              finalItems.push(normalizedItem);
-              console.log(`Pass 4 found: ${sku} (${room}) qty ${normalizedItem.quantity}`);
+            if (!alreadyExists) {
+              finalItems.push(item);
+              console.log(`Pass 4 found: ${sku} (${room}) qty ${item.quantity}`);
             }
           }
         } catch {
@@ -508,18 +452,6 @@ If none can be confirmed, return {"items":[]}`;
       }
     } else if (isFastMode) {
       console.log("Fast mode: skipping Pass 4 targeted hunt");
-    }
-
-    const unresolvedSensitiveTextSkus = cautiousTextOnlySkus.filter(sku =>
-      !finalItems.some((item: any) => {
-        const itemSku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
-        return getBaseSku(itemSku) === getBaseSku(sku);
-      })
-    );
-    for (const sku of unresolvedSensitiveTextSkus) {
-      const type = classifySku(sku);
-      finalItems.push({ sku, type, room: "Kitchen", quantity: 1 });
-      console.log(`Text fallback added: ${sku} (${type}) qty 1`);
     }
 
     console.log(`Final: ${finalItems.length} items`);
@@ -549,19 +481,18 @@ If none can be confirmed, return {"items":[]}`;
         return { sku, type: normalizedType, room: normalizedRoom, quantity: Number(c.quantity) || 1 };
       });
 
-    // Deduplicate — merge -L/-R variants into base SKU (handedness is install-time, not part identity)
+    // Deduplicate
     const isCornerLazySusan = (sku: string) => /^(LS|LSB)\d+/i.test(sku);
     const deduped = new Map<string, { sku: string; type: string; room: string; quantity: number }>();
     for (const item of items) {
-      const baseSku = getBaseSku(item.sku);
-      const key = `${baseSku}|${item.room}`;
+      const key = `${item.sku}|${item.room}`;
       const existing = deduped.get(key);
       if (existing) {
-        existing.quantity = isCornerLazySusan(baseSku)
+        existing.quantity = isCornerLazySusan(item.sku)
           ? Math.max(existing.quantity, item.quantity)
           : existing.quantity + item.quantity;
       } else {
-        deduped.set(key, { ...item, sku: baseSku });
+        deduped.set(key, { ...item });
       }
     }
 
