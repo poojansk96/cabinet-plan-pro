@@ -319,12 +319,20 @@ Return the corrected JSON (same format), no other text. Each entry MUST have a "
             const makeKey = (u: typeof finalUnits[0]) => `${u.unitNumber.toUpperCase().replace(/\s+/g, '')}__${normalizeBldgKey(u.bldg)}`;
             for (const u of firstPassUnits) merged.set(makeKey(u), u);
             for (const u of verifiedUnits) merged.set(makeKey(u), u);
-            finalUnits = Array.from(merged.values());
-            finalUnits.sort((a, b) => {
+            const mergedUnits = Array.from(merged.values());
+            mergedUnits.sort((a, b) => {
               const bldgCmp = (a.bldg || '').localeCompare(b.bldg || '', undefined, { numeric: true });
               if (bldgCmp !== 0) return bldgCmp;
               return a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true });
             });
+            // Safety: never let Pass 2 reduce count below Pass 1
+            if (mergedUnits.length >= firstPassUnits.length) {
+              finalUnits = mergedUnits;
+            } else {
+              console.warn(`Pass 2 merge would reduce ${firstPassUnits.length} → ${mergedUnits.length} units, keeping Pass 1`);
+            }
+          } else {
+            console.log("Pass 2 returned empty — keeping Pass 1 results");
           }
           console.log("Pass 2 verified units:", finalUnits.length);
         } else {
