@@ -142,8 +142,6 @@ function classifySku(sku: string): string {
 }
 
 // Split merged/concatenated SKUs that the AI incorrectly combined
-// e.g. "W1530-BLW24/2730-R" → ["W1530-L", "BLW24/2730-R"] or ["W1530", "BLW24/2730-R"]
-// e.g. "W1230WDC2430" → ["W1230", "WDC2430"]
 function splitMergedSkus(items: any[]): any[] {
   const result: any[] = [];
   for (const item of items) {
@@ -201,7 +199,7 @@ serve(async (req) => {
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
     const { pageImage, unitType, pageText, speedMode } = await req.json();
-    const isFastMode = speedMode === 'fast';
+    // speedMode is accepted but ignored — always thorough (4-pass)
 
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage (base64 string) required" }), {
@@ -235,6 +233,13 @@ WHAT TO DO FOR EACH PAGE TYPE:
 HOW TO TELL PLAN VIEW vs ELEVATION:
 - PLAN VIEW: You look DOWN at the room. Cabinets are flat rectangular outlines along walls. Labels are placed inside or beside the cabinet shapes. You see the room shape from above.
 - ELEVATION: You look at the FRONT of cabinets. You see cabinet doors/drawers as tall rectangles. Dimension lines show heights (e.g. 32 7/8", 65 3/4"). Base cabinets sit on the bottom, wall cabinets hang at the top.
+
+IMPORTANT — MIRRORED PLAN VIEWS:
+- Some unit types have a "MIRROR" variant (e.g. "TYPE 5 - MIRROR"). These are the SAME plan view but FLIPPED horizontally.
+- MIRROR pages ARE plan view pages — they show cabinets from above with SKU labels. They are NOT elevations.
+- The cabinet SKU labels on MIRROR pages are the same as the original (non-mirrored) version, just in mirrored positions.
+- ALWAYS extract SKUs from MIRROR plan view pages — they are valid plan views.
+- If a label has "-L" on the original, the mirror may show "-R" (or vice versa), or it may show the same label. Extract exactly what you see.
 
 TASK 1 — DETECT UNIT TYPE NAME (ALL PAGE TYPES):
 - Look for the UNIT TYPE NAME in the title block, header, sheet title, or prominent labels on EVERY page.
@@ -315,16 +320,83 @@ Return ONLY valid JSON — no markdown, no explanation:
       console.log(`Text layer counts: ${[...textSkuCounts.entries()].map(([k,v]) => `${k}:${v}`).join(', ')}`);
     }
 
-    // ── PASS 2: Verification with gemini-2.5-flash (SKIP in fast mode) ──
+    // ── RECOVERY PASS: When Pass 1 returns EMPTY but text layer has SKUs ──
+    // This catches MIRROR pages and other cases where the AI fails to extract labels.
+    // We send the text layer SKUs as a checklist for the AI to verify and count.
     let finalItems = pass1Items;
-    if (pass1Items.length > 0 && !isFastMode) {
+    const hasTextSkus = textLayerSkus.length > 0;
+
+    if (pass1Items.length === 0 && hasTextSkus) {
+      console.log(`Pass 1 empty but text layer has ${textLayerSkus.length} SKUs — running text-seeded recovery pass`);
+
+      const recoveryPrompt = `You are an expert millwork estimator. Pass 1 returned ZERO items, but the PDF text layer detected these cabinet SKUs on this page:
+${textLayerSkus.join(', ')}
+
+With occurrence counts: ${[...textSkuCounts.entries()].map(([k,v]) => `${k} (×${v})`).join(', ')}
+
+This is likely a PLAN VIEW page (possibly a MIRRORED layout). Look at the image carefully.
+
+TASK: For EACH SKU from the text layer list above, verify if it is visible as a cabinet label on this plan view.
+- Count the number of times each SKU label appears on the page.
+- Classify each by type: BASE (B,DB,SB,CB,EB,LS,LSB), WALL (W,UB,WC,OH,BLW,BRW), TALL (T,UT,TC,PT,PTC,UC), VANITY (V,VB,VD,VDC), ACCESSORY (FIL,BF,WF,BFFIL,WFFIL,TK,TKRUN,CM,LR,EP,FP,DWR)
+- Identify the room from room labels on the plan (Kitchen, Bath, Laundry, Pantry)
+- SKIP appliances (REF, DW, RANGE, HOOD, MICRO, OVEN, etc.)
+- If you can see additional SKUs NOT in the text layer list, include them too.
+- If this is truly an elevation page (showing cabinet doors/drawers with height dimensions), return {"items":[]}
+${unitType ? `- Unit type context: ${unitType}` : ""}
+
+Return ONLY valid JSON — no markdown:
+{"items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1}]}`;
+
+      try {
+        const recoveryContent = await callGemini(GEMINI_API_KEY, "gemini-2.5-pro", pageImage, recoveryPrompt, 0.15, 8192);
+        console.log("Recovery pass raw:", recoveryContent.slice(0, 800));
+        try {
+          const recoveryParsed = extractJson(recoveryContent);
+          const recoveryRaw = recoveryParsed.items ?? [];
+          const recoveryItems = splitMergedSkus(recoveryRaw);
+          if (recoveryItems.length > 0) {
+            finalItems = recoveryItems;
+            console.log(`Recovery pass found ${recoveryItems.length} items`);
+          } else {
+            console.log("Recovery pass also returned empty — seeding from text layer counts");
+            // Last resort: use text layer counts directly as seed data
+            for (const [sku, qty] of textSkuCounts.entries()) {
+              if (isValidSku(sku)) {
+                finalItems.push({ sku, type: classifySku(sku), room: "Kitchen", quantity: qty });
+              }
+            }
+            console.log(`Text layer seed: ${finalItems.length} items`);
+          }
+        } catch {
+          console.error("Recovery pass JSON parse failed — seeding from text layer");
+          for (const [sku, qty] of textSkuCounts.entries()) {
+            if (isValidSku(sku)) {
+              finalItems.push({ sku, type: classifySku(sku), room: "Kitchen", quantity: qty });
+            }
+          }
+          console.log(`Text layer seed (fallback): ${finalItems.length} items`);
+        }
+      } catch (e) {
+        console.log("Recovery pass error — seeding from text layer:", e);
+        for (const [sku, qty] of textSkuCounts.entries()) {
+          if (isValidSku(sku)) {
+            finalItems.push({ sku, type: classifySku(sku), room: "Kitchen", quantity: qty });
+          }
+        }
+        console.log(`Text layer seed (error fallback): ${finalItems.length} items`);
+      }
+    }
+
+    // ── PASS 2: Verification with gemini-2.5-flash ──
+    if (finalItems.length > 0) {
       const verifyPrompt = `You are an expert millwork estimator doing a SECOND verification pass on a 2020 Design shop drawing PLAN VIEW page.
 
 Pass 1 found these cabinet SKUs:
-${JSON.stringify(pass1Items)}
-${textLayerSkus.length > 0 ? `\nThe PDF text layer contains these SKUs with occurrence counts: ${[...textSkuCounts.entries()].map(([k,v]) => `${k} (×${v})`).join(', ')}\nIf a SKU appears multiple times in text, its quantity should be AT LEAST that count.\n` : ''}
+${JSON.stringify(finalItems)}
+${hasTextSkus ? `\nThe PDF text layer contains these SKUs with occurrence counts: ${[...textSkuCounts.entries()].map(([k,v]) => `${k} (×${v})`).join(', ')}\nIf a SKU appears multiple times in text, its quantity should be AT LEAST that count.\n` : ''}
 Your job: Look at the SAME image again VERY carefully and check for:
-1. MISSED SKUs — especially BF3, BF6, WF3X30, WF6X30, FIL3, DWR3, DWR6.
+1. MISSED SKUs — especially BF3, BF6, WF3X30, WF6X30, FIL3, DWR3, DWR6, B09FH, B06FH, B12FH.
 2. WRONG quantities — match actual label occurrences on the page.
 3. MERGED LABELS — if any SKU looks like two labels combined (e.g. "W1530-BLW24/2730-R" is actually "W1530" + "BLW24/2730-R"), split them into SEPARATE entries.
 4. STACKED LABELS: "W1230" above "VDC2430" = TWO separate cabinets. NEVER merge into one string.
@@ -341,7 +413,7 @@ Return the COMPLETE corrected list as JSON — no markdown:
           const pass2Items = splitMergedSkus(pass2Raw);
           if (pass2Items.length > 0) {
             const mergedByKey = new Map<string, any>();
-            for (const item of pass1Items) {
+            for (const item of finalItems) {
               const sku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
               const room = String(item?.room ?? 'Kitchen').trim();
               if (!sku) continue;
@@ -367,20 +439,19 @@ Return the COMPLETE corrected list as JSON — no markdown:
             console.log(`Pass 2 merge: pass1=${pass1Items.length}, pass2=${pass2Items.length}, final=${finalItems.length}`);
           }
         } catch {
-          console.error("Pass 2 JSON parse failed, using Pass 1");
+          console.error("Pass 2 JSON parse failed, using previous results");
         }
       } catch (e) {
-        console.log("Pass 2 error, using Pass 1:", e);
+        console.log("Pass 2 error, using previous results:", e);
       }
-    } else if (isFastMode) {
-      console.log("Fast mode: skipping Pass 2 verification");
     }
 
-    // ── PASS 3: Text-layer cross-reference — add missing SKUs AND enforce minimum quantities ──
+    // ── PASS 3: Text-layer cross-reference — add missing SKUs ──
     const existingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '')));
     const textOnlySkus = textLayerSkus.filter(s => !existingSkus.has(s));
 
-    if (textOnlySkus.length > 0 && finalItems.length > 0) {
+    // Add text-layer SKUs even when finalItems was previously empty (recovery may have seeded some)
+    if (textOnlySkus.length > 0) {
       console.log(`Text cross-ref: ${textOnlySkus.length} SKUs in text but missing from AI: ${textOnlySkus.join(', ')}`);
       for (const sku of textOnlySkus) {
         const type = classifySku(sku);
@@ -390,25 +461,21 @@ Return the COMPLETE corrected list as JSON — no markdown:
       }
     }
 
-    // NOTE: Text-layer quantity enforcement REMOVED.
-    // The text layer often double-counts SKUs that appear in legends, notes, title blocks,
-    // or call-out bubbles — not just the plan view labels. The AI vision model is more
-    // reliable for quantity since it understands drawing context. Text cross-ref above
-    // is still used to ADD missing SKUs, but we no longer override AI quantities upward.
-
-    // ── PASS 4: Targeted hunt for commonly missed SKUs (SKIP in fast mode) ──
+    // ── PASS 4: Targeted hunt for commonly missed SKUs ──
     const updatedExistingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim()));
     const COMMONLY_MISSED = ['B09FH','B06FH','B12FH','BF3','BF6','WF3X30','WF6X30','FIL3','DWR3','DWR6','CM8','TK','TKRUN','EP','LR','SCRIBE','BP'];
-    const missingCandidates = COMMONLY_MISSED.filter(s => !updatedExistingSkus.has(s));
+    // Also add text-layer SKUs that are still missing after all passes — they need visual confirmation
+    const textStillMissing = textLayerSkus.filter(s => !updatedExistingSkus.has(s));
+    const allCandidates = [...new Set([...COMMONLY_MISSED.filter(s => !updatedExistingSkus.has(s)), ...textStillMissing])];
 
-    if (missingCandidates.length > 0 && finalItems.length > 0 && !isFastMode) {
-      console.log(`Pass 4 hunting for: ${missingCandidates.join(', ')}`);
+    if (allCandidates.length > 0 && finalItems.length > 0) {
+      console.log(`Pass 4 targeted review: ${allCandidates.join(', ')}`);
       const pass4Prompt = `You are an expert millwork estimator doing a FINAL careful check on a 2020 Design shop drawing PLAN VIEW page.
 
 Previous passes found these SKUs: ${[...updatedExistingSkus].join(', ')}
 
 TASK: Look at this plan view image ONE MORE TIME. Focus ONLY on finding these SPECIFIC SKUs that may have been MISSED:
-${missingCandidates.join(', ')}
+${allCandidates.join(', ')}
 
 These are typically:
 - B09FH, B06FH, B12FH = Very NARROW filler-head base cabinets (6"-12" wide), shown as thin slivers
@@ -416,11 +483,13 @@ These are typically:
 - WF3X30, WF6X30 = Wall fillers — small strips near wall cabinets
 - FIL3, DWR3, DWR6, CM8, TK, TKRUN, EP, LR = Small accessories
 
+Also check quantities of SKUs already found — if you see MORE occurrences than previously counted, report the CORRECT higher quantity.
+
 If this is an ELEVATION page, return {"items":[]}.
 Only report SKUs you can ACTUALLY SEE — do not guess.
 Report the CORRECT QUANTITY for each (count every occurrence on the page).
 
-Return ONLY NEWLY FOUND items as JSON — no markdown:
+Return ONLY NEWLY FOUND items (or items with corrected quantities) as JSON — no markdown:
 {"items":[{"sku":"BF3","type":"Accessory","room":"Kitchen","quantity":4}]}
 If none found, return {"items":[]}`;
 
@@ -435,13 +504,21 @@ If none found, return {"items":[]}`;
             const room = String(item?.room ?? 'Kitchen').trim();
             if (!sku) continue;
             const key = `${sku}|${room}`;
-            const alreadyExists = finalItems.some((e: any) => {
+            const existingIdx = finalItems.findIndex((e: any) => {
               const eKey = `${String(e?.sku ?? '').toUpperCase().trim()}|${String(e?.room ?? 'Kitchen').trim()}`;
               return eKey === key;
             });
-            if (!alreadyExists) {
+            if (existingIdx === -1) {
               finalItems.push(item);
               console.log(`Pass 4 found: ${sku} (${room}) qty ${item.quantity}`);
+            } else {
+              // If Pass 4 reports a HIGHER quantity for an existing SKU, update it
+              const existingQty = Number(finalItems[existingIdx].quantity) || 1;
+              const pass4Qty = Number(item.quantity) || 1;
+              if (pass4Qty > existingQty) {
+                console.log(`Pass 4 corrected: ${sku} (${room}) ${existingQty} → ${pass4Qty}`);
+                finalItems[existingIdx].quantity = pass4Qty;
+              }
             }
           }
         } catch {
@@ -450,8 +527,6 @@ If none found, return {"items":[]}`;
       } catch (e) {
         console.log("Pass 4 error:", e);
       }
-    } else if (isFastMode) {
-      console.log("Fast mode: skipping Pass 4 targeted hunt");
     }
 
     console.log(`Final: ${finalItems.length} items`);
