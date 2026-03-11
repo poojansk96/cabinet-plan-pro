@@ -254,11 +254,14 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
 
   const mergeRows = (incoming: LabelRow[], existing: LabelRow[] = []): LabelRow[] => {
     // SUM quantities across pages, except LS/LSB corner cabinets (use max).
+    // Merge -L/-R variants into base SKU (handedness is install-time, not part identity).
     const merged: Record<string, LabelRow> = {};
     const isCornerLazySusan = (sku: string) => /^(LS|LSB)\d+/i.test(sku);
+    const getBaseSku = (sku: string) => sku.replace(/-(L|R)$/i, '');
 
     for (const r of [...existing, ...incoming]) {
-      const normSku = r.sku.toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+      const rawSku = r.sku.toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+      const normSku = getBaseSku(rawSku);
       // Include detectedUnitType in key so quantities stay separated per type
       const unitTypeKey = (r as any).detectedUnitType || '__none__';
       const key = `${normSku}__${r.room}__${unitTypeKey}`;
