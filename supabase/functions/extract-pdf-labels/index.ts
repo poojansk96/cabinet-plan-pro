@@ -301,7 +301,8 @@ Return ONLY valid JSON — no markdown, no explanation:
     console.log("AI Pass 1 raw:", content.slice(0, 800));
 
     let parsed: { items: any[]; unitTypeName?: string | null } = { items: [] };
-    try { parsed = extractJson(content); } catch { console.error("Pass 1 JSON parse failed:", content.slice(0, 500)); }
+    let pass1ParsedOk = false;
+    try { parsed = extractJson(content); pass1ParsedOk = true; } catch { console.error("Pass 1 JSON parse failed:", content.slice(0, 500)); }
 
     const detectedUnitType = parsed.unitTypeName ?? null;
     const pass1Raw = parsed.items ?? [];
