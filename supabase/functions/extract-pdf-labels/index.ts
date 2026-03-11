@@ -377,11 +377,18 @@ Return the COMPLETE corrected list as JSON — no markdown:
     }
 
     // ── PASS 3: Text-layer cross-reference — add missing SKUs AND enforce minimum quantities ──
+    // NOTE: If Pass 1 returned 0 items but text layer has SKUs, this is likely a plan view page
+    // that the AI misclassified. Seed items from the text layer so Pass 4 can verify.
     const existingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '')));
     const textOnlySkus = textLayerSkus.filter(s => !existingSkus.has(s));
 
-    if (textOnlySkus.length > 0 && finalItems.length > 0) {
-      console.log(`Text cross-ref: ${textOnlySkus.length} SKUs in text but missing from AI: ${textOnlySkus.join(', ')}`);
+    if (textOnlySkus.length > 0) {
+      const wasEmpty = finalItems.length === 0;
+      if (wasEmpty) {
+        console.log(`Pass 1 returned 0 items but text layer has ${textOnlySkus.length} SKUs — seeding from text layer`);
+      } else {
+        console.log(`Text cross-ref: ${textOnlySkus.length} SKUs in text but missing from AI: ${textOnlySkus.join(', ')}`);
+      }
       for (const sku of textOnlySkus) {
         const type = classifySku(sku);
         const textQty = textSkuCounts.get(sku) || 1;
