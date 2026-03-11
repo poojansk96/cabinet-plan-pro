@@ -547,10 +547,16 @@ If none found, return {"items":[]}`;
         if (/^TYPE\s/i.test(upper)) return false;
         if (/^WALL\s+[A-Z]$/i.test(upper)) return false;
         if (/^[A-Z]\d?-[A-Z]/i.test(upper) && upper.length <= 4) return false;
+        // Filter callout / sheet references containing "/" (e.g. "B1/A4-403")
+        if (upper.includes('/') && !(/^(BLW|BRW)\d/i.test(upper))) return false;
+        // Must match a known cabinet prefix — catches "A404", "C301" etc.
+        if (!SKU_PREFIX_RE.test(upper) && !NO_DIGIT_OK.test(upper)) return false;
         return true;
       })
       .map((c: any) => {
-        const sku = String(c.sku).toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+        let sku = String(c.sku).toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+        // Strip door-configuration suffixes: "-1D", "-2D", "B-1D", "B-2D"
+        sku = sku.replace(/B?-\d+D$/i, '');
         let rawType = String(c.type ?? "Base").trim();
         if (/^BLW|^BRW/i.test(sku)) rawType = "Wall";
         const normalizedType = rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase();
@@ -568,7 +574,7 @@ If none found, return {"items":[]}`;
       if (existing) {
         existing.quantity = isCornerLazySusan(item.sku)
           ? Math.max(existing.quantity, item.quantity)
-          : existing.quantity + item.quantity;
+          : Math.max(existing.quantity, item.quantity);  // Use MAX within same page to avoid variant double-count
       } else {
         deduped.set(key, { ...item });
       }
