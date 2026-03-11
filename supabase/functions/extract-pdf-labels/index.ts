@@ -286,6 +286,9 @@ RULES:
 - Valid SKU: starts with a LETTER, contains at least one NUMBER (e.g. B24, BF3, DB15, W3036, B09FH)
 - SKIP appliances: REF REFRIG DW DISHWASHER RANGE HOOD MICRO OTR OVEN
 - SKIP non-SKU text: unit numbers, unit type names, elevation titles, dimension text, page numbers, sheet references, call-out bubbles
+- SKIP CALLOUT / SHEET REFERENCES: Text like "B1/A4-403", "A404", "A3-201", "B2/A5-100" are architectural callout bubbles or sheet cross-references, NOT cabinet SKUs. They typically contain "/" or are single-letter prefixes (A, C, D, E, etc.) followed by numbers without matching any cabinet prefix pattern. DO NOT extract these.
+- A valid cabinet SKU must start with one of these EXACT prefixes: B, DB, SB, CB, EB, LS, LSB, W, UB, WC, OH, BLW, BRW, T, UT, TC, PT, PTC, UC, V, VB, VD, VDC, FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR. If the label does not start with one of these prefixes, it is NOT a cabinet.
+- DOOR CONFIGURATION SUFFIXES: Labels like "SB36B-1D", "B33-1D", "B24-2D" are the SAME cabinet as "SB36", "B33", "B24" — the "-1D"/"-2D"/"B-1D" suffix just indicates door count. Do NOT report both the base SKU and its door-config variant. Report only the BASE SKU (e.g., "SB36" not "SB36B-1D", "B33" not "B33-1D").
 - Read labels EXACTLY as printed — do not invent or guess
 - If NO SKUs found → return {"unitTypeName":"<detected type or null>","items":[]}
 - FINAL SWEEP: After your initial scan, go back and specifically look for these commonly missed SKUs: B09FH, B06FH, B12FH, BF3, BF6, WF3X30, WF6X30, DWR3, DWR6. They appear as very small labels on narrow cabinet shapes. If you find any you missed, add them.
