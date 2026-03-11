@@ -509,6 +509,7 @@ export function usePrefinalStore(projectId: string) {
 
       for (const r of prev.cabinetRows) {
         const resolvedType = resolveExistingTypeName(r.unitType, [...prev.cabinetUnitTypes, ...prev.unitTypes]);
+        if (resolvedType === canonicalType) continue;
         const rawSku = String(r.sku || '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
         const normSku = getBaseSku(rawSku);
         const key = `${normSku}__${r.room}__${resolvedType}`;

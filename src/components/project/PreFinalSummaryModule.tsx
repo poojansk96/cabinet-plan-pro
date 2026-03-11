@@ -46,14 +46,14 @@ function groupSkusByType(cabinetRows: PrefinalCabinetRow[]) {
   const allSkus = Array.from(new Set(cabinetRows.map(r => r.sku))).sort();
   const skuCabType: Record<string, string> = {};
   const skuTypeMap: Record<string, Set<string>> = {};
-  // Build SKU → unitType → quantity mapping (max qty per sku+unitType)
+  // Build SKU → unitType → quantity mapping by summing all rows (including different rooms)
   const skuTypeQty: Record<string, Record<string, number>> = {};
   cabinetRows.forEach(r => {
     if (!skuTypeMap[r.sku]) skuTypeMap[r.sku] = new Set();
     skuTypeMap[r.sku].add(r.unitType);
     if (!skuCabType[r.sku]) skuCabType[r.sku] = r.type;
     if (!skuTypeQty[r.sku]) skuTypeQty[r.sku] = {};
-    skuTypeQty[r.sku][r.unitType] = Math.max(skuTypeQty[r.sku][r.unitType] || 0, r.quantity);
+    skuTypeQty[r.sku][r.unitType] = (skuTypeQty[r.sku][r.unitType] || 0) + r.quantity;
   });
 
   const groups: Record<string, string[]> = {};

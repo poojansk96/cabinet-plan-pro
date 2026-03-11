@@ -345,10 +345,10 @@ Return ONLY valid JSON — no markdown, no explanation:
 
 Pass 1 found these cabinet SKUs:
 ${JSON.stringify(pass1Items)}
-${textLayerSkus.length > 0 ? `\nThe PDF text layer contains these SKUs with occurrence counts: ${[...textSkuCounts.entries()].map(([k,v]) => `${k} (×${v})`).join(', ')}\nIf a SKU appears multiple times in text, its quantity should be AT LEAST that count.\n` : ''}
+${textLayerSkus.length > 0 ? `\nThe PDF text layer mentions these SKUs with OCR occurrence counts: ${[...textSkuCounts.entries()].map(([k,v]) => `${k} (×${v})`).join(', ')}\nUse OCR counts ONLY as hints for what to double-check. OCR can repeat the same visible label more than once, so final quantity must come from the image itself, not from text alone.\n` : ''}
 Your job: Look at the SAME image again VERY carefully and check for:
 1. MISSED SKUs — especially BF3, BF6, WF3X30, WF6X30, FIL3, DWR3, DWR6.
-2. WRONG quantities — match actual label occurrences on the page.
+2. WRONG quantities — match ACTUAL visible label occurrences on the page image.
 3. MERGED LABELS — if any SKU looks like two labels combined (e.g. "W1530-BLW24/2730-R" is actually "W1530" + "BLW24/2730-R"), split them into SEPARATE entries.
 4. STACKED LABELS: "W1230" above "VDC2430" = TWO separate cabinets. NEVER merge into one string.
 
@@ -399,73 +399,74 @@ Return the COMPLETE corrected list as JSON — no markdown:
       console.log("Fast mode: skipping Pass 2 verification");
     }
 
-    // ── PASS 3: Text-layer cross-reference — add missing SKUs AND enforce minimum quantities ──
+    // ── PASS 3: Text-layer cross-reference — add safer missing SKUs, defer sensitive quantity checks to Pass 4 ──
     const existingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '')));
-    // Also track base SKUs (without -L/-R suffix) to prevent adding variants as duplicates
     const existingBaseSkus = new Set([...existingSkus].map(getBaseSku));
     const textOnlySkus = textLayerSkus.filter(s => {
       if (existingSkus.has(s)) return false;
-      // If a base variant already exists (e.g. B09FH found, skip B09FH-L from text)
       if (existingBaseSkus.has(getBaseSku(s))) {
         console.log(`Text cross-ref: skipping "${s}" — base variant "${getBaseSku(s)}" already exists`);
         return false;
       }
       return true;
     });
+    const cautiousTextOnlySkus = textOnlySkus.filter(isQuantitySensitiveSku);
+    const safeTextOnlySkus = textOnlySkus.filter(s => !isQuantitySensitiveSku(s));
 
-    if (textOnlySkus.length > 0 && finalItems.length > 0) {
-      console.log(`Text cross-ref: ${textOnlySkus.length} SKUs in text but missing from AI: ${textOnlySkus.join(', ')}`);
-      for (const sku of textOnlySkus) {
+    if (safeTextOnlySkus.length > 0 && finalItems.length > 0) {
+      console.log(`Text cross-ref: ${safeTextOnlySkus.length} safer SKUs in text but missing from AI: ${safeTextOnlySkus.join(', ')}`);
+      for (const sku of safeTextOnlySkus) {
         const type = classifySku(sku);
-        const textQty = textSkuCounts.get(sku) || 1;
+        const textQty = Math.max(1, getTextCountForSku(sku, textSkuCounts));
         finalItems.push({ sku, type, room: "Kitchen", quantity: textQty });
         console.log(`Text cross-ref added: ${sku} (${type}) qty ${textQty}`);
       }
     }
-
-    // ── Accessory quantity boost from text layer ──
-    // For small accessory SKUs (BF, WF, DWR), the AI vision often undercounts.
-    // Use text layer occurrence count as minimum qty when it's higher than AI qty.
-    // Safe for accessories since they rarely appear in legends/title blocks.
-    for (const item of finalItems) {
-      const sku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
-      if (/^(BF|WF|DWR)\d/i.test(sku)) {
-        const textQty = textSkuCounts.get(sku) || 0;
-        if (textQty > Number(item.quantity)) {
-          console.log(`Accessory qty boost: ${sku} AI=${item.quantity} → text=${textQty}`);
-          item.quantity = textQty;
-        }
-      }
+    if (cautiousTextOnlySkus.length > 0) {
+      console.log(`Text cross-ref flagged for visual confirmation: ${cautiousTextOnlySkus.join(', ')}`);
     }
 
-    // ── PASS 4: Targeted hunt for commonly missed SKUs (SKIP in fast mode) ──
-    const updatedExistingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim()));
+    // ── PASS 4: Targeted visual review for missed/uncertain small SKUs (SKIP in fast mode) ──
+    const updatedExistingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '')));
     const updatedExistingBaseSkus = new Set([...updatedExistingSkus].map(getBaseSku));
     const COMMONLY_MISSED = ['B09FH','B06FH','B12FH','BF3','BF6','WF3X30','WF6X30','FIL3','DWR3','DWR6','CM8','TK','TKRUN','EP','LR','SCRIBE','BP'];
     const missingCandidates = COMMONLY_MISSED.filter(s => !updatedExistingSkus.has(s) && !updatedExistingBaseSkus.has(getBaseSku(s)));
+    const quantityReviewCandidates = Array.from(new Set(
+      finalItems
+        .map((item: any) => String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, ''))
+        .filter(sku => !!sku && isQuantitySensitiveSku(sku))
+    )).filter(sku => {
+      const baseSku = getBaseSku(sku);
+      const aiTotal = finalItems.reduce((sum: number, item: any) => {
+        const itemSku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+        return getBaseSku(itemSku) === baseSku ? sum + (Number(item?.quantity) || 1) : sum;
+      }, 0);
+      const textQty = getTextCountForSku(sku, textSkuCounts);
+      return textQty > 0 && textQty !== aiTotal;
+    });
+    const pass4Candidates = Array.from(new Set([...missingCandidates, ...cautiousTextOnlySkus, ...quantityReviewCandidates]));
 
-    if (missingCandidates.length > 0 && finalItems.length > 0 && !isFastMode) {
-      console.log(`Pass 4 hunting for: ${missingCandidates.join(', ')}`);
+    if (pass4Candidates.length > 0 && (finalItems.length > 0 || textLayerSkus.length > 0) && !isFastMode) {
+      console.log(`Pass 4 targeted review: ${pass4Candidates.join(', ')}`);
+      const candidateHints = pass4Candidates
+        .map(sku => `${sku}${getTextCountForSku(sku, textSkuCounts) > 0 ? ` (OCR hint ×${getTextCountForSku(sku, textSkuCounts)})` : ''}`)
+        .join(', ');
       const pass4Prompt = `You are an expert millwork estimator doing a FINAL careful check on a 2020 Design shop drawing PLAN VIEW page.
 
-Previous passes found these SKUs: ${[...updatedExistingSkus].join(', ')}
+Previous passes found these SKUs: ${[...updatedExistingSkus].join(', ') || 'none'}
 
-TASK: Look at this plan view image ONE MORE TIME. Focus ONLY on finding these SPECIFIC SKUs that may have been MISSED:
-${missingCandidates.join(', ')}
+TASK: Look at this plan view image ONE MORE TIME. Focus ONLY on these SPECIFIC SKUs and determine whether they are present and their EXACT visible quantity:
+${candidateHints}
 
-These are typically:
-- B09FH, B06FH, B12FH = Very NARROW filler-head base cabinets (6"-12" wide), shown as thin slivers
-- BF3, BF6 = Base fillers — tiny narrow strips between cabinets. Count EVERY occurrence — if you see BF3 in 4 different spots, quantity = 4.
-- WF3X30, WF6X30 = Wall fillers — small strips near wall cabinets
-- FIL3, DWR3, DWR6, CM8, TK, TKRUN, EP, LR = Small accessories
+IMPORTANT:
+- Count only visibly distinct labeled cabinet/accessory occurrences on the image.
+- The PDF text layer/OCR may repeat the same visible label more than once. Use the IMAGE as the source of truth for quantity.
+- If the same SKU appears in different rooms, return separate entries by room.
+- Only report SKUs you can ACTUALLY SEE — do not guess.
 
-If this is an ELEVATION page, return {"items":[]}.
-Only report SKUs you can ACTUALLY SEE — do not guess.
-Report the CORRECT QUANTITY for each (count every occurrence on the page).
-
-Return ONLY NEWLY FOUND items as JSON — no markdown:
-{"items":[{"sku":"BF3","type":"Accessory","room":"Kitchen","quantity":4}]}
-If none found, return {"items":[]}`;
+Return ONLY the reviewed SKUs you can confirm as JSON — no markdown:
+{"items":[{"sku":"BF3","type":"Accessory","room":"Kitchen","quantity":1}]}
+If none can be confirmed, return {"items":[]}`;
 
       try {
         const pass4Content = await callGemini(GEMINI_API_KEY, "gemini-2.5-flash", pageImage, pass4Prompt, 0.2, 4096);
@@ -477,17 +478,26 @@ If none found, return {"items":[]}`;
             const sku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
             const room = String(item?.room ?? 'Kitchen').trim();
             if (!sku) continue;
-            const key = `${sku}|${room}`;
-            const alreadyExists = finalItems.some((e: any) => {
-              const eSku = String(e?.sku ?? '').toUpperCase().trim();
-              const eBase = getBaseSku(eSku);
-              const newBase = getBaseSku(sku);
+            const normalizedItem = {
+              ...item,
+              sku,
+              room,
+              quantity: Math.max(1, Number(item?.quantity) || 1),
+            };
+            const existingIndex = finalItems.findIndex((e: any) => {
+              const eSku = String(e?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
               const eRoom = String(e?.room ?? 'Kitchen').trim();
-              return (eBase === newBase) && eRoom === room;
+              return getBaseSku(eSku) === getBaseSku(sku) && eRoom === room;
             });
-            if (!alreadyExists) {
-              finalItems.push(item);
-              console.log(`Pass 4 found: ${sku} (${room}) qty ${item.quantity}`);
+            if (existingIndex >= 0) {
+              const previousQty = Number(finalItems[existingIndex]?.quantity) || 1;
+              finalItems[existingIndex] = { ...finalItems[existingIndex], ...normalizedItem };
+              if (previousQty !== normalizedItem.quantity) {
+                console.log(`Pass 4 corrected: ${sku} (${room}) ${previousQty} → ${normalizedItem.quantity}`);
+              }
+            } else {
+              finalItems.push(normalizedItem);
+              console.log(`Pass 4 found: ${sku} (${room}) qty ${normalizedItem.quantity}`);
             }
           }
         } catch {
@@ -498,6 +508,18 @@ If none found, return {"items":[]}`;
       }
     } else if (isFastMode) {
       console.log("Fast mode: skipping Pass 4 targeted hunt");
+    }
+
+    const unresolvedSensitiveTextSkus = cautiousTextOnlySkus.filter(sku =>
+      !finalItems.some((item: any) => {
+        const itemSku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+        return getBaseSku(itemSku) === getBaseSku(sku);
+      })
+    );
+    for (const sku of unresolvedSensitiveTextSkus) {
+      const type = classifySku(sku);
+      finalItems.push({ sku, type, room: "Kitchen", quantity: 1 });
+      console.log(`Text fallback added: ${sku} (${type}) qty 1`);
     }
 
     console.log(`Final: ${finalItems.length} items`);
