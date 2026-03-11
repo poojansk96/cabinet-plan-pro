@@ -289,6 +289,7 @@ COUNTING — CRITICAL:
 - Corner cabinets (LS, LSB) sit at the corner where two walls meet — count only ONCE even if the label appears at the junction of two wall runs.
 - Look for "xN" or "(2)" multiplier notation.
 ${textLayerSkus.length > 0 ? `\nIMPORTANT - TEXT LAYER CROSS-REFERENCE:\nThe PDF text layer contains these SKUs: ${textLayerSkus.join(', ')}\nMake sure ALL of these appear in your extraction if they are visible as labels on the plan view. If a SKU from this list is missing from your results, look harder for it.\n` : ''}
+${elevationDetected ? `\n⚠️ STRONG WARNING: Text layer analysis detected MULTIPLE DIMENSION NOTATIONS (e.g. 32 7/8", 65 3/4") on this page. This is a very strong indicator that this is an ELEVATION page, NOT a plan view. If this is an elevation, return {"unitTypeName":"<detected type>","items":[]}. Do NOT extract cabinets from elevation views — they will cause double-counting.\n` : ''}
 STACKED / ADJACENT LABELS — ABSOLUTELY CRITICAL (MOST COMMON ERROR):
 - On plan views, TWO or MORE SKU labels may appear STACKED VERTICALLY or placed very close together near the SAME cabinet location. These are ALWAYS SEPARATE cabinets, NEVER one combined SKU.
 - Example: "W1230" on one line and "VDC2430" below it → TWO separate cabinets: W1230 (qty 1) AND VDC2430 (qty 1). Do NOT return "W1230VDC2430".
