@@ -262,7 +262,7 @@ export default function PreFinalModule({ project }: Props) {
           }}
           onClose={() => setShowUnitImport(false)}
           prefinalPerson={project.specs?.takeoffPerson}
-          speedMode="thorough"
+          speedMode={speedMode}
         />
       )}
 
