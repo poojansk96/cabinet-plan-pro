@@ -246,6 +246,7 @@ serve(async (req) => {
         );
         if (!res.ok) {
           const status = res.status;
+          if (status === 429 && attempt < MAX_RETRIES - 1) { console.warn(`Rate limited (429), attempt ${attempt + 1}/${MAX_RETRIES}`); await new Promise(r => setTimeout(r, 8000 * (attempt + 1))); continue; }
           if (status === 429) return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
           if (status === 402) return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
           if ((status === 503 || status === 500) && attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
