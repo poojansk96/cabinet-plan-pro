@@ -505,16 +505,19 @@ export function usePrefinalStore(projectId: string) {
       const canonicalType = resolveExistingTypeName(unitType, [...prev.cabinetUnitTypes, ...prev.unitTypes]);
       const merged: Record<string, PrefinalCabinetRow> = {};
       const isCornerLazySusan = (sku: string) => /^(LS|LSB)\d+/i.test(sku);
+      const getBaseSku = (sku: string) => sku.replace(/-(L|R)$/i, '');
 
       for (const r of prev.cabinetRows) {
         const resolvedType = resolveExistingTypeName(r.unitType, [...prev.cabinetUnitTypes, ...prev.unitTypes]);
-        const normSku = String(r.sku || '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+        const rawSku = String(r.sku || '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+        const normSku = getBaseSku(rawSku);
         const key = `${normSku}__${r.room}__${resolvedType}`;
         merged[key] = { ...r, sku: normSku, unitType: resolvedType };
       }
 
       for (const r of rows) {
-        const normSku = String(r.sku || '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+        const rawSku = String(r.sku || '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+        const normSku = getBaseSku(rawSku);
         const key = `${normSku}__${r.room}__${canonicalType}`;
         const incomingQty = Number(r.quantity) || 1;
 

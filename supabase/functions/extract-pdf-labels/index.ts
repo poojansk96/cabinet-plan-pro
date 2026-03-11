@@ -141,6 +141,25 @@ function classifySku(sku: string): string {
   return "Base";
 }
 
+// Strip trailing -L or -R suffix (installation handedness) for dedup/comparison.
+// In 2020 Design, B18-R and B18-L are the same cabinet part — handedness is install-time.
+function getBaseSku(sku: string): string {
+  return sku.replace(/-(L|R)$/i, '');
+}
+
+// Detect elevation pages via text-layer dimension patterns (e.g. 32 7/8", 65 3/4")
+function looksLikeElevation(text: string): boolean {
+  if (!text) return false;
+  // Match dimension notations with fractions and inch marks
+  const dimPattern = /\d+\s+\d+\/\d+\s*[""\u201D]/g;
+  const wholeDimPattern = /\b\d{2,3}\s*[""\u201D]/g;
+  const fracMatches = (text.match(dimPattern) || []).length;
+  const wholeMatches = (text.match(wholeDimPattern) || []).length;
+  const hasElevWord = /\bELEV(ATION)?\b/i.test(text);
+  // 3+ dimension notations strongly suggests elevation
+  return fracMatches >= 3 || (fracMatches >= 1 && wholeMatches >= 3) || (hasElevWord && (fracMatches + wholeMatches) >= 2);
+}
+
 // Split merged/concatenated SKUs that the AI incorrectly combined
 // e.g. "W1530-BLW24/2730-R" → ["W1530-L", "BLW24/2730-R"] or ["W1530", "BLW24/2730-R"]
 // e.g. "W1230WDC2430" → ["W1230", "WDC2430"]
@@ -216,6 +235,12 @@ serve(async (req) => {
       console.log(`Text layer found ${textLayerSkus.length} SKUs: ${textLayerSkus.join(', ')}`);
     }
 
+    // ── Detect elevation page from text layer ──
+    const elevationDetected = looksLikeElevation(pageText ?? "");
+    if (elevationDetected) {
+      console.log("Text layer suggests ELEVATION page (dimension patterns found)");
+    }
+
     // ── PASS 1: Primary extraction with gemini-2.5-pro ──
     const prompt = `You are an expert millwork estimator reading a 2020 Design shop drawing page.
 
@@ -264,6 +289,7 @@ COUNTING — CRITICAL:
 - Corner cabinets (LS, LSB) sit at the corner where two walls meet — count only ONCE even if the label appears at the junction of two wall runs.
 - Look for "xN" or "(2)" multiplier notation.
 ${textLayerSkus.length > 0 ? `\nIMPORTANT - TEXT LAYER CROSS-REFERENCE:\nThe PDF text layer contains these SKUs: ${textLayerSkus.join(', ')}\nMake sure ALL of these appear in your extraction if they are visible as labels on the plan view. If a SKU from this list is missing from your results, look harder for it.\n` : ''}
+${elevationDetected ? `\n⚠️ STRONG WARNING: Text layer analysis detected MULTIPLE DIMENSION NOTATIONS (e.g. 32 7/8", 65 3/4") on this page. This is a very strong indicator that this is an ELEVATION page, NOT a plan view. If this is an elevation, return {"unitTypeName":"<detected type>","items":[]}. Do NOT extract cabinets from elevation views — they will cause double-counting.\n` : ''}
 STACKED / ADJACENT LABELS — ABSOLUTELY CRITICAL (MOST COMMON ERROR):
 - On plan views, TWO or MORE SKU labels may appear STACKED VERTICALLY or placed very close together near the SAME cabinet location. These are ALWAYS SEPARATE cabinets, NEVER one combined SKU.
 - Example: "W1230" on one line and "VDC2430" below it → TWO separate cabinets: W1230 (qty 1) AND VDC2430 (qty 1). Do NOT return "W1230VDC2430".
@@ -378,7 +404,17 @@ Return the COMPLETE corrected list as JSON — no markdown:
 
     // ── PASS 3: Text-layer cross-reference — add missing SKUs AND enforce minimum quantities ──
     const existingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '')));
-    const textOnlySkus = textLayerSkus.filter(s => !existingSkus.has(s));
+    // Also track base SKUs (without -L/-R suffix) to prevent adding variants as duplicates
+    const existingBaseSkus = new Set([...existingSkus].map(getBaseSku));
+    const textOnlySkus = textLayerSkus.filter(s => {
+      if (existingSkus.has(s)) return false;
+      // If a base variant already exists (e.g. B09FH found, skip B09FH-L from text)
+      if (existingBaseSkus.has(getBaseSku(s))) {
+        console.log(`Text cross-ref: skipping "${s}" — base variant "${getBaseSku(s)}" already exists`);
+        return false;
+      }
+      return true;
+    });
 
     if (textOnlySkus.length > 0 && finalItems.length > 0) {
       console.log(`Text cross-ref: ${textOnlySkus.length} SKUs in text but missing from AI: ${textOnlySkus.join(', ')}`);
@@ -390,16 +426,26 @@ Return the COMPLETE corrected list as JSON — no markdown:
       }
     }
 
-    // NOTE: Text-layer quantity enforcement REMOVED.
-    // The text layer often double-counts SKUs that appear in legends, notes, title blocks,
-    // or call-out bubbles — not just the plan view labels. The AI vision model is more
-    // reliable for quantity since it understands drawing context. Text cross-ref above
-    // is still used to ADD missing SKUs, but we no longer override AI quantities upward.
+    // ── Accessory quantity boost from text layer ──
+    // For small accessory SKUs (BF, WF, DWR), the AI vision often undercounts.
+    // Use text layer occurrence count as minimum qty when it's higher than AI qty.
+    // Safe for accessories since they rarely appear in legends/title blocks.
+    for (const item of finalItems) {
+      const sku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+      if (/^(BF|WF|DWR)\d/i.test(sku)) {
+        const textQty = textSkuCounts.get(sku) || 0;
+        if (textQty > Number(item.quantity)) {
+          console.log(`Accessory qty boost: ${sku} AI=${item.quantity} → text=${textQty}`);
+          item.quantity = textQty;
+        }
+      }
+    }
 
     // ── PASS 4: Targeted hunt for commonly missed SKUs (SKIP in fast mode) ──
     const updatedExistingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim()));
+    const updatedExistingBaseSkus = new Set([...updatedExistingSkus].map(getBaseSku));
     const COMMONLY_MISSED = ['B09FH','B06FH','B12FH','BF3','BF6','WF3X30','WF6X30','FIL3','DWR3','DWR6','CM8','TK','TKRUN','EP','LR','SCRIBE','BP'];
-    const missingCandidates = COMMONLY_MISSED.filter(s => !updatedExistingSkus.has(s));
+    const missingCandidates = COMMONLY_MISSED.filter(s => !updatedExistingSkus.has(s) && !updatedExistingBaseSkus.has(getBaseSku(s)));
 
     if (missingCandidates.length > 0 && finalItems.length > 0 && !isFastMode) {
       console.log(`Pass 4 hunting for: ${missingCandidates.join(', ')}`);
@@ -436,8 +482,11 @@ If none found, return {"items":[]}`;
             if (!sku) continue;
             const key = `${sku}|${room}`;
             const alreadyExists = finalItems.some((e: any) => {
-              const eKey = `${String(e?.sku ?? '').toUpperCase().trim()}|${String(e?.room ?? 'Kitchen').trim()}`;
-              return eKey === key;
+              const eSku = String(e?.sku ?? '').toUpperCase().trim();
+              const eBase = getBaseSku(eSku);
+              const newBase = getBaseSku(sku);
+              const eRoom = String(e?.room ?? 'Kitchen').trim();
+              return (eBase === newBase) && eRoom === room;
             });
             if (!alreadyExists) {
               finalItems.push(item);
@@ -481,18 +530,19 @@ If none found, return {"items":[]}`;
         return { sku, type: normalizedType, room: normalizedRoom, quantity: Number(c.quantity) || 1 };
       });
 
-    // Deduplicate
+    // Deduplicate — merge -L/-R variants into base SKU (handedness is install-time, not part identity)
     const isCornerLazySusan = (sku: string) => /^(LS|LSB)\d+/i.test(sku);
     const deduped = new Map<string, { sku: string; type: string; room: string; quantity: number }>();
     for (const item of items) {
-      const key = `${item.sku}|${item.room}`;
+      const baseSku = getBaseSku(item.sku);
+      const key = `${baseSku}|${item.room}`;
       const existing = deduped.get(key);
       if (existing) {
-        existing.quantity = isCornerLazySusan(item.sku)
+        existing.quantity = isCornerLazySusan(baseSku)
           ? Math.max(existing.quantity, item.quantity)
           : existing.quantity + item.quantity;
       } else {
-        deduped.set(key, { ...item });
+        deduped.set(key, { ...item, sku: baseSku });
       }
     }
 
