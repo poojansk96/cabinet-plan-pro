@@ -482,8 +482,11 @@ If none found, return {"items":[]}`;
             if (!sku) continue;
             const key = `${sku}|${room}`;
             const alreadyExists = finalItems.some((e: any) => {
-              const eKey = `${String(e?.sku ?? '').toUpperCase().trim()}|${String(e?.room ?? 'Kitchen').trim()}`;
-              return eKey === key;
+              const eSku = String(e?.sku ?? '').toUpperCase().trim();
+              const eBase = getBaseSku(eSku);
+              const newBase = getBaseSku(sku);
+              const eRoom = String(e?.room ?? 'Kitchen').trim();
+              return (eBase === newBase) && eRoom === room;
             });
             if (!alreadyExists) {
               finalItems.push(item);
