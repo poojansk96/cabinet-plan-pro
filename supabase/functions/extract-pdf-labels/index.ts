@@ -443,8 +443,9 @@ Return the COMPLETE corrected list as JSON — no markdown:
 
     // ── PASS 4: Targeted hunt for commonly missed SKUs (SKIP in fast mode) ──
     const updatedExistingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim()));
+    const updatedExistingBaseSkus = new Set([...updatedExistingSkus].map(getBaseSku));
     const COMMONLY_MISSED = ['B09FH','B06FH','B12FH','BF3','BF6','WF3X30','WF6X30','FIL3','DWR3','DWR6','CM8','TK','TKRUN','EP','LR','SCRIBE','BP'];
-    const missingCandidates = COMMONLY_MISSED.filter(s => !updatedExistingSkus.has(s));
+    const missingCandidates = COMMONLY_MISSED.filter(s => !updatedExistingSkus.has(s) && !updatedExistingBaseSkus.has(getBaseSku(s)));
 
     if (missingCandidates.length > 0 && finalItems.length > 0 && !isFastMode) {
       console.log(`Pass 4 hunting for: ${missingCandidates.join(', ')}`);
