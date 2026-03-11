@@ -165,7 +165,7 @@ function dedupeSameTypeSameUnit(unitNumbers: PrefinalUnitNumber[]): PrefinalUnit
 
     let merged = false;
     for (const type of activeTypes) {
-      const key = `${normalizeUnitKeyPart(row.name)}__${normalizeTypeKeyPart(type)}`;
+      const key = `${normalizeUnitKeyPart(row.name)}__${normalizeBldgKeyPart(row.bldg)}__${normalizeTypeKeyPart(type)}`;
       const existing = byTypeAndUnit.get(key);
       if (!existing) continue;
 
@@ -190,7 +190,7 @@ function dedupeSameTypeSameUnit(unitNumbers: PrefinalUnitNumber[]): PrefinalUnit
         assignments: { ...row.assignments },
       };
       for (const type of activeTypes) {
-        const key = `${normalizeUnitKeyPart(copy.name)}__${normalizeTypeKeyPart(type)}`;
+        const key = `${normalizeUnitKeyPart(copy.name)}__${normalizeBldgKeyPart(copy.bldg)}__${normalizeTypeKeyPart(type)}`;
         if (!byTypeAndUnit.has(key)) byTypeAndUnit.set(key, copy);
       }
       if (activeTypes.length === 0) {
