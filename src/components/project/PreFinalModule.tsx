@@ -262,7 +262,7 @@ export default function PreFinalModule({ project }: Props) {
           }}
           onClose={() => setShowUnitImport(false)}
           prefinalPerson={project.specs?.takeoffPerson}
-          speedMode="thorough"
+          speedMode={speedMode}
         />
       )}
 
@@ -311,6 +311,24 @@ export default function PreFinalModule({ project }: Props) {
           <Square size={13} /> Stone - SQFT
         </button>
 
+        {activeSubTab === 'units' && (
+          <div className="ml-auto flex items-center gap-1 bg-muted rounded-lg p-1">
+            <button
+              onClick={() => setSpeedMode('fast')}
+              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${speedMode === 'fast' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              title="Single AI pass — faster but may miss rare SKUs"
+            >
+              ⚡ Fast
+            </button>
+            <button
+              onClick={() => setSpeedMode('thorough')}
+              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${speedMode === 'thorough' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              title="Multi-pass AI verification — slower but catches more edge cases"
+            >
+              🔍 Thorough
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
