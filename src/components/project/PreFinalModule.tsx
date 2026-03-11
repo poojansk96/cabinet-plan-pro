@@ -199,7 +199,7 @@ export default function PreFinalModule({ project }: Props) {
   const ACCESSORY_PREFIXES = /^(BF|WF|DWR|TF|FIL|EP|FP|TK|SCRIBE|BP)\d*/i;
   store.cabinetRows.forEach(r => {
     if (!skuTypeQty[r.sku]) skuTypeQty[r.sku] = {};
-    skuTypeQty[r.sku][r.unitType] = Math.max(skuTypeQty[r.sku][r.unitType] || 0, r.quantity);
+    skuTypeQty[r.sku][r.unitType] = (skuTypeQty[r.sku][r.unitType] || 0) + r.quantity;
     const isAccessory = ACCESSORY_PREFIXES.test(r.sku.replace(/\s/g, ''));
     if (!skuCabType[r.sku]) skuCabType[r.sku] = isAccessory ? 'Accessory' : r.type;
     else if (isAccessory) skuCabType[r.sku] = 'Accessory';
