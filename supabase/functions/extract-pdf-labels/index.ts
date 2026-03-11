@@ -45,7 +45,7 @@ async function callGemini(
   temperature = 0.1,
   maxTokens = 8192,
 ): Promise<string> {
-  const MAX_RETRIES = 3;
+  const MAX_RETRIES = 5;
   let response: Response | null = null;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
@@ -73,7 +73,7 @@ async function callGemini(
     if (response.status === 429) {
       console.warn(`AI rate limited (429), attempt ${attempt + 1}/${MAX_RETRIES}`);
       response = null;
-      if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 5000 * (attempt + 1))); continue; }
+      if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 8000 * (attempt + 1))); continue; }
       throw new Error("rate_limit");
     }
     if (response.status === 503 || response.status === 500) {
