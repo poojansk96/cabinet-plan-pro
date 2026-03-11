@@ -147,6 +147,20 @@ function getBaseSku(sku: string): string {
   return sku.replace(/-(L|R)$/i, '');
 }
 
+function isQuantitySensitiveSku(sku: string): boolean {
+  return /^(B\d{2}FH|BF|WF|DWR|FIL|BFFIL|WFFIL|TKRUN|TK|CM|LR|EP|FP|BP|SCRIBE)/i.test(sku);
+}
+
+function getTextCountForSku(sku: string, counts: Map<string, number>): number {
+  const target = getBaseSku(String(sku).toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, ''));
+  let total = 0;
+  for (const [rawSku, count] of counts.entries()) {
+    const normalized = getBaseSku(String(rawSku).toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, ''));
+    if (normalized === target) total += count;
+  }
+  return total;
+}
+
 
 // Split merged/concatenated SKUs that the AI incorrectly combined
 // e.g. "W1530-BLW24/2730-R" → ["W1530-L", "BLW24/2730-R"] or ["W1530", "BLW24/2730-R"]
