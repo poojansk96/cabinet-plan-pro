@@ -453,7 +453,7 @@ Return ONLY NEWLY FOUND items (or items with corrected quantities) as JSON — n
 If none found, return {"items":[]}`;
 
       try {
-        const pass3Content = await callGemini(GEMINI_API_KEY, "gemini-2.5-flash", pageImage, pass3Prompt, 0.2, 4096);
+        const pass3Content = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", pageImage, pass3Prompt, 0.2, 4096);
         console.log("Pass 3 targeted:", pass3Content.slice(0, 500));
         try {
           const pass3Parsed = extractJson(pass3Content);
