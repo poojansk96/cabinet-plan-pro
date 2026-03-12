@@ -408,20 +408,10 @@ Return ONLY valid JSON — no markdown:
       }
     }
 
-    // ── PASS 2: Text-layer cross-reference — add missing SKUs ──
+    // ── PASS 2: REMOVED — Text-layer cross-ref was over-counting quantities ──
+    // Text layer is now used ONLY for: (1) Pass 1 prompt hint, (2) Pass 3 candidate list
     const existingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '')));
-    const textOnlySkus = textLayerSkus.filter(s => !existingSkus.has(s));
-
-    // Add text-layer SKUs even when finalItems was previously empty (recovery may have seeded some)
-    if (textOnlySkus.length > 0) {
-      console.log(`Text cross-ref: ${textOnlySkus.length} SKUs in text but missing from AI: ${textOnlySkus.join(', ')}`);
-      for (const sku of textOnlySkus) {
-        const type = classifySku(sku);
-        const textQty = textSkuCounts.get(sku) || 1;
-        finalItems.push({ sku, type, room: "Kitchen", quantity: textQty });
-        console.log(`Text cross-ref added: ${sku} (${type}) qty ${textQty}`);
-      }
-    }
+    console.log(`After Pass 1: ${finalItems.length} items, skipping text cross-ref (discovery only)`);
 
     // ── PASS 3: Targeted hunt for commonly missed SKUs ──
     const updatedExistingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim()));
