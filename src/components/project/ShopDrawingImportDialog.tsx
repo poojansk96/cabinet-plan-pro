@@ -280,7 +280,13 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       if (data.error === 'rate_limit') throw new Error('rate_limit');
       if (data.error === 'credits') throw new Error('credits');
 
-      return data;
+      const resolvedType = resolvePageUnitType(data.unitTypeName, pageText);
+
+      return {
+        ...data,
+        unitTypeName: resolvedType.primary,
+        unitTypeAliases: resolvedType.aliases,
+      };
     };
 
     const CONCURRENCY = 1; // Sequential to avoid Gemini API rate limits (multi-pass = multiple calls per page)
