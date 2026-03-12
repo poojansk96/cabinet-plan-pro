@@ -358,7 +358,11 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         }
       }
 
-      if (allRows.length === 0) { setError('No cabinet or accessory labels found in any uploaded file.'); setStep('upload'); return; }
+      if (allRows.length === 0 && collectedTypeOrder.length === 0) {
+        setError('No cabinet labels or unit type names found in any uploaded file.');
+        setStep('upload');
+        return;
+      }
       setProgress(100);
       setRows(allRows);
       if (firstDetectedType) setDetectedUnitType(firstDetectedType);
