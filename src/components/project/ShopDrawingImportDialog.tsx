@@ -719,11 +719,13 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
             {step === 'review' && (
               <button
                 onClick={handleImport}
-                disabled={selectedCount === 0}
+                disabled={!canImport}
                 className="px-4 py-2 rounded text-xs font-medium text-white disabled:opacity-50"
                 style={{ background: 'hsl(var(--primary))' }}
               >
-                Import {selectedCount} item{selectedCount !== 1 ? 's' : ''}
+                {selectedCount > 0
+                  ? `Import ${selectedCount} item${selectedCount !== 1 ? 's' : ''}`
+                  : `Import ${typeOrder.length} detected type${typeOrder.length !== 1 ? 's' : ''}`}
               </button>
             )}
           </div>
