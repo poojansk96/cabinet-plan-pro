@@ -391,15 +391,26 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       const pdfjsLib = (await import('pdfjs-dist')) as any;
       pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
       let newRows: LabelRow[] = [];
+      const newTypes: string[] = [];
       for (const file of files) {
         setProcessingStatus(`Processing "${file.name}"…`);
         try {
           const result = await processSingleFile(file, pdfjsLib, setProcessingStatus);
           newRows = mergeRows(result.rows, newRows);
+          for (const t of result.typeOrder) {
+            if (!newTypes.includes(t)) newTypes.push(t);
+          }
           if (result.detectedType && !detectedUnitType) setDetectedUnitType(result.detectedType);
         } catch (err: any) { toast.error(`Skipped "${file.name}": ${err.message}`); }
       }
       setRows(prev => mergeRows(newRows, prev));
+      if (newTypes.length > 0) {
+        setTypeOrder(prev => {
+          const merged = [...prev];
+          for (const t of newTypes) if (!merged.includes(t)) merged.push(t);
+          return merged;
+        });
+      }
       setStep('review');
     } catch (err) {
       toast.error('Failed to process additional files.');
