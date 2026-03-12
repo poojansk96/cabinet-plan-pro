@@ -391,9 +391,9 @@ Return ONLY valid JSON — no markdown:
           }
         } catch {
           console.error("Recovery pass JSON parse failed — seeding from text layer");
-          for (const [sku, qty] of textSkuCounts.entries()) {
+          for (const [sku] of textSkuCounts.entries()) {
             if (isValidSku(sku)) {
-              finalItems.push({ sku, type: classifySku(sku), room: "Kitchen", quantity: qty });
+              finalItems.push({ sku, type: classifySku(sku), room: "Kitchen", quantity: 1 });
             }
           }
           console.log(`Text layer seed (fallback): ${finalItems.length} items`);
