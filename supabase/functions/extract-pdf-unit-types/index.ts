@@ -231,7 +231,7 @@ serve(async (req) => {
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
         const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${GEMINI_API_KEY}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -303,7 +303,7 @@ Return the corrected JSON (same format), no other text. Each entry MUST have a "
         });
 
         const verifyRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
           { method: "POST", headers: { "Content-Type": "application/json" }, body: verifyBody }
         );
 
