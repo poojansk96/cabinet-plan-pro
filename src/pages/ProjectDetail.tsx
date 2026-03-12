@@ -192,7 +192,7 @@ export default function ProjectDetail() {
               <DoorOpen size={14} style={{ color: 'hsl(215 28% 10%)' }} />
               <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'hsl(215 28% 10%)' }}>Cabinet Takeoff</span>
             </div>
-            <p className="text-[9px] mb-1 leading-tight" style={{ color: 'hsl(var(--muted-foreground))' }}>Upload architectural floor plans (PDF). We auto-detect units, cabinets & countertops.</p>
+            <p className="text-[9px] mb-1 leading-tight" style={{ color: 'hsl(var(--muted-foreground))' }}>Upload architectural plans (PDF). We auto-detect units, cabinets & countertops.</p>
             <div className="flex items-center gap-1">
               {CABINET_TAKEOFF_TABS.map((tab) => (
                 <button
