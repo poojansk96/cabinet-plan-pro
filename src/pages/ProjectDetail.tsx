@@ -178,7 +178,7 @@ export default function ProjectDetail() {
           <div className="flex items-center gap-2 rounded-lg px-3 py-1.5 border" style={{ background: 'hsl(var(--section-cabinet-light))', borderColor: 'hsl(var(--section-cabinet-border))' }}>
             <div className="flex items-center gap-1.5 mr-1 flex-shrink-0">
               <DoorOpen size={14} style={{ color: 'hsl(var(--section-cabinet))' }} />
-              <span className="text-[10px] font-bold uppercase tracking-widest flex-shrink-0" style={{ color: 'hsl(var(--section-cabinet))' }}>Cabinet</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest flex-shrink-0" style={{ color: 'hsl(var(--section-cabinet))' }}>Cabinet Takeoff</span>
             </div>
             <div className="flex items-center gap-1">
               {CABINET_TAKEOFF_TABS.map((tab) => (
