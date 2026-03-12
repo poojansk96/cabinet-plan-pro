@@ -435,13 +435,14 @@ These are typically:
 - WF3X30, WF6X30 = Wall fillers — small strips near wall cabinets
 - FIL3, DWR3, DWR6, CM8, TK, TKRUN, EP, LR = Small accessories
 
-Also check quantities of SKUs already found — if you see MORE occurrences than previously counted, report the CORRECT higher quantity.
+Also look for any other SKUs that the previous passes may have missed entirely.
 
 If this is an ELEVATION page, return {"items":[]}.
 Only report SKUs you can ACTUALLY SEE — do not guess.
-Report the CORRECT QUANTITY for each (count every occurrence on the page).
+Report the CORRECT QUANTITY for each NEWLY FOUND item (count every occurrence on the page).
+Do NOT re-report SKUs already found by previous passes.
 
-Return ONLY NEWLY FOUND items (or items with corrected quantities) as JSON — no markdown:
+Return ONLY NEWLY FOUND items as JSON — no markdown:
 {"items":[{"sku":"BF3","type":"Accessory","room":"Kitchen","quantity":4}]}
 If none found, return {"items":[]}`;
 
