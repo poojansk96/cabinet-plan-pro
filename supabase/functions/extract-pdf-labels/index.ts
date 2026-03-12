@@ -237,8 +237,9 @@ CRITICAL — COMMON AREAS ARE REAL UNIT TYPES:
 WHAT TO DO FOR EACH PAGE TYPE:
 - TITLE PAGE → return {"unitTypeName":"<detected type>","items":[]}
 - PLAN VIEW PAGE → EXTRACT all cabinet SKU labels AND detect the unit type name from the page title/header
-- ELEVATION PAGE → DO NOT extract. Return {"unitTypeName":null,"items":[]}
-  *** Elevation pages show the SAME cabinets already visible on plan view pages. Extracting from both would cause double-counting. Only extract from PLAN VIEW pages. ***
+- ELEVATION PAGE for RESIDENTIAL unit types (Type 1, Type 2, Studio, 1BR, etc.) → DO NOT extract. Return {"unitTypeName":null,"items":[]}
+  *** For residential units, elevation pages show the SAME cabinets already visible on plan view pages. Extracting from both would cause double-counting. ***
+- ELEVATION PAGE for COMMON AREAS (Laundry, Mail Room, Restroom, Office, Lobby, Clubhouse, Fitness, Community Room, Pool Bath, Trash Room, Maintenance, Model, Break Room, Corridor, Mechanical, Garage, Storage, etc.) → EXTRACT all cabinet SKU labels! Common areas often have ONLY elevation views with NO separate plan view page. If you skip them, those cabinets will be completely missed. Read the SKU labels from the elevation drawings just like you would from a plan view.
 
 HOW TO TELL PLAN VIEW vs ELEVATION:
 - PLAN VIEW: You look DOWN at the room. Cabinets are flat rectangular outlines along walls. Labels are placed inside or beside the cabinet shapes. You see the room shape from above.
