@@ -106,6 +106,10 @@ function isValidUnitNumber(val: string): boolean {
   // Reject entries starting with ? (garbage from non-title pages)
   if (/^\?/.test(val.trim())) return false;
 
+  // Reject detail callout addresses containing "/" (e.g. "B1-A/403", "A/101", "2/A301")
+  // These reference detail-name/sheet-number and are NOT unit numbers
+  if (/\//.test(val.trim())) return false;
+
   // Reject room/space names
   if (/^(KITCHEN|KITCHENETTE|BATH|LIVING|BEDROOM|MASTER|DINING|LAUNDRY|PANTRY|CLOSET|LOBBY|HALLWAY|CORRIDOR|OFFICE|STORAGE|UTILITY|MECHANICAL|FOYER|ENTRY|GARAGE|ISLAND|LOUNGE|RECEPTION|RESTROOM|VANITY|POWDER|STUDIO|COMMON)/i.test(compact)) return false;
 
