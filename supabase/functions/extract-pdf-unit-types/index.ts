@@ -126,7 +126,7 @@ function isValidUnitNumber(val: string, unitType = ""): boolean {
   if (/\//.test(val.trim())) return false;
 
   // Reject room/space names
-  if (/^(KITCHEN|KITCHENETTE|BATH|LIVING|BEDROOM|MASTER|DINING|LAUNDRY|PANTRY|CLOSET|LOBBY|HALLWAY|CORRIDOR|OFFICE|STORAGE|UTILITY|MECHANICAL|FOYER|ENTRY|GARAGE|ISLAND|LOUNGE|RECEPTION|RESTROOM|VANITY|POWDER|STUDIO|COMMON)/i.test(compact)) return false;
+  if (/^(KITCHEN|KITCHENETTE|BATH|BATHROOM|LIVING|BEDROOM|MASTER|DINING|LAUNDRY|PANTRY|CLOSET|LOBBY|HALLWAY|CORRIDOR|OFFICE|STORAGE|UTILITY|MECHANICAL|FOYER|ENTRY|GARAGE|ISLAND|LOUNGE|RECEPTION|RESTROOM|VANITY|POWDER|PWDR|STUDIO|COMMON|MAILROOM|MAIL)/i.test(compact)) return false;
 
   // Reject architectural labels
   if (/^(FLOOR|LEVEL|BUILDING|BLDG|TOWER|WING|BLOCK|EAST|WEST|NORTH|SOUTH)/i.test(compact)) return false;
@@ -173,12 +173,33 @@ function isStructuredBldg(key: string): boolean {
   return /(BLDG|TOWER|WING|BLOCK|PHASE|PODIUM)/.test(key) || /\d/.test(key);
 }
 
+/** Split a bldg string like "BLDG 7, 10, 11" into ["BLDG 7", "BLDG 10", "BLDG 11"] */
+function splitMultiBuilding(bldgStr: string): string[] {
+  const s = bldgStr.trim();
+  if (!s) return [''];
+  // Match patterns like "BLDG 7, 10, 11" or "BLDG 7, BLDG 10, BLDG 11"
+  const prefixMatch = s.match(/^(BLDG|BUILDING|TOWER|WING|BLOCK|PHASE)\s*/i);
+  if (!prefixMatch) return [s]; // no known prefix, return as-is
+  const prefix = prefixMatch[0].trim();
+  const rest = s.slice(prefixMatch[0].length);
+  // Split by comma
+  const parts = rest.split(/\s*,\s*/).map(p => p.trim()).filter(Boolean);
+  if (parts.length <= 1) return [s]; // single building, return as-is
+  // Check if parts are just numbers/short IDs (e.g., "7, 10, 11") — indicates multi-bldg in one field
+  const expanded = parts.map(p => {
+    // If the part already has a prefix (e.g., "BLDG 10"), use it directly
+    if (/^(BLDG|BUILDING|TOWER|WING|BLOCK|PHASE)\s/i.test(p)) return p;
+    // Otherwise, prepend the detected prefix
+    return `${prefix} ${p}`;
+  });
+  return expanded;
+}
+
 function cleanUnits(rawUnits: any[], pageBldg: string | null) {
-  const units = (rawUnits ?? [])
+  const mapped = (rawUnits ?? [])
     .filter((u: any) => u.unitNumber && typeof u.unitNumber === "string")
     .map((u: any) => {
       let unitType = u.unitType ? String(u.unitType).trim() : "";
-      // Reject only metadata-style types (sheet numbers, dimensions, etc.), but keep room labels and empty
       if (/^(FLOOR|LEVEL|ELEVATION|ELEV|PLAN|SECTION|DETAIL|SHEET|DRAWING|DWG|REV|DATE|SCALE|NOTE|LEGEND)\b/i.test(unitType)) unitType = "";
       if (/^(W|B|SB|DB|UB|UC|TC|TK|WF|BF|V|OH|PT|PTC|UT|HAV|HASB|HASP|HAT|HAF|LS|LSB|FIL|CM|LR|EP|FP)\d/i.test(unitType.replace(/\s+/g, '').toUpperCase())) unitType = "";
       return {
@@ -189,6 +210,18 @@ function cleanUnits(rawUnits: any[], pageBldg: string | null) {
       };
     })
     .filter(u => isValidUnitNumber(u.unitNumber, u.unitType));
+
+  // Expand entries where bldg contains multiple buildings (e.g., "BLDG 7, 10, 11")
+  const units: typeof mapped = [];
+  for (const u of mapped) {
+    const bldgs = splitMultiBuilding(u.bldg);
+    if (bldgs.length > 1) {
+      console.log(`Splitting multi-building "${u.bldg}" into ${bldgs.length} entries for unit ${u.unitNumber}`);
+    }
+    for (const b of bldgs) {
+      units.push({ ...u, bldg: b });
+    }
+  }
 
   // Find the dominant structured building label on this page
   const bldgCounts = new Map<string, { count: number; label: string }>();
