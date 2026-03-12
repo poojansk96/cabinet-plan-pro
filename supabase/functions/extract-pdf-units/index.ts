@@ -205,6 +205,9 @@ serve(async (req) => {
         break;
       }
       if (response && response.status === 429) {
+        console.warn(`Page ${pageIndex + 1} rate limited (429), attempt ${attempt + 1}/${MAX_RETRIES}`);
+        response = null;
+        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 8000 * (attempt + 1))); continue; }
         return new Response(JSON.stringify({ error: "rate_limit" }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
