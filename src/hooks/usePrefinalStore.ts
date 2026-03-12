@@ -565,7 +565,7 @@ export function usePrefinalStore(projectId: string) {
   }, [projectId]);
 
   const clearCabinets = useCallback(() => {
-    commit({ ...data, cabinetRows: [] });
+    commit({ ...data, cabinetRows: [], cabinetUnitTypes: [] });
   }, [commit, data]);
 
   const clearUnits = useCallback(() => {
