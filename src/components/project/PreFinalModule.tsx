@@ -123,13 +123,10 @@ export default function PreFinalModule({ project }: Props) {
       // Add types in PDF page order, then any remaining
       const remaining = orderedTypes.filter(t => !normalizedOrder.includes(t));
       const finalOrder = [...normalizedOrder.filter(t => orderedTypes.includes(t)), ...remaining];
-      store.addCabinetUnitTypes(finalOrder.filter(t => t !== 'Unassigned'));
+      store.addCabinetUnitTypes(finalOrder.filter(t => t !== 'Unassigned'), true);
     } else {
-      for (const unitType of orderedTypes) {
-        if (unitType !== 'Unassigned') {
-          store.addCabinetUnitTypes([unitType]);
-        }
-      }
+      // Still enforce PDF page order from row appearance
+      store.addCabinetUnitTypes(orderedTypes.filter(t => t !== 'Unassigned'), true);
     }
 
     for (const [unitType, typeRows] of rowsByType) {
