@@ -533,6 +533,26 @@ Return ALL items with verified quantities as JSON — no markdown:
       }
     }
 
+    // ── TEXT LAYER QUANTITY CEILING ──
+    // The PDF text layer gives reliable occurrence counts. If AI reports a higher
+    // quantity than the text layer for a SKU, cap it at the text layer count.
+    // This prevents intermittent over-counting (e.g. W3012 showing 2 instead of 1).
+    if (textSkuCounts.size > 0 && finalItems.length > 0) {
+      for (const item of finalItems) {
+        const sku = String(item.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+        // Strip door-config suffixes for matching (same normalization as final output)
+        const normalizedSku = sku.replace(/B?-\d+D$/i, '').replace(/(\d)B$/i, '$1');
+        const textCount = textSkuCounts.get(sku) ?? textSkuCounts.get(normalizedSku);
+        if (textCount !== undefined) {
+          const aiQty = Number(item.quantity) || 1;
+          if (aiQty > textCount) {
+            console.log(`Text layer ceiling: ${sku} AI qty ${aiQty} → capped to ${textCount}`);
+            item.quantity = textCount;
+          }
+        }
+      }
+    }
+
     console.log(`Final: ${finalItems.length} items`);
 
     // ── Normalize and filter ──
