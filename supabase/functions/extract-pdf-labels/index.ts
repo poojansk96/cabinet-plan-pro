@@ -481,6 +481,62 @@ If none found, return {"items":[]}`;
       }
     }
 
+    // ── PASS 4: Verification pass with Gemini 2.5 Flash ──
+    // Cross-checks quantities from previous passes. Can only REDUCE overcounts, never increase.
+    if (finalItems.length > 0) {
+      const skuList = finalItems.map((i: any) => `${String(i.sku).toUpperCase()} (${i.room}) qty ${i.quantity}`).join('\n');
+      const verifyPrompt = `You are an expert millwork estimator VERIFYING a cabinet SKU extraction from a 2020 Design shop drawing page.
+
+Previous passes extracted these SKUs and quantities:
+${skuList}
+
+TASK: Look at this plan view image and VERIFY the quantity for each SKU listed above.
+- Count the number of DISTINCT label occurrences for each SKU on the plan view.
+- If you see FEWER occurrences than listed, report the CORRECT lower quantity.
+- If the quantity matches, report the same quantity.
+- Do NOT add new SKUs — only verify what's already listed.
+- If this is an ELEVATION page for a residential unit, return {"items":[]}.
+- Corner cabinets (LS, LSB) at wall junctions = count ONCE.
+- BF3, BF6, WF3X30 etc. — count every separate occurrence.
+
+Return ALL items with verified quantities as JSON — no markdown:
+{"items":[{"sku":"W2430","type":"Wall","room":"Kitchen","quantity":2}]}`;
+
+      try {
+        const verifyContent = await callGemini(GEMINI_API_KEY, "gemini-2.5-flash", pageImage, verifyPrompt, 0.1, 4096);
+        console.log("Pass 4 verify:", verifyContent.slice(0, 500));
+        try {
+          const verifyParsed = extractJson(verifyContent);
+          const verifyItems = verifyParsed.items ?? [];
+          if (verifyItems.length > 0) {
+            for (const vItem of verifyItems) {
+              const vSku = String(vItem?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+              const vRoom = String(vItem?.room ?? 'Kitchen').trim();
+              if (!vSku) continue;
+              const vKey = `${vSku}|${vRoom}`;
+              const idx = finalItems.findIndex((e: any) => {
+                const eKey = `${String(e?.sku ?? '').toUpperCase().trim()}|${String(e?.room ?? 'Kitchen').trim()}`;
+                return eKey === vKey;
+              });
+              if (idx !== -1) {
+                const prevQty = Number(finalItems[idx].quantity) || 1;
+                const verifiedQty = Number(vItem.quantity) || 1;
+                // Only allow reducing quantity (prevent overcounts), never increase
+                if (verifiedQty < prevQty) {
+                  console.log(`Pass 4 corrected: ${vSku} (${vRoom}) ${prevQty} → ${verifiedQty}`);
+                  finalItems[idx].quantity = verifiedQty;
+                }
+              }
+            }
+          }
+        } catch {
+          console.error("Pass 4 verify JSON parse failed");
+        }
+      } catch (e) {
+        console.log("Pass 4 verify error:", e);
+      }
+    }
+
     console.log(`Final: ${finalItems.length} items`);
 
     // ── Normalize and filter ──
