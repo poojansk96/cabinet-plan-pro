@@ -464,12 +464,12 @@ If none found, return {"items":[]}`;
               finalItems.push(item);
               console.log(`Pass 3 found: ${sku} (${room}) qty ${item.quantity}`);
             } else {
-              // If Pass 4 reports a HIGHER quantity for an existing SKU, update it
+              // If Pass 3 reports a HIGHER quantity for an existing SKU, update it
               const existingQty = Number(finalItems[existingIdx].quantity) || 1;
-              const pass4Qty = Number(item.quantity) || 1;
-              if (pass4Qty > existingQty) {
-                console.log(`Pass 4 corrected: ${sku} (${room}) ${existingQty} → ${pass4Qty}`);
-                finalItems[existingIdx].quantity = pass4Qty;
+              const pass3Qty = Number(item.quantity) || 1;
+              if (pass3Qty > existingQty) {
+                console.log(`Pass 3 corrected: ${sku} (${room}) ${existingQty} → ${pass3Qty}`);
+                finalItems[existingIdx].quantity = pass3Qty;
               }
             }
           }
