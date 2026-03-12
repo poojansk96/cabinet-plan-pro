@@ -17,15 +17,15 @@ type Tab = 'units' | 'cabinets' | 'countertops' | 'summary' | 'project-info' | '
 
 const CABINET_TAKEOFF_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'units', label: 'Units', icon: <Users size={14} /> },
-  { key: 'cabinets', label: 'Cabinet Takeoff', icon: <Layers size={14} /> },
-  { key: 'countertops', label: 'Countertop Takeoff', icon: <Square size={14} /> },
+  { key: 'cabinets', label: 'Cabinet', icon: <Layers size={14} /> },
+  { key: 'countertops', label: 'Countertop', icon: <Square size={14} /> },
   { key: 'summary', label: 'Summary', icon: <BarChart3 size={14} /> },
 ];
 
 const APPLIANCE_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'app-units', label: 'Units', icon: <Users size={14} /> },
-  { key: 'app-takeoff', label: 'Appliance Takeoff', icon: <Zap size={14} /> },
-  { key: 'app-summary', label: 'Appliance Summary', icon: <BarChart3 size={14} /> },
+  { key: 'app-takeoff', label: 'Appliance', icon: <Zap size={14} /> },
+  { key: 'app-summary', label: 'Summary', icon: <BarChart3 size={14} /> },
 ];
 
 const PREFINAL_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
@@ -178,7 +178,7 @@ export default function ProjectDetail() {
           <div className="flex items-center gap-2 rounded-lg px-3 py-1.5 border" style={{ background: 'hsl(var(--section-cabinet-light))', borderColor: 'hsl(var(--section-cabinet-border))' }}>
             <div className="flex items-center gap-1.5 mr-1 flex-shrink-0">
               <DoorOpen size={14} style={{ color: 'hsl(var(--section-cabinet))' }} />
-              <span className="text-[10px] font-bold uppercase tracking-widest flex-shrink-0" style={{ color: 'hsl(var(--section-cabinet))' }}>Cabinet</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest flex-shrink-0" style={{ color: 'hsl(var(--section-cabinet))' }}>Cabinet Takeoff</span>
             </div>
             <div className="flex items-center gap-1">
               {CABINET_TAKEOFF_TABS.map((tab) => (
@@ -201,7 +201,7 @@ export default function ProjectDetail() {
           <div className="flex items-center gap-2 rounded-lg px-3 py-1.5 border" style={{ background: 'hsl(var(--section-appliance-light))', borderColor: 'hsl(var(--section-appliance-border))' }}>
             <div className="flex items-center gap-1.5 mr-1 flex-shrink-0">
               <Refrigerator size={14} style={{ color: 'hsl(var(--section-appliance))' }} />
-              <span className="text-[10px] font-bold uppercase tracking-widest flex-shrink-0" style={{ color: 'hsl(var(--section-appliance))' }}>Appliance</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest flex-shrink-0" style={{ color: 'hsl(var(--section-appliance))' }}>Appliance Takeoff</span>
             </div>
             <div className="flex items-center gap-1">
               {APPLIANCE_TABS.map((tab) => (
