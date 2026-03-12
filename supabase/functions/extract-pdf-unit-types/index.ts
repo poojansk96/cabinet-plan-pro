@@ -190,13 +190,15 @@ function cleanUnits(rawUnits: any[], pageBldg: string | null) {
     }
   }
 
+  // If no structured building label found on this page, default to "BLDG 1"
+  if (!dominantKey) {
+    dominantLabel = 'BLDG 1';
+  }
+
   // Normalize: fold non-structured building names (project names like "Clover Apartments") into the dominant structured label
   const normalized = units.map(u => {
     const key = normalizeBldgKey(u.bldg);
-    if (dominantKey && key && !isStructuredBldg(key)) {
-      return { ...u, bldg: dominantLabel };
-    }
-    if (!u.bldg && dominantLabel) {
+    if (!key || !isStructuredBldg(key)) {
       return { ...u, bldg: dominantLabel };
     }
     return u;
