@@ -457,6 +457,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
   const sourceFiles = Array.from(new Set(rows.map(r => r.sourceFile ?? 'Unknown')));
   const visibleRows = filterSource === 'all' ? rows : rows.filter(r => r.sourceFile === filterSource);
   const selectedCount = rows.filter(r => r.selected).length;
+  const canImport = selectedCount > 0 || typeOrder.length > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
