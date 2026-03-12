@@ -200,7 +200,7 @@ export default function ProjectDetail() {
           {/* Appliance Takeoff Block */}
           <div className="flex items-center gap-2 rounded-lg px-3 py-1.5 border" style={{ background: 'hsl(var(--section-appliance-light))', borderColor: 'hsl(var(--section-appliance-border))' }}>
             <div className="flex items-center gap-1.5 mr-1 flex-shrink-0">
-              <Zap size={14} style={{ color: 'hsl(var(--section-appliance))' }} />
+              <Refrigerator size={14} style={{ color: 'hsl(var(--section-appliance))' }} />
               <span className="text-[10px] font-bold uppercase tracking-widest flex-shrink-0" style={{ color: 'hsl(var(--section-appliance))' }}>Appliance</span>
             </div>
             <div className="flex items-center gap-1">
