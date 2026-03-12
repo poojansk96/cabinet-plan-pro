@@ -21,6 +21,7 @@ const CABINET_TAKEOFF_TABS: { key: Tab; label: string; icon: React.ReactNode }[]
   { key: 'cabinets', label: 'Cabinet', icon: <Layers size={14} /> },
   { key: 'countertops', label: 'Countertop', icon: <Square size={14} /> },
   { key: 'summary', label: 'Summary', icon: <BarChart3 size={14} /> },
+  { key: 'cabinet-files', label: 'Files', icon: <FolderOpen size={14} /> },
 ];
 
 const APPLIANCE_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
