@@ -277,6 +277,9 @@ export default function ProjectDetail() {
             {activeTab === 'project-info' && <ProjectInfoModule project={project} onSave={(updates) => updateProject(project.id, updates)} />}
             {activeTab === 'prefinal-units' && <PreFinalModule key="prefinal" {...storeProps} />}
             {activeTab === 'prefinal-summary' && <PreFinalSummaryModule {...storeProps} />}
+            {activeTab === 'cabinet-files' && <FileListModule projectId={project.id} section="cabinet_takeoff" />}
+            {activeTab === 'app-files' && <FileListModule projectId={project.id} section="appliance_takeoff" />}
+            {activeTab === 'prefinal-files' && <FileListModule projectId={project.id} section="prefinal" />}
           </div>
         </main>
 
