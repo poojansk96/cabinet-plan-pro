@@ -413,7 +413,7 @@ Return ONLY valid JSON — no markdown:
       }
     }
 
-    // ── PASS 4: Targeted hunt for commonly missed SKUs ──
+    // ── PASS 3: Targeted hunt for commonly missed SKUs ──
     const updatedExistingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim()));
     const COMMONLY_MISSED = ['B09FH','B06FH','B12FH','BF3','BF6','WF3X30','WF6X30','FIL3','DWR3','DWR6','CM8','TK','TKRUN','EP','LR','SCRIBE','BP'];
     // Also add text-layer SKUs that are still missing after all passes — they need visual confirmation
