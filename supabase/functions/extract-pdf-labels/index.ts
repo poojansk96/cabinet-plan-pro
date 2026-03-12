@@ -231,6 +231,9 @@ PAGE TYPES:
   B) PLAN VIEW PAGE (top-down view) — shows cabinets from ABOVE as rectangular outlines with SKU labels written on or next to each cabinet. Walls appear as thick lines. You see the room layout from a bird's-eye perspective. Cabinet SKU labels like "B24", "W3030B", "DB15", "BF3" are placed directly on/near the cabinet shapes.
   C) ELEVATION PAGE (front/side view) — shows cabinets as you would see them standing in front of them. Rectangular boxes stacked vertically (base on bottom, wall on top). Has dimension lines showing heights.
 
+CRITICAL — COMMON AREAS ARE REAL UNIT TYPES:
+  Pages showing Laundry rooms, Mail Rooms, Restrooms, Lobbies, Clubhouses, Fitness Centers, Leasing Offices, Business Centers, Pool Baths, Trash Rooms, Maintenance rooms, Model units, Storage, Corridors, Break Rooms, Community Rooms, etc. are VALID plan view pages that MUST be extracted. These are NOT to be skipped — they contain real cabinets that are part of the project scope. Treat them exactly like any residential unit type.
+
 WHAT TO DO FOR EACH PAGE TYPE:
 - TITLE PAGE → return {"unitTypeName":"<detected type>","items":[]}
 - PLAN VIEW PAGE → EXTRACT all cabinet SKU labels AND detect the unit type name from the page title/header
