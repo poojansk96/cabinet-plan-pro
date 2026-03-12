@@ -398,65 +398,7 @@ Return ONLY valid JSON — no markdown:
       }
     }
 
-    // ── PASS 2: Verification with gemini-2.5-flash ──
-    if (finalItems.length > 0) {
-      const verifyPrompt = `You are an expert millwork estimator doing a SECOND verification pass on a 2020 Design shop drawing PLAN VIEW page.
-
-Pass 1 found these cabinet SKUs:
-${JSON.stringify(finalItems)}
-${hasTextSkus ? `\nThe PDF text layer contains these SKUs with occurrence counts: ${[...textSkuCounts.entries()].map(([k,v]) => `${k} (×${v})`).join(', ')}\nIf a SKU appears multiple times in text, its quantity should be AT LEAST that count.\n` : ''}
-Your job: Look at the SAME image again VERY carefully and check for:
-1. MISSED SKUs — especially BF3, BF6, WF3X30, WF6X30, FIL3, DWR3, DWR6, B09FH, B06FH, B12FH.
-2. WRONG quantities — match actual label occurrences on the page.
-3. MERGED LABELS — if any SKU looks like two labels combined (e.g. "W1530-BLW24/2730-R" is actually "W1530" + "BLW24/2730-R"), split them into SEPARATE entries.
-4. STACKED LABELS: "W1230" above "VDC2430" = TWO separate cabinets. NEVER merge into one string.
-
-Return the COMPLETE corrected list as JSON — no markdown:
-{"items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1}]}`;
-
-      try {
-        const verifyContent = await callGemini(GEMINI_API_KEY, "gemini-2.5-flash", pageImage, verifyPrompt, 0.1, 8192);
-        console.log("Pass 2 verify:", verifyContent.slice(0, 800));
-        try {
-          const verifyParsed = extractJson(verifyContent);
-          const pass2Raw = verifyParsed.items ?? [];
-          const pass2Items = splitMergedSkus(pass2Raw);
-          if (pass2Items.length > 0) {
-            const mergedByKey = new Map<string, any>();
-            for (const item of finalItems) {
-              const sku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
-              const room = String(item?.room ?? 'Kitchen').trim();
-              if (!sku) continue;
-              mergedByKey.set(`${sku}|${room}`, item);
-            }
-            for (const item of pass2Items) {
-              const sku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
-              const room = String(item?.room ?? 'Kitchen').trim();
-              if (!sku) continue;
-              const key = `${sku}|${room}`;
-              const existing = mergedByKey.get(key);
-              if (!existing) {
-                mergedByKey.set(key, item);
-                continue;
-              }
-              mergedByKey.set(key, {
-                ...existing,
-                ...item,
-                quantity: Math.max(Number(existing.quantity) || 1, Number(item.quantity) || 1),
-              });
-            }
-            finalItems = Array.from(mergedByKey.values());
-            console.log(`Pass 2 merge: pass1=${pass1Items.length}, pass2=${pass2Items.length}, final=${finalItems.length}`);
-          }
-        } catch {
-          console.error("Pass 2 JSON parse failed, using previous results");
-        }
-      } catch (e) {
-        console.log("Pass 2 error, using previous results:", e);
-      }
-    }
-
-    // ── PASS 3: Text-layer cross-reference — add missing SKUs ──
+    // ── PASS 2: Text-layer cross-reference — add missing SKUs ──
     const existingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '')));
     const textOnlySkus = textLayerSkus.filter(s => !existingSkus.has(s));
 
