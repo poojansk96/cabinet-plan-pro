@@ -503,9 +503,12 @@ If none found, return {"items":[]}`;
         return true;
       })
       .map((c: any) => {
-        let sku = String(c.sku).toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+      let sku = String(c.sku).toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
         // Strip door-configuration suffixes: "-1D", "-2D", "B-1D", "B-2D"
         sku = sku.replace(/B?-\d+D$/i, '');
+        // Strip trailing "B" door-config suffix (W3018B→W3018, SB33B→SB33, W3330B→W3330)
+        // Only strip if the SKU has digits before the trailing B (to avoid stripping from prefixes like "UB", "VB")
+        sku = sku.replace(/(\d)B$/i, '$1');
         let rawType = String(c.type ?? "Base").trim();
         if (/^BLW|^BRW/i.test(sku)) rawType = "Wall";
         const normalizedType = rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase();
