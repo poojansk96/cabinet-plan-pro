@@ -283,7 +283,7 @@ export default function ProjectDetail() {
           </div>
         </main>
 
-        {!activeTab.startsWith('prefinal') && activeTab !== 'project-info' && (
+        {!activeTab.startsWith('prefinal') && activeTab !== 'project-info' && !activeTab.endsWith('-files') && (
           <aside className="w-56 flex-shrink-0 hidden lg:block overflow-auto border-l" style={{ borderColor: 'hsl(var(--border))', background: 'hsl(var(--panel-bg))' }}>
             <SummaryPanel project={project} activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab as Tab)} />
           </aside>
