@@ -465,18 +465,37 @@ export function usePrefinalStore(projectId: string) {
   }, [projectId]);
 
   // ── Cabinet Unit Types (independent columns for cabinet section) ────────
-  const addCabinetUnitTypes = useCallback((types: string[]) => {
+  const addCabinetUnitTypes = useCallback((types: string[], reorderToMatch = false) => {
     setData(prev => {
-      const existingKeys = new Set(prev.cabinetUnitTypes.map(t => normalizeTypeKeyPart(t)));
-      const newTypes: string[] = [];
+      const allRef = [...prev.cabinetUnitTypes, ...prev.unitTypes];
+      const resolvedInput: string[] = [];
+      const seenKeys = new Set<string>();
       for (const t of types) {
         const trimmed = String(t || '').trim();
-        const resolved = resolveExistingTypeName(trimmed, [...prev.cabinetUnitTypes, ...prev.unitTypes]);
+        const resolved = resolveExistingTypeName(trimmed, allRef);
         const key = normalizeTypeKeyPart(resolved);
-        if (!key || existingKeys.has(key)) continue;
-        existingKeys.add(key);
-        newTypes.push(resolved);
+        if (!key || seenKeys.has(key)) continue;
+        seenKeys.add(key);
+        resolvedInput.push(resolved);
       }
+
+      if (reorderToMatch) {
+        // Reorder: put input types first (in given order), then any existing types not in input
+        const inputKeys = new Set(resolvedInput.map(t => normalizeTypeKeyPart(t)));
+        const remaining = prev.cabinetUnitTypes.filter(t => !inputKeys.has(normalizeTypeKeyPart(t)));
+        const cabinetUnitTypes = [...resolvedInput, ...remaining];
+        const cabinetRows = prev.cabinetRows.map(r => ({
+          ...r,
+          unitType: resolveExistingTypeName(r.unitType, [...cabinetUnitTypes, ...prev.unitTypes]),
+        }));
+        const next = { ...prev, cabinetUnitTypes, cabinetRows };
+        saveData(projectId, next);
+        return next;
+      }
+
+      // Default append behavior: only add truly new types
+      const existingKeys = new Set(prev.cabinetUnitTypes.map(t => normalizeTypeKeyPart(t)));
+      const newTypes = resolvedInput.filter(t => !existingKeys.has(normalizeTypeKeyPart(t)));
       if (!newTypes.length) return prev;
       const cabinetUnitTypes = [...prev.cabinetUnitTypes, ...newTypes];
       const cabinetRows = prev.cabinetRows.map(r => ({
