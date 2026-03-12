@@ -257,6 +257,12 @@ serve(async (req) => {
           if (status === 429) return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
           if (status === 402) return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
           if ((status === 503 || status === 500) && attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
+          if (status === 503 || status === 500) {
+            console.warn(`AI unavailable (${status}) after ${MAX_RETRIES} attempts, returning empty`);
+            return new Response(JSON.stringify({ units: [], pageType: "skipped" }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
           throw new Error(`AI error ${status}`);
         }
         const data = await res.json();
