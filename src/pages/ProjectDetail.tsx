@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Building2, ArrowLeft, Users, Layers, Square, BarChart3, Pencil, ClipboardCheck, FileUp, X, FileText, Zap } from 'lucide-react';
+import { Ruler, ArrowLeft, Users, Layers, Square, BarChart3, Pencil, ClipboardCheck, FileUp, X, FileText, Zap, Package } from 'lucide-react';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import UnitModule from '@/components/project/UnitModule';
 import CabinetModule from '@/components/project/CabinetModule';
@@ -173,15 +173,20 @@ export default function ProjectDetail() {
           </button>
         </div>
 
-        <div className="px-4 flex items-end gap-0 overflow-x-auto">
-          <div className="flex flex-col">
-            <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground px-1 pt-1">Cabinet Takeoff</span>
-            <div className="flex">
+        <div className="px-3 pb-2 flex items-stretch gap-2 overflow-x-auto">
+          {/* Cabinet Takeoff Block */}
+          <div className="flex items-center gap-2 rounded-lg px-3 py-1.5 border" style={{ background: 'hsl(var(--section-cabinet-light))', borderColor: 'hsl(var(--section-cabinet-border))' }}>
+            <div className="flex items-center gap-1.5 mr-1 flex-shrink-0">
+              <Ruler size={14} style={{ color: 'hsl(var(--section-cabinet))' }} />
+              <span className="text-[10px] font-bold uppercase tracking-widest flex-shrink-0" style={{ color: 'hsl(var(--section-cabinet))' }}>Cabinet</span>
+            </div>
+            <div className="flex items-center gap-1">
               {CABINET_TAKEOFF_TABS.map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`module-tab flex items-center gap-1.5 mr-1 ${activeTab === tab.key ? 'active' : ''}`}
+                  data-section="cabinet"
+                  className={`module-tab flex items-center gap-1.5 ${activeTab === tab.key ? 'active' : ''}`}
                   aria-selected={activeTab === tab.key}
                   role="tab"
                 >
@@ -191,15 +196,20 @@ export default function ProjectDetail() {
               ))}
             </div>
           </div>
-          <div className="w-px my-1 mx-4 bg-border flex-shrink-0 self-stretch" />
-          <div className="flex flex-col">
-            <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground px-1 pt-1">Appliance Takeoff</span>
-            <div className="flex">
+
+          {/* Appliance Takeoff Block */}
+          <div className="flex items-center gap-2 rounded-lg px-3 py-1.5 border" style={{ background: 'hsl(var(--section-appliance-light))', borderColor: 'hsl(var(--section-appliance-border))' }}>
+            <div className="flex items-center gap-1.5 mr-1 flex-shrink-0">
+              <Zap size={14} style={{ color: 'hsl(var(--section-appliance))' }} />
+              <span className="text-[10px] font-bold uppercase tracking-widest flex-shrink-0" style={{ color: 'hsl(var(--section-appliance))' }}>Appliance</span>
+            </div>
+            <div className="flex items-center gap-1">
               {APPLIANCE_TABS.map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`module-tab flex items-center gap-1.5 mr-1 ${activeTab === tab.key ? 'active' : ''}`}
+                  data-section="appliance"
+                  className={`module-tab flex items-center gap-1.5 ${activeTab === tab.key ? 'active' : ''}`}
                   aria-selected={activeTab === tab.key}
                   role="tab"
                 >
@@ -209,15 +219,20 @@ export default function ProjectDetail() {
               ))}
             </div>
           </div>
-          <div className="w-px my-1 mx-4 bg-border flex-shrink-0 self-stretch" />
-          <div className="flex flex-col">
-            <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground px-1 pt-1">Prefinal - 2020 Shops</span>
-            <div className="flex">
+
+          {/* Prefinal Block */}
+          <div className="flex items-center gap-2 rounded-lg px-3 py-1.5 border" style={{ background: 'hsl(var(--section-prefinal-light))', borderColor: 'hsl(var(--section-prefinal-border))' }}>
+            <div className="flex items-center gap-1.5 mr-1 flex-shrink-0">
+              <Package size={14} style={{ color: 'hsl(var(--section-prefinal))' }} />
+              <span className="text-[10px] font-bold uppercase tracking-widest flex-shrink-0" style={{ color: 'hsl(var(--section-prefinal))' }}>Prefinal</span>
+            </div>
+            <div className="flex items-center gap-1">
               {PREFINAL_TABS.map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`module-tab flex items-center gap-1.5 mr-1 ${activeTab === tab.key ? 'active' : ''}`}
+                  data-section="prefinal"
+                  className={`module-tab flex items-center gap-1.5 ${activeTab === tab.key ? 'active' : ''}`}
                   aria-selected={activeTab === tab.key}
                   role="tab"
                 >
