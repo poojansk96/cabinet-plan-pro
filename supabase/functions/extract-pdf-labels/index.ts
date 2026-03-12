@@ -380,10 +380,11 @@ Return ONLY valid JSON — no markdown:
             console.log(`Recovery pass found ${recoveryItems.length} items`);
           } else {
             console.log("Recovery pass also returned empty — seeding from text layer counts");
-            // Last resort: use text layer counts directly as seed data
-            for (const [sku, qty] of textSkuCounts.entries()) {
+            // Last resort: use text layer SKUs as seed data with qty=1 each
+            // (text counts are unreliable — legends/notes inflate them)
+            for (const [sku] of textSkuCounts.entries()) {
               if (isValidSku(sku)) {
-                finalItems.push({ sku, type: classifySku(sku), room: "Kitchen", quantity: qty });
+                finalItems.push({ sku, type: classifySku(sku), room: "Kitchen", quantity: 1 });
               }
             }
             console.log(`Text layer seed: ${finalItems.length} items`);
