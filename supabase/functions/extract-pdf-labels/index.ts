@@ -380,28 +380,29 @@ Return ONLY valid JSON — no markdown:
             console.log(`Recovery pass found ${recoveryItems.length} items`);
           } else {
             console.log("Recovery pass also returned empty — seeding from text layer counts");
-            // Last resort: use text layer counts directly as seed data
-            for (const [sku, qty] of textSkuCounts.entries()) {
+            // Last resort: use text layer SKUs as seed data with qty=1 each
+            // (text counts are unreliable — legends/notes inflate them)
+            for (const [sku] of textSkuCounts.entries()) {
               if (isValidSku(sku)) {
-                finalItems.push({ sku, type: classifySku(sku), room: "Kitchen", quantity: qty });
+                finalItems.push({ sku, type: classifySku(sku), room: "Kitchen", quantity: 1 });
               }
             }
             console.log(`Text layer seed: ${finalItems.length} items`);
           }
         } catch {
           console.error("Recovery pass JSON parse failed — seeding from text layer");
-          for (const [sku, qty] of textSkuCounts.entries()) {
+          for (const [sku] of textSkuCounts.entries()) {
             if (isValidSku(sku)) {
-              finalItems.push({ sku, type: classifySku(sku), room: "Kitchen", quantity: qty });
+              finalItems.push({ sku, type: classifySku(sku), room: "Kitchen", quantity: 1 });
             }
           }
           console.log(`Text layer seed (fallback): ${finalItems.length} items`);
         }
       } catch (e) {
         console.log("Recovery pass error — seeding from text layer:", e);
-        for (const [sku, qty] of textSkuCounts.entries()) {
+        for (const [sku] of textSkuCounts.entries()) {
           if (isValidSku(sku)) {
-            finalItems.push({ sku, type: classifySku(sku), room: "Kitchen", quantity: qty });
+            finalItems.push({ sku, type: classifySku(sku), room: "Kitchen", quantity: 1 });
           }
         }
         console.log(`Text layer seed (error fallback): ${finalItems.length} items`);
@@ -534,25 +535,12 @@ Return ALL items with verified quantities as JSON — no markdown:
       }
     }
 
-    // ── TEXT LAYER QUANTITY CEILING ──
-    // The PDF text layer gives reliable occurrence counts. If AI reports a higher
-    // quantity than the text layer for a SKU, cap it at the text layer count.
-    // This prevents intermittent over-counting (e.g. W3012 showing 2 instead of 1).
-    if (textSkuCounts.size > 0 && finalItems.length > 0) {
-      for (const item of finalItems) {
-        const sku = String(item.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
-        // Strip door-config suffixes for matching (same normalization as final output)
-        const normalizedSku = sku.replace(/B?-\d+D$/i, '').replace(/(\d)B$/i, '$1');
-        const textCount = textSkuCounts.get(sku) ?? textSkuCounts.get(normalizedSku);
-        if (textCount !== undefined) {
-          const aiQty = Number(item.quantity) || 1;
-          if (aiQty > textCount) {
-            console.log(`Text layer ceiling: ${sku} AI qty ${aiQty} → capped to ${textCount}`);
-            item.quantity = textCount;
-          }
-        }
-      }
-    }
+    // ── TEXT LAYER QUANTITY CEILING — REMOVED ──
+    // Text layer counts are UNRELIABLE for quantity capping because SKUs appear
+    // in legends, notes, schedules, and title blocks — not just plan view labels.
+    // This inflated text count was causing double-counting (e.g. W3012 text=2 
+    // because it appears in both plan label + legend, so AI qty=2 was allowed).
+    // Quantity accuracy now relies on Pass 1 vision + Pass 4 verification only.
 
     console.log(`Final: ${finalItems.length} items`);
 
