@@ -408,20 +408,10 @@ Return ONLY valid JSON — no markdown:
       }
     }
 
-    // ── PASS 2: Text-layer cross-reference — add missing SKUs ──
+    // ── PASS 2: REMOVED — Text-layer cross-ref was over-counting quantities ──
+    // Text layer is now used ONLY for: (1) Pass 1 prompt hint, (2) Pass 3 candidate list
     const existingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '')));
-    const textOnlySkus = textLayerSkus.filter(s => !existingSkus.has(s));
-
-    // Add text-layer SKUs even when finalItems was previously empty (recovery may have seeded some)
-    if (textOnlySkus.length > 0) {
-      console.log(`Text cross-ref: ${textOnlySkus.length} SKUs in text but missing from AI: ${textOnlySkus.join(', ')}`);
-      for (const sku of textOnlySkus) {
-        const type = classifySku(sku);
-        const textQty = textSkuCounts.get(sku) || 1;
-        finalItems.push({ sku, type, room: "Kitchen", quantity: textQty });
-        console.log(`Text cross-ref added: ${sku} (${type}) qty ${textQty}`);
-      }
-    }
+    console.log(`After Pass 1: ${finalItems.length} items, skipping text cross-ref (discovery only)`);
 
     // ── PASS 3: Targeted hunt for commonly missed SKUs ──
     const updatedExistingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim()));
@@ -513,9 +503,12 @@ If none found, return {"items":[]}`;
         return true;
       })
       .map((c: any) => {
-        let sku = String(c.sku).toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+      let sku = String(c.sku).toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
         // Strip door-configuration suffixes: "-1D", "-2D", "B-1D", "B-2D"
         sku = sku.replace(/B?-\d+D$/i, '');
+        // Strip trailing "B" door-config suffix (W3018B→W3018, SB33B→SB33, W3330B→W3330)
+        // Only strip if the SKU has digits before the trailing B (to avoid stripping from prefixes like "UB", "VB")
+        sku = sku.replace(/(\d)B$/i, '$1');
         let rawType = String(c.type ?? "Base").trim();
         if (/^BLW|^BRW/i.test(sku)) rawType = "Wall";
         const normalizedType = rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase();
