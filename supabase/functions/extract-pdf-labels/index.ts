@@ -435,13 +435,14 @@ These are typically:
 - WF3X30, WF6X30 = Wall fillers — small strips near wall cabinets
 - FIL3, DWR3, DWR6, CM8, TK, TKRUN, EP, LR = Small accessories
 
-Also check quantities of SKUs already found — if you see MORE occurrences than previously counted, report the CORRECT higher quantity.
+Also look for any other SKUs that the previous passes may have missed entirely.
 
 If this is an ELEVATION page, return {"items":[]}.
 Only report SKUs you can ACTUALLY SEE — do not guess.
-Report the CORRECT QUANTITY for each (count every occurrence on the page).
+Report the CORRECT QUANTITY for each NEWLY FOUND item (count every occurrence on the page).
+Do NOT re-report SKUs already found by previous passes.
 
-Return ONLY NEWLY FOUND items (or items with corrected quantities) as JSON — no markdown:
+Return ONLY NEWLY FOUND items as JSON — no markdown:
 {"items":[{"sku":"BF3","type":"Accessory","room":"Kitchen","quantity":4}]}
 If none found, return {"items":[]}`;
 
@@ -462,15 +463,11 @@ If none found, return {"items":[]}`;
             });
             if (existingIdx === -1) {
               finalItems.push(item);
-              console.log(`Pass 3 found: ${sku} (${room}) qty ${item.quantity}`);
+              console.log(`Pass 3 found NEW: ${sku} (${room}) qty ${item.quantity}`);
             } else {
-              // If Pass 3 reports a HIGHER quantity for an existing SKU, update it
-              const existingQty = Number(finalItems[existingIdx].quantity) || 1;
-              const pass3Qty = Number(item.quantity) || 1;
-              if (pass3Qty > existingQty) {
-                console.log(`Pass 3 corrected: ${sku} (${room}) ${existingQty} → ${pass3Qty}`);
-                finalItems[existingIdx].quantity = pass3Qty;
-              }
+              // Pass 3 should NEVER increase quantities — only add missing SKUs
+              // Over-counting (e.g. W3012: 1→2) was caused by Pass 3 bumping quantities
+              console.log(`Pass 3 skipped qty change for existing: ${sku} (${room})`);
             }
           }
         } catch {
@@ -534,6 +531,26 @@ Return ALL items with verified quantities as JSON — no markdown:
         }
       } catch (e) {
         console.log("Pass 4 verify error:", e);
+      }
+    }
+
+    // ── TEXT LAYER QUANTITY CEILING ──
+    // The PDF text layer gives reliable occurrence counts. If AI reports a higher
+    // quantity than the text layer for a SKU, cap it at the text layer count.
+    // This prevents intermittent over-counting (e.g. W3012 showing 2 instead of 1).
+    if (textSkuCounts.size > 0 && finalItems.length > 0) {
+      for (const item of finalItems) {
+        const sku = String(item.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+        // Strip door-config suffixes for matching (same normalization as final output)
+        const normalizedSku = sku.replace(/B?-\d+D$/i, '').replace(/(\d)B$/i, '$1');
+        const textCount = textSkuCounts.get(sku) ?? textSkuCounts.get(normalizedSku);
+        if (textCount !== undefined) {
+          const aiQty = Number(item.quantity) || 1;
+          if (aiQty > textCount) {
+            console.log(`Text layer ceiling: ${sku} AI qty ${aiQty} → capped to ${textCount}`);
+            item.quantity = textCount;
+          }
+        }
       }
     }
 
