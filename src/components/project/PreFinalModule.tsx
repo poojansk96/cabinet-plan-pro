@@ -97,6 +97,9 @@ export default function PreFinalModule({ project }: Props) {
 
     const fallbackType = resolveKnownType(importTargetType) || (importTargetType ? normalizeUnitType(importTargetType) : '');
     const rowsByType = new Map<string, typeof rows>();
+    // Clear all existing cabinet data before importing fresh
+    store.clearCabinets();
+
     // Track order of types as they appear (PDF page order)
     const orderedTypes: string[] = [];
 
