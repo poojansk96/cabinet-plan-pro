@@ -252,6 +252,8 @@ TASK 1 — DETECT UNIT TYPE NAME (ALL PAGE TYPES):
 - Look for the UNIT TYPE NAME in the title block, header, sheet title, or prominent labels on EVERY page.
 - The unit type name is typically found in the title block at the bottom or side of the page, or in a header/label.
 - Common formats: "TYPE 1 - AS", "TYPE 1 - MIRROR", "TYPE 2 - ADA", "TYPE 3 - AS", "TYPE 5 - MIRROR", "Studio", "1 Bed", "1B-Mirror", etc.
+- COMMON AREAS ARE VALID UNIT TYPES: "Laundry", "Mail Room", "Restroom", "Lobby", "Clubhouse", "Fitness", "Leasing Office", "Business Center", "Pool Bath", "Trash Room", "Maintenance", "Model", "Storage", "Garage", "Corridor", "Mechanical", "Community Room", "Kitchen (Common)", "Break Room", etc.
+- EVERY page in a 2020 shop drawing PDF represents a real unit type that MUST be extracted. Do NOT skip or ignore ANY page — common areas are just as important as residential units.
 - This identifies WHICH unit type this drawing page belongs to.
 - ALWAYS try to detect this, even on plan view and elevation pages — it's usually in the title block.
 - Return null ONLY if you truly cannot find any unit type identifier on the page.
