@@ -422,7 +422,7 @@ Return ONLY valid JSON — no markdown:
 
     if (allCandidates.length > 0 && finalItems.length > 0) {
       console.log(`Pass 3 targeted review: ${allCandidates.join(', ')}`);
-      const pass4Prompt = `You are an expert millwork estimator doing a FINAL careful check on a 2020 Design shop drawing PLAN VIEW page.
+      const pass3Prompt = `You are an expert millwork estimator doing a FINAL careful check on a 2020 Design shop drawing PLAN VIEW page.
 
 Previous passes found these SKUs: ${[...updatedExistingSkus].join(', ')}
 
