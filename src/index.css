@@ -185,17 +185,28 @@
 
   /* Tab styles */
   .module-tab {
-    @apply px-4 py-2 text-sm font-medium border-b-2 border-transparent cursor-pointer transition-colors;
+    @apply px-3 py-1.5 text-xs font-semibold rounded-md cursor-pointer transition-all;
     color: hsl(var(--muted-foreground));
+    background: transparent;
   }
 
   .module-tab:hover {
     color: hsl(var(--foreground));
+    background: hsl(var(--muted));
   }
 
-  .module-tab.active {
-    color: hsl(var(--primary));
-    border-color: hsl(var(--primary));
+  /* Section-colored active tabs */
+  .module-tab.active[data-section="cabinet"] {
+    color: hsl(0 0% 100%);
+    background: hsl(var(--section-cabinet));
+  }
+  .module-tab.active[data-section="appliance"] {
+    color: hsl(0 0% 100%);
+    background: hsl(var(--section-appliance));
+  }
+  .module-tab.active[data-section="prefinal"] {
+    color: hsl(0 0% 100%);
+    background: hsl(var(--section-prefinal));
   }
 
   /* Stat card */
