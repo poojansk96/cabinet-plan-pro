@@ -66,6 +66,8 @@ export default function ProjectDetail() {
     );
   }
 
+  const activeSection = activeTab.startsWith('app-') ? 'appliance' : activeTab.startsWith('prefinal') || activeTab === 'project-info' ? 'prefinal' : 'cabinet';
+
   const selectedUnit = selectedUnitId
     ? project.units.find(u => u.id === selectedUnitId) ?? project.units[0]
     : project.units[0];
@@ -152,11 +154,21 @@ export default function ProjectDetail() {
           </Link>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
+              {/* Workflow color chip */}
+              {activeSection === 'cabinet' && <DoorOpen size={14} style={{ color: 'hsl(var(--section-cabinet))' }} />}
+              {activeSection === 'appliance' && <Refrigerator size={14} style={{ color: 'hsl(var(--section-appliance))' }} />}
+              {activeSection === 'prefinal' && <Package size={14} style={{ color: 'hsl(var(--section-prefinal))' }} />}
               <span className={`px-1.5 py-0.5 rounded text-xs font-semibold flex-shrink-0 ${
                 project.type === 'Commercial' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
               }`}>{project.type}</span>
               <h1 className="font-bold text-sm truncate">{project.name}</h1>
-              {project.address && <span className="text-xs text-muted-foreground hidden md:block truncate">— {project.address}</span>}
+              <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded flex-shrink-0 hidden md:inline-block" style={{
+                color: activeSection === 'cabinet' ? 'hsl(var(--section-cabinet))' : activeSection === 'appliance' ? 'hsl(var(--section-appliance))' : 'hsl(var(--section-prefinal))',
+                background: activeSection === 'cabinet' ? 'hsl(var(--section-cabinet-light))' : activeSection === 'appliance' ? 'hsl(var(--section-appliance-light))' : 'hsl(var(--section-prefinal-light))',
+              }}>
+                {activeSection === 'cabinet' ? 'Cabinet Takeoff' : activeSection === 'appliance' ? 'Appliance Takeoff' : 'Prefinal'}
+              </span>
+              {project.address && <span className="text-xs text-muted-foreground hidden lg:block truncate">— {project.address}</span>}
             </div>
           </div>
           <div className="text-xs text-muted-foreground hidden sm:block flex-shrink-0">
@@ -176,10 +188,11 @@ export default function ProjectDetail() {
         <div className="px-3 pb-2 flex items-stretch gap-2 overflow-x-auto">
           {/* Cabinet Takeoff Block */}
           <div className="flex flex-col rounded-lg px-3 py-1.5 border" style={{ background: 'hsl(var(--section-cabinet-light))', borderColor: 'hsl(var(--section-cabinet-border))' }}>
-            <div className="flex items-center gap-1.5 mb-1">
-              <DoorOpen size={14} style={{ color: 'hsl(var(--section-cabinet))' }} />
-              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'hsl(var(--section-cabinet))' }}>Cabinet Takeoff</span>
+            <div className="flex items-center gap-1.5">
+              <DoorOpen size={14} style={{ color: 'hsl(215 28% 10%)' }} />
+              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'hsl(215 28% 10%)' }}>Cabinet Takeoff</span>
             </div>
+            <p className="text-[9px] mb-1 leading-tight" style={{ color: 'hsl(var(--muted-foreground))' }}>Upload architectural floor plans (PDF). We auto-detect units, cabinets & countertops.</p>
             <div className="flex items-center gap-1">
               {CABINET_TAKEOFF_TABS.map((tab) => (
                 <button
@@ -199,10 +212,11 @@ export default function ProjectDetail() {
 
           {/* Appliance Takeoff Block */}
           <div className="flex flex-col rounded-lg px-3 py-1.5 border" style={{ background: 'hsl(var(--section-appliance-light))', borderColor: 'hsl(var(--section-appliance-border))' }}>
-            <div className="flex items-center gap-1.5 mb-1">
-              <Refrigerator size={14} style={{ color: 'hsl(var(--section-appliance))' }} />
-              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'hsl(var(--section-appliance))' }}>Appliance Takeoff</span>
+            <div className="flex items-center gap-1.5">
+              <Refrigerator size={14} style={{ color: 'hsl(215 28% 10%)' }} />
+              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'hsl(215 28% 10%)' }}>Appliance Takeoff</span>
             </div>
+            <p className="text-[9px] mb-1 leading-tight" style={{ color: 'hsl(var(--muted-foreground))' }}>Upload appliance schedules (PDF, XLS, CSV). Use for fridge/stove/washer lists.</p>
             <div className="flex items-center gap-1">
               {APPLIANCE_TABS.map((tab) => (
                 <button
@@ -222,10 +236,11 @@ export default function ProjectDetail() {
 
           {/* Prefinal Block */}
           <div className="flex flex-col rounded-lg px-3 py-1.5 border" style={{ background: 'hsl(var(--section-prefinal-light))', borderColor: 'hsl(var(--section-prefinal-border))' }}>
-            <div className="flex items-center gap-1.5 mb-1">
-              <Package size={14} style={{ color: 'hsl(var(--section-prefinal))' }} />
-              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'hsl(var(--section-prefinal))' }}>Prefinal</span>
+            <div className="flex items-center gap-1.5">
+              <Package size={14} style={{ color: 'hsl(215 28% 10%)' }} />
+              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'hsl(215 28% 10%)' }}>Prefinal – 2020 Shops</span>
             </div>
+            <p className="text-[9px] mb-1 leading-tight" style={{ color: 'hsl(var(--muted-foreground))' }}>Upload 2020 shop drawings (PDF). Extract SKUs and cabinet counts.</p>
             <div className="flex items-center gap-1">
               {PREFINAL_TABS.map((tab) => (
                 <button
