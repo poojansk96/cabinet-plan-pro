@@ -231,6 +231,9 @@ PAGE TYPES:
   B) PLAN VIEW PAGE (top-down view) — shows cabinets from ABOVE as rectangular outlines with SKU labels written on or next to each cabinet. Walls appear as thick lines. You see the room layout from a bird's-eye perspective. Cabinet SKU labels like "B24", "W3030B", "DB15", "BF3" are placed directly on/near the cabinet shapes.
   C) ELEVATION PAGE (front/side view) — shows cabinets as you would see them standing in front of them. Rectangular boxes stacked vertically (base on bottom, wall on top). Has dimension lines showing heights.
 
+CRITICAL — COMMON AREAS ARE REAL UNIT TYPES:
+  Pages showing Laundry rooms, Mail Rooms, Restrooms, Lobbies, Clubhouses, Fitness Centers, Leasing Offices, Business Centers, Pool Baths, Trash Rooms, Maintenance rooms, Model units, Storage, Corridors, Break Rooms, Community Rooms, etc. are VALID plan view pages that MUST be extracted. These are NOT to be skipped — they contain real cabinets that are part of the project scope. Treat them exactly like any residential unit type.
+
 WHAT TO DO FOR EACH PAGE TYPE:
 - TITLE PAGE → return {"unitTypeName":"<detected type>","items":[]}
 - PLAN VIEW PAGE → EXTRACT all cabinet SKU labels AND detect the unit type name from the page title/header
@@ -252,6 +255,8 @@ TASK 1 — DETECT UNIT TYPE NAME (ALL PAGE TYPES):
 - Look for the UNIT TYPE NAME in the title block, header, sheet title, or prominent labels on EVERY page.
 - The unit type name is typically found in the title block at the bottom or side of the page, or in a header/label.
 - Common formats: "TYPE 1 - AS", "TYPE 1 - MIRROR", "TYPE 2 - ADA", "TYPE 3 - AS", "TYPE 5 - MIRROR", "Studio", "1 Bed", "1B-Mirror", etc.
+- COMMON AREAS ARE VALID UNIT TYPES: "Laundry", "Mail Room", "Restroom", "Lobby", "Clubhouse", "Fitness", "Leasing Office", "Business Center", "Pool Bath", "Trash Room", "Maintenance", "Model", "Storage", "Garage", "Corridor", "Mechanical", "Community Room", "Kitchen (Common)", "Break Room", etc.
+- EVERY page in a 2020 shop drawing PDF represents a real unit type that MUST be extracted. Do NOT skip or ignore ANY page — common areas are just as important as residential units.
 - This identifies WHICH unit type this drawing page belongs to.
 - ALWAYS try to detect this, even on plan view and elevation pages — it's usually in the title block.
 - Return null ONLY if you truly cannot find any unit type identifier on the page.
