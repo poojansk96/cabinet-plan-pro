@@ -306,7 +306,7 @@ Return ONLY valid JSON — no markdown, no explanation:
 
     let content = "";
     try {
-      content = await callGemini(GEMINI_API_KEY, "gemini-2.5-pro", pageImage, prompt, 0.1, 8192);
+      content = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", pageImage, prompt, 0.1, 8192);
     } catch (e: any) {
       if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -359,7 +359,7 @@ Return ONLY valid JSON — no markdown:
 {"items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1}]}`;
 
       try {
-        const recoveryContent = await callGemini(GEMINI_API_KEY, "gemini-2.5-pro", pageImage, recoveryPrompt, 0.15, 8192);
+        const recoveryContent = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", pageImage, recoveryPrompt, 0.15, 8192);
         console.log("Recovery pass raw:", recoveryContent.slice(0, 800));
         try {
           const recoveryParsed = extractJson(recoveryContent);
