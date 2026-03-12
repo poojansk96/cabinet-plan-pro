@@ -451,7 +451,7 @@ If none found, return {"items":[]}`;
         try {
           const pass3Parsed = extractJson(pass3Content);
           const pass3Items = pass3Parsed.items ?? [];
-          for (const item of pass4Items) {
+          for (const item of pass3Items) {
             const sku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
             const room = String(item?.room ?? 'Kitchen').trim();
             if (!sku) continue;
