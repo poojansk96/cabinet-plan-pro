@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { DoorOpen, ArrowLeft, Users, Layers, Square, BarChart3, Pencil, ClipboardCheck, FileUp, X, FileText, Zap, Package, Refrigerator, FolderOpen } from 'lucide-react';
+import { DoorOpen, ArrowLeft, Users, Layers, Square, BarChart3, Pencil, ClipboardCheck, FileUp, X, FileText, Zap, Package, Refrigerator } from 'lucide-react';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import UnitModule from '@/components/project/UnitModule';
 import CabinetModule from '@/components/project/CabinetModule';
@@ -12,30 +12,26 @@ import SummaryPanel from '@/components/project/SummaryPanel';
 import EditProjectDialog from '@/components/project/EditProjectDialog';
 import ProjectInfoModule from '@/components/project/ProjectInfoModule';
 import ApplianceModule from '@/components/project/ApplianceModule';
-import FileListModule from '@/components/project/FileListModule';
 
-type Tab = 'units' | 'cabinets' | 'countertops' | 'summary' | 'project-info' | 'prefinal-units' | 'prefinal-summary' | 'app-units' | 'app-takeoff' | 'app-summary' | 'cabinet-files' | 'app-files' | 'prefinal-files';
+type Tab = 'units' | 'cabinets' | 'countertops' | 'summary' | 'project-info' | 'prefinal-units' | 'prefinal-summary' | 'app-units' | 'app-takeoff' | 'app-summary';
 
 const CABINET_TAKEOFF_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'units', label: 'Units', icon: <Users size={14} /> },
   { key: 'cabinets', label: 'Cabinet', icon: <Layers size={14} /> },
   { key: 'countertops', label: 'Countertop', icon: <Square size={14} /> },
   { key: 'summary', label: 'Summary', icon: <BarChart3 size={14} /> },
-  { key: 'cabinet-files', label: 'Files', icon: <FolderOpen size={14} /> },
 ];
 
 const APPLIANCE_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'app-units', label: 'Units', icon: <Users size={14} /> },
   { key: 'app-takeoff', label: 'Appliance', icon: <Zap size={14} /> },
   { key: 'app-summary', label: 'Summary', icon: <BarChart3 size={14} /> },
-  { key: 'app-files', label: 'Files', icon: <FolderOpen size={14} /> },
 ];
 
 const PREFINAL_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'project-info', label: 'Project Info', icon: <FileText size={14} /> },
   { key: 'prefinal-units', label: 'Unit & Cabinet Count', icon: <ClipboardCheck size={14} /> },
   { key: 'prefinal-summary', label: 'Summary', icon: <BarChart3 size={14} /> },
-  { key: 'prefinal-files', label: 'Files', icon: <FolderOpen size={14} /> },
 ];
 
 export default function ProjectDetail() {
@@ -70,7 +66,7 @@ export default function ProjectDetail() {
     );
   }
 
-  const activeSection = activeTab.startsWith('app-') ? 'appliance' : (activeTab.startsWith('prefinal') || activeTab === 'project-info') ? 'prefinal' : activeTab === 'cabinet-files' ? 'cabinet' : 'cabinet';
+  const activeSection = activeTab.startsWith('app-') ? 'appliance' : activeTab.startsWith('prefinal') || activeTab === 'project-info' ? 'prefinal' : 'cabinet';
 
   const selectedUnit = selectedUnitId
     ? project.units.find(u => u.id === selectedUnitId) ?? project.units[0]
@@ -277,13 +273,10 @@ export default function ProjectDetail() {
             {activeTab === 'project-info' && <ProjectInfoModule project={project} onSave={(updates) => updateProject(project.id, updates)} />}
             {activeTab === 'prefinal-units' && <PreFinalModule key="prefinal" {...storeProps} />}
             {activeTab === 'prefinal-summary' && <PreFinalSummaryModule {...storeProps} />}
-            {activeTab === 'cabinet-files' && <FileListModule projectId={project.id} section="cabinet_takeoff" />}
-            {activeTab === 'app-files' && <FileListModule projectId={project.id} section="appliance_takeoff" />}
-            {activeTab === 'prefinal-files' && <FileListModule projectId={project.id} section="prefinal" />}
           </div>
         </main>
 
-        {!activeTab.startsWith('prefinal') && activeTab !== 'project-info' && !activeTab.endsWith('-files') && (
+        {!activeTab.startsWith('prefinal') && activeTab !== 'project-info' && (
           <aside className="w-56 flex-shrink-0 hidden lg:block overflow-auto border-l" style={{ borderColor: 'hsl(var(--border))', background: 'hsl(var(--panel-bg))' }}>
             <SummaryPanel project={project} activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab as Tab)} />
           </aside>

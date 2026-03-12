@@ -83,16 +83,6 @@ export interface Project {
   updatedAt: string;
 }
 
-export type FileSection = 'cabinet_takeoff' | 'appliance_takeoff' | 'prefinal';
-
-export interface ProjectFile {
-  id: string;
-  filename: string;
-  section: FileSection;
-  uploadedAt: string;
-  pageCount?: number;
-}
-
 // Calculated types
 export interface CabinetSummary {
   sku: string;
