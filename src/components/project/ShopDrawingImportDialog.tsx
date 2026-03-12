@@ -92,6 +92,79 @@ async function renderPageToBase64(page: any): Promise<string> {
   return canvas.toDataURL('image/jpeg', 0.95).split(',')[1];
 }
 
+function normalizeTypeKey(value: string): string {
+  return String(value || '')
+    .toUpperCase()
+    .trim()
+    .replace(/^TYPE\s+/, '')
+    .replace(/[^A-Z0-9]/g, '');
+}
+
+function extractTypeHintsFromText(pageText: string): string[] {
+  const text = String(pageText || '')
+    .replace(/[\u2010-\u2015]/g, '-')
+    .replace(/\s+/g, ' ')
+    .toUpperCase();
+
+  if (!text) return [];
+
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const push = (label: string) => {
+    const clean = label.trim();
+    if (!clean) return;
+    const key = normalizeTypeKey(clean);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push(clean);
+  };
+
+  const combined = /\bTYPE\s+([A-Z0-9]+)\s*(?:-|:)?\s*(AS|MIRROR)\s*(?:\/|&|AND)\s*(AS|MIRROR)\b/g;
+  let match: RegExpExecArray | null;
+  while ((match = combined.exec(text)) !== null) {
+    const base = match[1];
+    const left = match[2];
+    const right = match[3];
+    push(`TYPE ${base} ${left}`);
+    push(`TYPE ${base} ${right}`);
+  }
+
+  const single = /\bTYPE\s+([A-Z0-9]+)\s*(?:-|:)?\s*(AS|MIRROR)\b/g;
+  while ((match = single.exec(text)) !== null) {
+    const base = match[1];
+    const variant = match[2];
+    push(`TYPE ${base} ${variant}`);
+  }
+
+  return out;
+}
+
+function resolvePageUnitType(aiType: unknown, pageText: string): { primary: string | null; aliases: string[] } {
+  const ai = String(aiType ?? '').trim();
+  const textHints = extractTypeHintsFromText(pageText);
+
+  if (!ai && textHints.length === 0) return { primary: null, aliases: [] };
+  if (!ai && textHints.length > 0) return { primary: textHints[0], aliases: textHints };
+  if (ai && textHints.length === 0) return { primary: ai, aliases: [ai] };
+
+  if (textHints.length === 1) {
+    return { primary: textHints[0], aliases: textHints };
+  }
+
+  const aiKey = normalizeTypeKey(ai);
+  const exactTextMatch = textHints.find(t => normalizeTypeKey(t) === aiKey);
+  if (exactTextMatch) {
+    return { primary: exactTextMatch, aliases: textHints };
+  }
+
+  const aliases = [...textHints];
+  if (ai && !aliases.some(t => normalizeTypeKey(t) === aiKey)) {
+    aliases.push(ai);
+  }
+
+  return { primary: ai || aliases[0] || null, aliases };
+}
+
 export default function ShopDrawingImportDialog({ unitType, onImport, onClose, prefinalPerson, speedMode = 'fast' }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<LabelRow[]>([]);
@@ -207,7 +280,13 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       if (data.error === 'rate_limit') throw new Error('rate_limit');
       if (data.error === 'credits') throw new Error('credits');
 
-      return data;
+      const resolvedType = resolvePageUnitType(data.unitTypeName, pageText);
+
+      return {
+        ...data,
+        unitTypeName: resolvedType.primary,
+        unitTypeAliases: resolvedType.aliases,
+      };
     };
 
     const CONCURRENCY = 1; // Sequential to avoid Gemini API rate limits (multi-pass = multiple calls per page)
@@ -221,14 +300,17 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
 
         if (result.status === 'fulfilled') {
           const data = result.value;
+          const aliases = Array.isArray((data as any).unitTypeAliases)
+            ? (data as any).unitTypeAliases.map((t: unknown) => String(t || '').trim()).filter(Boolean)
+            : [];
+          const resolvedPageType = String(data.unitTypeName || '').trim();
+
           // Capture detected unit type from ALL pages — even those with 0 items
           // Common areas (Laundry, Restroom, etc.) may have no cabinets but still need their type tracked
-          if (data.unitTypeName) {
-            if (!detectedType) detectedType = data.unitTypeName;
-            const normType = String(data.unitTypeName).trim();
-            if (normType && !pageTypeOrder.includes(normType)) {
-              pageTypeOrder.push(normType);
-            }
+          const typesForOrder = aliases.length > 0 ? aliases : (resolvedPageType ? [resolvedPageType] : []);
+          for (const t of typesForOrder) {
+            if (!detectedType) detectedType = t;
+            if (!pageTypeOrder.includes(t)) pageTypeOrder.push(t);
           }
 
           const pageRows = (data.items ?? []).map((c: any) => ({
@@ -238,7 +320,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
             quantity: c.quantity,
             selected: true,
             sourceFile: file.name,
-            detectedUnitType: data.unitTypeName ? data.unitTypeName : undefined,
+            detectedUnitType: resolvedPageType || undefined,
           }));
           allRows.push(...pageRows);
         } else {
