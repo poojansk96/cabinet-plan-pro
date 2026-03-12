@@ -86,13 +86,7 @@ export default function PreFinalModule({ project }: Props) {
       if (!key) return '';
 
       const exact = knownTypes.find(t => toTypeKey(t) === key);
-      if (exact) return exact;
-
-      const fuzzy = knownTypes.filter(t => {
-        const candidateKey = toTypeKey(t);
-        return candidateKey.includes(key) || key.includes(candidateKey);
-      });
-      return fuzzy.length === 1 ? fuzzy[0] : '';
+      return exact || '';
     };
 
     const fallbackType = resolveKnownType(importTargetType) || (importTargetType ? normalizeUnitType(importTargetType) : '');
