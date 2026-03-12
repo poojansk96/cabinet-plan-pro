@@ -198,10 +198,10 @@ export default function ProjectDetail() {
           </div>
 
           {/* Appliance Takeoff Block */}
-          <div className="flex items-center gap-2 rounded-lg px-3 py-1.5 border" style={{ background: 'hsl(var(--section-appliance-light))', borderColor: 'hsl(var(--section-appliance-border))' }}>
-            <div className="flex items-center gap-1.5 mr-1 flex-shrink-0">
+          <div className="flex flex-col rounded-lg px-3 py-1.5 border" style={{ background: 'hsl(var(--section-appliance-light))', borderColor: 'hsl(var(--section-appliance-border))' }}>
+            <div className="flex items-center gap-1.5 mb-1">
               <Refrigerator size={14} style={{ color: 'hsl(var(--section-appliance))' }} />
-              <span className="text-[10px] font-bold uppercase tracking-widest flex-shrink-0" style={{ color: 'hsl(var(--section-appliance))' }}>Appliance Takeoff</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'hsl(var(--section-appliance))' }}>Appliance Takeoff</span>
             </div>
             <div className="flex items-center gap-1">
               {APPLIANCE_TABS.map((tab) => (
