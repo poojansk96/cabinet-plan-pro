@@ -206,7 +206,7 @@ serve(async (req) => {
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
     const { pageImage, unitType, pageText, speedMode } = await req.json();
-    // speedMode is accepted but ignored — always thorough (4-pass)
+    // speedMode is accepted but ignored — always thorough (3-pass)
 
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage (base64 string) required" }), {
