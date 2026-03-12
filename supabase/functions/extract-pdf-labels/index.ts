@@ -359,7 +359,7 @@ Return ONLY valid JSON — no markdown:
 {"items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1}]}`;
 
       try {
-        const recoveryContent = await callGemini(GEMINI_API_KEY, "gemini-2.5-pro", pageImage, recoveryPrompt, 0.15, 8192);
+        const recoveryContent = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", pageImage, recoveryPrompt, 0.15, 8192);
         console.log("Recovery pass raw:", recoveryContent.slice(0, 800));
         try {
           const recoveryParsed = extractJson(recoveryContent);
