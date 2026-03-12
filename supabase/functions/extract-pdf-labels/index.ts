@@ -462,7 +462,7 @@ If none found, return {"items":[]}`;
             });
             if (existingIdx === -1) {
               finalItems.push(item);
-              console.log(`Pass 4 found: ${sku} (${room}) qty ${item.quantity}`);
+              console.log(`Pass 3 found: ${sku} (${room}) qty ${item.quantity}`);
             } else {
               // If Pass 4 reports a HIGHER quantity for an existing SKU, update it
               const existingQty = Number(finalItems[existingIdx].quantity) || 1;
