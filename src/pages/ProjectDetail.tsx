@@ -28,6 +28,7 @@ const APPLIANCE_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'app-units', label: 'Units', icon: <Users size={14} /> },
   { key: 'app-takeoff', label: 'Appliance', icon: <Zap size={14} /> },
   { key: 'app-summary', label: 'Summary', icon: <BarChart3 size={14} /> },
+  { key: 'app-files', label: 'Files', icon: <FolderOpen size={14} /> },
 ];
 
 const PREFINAL_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
