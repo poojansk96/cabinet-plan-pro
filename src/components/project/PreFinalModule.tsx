@@ -116,6 +116,14 @@ export default function PreFinalModule({ project }: Props) {
 
     // Use PDF page order from import if available, otherwise use row insertion order.
     // IMPORTANT: Keep unit types even when they have zero cabinet rows.
+    const knownUnitTypes = store.unitTypes
+      .map(t => {
+        const norm = normalizeUnitType(t);
+        const resolved = resolveKnownType(t) || resolveKnownType(norm);
+        return resolved || norm;
+      })
+      .filter((t, i, arr) => !!t && arr.indexOf(t) === i);
+
     if (importTypeOrder && importTypeOrder.length > 0) {
       const normalizedOrder = importTypeOrder
         .map(t => {
@@ -125,13 +133,18 @@ export default function PreFinalModule({ project }: Props) {
         })
         .filter((t, i, arr) => arr.indexOf(t) === i);
 
-      // Keep all detected types from PDF order, then append any row-derived extras.
+      // Keep all detected types from PDF order, then append row-derived extras,
+      // then append known unit-count types that were not detected this run.
       const remaining = orderedTypes.filter(t => !normalizedOrder.includes(t));
-      const finalOrder = [...normalizedOrder, ...remaining];
+      const merged = [...normalizedOrder, ...remaining];
+      const missingKnown = knownUnitTypes.filter(t => !merged.includes(t));
+      const finalOrder = [...merged, ...missingKnown].filter((t, i, arr) => arr.indexOf(t) === i);
       store.addCabinetUnitTypes(finalOrder.filter(t => t !== 'Unassigned'), true);
     } else {
-      // Still enforce PDF row appearance order when explicit page order isn't provided
-      store.addCabinetUnitTypes(orderedTypes.filter(t => t !== 'Unassigned'), true);
+      // Still enforce PDF row appearance order when explicit page order isn't provided,
+      // and keep known unit-count types to avoid losing AS/MIRROR variants.
+      const merged = [...orderedTypes, ...knownUnitTypes].filter((t, i, arr) => arr.indexOf(t) === i);
+      store.addCabinetUnitTypes(merged.filter(t => t !== 'Unassigned'), true);
     }
 
     for (const [unitType, typeRows] of rowsByType) {
