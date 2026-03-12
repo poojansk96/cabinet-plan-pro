@@ -35,6 +35,7 @@ const PREFINAL_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'project-info', label: 'Project Info', icon: <FileText size={14} /> },
   { key: 'prefinal-units', label: 'Unit & Cabinet Count', icon: <ClipboardCheck size={14} /> },
   { key: 'prefinal-summary', label: 'Summary', icon: <BarChart3 size={14} /> },
+  { key: 'prefinal-files', label: 'Files', icon: <FolderOpen size={14} /> },
 ];
 
 export default function ProjectDetail() {
