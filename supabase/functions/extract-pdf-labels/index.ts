@@ -421,7 +421,7 @@ Return ONLY valid JSON — no markdown:
     const allCandidates = [...new Set([...COMMONLY_MISSED.filter(s => !updatedExistingSkus.has(s)), ...textStillMissing])];
 
     if (allCandidates.length > 0 && finalItems.length > 0) {
-      console.log(`Pass 4 targeted review: ${allCandidates.join(', ')}`);
+      console.log(`Pass 3 targeted review: ${allCandidates.join(', ')}`);
       const pass4Prompt = `You are an expert millwork estimator doing a FINAL careful check on a 2020 Design shop drawing PLAN VIEW page.
 
 Previous passes found these SKUs: ${[...updatedExistingSkus].join(', ')}
