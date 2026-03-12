@@ -292,8 +292,9 @@ STACKED / ADJACENT LABELS — ABSOLUTELY CRITICAL (MOST COMMON ERROR):
 
 ELEVATION PAGE DETECTION — VERY IMPORTANT:
 - If you see cabinet DOORS and DRAWERS as tall rectangles with DIMENSION LINES showing heights (e.g. 32 7/8", 65 3/4"), this is an ELEVATION page.
-- Elevation pages show the SAME cabinets already on the plan view. Extracting from both causes DOUBLE-COUNTING.
-- When in doubt whether a page is plan view or elevation, return EMPTY items: {"unitTypeName":"<detected type>","items":[]}
+- For RESIDENTIAL unit types (Type 1, Studio, 1BR, etc.): elevation pages show the SAME cabinets already on the plan view. Return EMPTY items to avoid DOUBLE-COUNTING.
+- For COMMON AREAS (Laundry, Mail Room, Restroom, Office, Lobby, Clubhouse, Fitness, Community Room, Pool Bath, Trash Room, Maintenance, etc.): STILL EXTRACT from elevation pages! Common areas often have NO plan view — the elevation IS the only drawing. Read the SKU labels visible on the elevation (they appear near cabinet boxes, usually above or below). Count each distinct labeled cabinet box.
+- When in doubt whether a page is a common area: if the unit type name contains words like Laundry, Mail, Restroom, Office, Lobby, Club, Fitness, Pool, Trash, Maintenance, Break, Community, Corridor, Mechanical, Garage, Storage, Model — treat it as a common area and EXTRACT.
 
 RULES:
 - Valid SKU: starts with a LETTER, contains at least one NUMBER (e.g. B24, BF3, DB15, W3036, B09FH)
