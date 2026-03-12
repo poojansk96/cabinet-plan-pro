@@ -221,10 +221,10 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
 
         if (result.status === 'fulfilled') {
           const data = result.value;
-          // Capture detected unit type from PLAN pages only (when items exist)
-          if (data.unitTypeName && Array.isArray(data.items) && data.items.length > 0) {
+          // Capture detected unit type from ALL pages — even those with 0 items
+          // Common areas (Laundry, Restroom, etc.) may have no cabinets but still need their type tracked
+          if (data.unitTypeName) {
             if (!detectedType) detectedType = data.unitTypeName;
-            // Track type order as they appear across pages
             const normType = String(data.unitTypeName).trim();
             if (normType && !pageTypeOrder.includes(normType)) {
               pageTypeOrder.push(normType);
@@ -238,7 +238,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
             quantity: c.quantity,
             selected: true,
             sourceFile: file.name,
-            detectedUnitType: (data.unitTypeName && Array.isArray(data.items) && data.items.length > 0) ? data.unitTypeName : undefined,
+            detectedUnitType: data.unitTypeName ? data.unitTypeName : undefined,
           }));
           allRows.push(...pageRows);
         } else {
