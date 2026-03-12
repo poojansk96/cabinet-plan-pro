@@ -233,45 +233,61 @@ serve(async (req) => {
     }
 
     let content = "";
+    const MODELS = ["gemini-3-flash-preview", "gemini-2.5-flash"];
     const MAX_RETRIES = 3;
 
-    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-      try {
-        const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${GEMINI_API_KEY}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ role: "user", parts: [
-                { inlineData: { mimeType: "image/jpeg", data: pageImage } },
-                { text: SYSTEM_PROMPT },
-              ]}],
-              generationConfig: { temperature: 0.1, maxOutputTokens: 4096 },
-            }),
+    for (const model of MODELS) {
+      let modelSucceeded = false;
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+          console.log(`Pass 1 trying ${model}, attempt ${attempt + 1}/${MAX_RETRIES}`);
+          const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ role: "user", parts: [
+                  { inlineData: { mimeType: "image/jpeg", data: pageImage } },
+                  { text: SYSTEM_PROMPT },
+                ]}],
+                generationConfig: { temperature: 0.1, maxOutputTokens: 4096 },
+              }),
+            }
+          );
+          if (!res.ok) {
+            const status = res.status;
+            if (status === 429 && attempt < MAX_RETRIES - 1) { console.warn(`Rate limited (429) on ${model}, attempt ${attempt + 1}/${MAX_RETRIES}`); await new Promise(r => setTimeout(r, 8000 * (attempt + 1))); continue; }
+            if (status === 429) return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            if (status === 402) return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            if ((status === 503 || status === 500) && attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
+            if (status === 503 || status === 500) {
+              console.warn(`${model} unavailable (${status}) after ${MAX_RETRIES} attempts, trying next model`);
+              break; // break inner loop to try next model
+            }
+            throw new Error(`AI error ${status}`);
           }
-        );
-        if (!res.ok) {
-          const status = res.status;
-          if (status === 429 && attempt < MAX_RETRIES - 1) { console.warn(`Rate limited (429), attempt ${attempt + 1}/${MAX_RETRIES}`); await new Promise(r => setTimeout(r, 8000 * (attempt + 1))); continue; }
-          if (status === 429) return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-          if (status === 402) return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-          if ((status === 503 || status === 500) && attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
-          if (status === 503 || status === 500) {
-            console.warn(`AI unavailable (${status}) after ${MAX_RETRIES} attempts, returning empty`);
-            return new Response(JSON.stringify({ units: [], pageType: "skipped" }), {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
+          const data = await res.json();
+          content = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+          modelSucceeded = true;
+          break;
+        } catch (err: any) {
+          if (attempt === MAX_RETRIES - 1) {
+            console.warn(`${model} failed after ${MAX_RETRIES} attempts: ${err.message}, trying next model`);
+            break; // try next model
           }
-          throw new Error(`AI error ${status}`);
+          await new Promise(r => setTimeout(r, 2000));
         }
-        const data = await res.json();
-        content = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-        break;
-      } catch (err: any) {
-        if (attempt === MAX_RETRIES - 1) throw err;
-        await new Promise(r => setTimeout(r, 2000));
       }
+      if (modelSucceeded) break;
+    }
+
+    // If no model succeeded at all
+    if (!content) {
+      console.error("All models failed for Pass 1");
+      return new Response(JSON.stringify({ units: [], pageType: "skipped" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     console.log("AI Pass 1 response:", content.slice(0, 500));
