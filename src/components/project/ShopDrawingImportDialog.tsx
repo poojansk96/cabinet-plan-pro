@@ -358,7 +358,11 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         }
       }
 
-      if (allRows.length === 0) { setError('No cabinet or accessory labels found in any uploaded file.'); setStep('upload'); return; }
+      if (allRows.length === 0 && collectedTypeOrder.length === 0) {
+        setError('No cabinet labels or unit type names found in any uploaded file.');
+        setStep('upload');
+        return;
+      }
       setProgress(100);
       setRows(allRows);
       if (firstDetectedType) setDetectedUnitType(firstDetectedType);
@@ -387,15 +391,26 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       const pdfjsLib = (await import('pdfjs-dist')) as any;
       pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
       let newRows: LabelRow[] = [];
+      const newTypes: string[] = [];
       for (const file of files) {
         setProcessingStatus(`Processing "${file.name}"…`);
         try {
           const result = await processSingleFile(file, pdfjsLib, setProcessingStatus);
           newRows = mergeRows(result.rows, newRows);
+          for (const t of result.typeOrder) {
+            if (!newTypes.includes(t)) newTypes.push(t);
+          }
           if (result.detectedType && !detectedUnitType) setDetectedUnitType(result.detectedType);
         } catch (err: any) { toast.error(`Skipped "${file.name}": ${err.message}`); }
       }
       setRows(prev => mergeRows(newRows, prev));
+      if (newTypes.length > 0) {
+        setTypeOrder(prev => {
+          const merged = [...prev];
+          for (const t of newTypes) if (!merged.includes(t)) merged.push(t);
+          return merged;
+        });
+      }
       setStep('review');
     } catch (err) {
       toast.error('Failed to process additional files.');
@@ -435,13 +450,14 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
 
   const handleImport = () => {
     const selected = rows.filter(r => r.selected).map(({ selected: _, sourceFile: __, ...rest }) => rest);
-    if (selected.length === 0) return;
+    if (selected.length === 0 && typeOrder.length === 0) return;
     onImport(selected, detectedUnitType ?? undefined, typeOrder.length > 0 ? typeOrder : undefined);
   };
 
   const sourceFiles = Array.from(new Set(rows.map(r => r.sourceFile ?? 'Unknown')));
   const visibleRows = filterSource === 'all' ? rows : rows.filter(r => r.sourceFile === filterSource);
   const selectedCount = rows.filter(r => r.selected).length;
+  const canImport = selectedCount > 0 || typeOrder.length > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
@@ -703,11 +719,13 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
             {step === 'review' && (
               <button
                 onClick={handleImport}
-                disabled={selectedCount === 0}
+                disabled={!canImport}
                 className="px-4 py-2 rounded text-xs font-medium text-white disabled:opacity-50"
                 style={{ background: 'hsl(var(--primary))' }}
               >
-                Import {selectedCount} item{selectedCount !== 1 ? 's' : ''}
+                {selectedCount > 0
+                  ? `Import ${selectedCount} item${selectedCount !== 1 ? 's' : ''}`
+                  : `Import ${typeOrder.length} detected type${typeOrder.length !== 1 ? 's' : ''}`}
               </button>
             )}
           </div>
