@@ -94,15 +94,29 @@ function extractJSON(text: string): { units: any[]; bldg?: string } {
   return { units: [] };
 }
 
-function isValidUnitNumber(val: string): boolean {
+function normalizeUnitNumber(raw: unknown): string {
+  return String(raw ?? "")
+    .trim()
+    .replace(/^UNIT\s*(NO\.?|NUMBER|#)?\s*[:\-]?\s*/i, "")
+    .replace(/^APT\.?\s*/i, "")
+    .replace(/^SUITE\s*/i, "")
+    .replace(/^[#\s]+/, "")
+    .replace(/[.,;:]$/, "")
+    .trim();
+}
+
+function hasStrongTypeHint(unitType: string): boolean {
+  const t = String(unitType || "").trim().toUpperCase();
+  if (!t) return false;
+  return /^TYPE\b/.test(t) || /\b(MIRROR|ADA|REV|AS|BR|BED|PH)\b/.test(t);
+}
+
+function isValidUnitNumber(val: string, unitType = ""): boolean {
   if (val.length > 12 || val.length < 1) return false;
   if (/^TYPE\s/i.test(val)) return false;
 
   const compact = val.toUpperCase().replace(/\s+/g, "");
   const compactNoDash = compact.replace(/-/g, "");
-
-  // Must contain at least one digit to be a real unit number
-  if (!/\d/.test(compact)) return false;
 
   // Reject entries starting with ? (garbage from non-title pages)
   if (/^\?/.test(val.trim())) return false;
@@ -127,6 +141,12 @@ function isValidUnitNumber(val: string): boolean {
 
   // Reject values containing cabinet/room words anywhere
   if (/\b(island|cabinet|base|wall|upper|sink|drawer|countertop|vanity|pantry|lazy|susan|filler|kitchenette)\b/i.test(compact)) return false;
+
+  // Support projects where unit IDs are letter-only (A/B/C) but only with strong type context
+  if (!/\d/.test(compact)) {
+    const isShortAlphaUnit = /^[A-Z]{1,2}$/.test(compactNoDash);
+    if (!(isShortAlphaUnit && hasStrongTypeHint(unitType))) return false;
+  }
 
   return true;
 }

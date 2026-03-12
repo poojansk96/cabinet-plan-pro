@@ -101,9 +101,13 @@ export default function PreFinalModule({ project }: Props) {
       const rawType = (row as any).detectedUnitType || detectedUnitType || importTargetType || '';
       const normalizedIncoming = rawType ? normalizeUnitType(rawType) : '';
       const knownResolved = resolveKnownType(rawType) || resolveKnownType(normalizedIncoming);
+      const canPromoteIncomingType = normalizedIncoming.startsWith('TYPE ');
 
-      // If unit types already exist, never create noisy new bucket names from AI.
-      const finalType = knownResolved || fallbackType || (knownTypes.length > 0 ? 'Unassigned' : (normalizedIncoming || 'Unassigned'));
+      // Keep strict matching, but do not discard clearly-structured new types (e.g. TYPE 8 - MIRROR)
+      // when unit import missed them.
+      const finalType = knownResolved || fallbackType || (canPromoteIncomingType
+        ? normalizedIncoming
+        : (knownTypes.length > 0 ? 'Unassigned' : (normalizedIncoming || 'Unassigned')));
 
       if (!rowsByType.has(finalType)) rowsByType.set(finalType, []);
       rowsByType.get(finalType)!.push(row);
