@@ -449,8 +449,8 @@ If none found, return {"items":[]}`;
         const pass3Content = await callGemini(GEMINI_API_KEY, "gemini-2.5-flash", pageImage, pass3Prompt, 0.2, 4096);
         console.log("Pass 3 targeted:", pass3Content.slice(0, 500));
         try {
-          const pass4Parsed = extractJson(pass4Content);
-          const pass4Items = pass4Parsed.items ?? [];
+          const pass3Parsed = extractJson(pass3Content);
+          const pass3Items = pass3Parsed.items ?? [];
           for (const item of pass4Items) {
             const sku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
             const room = String(item?.room ?? 'Kitchen').trim();
