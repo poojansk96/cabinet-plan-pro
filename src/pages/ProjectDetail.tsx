@@ -221,10 +221,10 @@ export default function ProjectDetail() {
           </div>
 
           {/* Prefinal Block */}
-          <div className="flex items-center gap-2 rounded-lg px-3 py-1.5 border" style={{ background: 'hsl(var(--section-prefinal-light))', borderColor: 'hsl(var(--section-prefinal-border))' }}>
-            <div className="flex items-center gap-1.5 mr-1 flex-shrink-0">
+          <div className="flex flex-col rounded-lg px-3 py-1.5 border" style={{ background: 'hsl(var(--section-prefinal-light))', borderColor: 'hsl(var(--section-prefinal-border))' }}>
+            <div className="flex items-center gap-1.5 mb-1">
               <Package size={14} style={{ color: 'hsl(var(--section-prefinal))' }} />
-              <span className="text-[10px] font-bold uppercase tracking-widest flex-shrink-0" style={{ color: 'hsl(var(--section-prefinal))' }}>Prefinal</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'hsl(var(--section-prefinal))' }}>Prefinal</span>
             </div>
             <div className="flex items-center gap-1">
               {PREFINAL_TABS.map((tab) => (
