@@ -66,6 +66,8 @@ export default function ProjectDetail() {
     );
   }
 
+  const activeSection = activeTab.startsWith('app-') ? 'appliance' : activeTab.startsWith('prefinal') || activeTab === 'project-info' ? 'prefinal' : 'cabinet';
+
   const selectedUnit = selectedUnitId
     ? project.units.find(u => u.id === selectedUnitId) ?? project.units[0]
     : project.units[0];
