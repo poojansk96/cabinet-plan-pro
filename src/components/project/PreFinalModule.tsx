@@ -116,19 +116,23 @@ export default function PreFinalModule({ project }: Props) {
       if (!orderedTypes.includes(finalType)) orderedTypes.push(finalType);
     }
 
-    // Use PDF page order from import if available, otherwise use row insertion order
+    // Use PDF page order from import if available, otherwise use row insertion order.
+    // IMPORTANT: Keep unit types even when they have zero cabinet rows.
     if (importTypeOrder && importTypeOrder.length > 0) {
-      const normalizedOrder = importTypeOrder.map(t => {
-        const norm = normalizeUnitType(t);
-        const resolved = resolveKnownType(t) || resolveKnownType(norm);
-        return resolved || norm;
-      }).filter((t, i, arr) => arr.indexOf(t) === i);
-      // Add types in PDF page order, then any remaining
+      const normalizedOrder = importTypeOrder
+        .map(t => {
+          const norm = normalizeUnitType(t);
+          const resolved = resolveKnownType(t) || resolveKnownType(norm);
+          return resolved || norm;
+        })
+        .filter((t, i, arr) => arr.indexOf(t) === i);
+
+      // Keep all detected types from PDF order, then append any row-derived extras.
       const remaining = orderedTypes.filter(t => !normalizedOrder.includes(t));
-      const finalOrder = [...normalizedOrder.filter(t => orderedTypes.includes(t)), ...remaining];
+      const finalOrder = [...normalizedOrder, ...remaining];
       store.addCabinetUnitTypes(finalOrder.filter(t => t !== 'Unassigned'), true);
     } else {
-      // Still enforce PDF page order from row appearance
+      // Still enforce PDF row appearance order when explicit page order isn't provided
       store.addCabinetUnitTypes(orderedTypes.filter(t => t !== 'Unassigned'), true);
     }
 
