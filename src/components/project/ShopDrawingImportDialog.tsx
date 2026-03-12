@@ -300,14 +300,17 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
 
         if (result.status === 'fulfilled') {
           const data = result.value;
+          const aliases = Array.isArray((data as any).unitTypeAliases)
+            ? (data as any).unitTypeAliases.map((t: unknown) => String(t || '').trim()).filter(Boolean)
+            : [];
+          const resolvedPageType = String(data.unitTypeName || '').trim();
+
           // Capture detected unit type from ALL pages — even those with 0 items
           // Common areas (Laundry, Restroom, etc.) may have no cabinets but still need their type tracked
-          if (data.unitTypeName) {
-            if (!detectedType) detectedType = data.unitTypeName;
-            const normType = String(data.unitTypeName).trim();
-            if (normType && !pageTypeOrder.includes(normType)) {
-              pageTypeOrder.push(normType);
-            }
+          const typesForOrder = aliases.length > 0 ? aliases : (resolvedPageType ? [resolvedPageType] : []);
+          for (const t of typesForOrder) {
+            if (!detectedType) detectedType = t;
+            if (!pageTypeOrder.includes(t)) pageTypeOrder.push(t);
           }
 
           const pageRows = (data.items ?? []).map((c: any) => ({
@@ -317,7 +320,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
             quantity: c.quantity,
             selected: true,
             sourceFile: file.name,
-            detectedUnitType: data.unitTypeName ? data.unitTypeName : undefined,
+            detectedUnitType: resolvedPageType || undefined,
           }));
           allRows.push(...pageRows);
         } else {
