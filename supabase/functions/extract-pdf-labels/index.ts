@@ -206,7 +206,7 @@ serve(async (req) => {
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
     const { pageImage, unitType, pageText, speedMode } = await req.json();
-    // speedMode is accepted but ignored — always thorough (4-pass)
+    // speedMode is accepted but ignored — always thorough (3-pass)
 
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage (base64 string) required" }), {
@@ -398,65 +398,7 @@ Return ONLY valid JSON — no markdown:
       }
     }
 
-    // ── PASS 2: Verification with gemini-2.5-flash ──
-    if (finalItems.length > 0) {
-      const verifyPrompt = `You are an expert millwork estimator doing a SECOND verification pass on a 2020 Design shop drawing PLAN VIEW page.
-
-Pass 1 found these cabinet SKUs:
-${JSON.stringify(finalItems)}
-${hasTextSkus ? `\nThe PDF text layer contains these SKUs with occurrence counts: ${[...textSkuCounts.entries()].map(([k,v]) => `${k} (×${v})`).join(', ')}\nIf a SKU appears multiple times in text, its quantity should be AT LEAST that count.\n` : ''}
-Your job: Look at the SAME image again VERY carefully and check for:
-1. MISSED SKUs — especially BF3, BF6, WF3X30, WF6X30, FIL3, DWR3, DWR6, B09FH, B06FH, B12FH.
-2. WRONG quantities — match actual label occurrences on the page.
-3. MERGED LABELS — if any SKU looks like two labels combined (e.g. "W1530-BLW24/2730-R" is actually "W1530" + "BLW24/2730-R"), split them into SEPARATE entries.
-4. STACKED LABELS: "W1230" above "VDC2430" = TWO separate cabinets. NEVER merge into one string.
-
-Return the COMPLETE corrected list as JSON — no markdown:
-{"items":[{"sku":"B24","type":"Base","room":"Kitchen","quantity":1}]}`;
-
-      try {
-        const verifyContent = await callGemini(GEMINI_API_KEY, "gemini-2.5-flash", pageImage, verifyPrompt, 0.1, 8192);
-        console.log("Pass 2 verify:", verifyContent.slice(0, 800));
-        try {
-          const verifyParsed = extractJson(verifyContent);
-          const pass2Raw = verifyParsed.items ?? [];
-          const pass2Items = splitMergedSkus(pass2Raw);
-          if (pass2Items.length > 0) {
-            const mergedByKey = new Map<string, any>();
-            for (const item of finalItems) {
-              const sku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
-              const room = String(item?.room ?? 'Kitchen').trim();
-              if (!sku) continue;
-              mergedByKey.set(`${sku}|${room}`, item);
-            }
-            for (const item of pass2Items) {
-              const sku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
-              const room = String(item?.room ?? 'Kitchen').trim();
-              if (!sku) continue;
-              const key = `${sku}|${room}`;
-              const existing = mergedByKey.get(key);
-              if (!existing) {
-                mergedByKey.set(key, item);
-                continue;
-              }
-              mergedByKey.set(key, {
-                ...existing,
-                ...item,
-                quantity: Math.max(Number(existing.quantity) || 1, Number(item.quantity) || 1),
-              });
-            }
-            finalItems = Array.from(mergedByKey.values());
-            console.log(`Pass 2 merge: pass1=${pass1Items.length}, pass2=${pass2Items.length}, final=${finalItems.length}`);
-          }
-        } catch {
-          console.error("Pass 2 JSON parse failed, using previous results");
-        }
-      } catch (e) {
-        console.log("Pass 2 error, using previous results:", e);
-      }
-    }
-
-    // ── PASS 3: Text-layer cross-reference — add missing SKUs ──
+    // ── PASS 2: Text-layer cross-reference — add missing SKUs ──
     const existingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '')));
     const textOnlySkus = textLayerSkus.filter(s => !existingSkus.has(s));
 
@@ -471,7 +413,7 @@ Return the COMPLETE corrected list as JSON — no markdown:
       }
     }
 
-    // ── PASS 4: Targeted hunt for commonly missed SKUs ──
+    // ── PASS 3: Targeted hunt for commonly missed SKUs ──
     const updatedExistingSkus = new Set(finalItems.map((i: any) => String(i?.sku ?? '').toUpperCase().trim()));
     const COMMONLY_MISSED = ['B09FH','B06FH','B12FH','BF3','BF6','WF3X30','WF6X30','FIL3','DWR3','DWR6','CM8','TK','TKRUN','EP','LR','SCRIBE','BP'];
     // Also add text-layer SKUs that are still missing after all passes — they need visual confirmation
@@ -479,8 +421,8 @@ Return the COMPLETE corrected list as JSON — no markdown:
     const allCandidates = [...new Set([...COMMONLY_MISSED.filter(s => !updatedExistingSkus.has(s)), ...textStillMissing])];
 
     if (allCandidates.length > 0 && finalItems.length > 0) {
-      console.log(`Pass 4 targeted review: ${allCandidates.join(', ')}`);
-      const pass4Prompt = `You are an expert millwork estimator doing a FINAL careful check on a 2020 Design shop drawing PLAN VIEW page.
+      console.log(`Pass 3 targeted review: ${allCandidates.join(', ')}`);
+      const pass3Prompt = `You are an expert millwork estimator doing a FINAL careful check on a 2020 Design shop drawing PLAN VIEW page.
 
 Previous passes found these SKUs: ${[...updatedExistingSkus].join(', ')}
 
@@ -504,12 +446,12 @@ Return ONLY NEWLY FOUND items (or items with corrected quantities) as JSON — n
 If none found, return {"items":[]}`;
 
       try {
-        const pass4Content = await callGemini(GEMINI_API_KEY, "gemini-2.5-flash", pageImage, pass4Prompt, 0.2, 4096);
-        console.log("Pass 4 targeted:", pass4Content.slice(0, 500));
+        const pass3Content = await callGemini(GEMINI_API_KEY, "gemini-2.5-flash", pageImage, pass3Prompt, 0.2, 4096);
+        console.log("Pass 3 targeted:", pass3Content.slice(0, 500));
         try {
-          const pass4Parsed = extractJson(pass4Content);
-          const pass4Items = pass4Parsed.items ?? [];
-          for (const item of pass4Items) {
+          const pass3Parsed = extractJson(pass3Content);
+          const pass3Items = pass3Parsed.items ?? [];
+          for (const item of pass3Items) {
             const sku = String(item?.sku ?? '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
             const room = String(item?.room ?? 'Kitchen').trim();
             if (!sku) continue;
@@ -520,22 +462,22 @@ If none found, return {"items":[]}`;
             });
             if (existingIdx === -1) {
               finalItems.push(item);
-              console.log(`Pass 4 found: ${sku} (${room}) qty ${item.quantity}`);
+              console.log(`Pass 3 found: ${sku} (${room}) qty ${item.quantity}`);
             } else {
-              // If Pass 4 reports a HIGHER quantity for an existing SKU, update it
+              // If Pass 3 reports a HIGHER quantity for an existing SKU, update it
               const existingQty = Number(finalItems[existingIdx].quantity) || 1;
-              const pass4Qty = Number(item.quantity) || 1;
-              if (pass4Qty > existingQty) {
-                console.log(`Pass 4 corrected: ${sku} (${room}) ${existingQty} → ${pass4Qty}`);
-                finalItems[existingIdx].quantity = pass4Qty;
+              const pass3Qty = Number(item.quantity) || 1;
+              if (pass3Qty > existingQty) {
+                console.log(`Pass 3 corrected: ${sku} (${room}) ${existingQty} → ${pass3Qty}`);
+                finalItems[existingIdx].quantity = pass3Qty;
               }
             }
           }
         } catch {
-          console.error("Pass 4 JSON parse failed");
+          console.error("Pass 3 JSON parse failed");
         }
       } catch (e) {
-        console.log("Pass 4 error:", e);
+        console.log("Pass 3 error:", e);
       }
     }
 
