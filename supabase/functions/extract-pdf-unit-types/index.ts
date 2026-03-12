@@ -65,6 +65,7 @@ DO NOT EXTRACT:
 - Room names (Kitchen, Bath, Island, Pantry, Laundry) as unit numbers
 - Elevation labels, sheet numbers, dimensions
 - Cabinet or countertop descriptions
+- DETAIL CALLOUT ADDRESSES — these are references like "B1-A/403", "A/101", "2/A301" where the format is "detail-name/sheet-number". They reference other drawing sheets and are NOT unit numbers. Any value containing a "/" is almost certainly a callout address.
 
 VERIFICATION: Before outputting, re-read the unit number list one more time and confirm you captured every number.
 
