@@ -205,6 +205,9 @@ serve(async (req) => {
         break;
       }
       if (response && response.status === 429) {
+        console.warn(`Page ${pageIndex + 1} rate limited (429), attempt ${attempt + 1}/${MAX_RETRIES}`);
+        response = null;
+        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 8000 * (attempt + 1))); continue; }
         return new Response(JSON.stringify({ error: "rate_limit" }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -252,9 +255,87 @@ serve(async (req) => {
       kitchenConfidence: u.kitchenConfidence ?? "maybe",
     })).filter((u: any) => u.unitNumber.length > 0);
 
-    console.log(`Page ${pageIndex + 1}: found ${units.length} units (image: ${!!pageImage})`);
+    console.log(`Page ${pageIndex + 1} Pass 1: found ${units.length} units (image: ${!!pageImage})`);
 
-    return new Response(JSON.stringify({ units }), {
+    // ── PASS 2: Verification with Gemini 3 Flash ──
+    let finalUnits = units;
+    if (pageImage && units.length > 0) {
+      try {
+        const verifyPrompt = `You are verifying extracted unit data from an architectural floor plan page.
+
+Pass 1 found these units on this page:
+${JSON.stringify(units, null, 2)}
+
+Your job:
+1. Look at the floor plan image and verify each unit actually has cabinets/countertops/appliances drawn inside it.
+2. Remove any FALSE entries — units that do NOT have visible cabinet rectangles, counter lines, or appliance symbols inside them.
+3. Add any MISSED units — scan the entire image for enclosed spaces with cabinets/countertops that are not in the list.
+4. Verify building names, unit numbers, detected types, and floor assignments are correct.
+5. Common areas (laundry, mail room, restroom, office, community room) with cabinets ARE valid — do NOT remove them.
+
+Return the corrected list as JSON:
+{"pageBuilding": "${pageBuilding || ''}", "units": [{"unitNumber":"101","detectedType":"TYPE A","detectedFloor":"1","detectedBldg":"BLDG 1","kitchenConfidence":"high"}]}`;
+
+        const base64Data = pageImage.replace(/^data:image\/\w+;base64,/, "");
+        const verifyRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ role: "user", parts: [
+                { inlineData: { mimeType: "image/jpeg", data: base64Data } },
+                { text: verifyPrompt },
+              ]}],
+              generationConfig: { temperature: 0.1, maxOutputTokens: 4096 },
+            }),
+          }
+        );
+
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json();
+          const verifyContent = verifyData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+          console.log(`Page ${pageIndex + 1} Pass 2 verify:`, verifyContent.slice(0, 500));
+
+          let verifyParsed: any = null;
+          try {
+            const cleaned = verifyContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+            verifyParsed = JSON.parse(cleaned);
+          } catch {
+            const match = verifyContent.match(/\{[\s\S]*"units"\s*:\s*\[[\s\S]*\]\s*\}/);
+            if (match) { try { verifyParsed = JSON.parse(match[0]); } catch {} }
+          }
+
+          if (verifyParsed?.units?.length > 0) {
+            const verifiedUnits = (verifyParsed.units ?? []).map((u: any) => ({
+              unitNumber: (u.unitNumber ?? "").trim(),
+              detectedType: u.detectedType ?? null,
+              detectedFloor: u.detectedFloor ?? null,
+              detectedBldg: u.detectedBldg ?? pageBuilding ?? null,
+              kitchenConfidence: u.kitchenConfidence ?? "maybe",
+            })).filter((u: any) => u.unitNumber.length > 0);
+
+            // Safety: never let Pass 2 reduce count below Pass 1
+            if (verifiedUnits.length >= units.length) {
+              finalUnits = verifiedUnits;
+              console.log(`Page ${pageIndex + 1} Pass 2: ${verifiedUnits.length} units (was ${units.length})`);
+            } else {
+              console.warn(`Page ${pageIndex + 1} Pass 2 would reduce ${units.length} → ${verifiedUnits.length}, keeping Pass 1`);
+            }
+          } else {
+            console.log(`Page ${pageIndex + 1} Pass 2 returned empty — keeping Pass 1 results`);
+          }
+        } else {
+          console.warn(`Page ${pageIndex + 1} Pass 2 failed (${verifyRes.status}), using Pass 1 results`);
+        }
+      } catch (verifyErr) {
+        console.warn(`Page ${pageIndex + 1} Pass 2 error:`, verifyErr, "— using Pass 1 results");
+      }
+    }
+
+    console.log(`Page ${pageIndex + 1} Final: ${finalUnits.length} units`);
+
+    return new Response(JSON.stringify({ units: finalUnits }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
