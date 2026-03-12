@@ -170,54 +170,65 @@ serve(async (req) => {
     const tailBlock = (pageText ?? "").slice(-800);
     const userPrompt = `Analyze this floor plan page (page ${pageIndex + 1}).\n\nSHEET TITLE / HEADER AREA (check here first for building name):\n${titleBlock}\n\nFOOTER / TITLE BLOCK:\n${tailBlock}\n\nFULL PAGE TEXT:\n${(pageText ?? "").slice(0, 8000)}`;
 
-    let response: Response | null = null;
+    // Models to try: primary first, then fallback
+    const MODELS = ["gemini-3-flash-preview", "gemini-2.5-flash"];
     const MAX_RETRIES = 3;
+    let response: Response | null = null;
 
-    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-      try {
-        const geminiParts: any[] = [];
-        if (pageImage) {
-          const base64Data = pageImage.replace(/^data:image\/\w+;base64,/, "");
-          geminiParts.push({ inlineData: { mimeType: "image/jpeg", data: base64Data } });
-        }
-        geminiParts.push({ text: systemPrompt + "\n\n" + userPrompt });
-        response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${GEMINI_API_KEY}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ role: "user", parts: geminiParts }],
-              generationConfig: { temperature: 0.1 },
-            }),
+    for (const model of MODELS) {
+      let succeeded = false;
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+          const geminiParts: any[] = [];
+          if (pageImage) {
+            const base64Data = pageImage.replace(/^data:image\/\w+;base64,/, "");
+            geminiParts.push({ inlineData: { mimeType: "image/jpeg", data: base64Data } });
           }
-        );
-      } catch (fetchErr) {
-        console.error(`Page ${pageIndex + 1} fetch error (attempt ${attempt + 1}):`, fetchErr);
-        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
+          geminiParts.push({ text: systemPrompt + "\n\n" + userPrompt });
+          response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ role: "user", parts: geminiParts }],
+                generationConfig: { temperature: 0.1 },
+              }),
+            }
+          );
+        } catch (fetchErr) {
+          console.error(`Page ${pageIndex + 1} fetch error [${model}] (attempt ${attempt + 1}):`, fetchErr);
+          if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
+          break;
+        }
+
+        if (response && (response.status === 503 || response.status === 500)) {
+          console.warn(`Page ${pageIndex + 1} AI unavailable [${model}] (${response.status}), attempt ${attempt + 1}`);
+          response = null;
+          if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
+          break;
+        }
+        if (response && response.status === 429) {
+          console.warn(`Page ${pageIndex + 1} rate limited [${model}] (429), attempt ${attempt + 1}/${MAX_RETRIES}`);
+          response = null;
+          if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 8000 * (attempt + 1))); continue; }
+          break;
+        }
+        if (response && response.status === 402) {
+          return new Response(JSON.stringify({ error: "credits" }), {
+            status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        succeeded = true;
         break;
       }
 
-      if (response && (response.status === 503 || response.status === 500)) {
-        console.warn(`Page ${pageIndex + 1} AI unavailable (${response.status}), attempt ${attempt + 1}`);
-        response = null;
-        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
+      if (succeeded && response?.ok) {
+        console.log(`Page ${pageIndex + 1} Pass 1 succeeded with model: ${model}`);
         break;
       }
-      if (response && response.status === 429) {
-        console.warn(`Page ${pageIndex + 1} rate limited (429), attempt ${attempt + 1}/${MAX_RETRIES}`);
-        response = null;
-        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 8000 * (attempt + 1))); continue; }
-        return new Response(JSON.stringify({ error: "rate_limit" }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response && response.status === 402) {
-        return new Response(JSON.stringify({ error: "credits" }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      break;
+      console.warn(`Page ${pageIndex + 1} all ${MAX_RETRIES} retries exhausted for ${model}, trying fallback...`);
+      response = null;
     }
 
     if (!response || !response.ok) {
