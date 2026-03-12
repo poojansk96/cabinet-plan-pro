@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Building2, ArrowLeft, Users, Layers, Square, BarChart3, Pencil, ClipboardCheck, FileUp, X, FileText, Zap } from 'lucide-react';
+import { Ruler, ArrowLeft, Users, Layers, Square, BarChart3, Pencil, ClipboardCheck, FileUp, X, FileText, Zap, Package } from 'lucide-react';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import UnitModule from '@/components/project/UnitModule';
 import CabinetModule from '@/components/project/CabinetModule';
