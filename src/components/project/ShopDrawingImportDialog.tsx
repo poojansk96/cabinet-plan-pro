@@ -450,7 +450,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
 
   const handleImport = () => {
     const selected = rows.filter(r => r.selected).map(({ selected: _, sourceFile: __, ...rest }) => rest);
-    if (selected.length === 0) return;
+    if (selected.length === 0 && typeOrder.length === 0) return;
     onImport(selected, detectedUnitType ?? undefined, typeOrder.length > 0 ? typeOrder : undefined);
   };
 
