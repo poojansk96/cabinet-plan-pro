@@ -769,6 +769,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
     secTitleRow.getCell(cc.vtopSqft).font = { bold: true, size: 9 };
     secTitleRow.getCell(cc.cabsRetail).value = 'RETAIL';
     secTitleRow.getCell(cc.cabsRetail).font = { bold: true, size: 9 };
+    secTitleRow.getCell(cc.cabsTotalCost).value = 'TOTAL COST & TOTAL RETAIL';
+    secTitleRow.getCell(cc.cabsTotalCost).font = { bold: true, size: 9 };
 
     // Row 2: Column headers
     const costHeaders: Record<number, string> = {
