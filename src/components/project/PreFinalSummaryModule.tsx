@@ -603,6 +603,21 @@ export default function PreFinalSummaryModule({ project }: Props) {
        0
      );
 
+     // Cabinet count per unit totals
+     cabTotRow.getCell(colPerUnitLabel).value = 'TOTAL';
+     for (let i = 0; i < nTypes; i++) {
+       setFormula(
+         cabTotRow.getCell(colPerUnitFirstType + i),
+         safeSumColRange(excelCol(colPerUnitFirstType + i), dataRangeStartRow, dataRangeEndRow),
+         0
+       );
+     }
+     setFormula(
+       cabTotRow.getCell(colPerUnitGrand),
+       safeSumColRange(excelCol(colPerUnitGrand), dataRangeStartRow, dataRangeEndRow),
+       0
+     );
+
     // Style totals row
     cabTotRow.eachCell((cell, colNumber) => {
       cell.font = { bold: true };
