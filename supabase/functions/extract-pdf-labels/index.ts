@@ -383,8 +383,8 @@ If no cabinet SKUs are found, return {"items":[]}`;
         if (/^[A-Z]\d?-[A-Z]/i.test(upper) && upper.length <= 4) return false;
         // Filter callout / sheet references containing "/"
         if (upper.includes('/') && !(/^(BLW|BRW)\d/i.test(upper))) return false;
-        // Must match a known cabinet prefix
-        if (!SKU_PREFIX_RE.test(upper) && !NO_DIGIT_OK.test(upper)) return false;
+        // Accept AI-detected SKUs with relaxed validation (trust the AI more)
+        if (!SKU_PREFIX_RE.test(upper) && !NO_DIGIT_OK.test(upper) && !RELAXED_SKU_RE.test(upper)) return false;
         return true;
       })
       .map((c: any) => {
