@@ -410,6 +410,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
     const dataRangeStartRow = cabHeader.number + 1;
 
+    const CABINET_BOX_TYPES = new Set(['Wall', 'Base', 'Tall', 'Vanity']);
+
     // Data rows
     groupedSkus.forEach(({ group, skus }) => {
       const groupRow = wsCabs.addRow([`${group} (${skus.length})`]);
@@ -417,6 +419,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
         cell.font = { bold: true };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAEAEA' } };
       });
+
+      const isCabinetBox = CABINET_BOX_TYPES.has(group);
 
       skus.forEach(sku => {
         const pullsPerCab = store.handleQtyPerSku[sku] || 0;
@@ -455,6 +459,18 @@ export default function PreFinalSummaryModule({ project }: Props) {
         rowValues.push('');
         cabTypes.forEach(() => rowValues.push(''));
         rowValues.push('');
+
+        // Cabinet Count Per Unit (spacer + label + types)
+        rowValues.push('');
+        rowValues.push(''); // label col stays blank for data rows
+        cabTypes.forEach(t => {
+          if (isCabinetBox) {
+            const qty = skuTypeQty[sku]?.[t] || 0;
+            rowValues.push(qty > 0 ? qty : '');
+          } else {
+            rowValues.push(''); // accessories left blank
+          }
+        });
 
         const row = wsCabs.addRow(rowValues);
         const r = row.number;
