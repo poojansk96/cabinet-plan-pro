@@ -112,13 +112,14 @@ const SKU_PREFIX_RE = /^(BLW|BRW|DB|SB|CB|EB|LSB|LS|BFFIL|WFFIL|TKRUN|TK|BF|WF|F
 const RELAXED_SKU_RE = /^[A-Z]{1,6}\d/i;
 const NO_DIGIT_OK = /^(BP|SCRIBE)$/i;
 
-function isValidSku(s: string): boolean {
+function isValidSku(s: string, relaxed = false): boolean {
   const upper = s.toUpperCase().trim();
   if (!upper || upper.length < 2) return false;
   if (APPLIANCE_RE.test(upper)) return false;
   if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) return false;
   if (upper.includes('/') && !(/^(BLW|BRW)\d/i.test(upper))) return false;
-  return SKU_PREFIX_RE.test(upper);
+  // Strict mode: must match known cabinet prefix; Relaxed: any letter+digit combo
+  return SKU_PREFIX_RE.test(upper) || (relaxed && RELAXED_SKU_RE.test(upper));
 }
 
 function extractSkusFromText(pageText: string): string[] {
