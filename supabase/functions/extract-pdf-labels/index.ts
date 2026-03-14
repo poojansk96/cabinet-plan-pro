@@ -271,17 +271,17 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
     console.log(`Step 1 Classification: pageType=${rawPageType}, unitType=${detectedUnitType}, isCommonArea=${isCommonArea}`);
 
     // ═══════════════════════════════════════════════════════════
-    // DECISION: Extract SKUs only from plan views and common area elevations
-    // Residential elevations are SKIPPED (same cabinets as plan view → double-count)
+    // DECISION: Extract SKUs from plan views AND all elevations.
+    // Only skip title pages (no cabinets drawn).
     // ═══════════════════════════════════════════════════════════
 
     const isPlanView = rawPageType.includes("plan");
     const isElevation = rawPageType.includes("elev");
     const isTitlePage = rawPageType.includes("title");
-    const shouldExtract = isPlanView || (isElevation && isCommonArea);
+    const shouldExtract = isPlanView || isElevation;
 
     if (!shouldExtract) {
-      console.log(`Skipping extraction: pageType=${rawPageType}, isCommonArea=${isCommonArea}`);
+      console.log(`Skipping extraction: pageType=${rawPageType} (title page)`);
       return new Response(JSON.stringify({ items: [], unitTypeName: detectedUnitType }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -294,6 +294,13 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
     const hasQuadrants = Array.isArray(pageQuadrants) && pageQuadrants.length > 0;
     const extractPrompt = `Extract ALL cabinet SKU labels from this 2020 Design shop drawing page.
 ${hasQuadrants ? '\nYou are receiving 4 zoomed-in quadrant images of the same page (Top-Left, Top-Right, Bottom-Left, Bottom-Right with overlap). Examine ALL quadrants carefully — cabinets may appear in any quadrant. If the same SKU appears in overlapping regions, count it only ONCE.\n' : ''}
+
+CRITICAL EXTRACTION RULES — READ CAREFULLY:
+1. IGNORE ALL TABLES AND LEGENDS: 2020 drawings often have a "Cabinet Schedule", "Quote", "Bill of Materials", or "Legend" printed on the page (usually in a box or bordered area on the side/corner). DO NOT read these. DO NOT extract quantities from lists, tables, schedules, or any tabular data. These contain project totals that will massively inflate your counts.
+2. VISUAL COUNT ONLY: You must ONLY extract SKUs by visually looking at the physical cabinet shapes drawn on the floor plan or elevation wall. A valid SKU is a text label sitting ON or NEXT TO a drawn rectangle/shape representing a cabinet.
+3. COUNT EVERY INSTANCE: If you see the label "W2430" resting on three different cabinet boxes on the drawing, the quantity is 3. Do not aggregate based on outside text.
+4. DO NOT SKIP PAGES: If you see cabinet boxes with SKU labels on them (whether it is a plan view, elevation view, mirror view, residential, or common area), YOU MUST EXTRACT THEM. If cabinets are drawn, extract them.
+
 For each cabinet found, provide:
 1. sku: The SKU label exactly as written (e.g. B24, W3036, DB15, BF3, WF6X30, LS36-L, BLW36/3930-L, B09FH)
 2. type: Classify by prefix:
@@ -303,20 +310,19 @@ For each cabinet found, provide:
    - "Vanity" → V, VB, VD, VDC
    - "Accessory" → FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR
 3. room: From room labels on the plan (Kitchen, Bath, Laundry, Pantry — capitalize first letter only)
-4. quantity: Count EVERY separate label occurrence of this SKU on this page
+4. quantity: Count EVERY separate physical cabinet shape with this label on the drawing
 
 COUNTING — CRITICAL:
-- If "DB15" label appears in TWO different spots → quantity 2
-- If "BF3" label appears once → quantity 1. Do NOT skip small accessories.
-- ACCESSORIES MATTER: BF3, BF6, WF3X30, WF6X30, DWR3, DWR6, FIL3 — count EVERY single one. Scan the ENTIRE drawing including corners, edges, and narrow gaps between cabinets.
-- FILLER-HEAD CABINETS: B09FH, B06FH, B12FH — these are VERY NARROW rectangles (6"-12" wide). They appear as thin slivers between larger cabinets or at the end of a run. ACTIVELY LOOK FOR THESE — they are commonly missed.
+- If "DB15" label appears on TWO different cabinet shapes → quantity 2
+- If "BF3" label appears on one shape → quantity 1. Do NOT skip small accessories.
+- ACCESSORIES MATTER: BF3, BF6, WF3X30, WF6X30, DWR3, DWR6, CM8, TK, TKRUN, EP, LR, SCRIBE, BP — count EVERY single one. Scan the ENTIRE drawing including corners, edges, and narrow gaps between cabinets.
+- FILLER-HEAD CABINETS: B09FH, B06FH, B12FH — these are VERY NARROW rectangles (6"-12" wide). They appear as thin slivers between larger cabinets or at the end of a run. ACTIVELY LOOK FOR THESE.
 - Corner cabinets (LS, LSB) at wall junction = count ONCE even if label appears at junction of two wall runs.
 - Look for "xN" or "(2)" multiplier notation next to labels.
 
 STACKED / ADJACENT LABELS — MOST COMMON ERROR:
 - Two or more SKU labels near the same location are ALWAYS SEPARATE cabinets. NEVER merge them into one string.
 - "W1230" on one line and "VDC2430" below it → TWO separate entries: W1230 (qty 1) AND VDC2430 (qty 1). NOT "W1230VDC2430".
-- "W1530" near "BLW24/2730-R" → TWO separate entries. NOT "W1530-BLW24/2730-R".
 
 DOOR CONFIGURATION SUFFIXES — STRIP THESE:
 - "SB36B-1D", "B33-1D", "B24-2D" → report base SKU only: "SB36", "B33", "B24"
@@ -330,8 +336,8 @@ SKIP THESE — NOT CABINET SKUs:
 VALID SKU PREFIXES (a label must start with one of these + a digit):
 B, DB, SB, CB, EB, LS, LSB, W, UB, WC, OH, BLW, BRW, T, UT, TC, PT, PTC, UC, V, VB, VD, VDC, FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR
 
-FINAL SWEEP: After your initial scan, go back and specifically look for: B09FH, B06FH, B12FH, BF3, BF6, WF3X30, WF6X30, DWR3, DWR6, CM8, TK, TKRUN, EP, LR, SCRIBE, BP. These appear as very small labels on narrow shapes.
-${textLayerSkus.length > 0 ? `\nMANDATORY CHECKLIST — The underlying PDF text layer confirms these SKUs exist on this page:\n${textLayerSkus.join(', ')}\n\nYou MUST scan the floor plan specifically for EVERY SINGLE item on this list. Do NOT finish your response until you have actively looked for each one: ${textLayerSkus.join(', ')}.\nFor each checklist SKU, report the quantity you found on the floor plan. If you genuinely cannot locate a checklist item in the drawing, still include it with quantity 1 (the text layer proves it exists).\n` : ''}${unitType ? `\nUnit type context: ${unitType}` : ""}
+FINAL SWEEP: After your initial scan, go back and specifically look for: B09FH, B06FH, B12FH, BF3, BF6, WF3X30, WF6X30, DWR3, DWR6, CM8, TK, TKRUN, EP, LR, SCRIBE, BP.
+${unitType ? `\nUnit type context: ${unitType}` : ""}
 If no cabinet SKUs are found, return {"items":[]}`;
 
     // Use quadrant tiles if provided (higher effective resolution), otherwise full image
@@ -355,18 +361,8 @@ If no cabinet SKUs are found, return {"items":[]}`;
     let finalItems = splitMergedSkus(rawItems);
     console.log(`Step 2: ${rawItems.length} raw → ${finalItems.length} after split`);
 
-    // ── RECOVERY: If extraction is empty but text layer has SKUs ──
-    // This catches MIRROR pages and cases where the AI fails to read labels.
-    // Seed with qty=1 each (text counts are unreliable due to legends/notes).
-    if (finalItems.length === 0 && textLayerSkus.length > 0) {
-      console.log(`Extraction empty but text layer has ${textLayerSkus.length} SKUs — seeding with qty=1`);
-      for (const sku of textLayerSkus) {
-        if (isValidSku(sku)) {
-          finalItems.push({ sku, type: classifySku(sku), room: "Kitchen", quantity: 1 });
-        }
-      }
-      console.log(`Text layer seed: ${finalItems.length} items`);
-    }
+    // Text-layer recovery REMOVED — it was seeding hallucinated data from legends/schedules.
+    // The AI extraction prompt now explicitly bans reading legends/tables.
 
     console.log(`Final: ${finalItems.length} items`);
 
