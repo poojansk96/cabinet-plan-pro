@@ -299,6 +299,11 @@ export default function PreFinalSummaryModule({ project }: Props) {
     const colTotalCabLabel = colSpacer3 + 1;
     const colTotalCabFirstType = colTotalCabLabel + 1;
     const colTotalCabGrand = colTotalCabFirstType + nTypes;
+    const colSpacer4 = colTotalCabGrand + 1;
+
+    const colPerUnitLabel = colSpacer4 + 1;
+    const colPerUnitFirstType = colPerUnitLabel + 1;
+    const colPerUnitGrand = colPerUnitFirstType + nTypes;
 
     const pricingStart = colSpacer2; // keep naming used below
     const totalCabStart = colSpacer3; // keep naming used below
