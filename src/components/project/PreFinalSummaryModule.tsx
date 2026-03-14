@@ -343,6 +343,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
     sectionRow.getCell(colPricingBid).font = { bold: true, size: 9 };
     sectionRow.getCell(colTotalCabLabel).value = 'TOTAL CABINET COUNT';
     sectionRow.getCell(colTotalCabLabel).font = { bold: true, size: 9 };
+    sectionRow.getCell(colCpuLabel).value = '*Cabinet Count Per Unit';
+    sectionRow.getCell(colCpuLabel).font = { bold: true, size: 9 };
 
     // Unit count reference row (used by formulas)
     const unitCountRow = wsCabs.addRow([]);
