@@ -17,7 +17,9 @@ async function callGemini(
   maxTokens = 8192,
   responseSchema?: any,
 ): Promise<any> {
-  const MAX_RETRIES = 5;
+  // Model fallback: try primary model 3 times, then fallback to gemini-2.5-pro 3 times
+  const MODELS = [model, "gemini-2.5-pro"];
+  const MAX_RETRIES = 3;
   let response: Response | null = null;
 
   const genConfig: any = { temperature, maxOutputTokens: maxTokens };
@@ -26,41 +28,49 @@ async function callGemini(
     genConfig.responseSchema = responseSchema;
   }
 
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    try {
-      response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts: [
-              { inlineData: { mimeType: "image/jpeg", data: pageImage } },
-              { text: prompt },
-            ]}],
-            generationConfig: genConfig,
-          }),
-        },
-      );
-    } catch (fetchErr) {
-      console.error(`AI fetch error (attempt ${attempt + 1}):`, fetchErr);
-      if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
-      throw fetchErr;
+  for (const currentModel of MODELS) {
+    let modelSucceeded = false;
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ role: "user", parts: [
+                { inlineData: { mimeType: "image/jpeg", data: pageImage } },
+                { text: prompt },
+              ]}],
+              generationConfig: genConfig,
+            }),
+          },
+        );
+      } catch (fetchErr) {
+        console.error(`AI fetch error [${currentModel}] (attempt ${attempt + 1}):`, fetchErr);
+        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
+        break; // Try next model
+      }
+
+      if (response.status === 429) {
+        console.warn(`AI rate limited (429) [${currentModel}], attempt ${attempt + 1}/${MAX_RETRIES}`);
+        response = null;
+        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 8000 * (attempt + 1))); continue; }
+        throw new Error("rate_limit"); // Rate limit affects all models, don't fallback
+      }
+      if (response.status === 503 || response.status === 500) {
+        console.warn(`AI unavailable (${response.status}) [${currentModel}], attempt ${attempt + 1}/${MAX_RETRIES}`);
+        response = null;
+        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
+        console.log(`${currentModel} failed after ${MAX_RETRIES} retries, trying fallback...`);
+        break; // Try next model
+      }
+      modelSucceeded = true;
+      break;
     }
 
-    if (response.status === 429) {
-      console.warn(`AI rate limited (429), attempt ${attempt + 1}/${MAX_RETRIES}`);
-      response = null;
-      if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 8000 * (attempt + 1))); continue; }
-      throw new Error("rate_limit");
-    }
-    if (response.status === 503 || response.status === 500) {
-      console.warn(`AI unavailable (${response.status}), attempt ${attempt + 1}/${MAX_RETRIES}`);
-      response = null;
-      if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
-      throw new Error("AI model temporarily unavailable");
-    }
-    break;
+    if (modelSucceeded && response) break;
   }
 
   if (!response) throw new Error("AI model temporarily unavailable");
