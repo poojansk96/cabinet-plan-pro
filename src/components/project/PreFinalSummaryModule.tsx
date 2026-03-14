@@ -417,6 +417,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
         cell.font = { bold: true };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAEAEA' } };
       });
+      const isAccessoryGroup = group === 'Accessory';
 
       skus.forEach(sku => {
         const pullsPerCab = store.handleQtyPerSku[sku] || 0;
