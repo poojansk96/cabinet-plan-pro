@@ -383,6 +383,10 @@ export default function PreFinalSummaryModule({ project }: Props) {
     headerValues.push('Total Cab Count');
     cabTypes.forEach(t => headerValues.push(t));
     headerValues.push('Grand Total');
+    // Cabinet Count Per Unit section
+    headerValues.push('');
+    headerValues.push('Cab Count/Unit');
+    cabTypes.forEach(t => headerValues.push(t));
 
     const cabHeader = wsCabs.addRow(headerValues);
     cabHeader.height = 120;
@@ -395,7 +399,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
       if ((idx >= 1 && idx <= nTypes) ||
           (idx >= colPullsFirstType - 1 && idx <= colPullsFirstType - 2 + nTypes) ||
           (idx >= colPricingFirstType - 1 && idx <= colPricingFirstType - 2 + nTypes) ||
-          (idx >= colTotalCabFirstType - 1 && idx <= colTotalCabFirstType - 2 + nTypes)) {
+          (idx >= colTotalCabFirstType - 1 && idx <= colTotalCabFirstType - 2 + nTypes) ||
+          (idx >= colCpuFirstType - 1 && idx <= colCpuFirstType - 2 + nTypes)) {
         cell.alignment = { textRotation: 90, vertical: 'bottom', horizontal: 'center' };
       }
     });
