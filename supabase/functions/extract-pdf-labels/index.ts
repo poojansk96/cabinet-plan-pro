@@ -11,7 +11,7 @@ const corsHeaders = {
 async function callGemini(
   apiKey: string,
   model: string,
-  pageImage: string,
+  pageImages: string | string[],
   prompt: string,
   temperature = 0.1,
   maxTokens = 8192,
@@ -28,6 +28,10 @@ async function callGemini(
     genConfig.responseSchema = responseSchema;
   }
 
+  // Build image parts — supports single image or multiple tiles
+  const images = Array.isArray(pageImages) ? pageImages : [pageImages];
+  const imageParts = images.map(img => ({ inlineData: { mimeType: "image/jpeg", data: img } }));
+
   for (const currentModel of MODELS) {
     let modelSucceeded = false;
 
@@ -40,7 +44,7 @@ async function callGemini(
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               contents: [{ role: "user", parts: [
-                { inlineData: { mimeType: "image/jpeg", data: pageImage } },
+                ...imageParts,
                 { text: prompt },
               ]}],
               generationConfig: genConfig,
@@ -104,15 +108,18 @@ async function callGemini(
 const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|UB|WC|OH|BLW|BRW|T|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR)\d[\w\-\/]*/gi;
 const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
 const SKU_PREFIX_RE = /^(BLW|BRW|DB|SB|CB|EB|LSB|LS|BFFIL|WFFIL|TKRUN|TK|BF|WF|FIL|CM|LR|EP|FP|DWR|VDC|VB|VD|WC|UB|OH|PTC|PT|UTC|UT|TC|UC|W|T|V|B)\d/i;
+// Relaxed pattern: accepts any letter(s) + digit combo that the AI returns (trusts AI detection more)
+const RELAXED_SKU_RE = /^[A-Z]{1,6}\d/i;
 const NO_DIGIT_OK = /^(BP|SCRIBE)$/i;
 
-function isValidSku(s: string): boolean {
+function isValidSku(s: string, relaxed = false): boolean {
   const upper = s.toUpperCase().trim();
   if (!upper || upper.length < 2) return false;
   if (APPLIANCE_RE.test(upper)) return false;
   if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) return false;
   if (upper.includes('/') && !(/^(BLW|BRW)\d/i.test(upper))) return false;
-  return SKU_PREFIX_RE.test(upper);
+  // Strict mode: must match known cabinet prefix; Relaxed: any letter+digit combo
+  return SKU_PREFIX_RE.test(upper) || (relaxed && RELAXED_SKU_RE.test(upper));
 }
 
 function extractSkusFromText(pageText: string): string[] {
@@ -209,7 +216,7 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
-    const { pageImage, unitType, pageText, speedMode } = await req.json();
+    const { pageImage, pageQuadrants, unitType, pageText, speedMode } = await req.json();
 
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage (base64 string) required" }), {
@@ -284,8 +291,9 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
     // STEP 2: EXTRACT CABINET SKUs (focused, single-pass)
     // ═══════════════════════════════════════════════════════════
 
+    const hasQuadrants = Array.isArray(pageQuadrants) && pageQuadrants.length > 0;
     const extractPrompt = `Extract ALL cabinet SKU labels from this 2020 Design shop drawing page.
-
+${hasQuadrants ? '\nYou are receiving 4 zoomed-in quadrant images of the same page (Top-Left, Top-Right, Bottom-Left, Bottom-Right with overlap). Examine ALL quadrants carefully — cabinets may appear in any quadrant. If the same SKU appears in overlapping regions, count it only ONCE.\n' : ''}
 For each cabinet found, provide:
 1. sku: The SKU label exactly as written (e.g. B24, W3036, DB15, BF3, WF6X30, LS36-L, BLW36/3930-L, B09FH)
 2. type: Classify by prefix:
@@ -323,12 +331,20 @@ VALID SKU PREFIXES (a label must start with one of these + a digit):
 B, DB, SB, CB, EB, LS, LSB, W, UB, WC, OH, BLW, BRW, T, UT, TC, PT, PTC, UC, V, VB, VD, VDC, FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR
 
 FINAL SWEEP: After your initial scan, go back and specifically look for: B09FH, B06FH, B12FH, BF3, BF6, WF3X30, WF6X30, DWR3, DWR6, CM8, TK, TKRUN, EP, LR, SCRIBE, BP. These appear as very small labels on narrow shapes.
-${textLayerSkus.length > 0 ? `\nTEXT LAYER CROSS-REFERENCE — the PDF text layer detected these SKUs on this page:\n${textLayerSkus.join(', ')}\nMake sure ALL of these appear in your results if they are visible as labels on the drawing. If any are missing from your results, look harder for them.\n` : ''}${unitType ? `\nUnit type context: ${unitType}` : ""}
+${textLayerSkus.length > 0 ? `\nMANDATORY CHECKLIST — The underlying PDF text layer confirms these SKUs exist on this page:\n${textLayerSkus.join(', ')}\n\nYou MUST scan the floor plan specifically for EVERY SINGLE item on this list. Do NOT finish your response until you have actively looked for each one: ${textLayerSkus.join(', ')}.\nFor each checklist SKU, report the quantity you found on the floor plan. If you genuinely cannot locate a checklist item in the drawing, still include it with quantity 1 (the text layer proves it exists).\n` : ''}${unitType ? `\nUnit type context: ${unitType}` : ""}
 If no cabinet SKUs are found, return {"items":[]}`;
+
+    // Use quadrant tiles if provided (higher effective resolution), otherwise full image
+    const extractImages: string | string[] = (Array.isArray(pageQuadrants) && pageQuadrants.length > 0)
+      ? pageQuadrants
+      : pageImage;
+    if (Array.isArray(extractImages)) {
+      console.log(`Using ${extractImages.length} image tiles for extraction`);
+    }
 
     let extracted: any = { items: [] };
     try {
-      extracted = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", pageImage, extractPrompt, 0.1, 8192, EXTRACT_SCHEMA);
+      extracted = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", extractImages, extractPrompt, 0.1, 8192, EXTRACT_SCHEMA);
     } catch (e: any) {
       if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -368,8 +384,8 @@ If no cabinet SKUs are found, return {"items":[]}`;
         if (/^[A-Z]\d?-[A-Z]/i.test(upper) && upper.length <= 4) return false;
         // Filter callout / sheet references containing "/"
         if (upper.includes('/') && !(/^(BLW|BRW)\d/i.test(upper))) return false;
-        // Must match a known cabinet prefix
-        if (!SKU_PREFIX_RE.test(upper) && !NO_DIGIT_OK.test(upper)) return false;
+        // Accept AI-detected SKUs with relaxed validation (trust the AI more)
+        if (!SKU_PREFIX_RE.test(upper) && !NO_DIGIT_OK.test(upper) && !RELAXED_SKU_RE.test(upper)) return false;
         return true;
       })
       .map((c: any) => {
