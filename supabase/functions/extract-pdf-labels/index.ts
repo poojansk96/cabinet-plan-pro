@@ -361,18 +361,8 @@ If no cabinet SKUs are found, return {"items":[]}`;
     let finalItems = splitMergedSkus(rawItems);
     console.log(`Step 2: ${rawItems.length} raw → ${finalItems.length} after split`);
 
-    // ── RECOVERY: If extraction is empty but text layer has SKUs ──
-    // This catches MIRROR pages and cases where the AI fails to read labels.
-    // Seed with qty=1 each (text counts are unreliable due to legends/notes).
-    if (finalItems.length === 0 && textLayerSkus.length > 0) {
-      console.log(`Extraction empty but text layer has ${textLayerSkus.length} SKUs — seeding with qty=1`);
-      for (const sku of textLayerSkus) {
-        if (isValidSku(sku)) {
-          finalItems.push({ sku, type: classifySku(sku), room: "Kitchen", quantity: 1 });
-        }
-      }
-      console.log(`Text layer seed: ${finalItems.length} items`);
-    }
+    // Text-layer recovery REMOVED — it was seeding hallucinated data from legends/schedules.
+    // The AI extraction prompt now explicitly bans reading legends/tables.
 
     console.log(`Final: ${finalItems.length} items`);
 
