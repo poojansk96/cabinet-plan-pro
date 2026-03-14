@@ -11,7 +11,7 @@ const corsHeaders = {
 async function callGemini(
   apiKey: string,
   model: string,
-  pageImage: string,
+  pageImages: string | string[],
   prompt: string,
   temperature = 0.1,
   maxTokens = 8192,
@@ -28,6 +28,10 @@ async function callGemini(
     genConfig.responseSchema = responseSchema;
   }
 
+  // Build image parts — supports single image or multiple tiles
+  const images = Array.isArray(pageImages) ? pageImages : [pageImages];
+  const imageParts = images.map(img => ({ inlineData: { mimeType: "image/jpeg", data: img } }));
+
   for (const currentModel of MODELS) {
     let modelSucceeded = false;
 
@@ -40,7 +44,7 @@ async function callGemini(
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               contents: [{ role: "user", parts: [
-                { inlineData: { mimeType: "image/jpeg", data: pageImage } },
+                ...imageParts,
                 { text: prompt },
               ]}],
               generationConfig: genConfig,
