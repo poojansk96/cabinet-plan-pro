@@ -278,7 +278,7 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
     const isPlanView = rawPageType.includes("plan");
     const isElevation = rawPageType.includes("elev");
     const isTitlePage = rawPageType.includes("title");
-    const shouldExtract = isPlanView || isElevation;
+    const shouldExtract = isPlanView || (isElevation && isCommonArea);
 
     if (!shouldExtract) {
       console.log(`Skipping extraction: pageType=${rawPageType} (title page)`);
