@@ -108,6 +108,8 @@ async function callGemini(
 const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|UB|WC|OH|BLW|BRW|T|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR)\d[\w\-\/]*/gi;
 const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
 const SKU_PREFIX_RE = /^(BLW|BRW|DB|SB|CB|EB|LSB|LS|BFFIL|WFFIL|TKRUN|TK|BF|WF|FIL|CM|LR|EP|FP|DWR|VDC|VB|VD|WC|UB|OH|PTC|PT|UTC|UT|TC|UC|W|T|V|B)\d/i;
+// Relaxed pattern: accepts any letter(s) + digit combo that the AI returns (trusts AI detection more)
+const RELAXED_SKU_RE = /^[A-Z]{1,6}\d/i;
 const NO_DIGIT_OK = /^(BP|SCRIBE)$/i;
 
 function isValidSku(s: string): boolean {
