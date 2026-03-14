@@ -291,8 +291,9 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
     // STEP 2: EXTRACT CABINET SKUs (focused, single-pass)
     // ═══════════════════════════════════════════════════════════
 
+    const hasQuadrants = Array.isArray(pageQuadrants) && pageQuadrants.length > 0;
     const extractPrompt = `Extract ALL cabinet SKU labels from this 2020 Design shop drawing page.
-
+${hasQuadrants ? '\nYou are receiving 4 zoomed-in quadrant images of the same page (Top-Left, Top-Right, Bottom-Left, Bottom-Right with overlap). Examine ALL quadrants carefully — cabinets may appear in any quadrant. If the same SKU appears in overlapping regions, count it only ONCE.\n' : ''}
 For each cabinet found, provide:
 1. sku: The SKU label exactly as written (e.g. B24, W3036, DB15, BF3, WF6X30, LS36-L, BLW36/3930-L, B09FH)
 2. type: Classify by prefix:
