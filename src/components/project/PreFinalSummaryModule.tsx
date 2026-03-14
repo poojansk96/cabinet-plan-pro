@@ -327,6 +327,10 @@ export default function PreFinalSummaryModule({ project }: Props) {
     colWidths.push({ width: 14 });
     for (let i = 0; i < nTypes; i++) colWidths.push({ width: 6 });
     colWidths.push({ width: 8 });
+    colWidths.push({ width: 3 });  // spacer4
+    colWidths.push({ width: 14 }); // per-unit label
+    for (let i = 0; i < nTypes; i++) colWidths.push({ width: 6 });
+    colWidths.push({ width: 8 });  // per-unit grand total
     wsCabs.columns = colWidths;
 
     // Section headers
