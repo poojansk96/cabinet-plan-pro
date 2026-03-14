@@ -289,7 +289,12 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
     const processOnePage = async (p: number) => {
       onStatus(`Rendering "${file.name}" page ${p}/${pdf.numPages}…`);
       const page = await pdf.getPage(p);
-      const pageImage = await renderPageToBase64(page);
+      
+      // Render full image (for classification) + 4 quadrant tiles (for extraction)
+      const [pageImage, pageQuadrants] = await Promise.all([
+        renderPageToBase64(page),
+        renderPageQuadrants(page),
+      ]);
 
       // Extract text layer from the PDF page for cross-referencing
       let pageText = '';
