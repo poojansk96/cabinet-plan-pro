@@ -720,6 +720,16 @@ export default function PreFinalSummaryModule({ project }: Props) {
       cabsRetail: 25, pullsRetail: 26, ktopRetail: 27, vtopRetail: 28,
       stickRetail: 29, dwRetail: 30, laborRetail: 31,
       retailPerUnit: 32, retailExt: 33,
+      spacer2: 34,
+      cabsTotalCost: 35, cabsTotalRetail: 36,
+      pullsTotalCost: 37, pullsTotalRetail: 38,
+      ktopTotalCost: 39, ktopTotalRetail: 40,
+      vtopTotalCost: 41, vtopTotalRetail: 42,
+      stickTotalCost: 43, stickTotalRetail: 44,
+      dwTotalCost: 45, dwTotalRetail: 46,
+      laborTotalCost: 47, laborTotalRetail: 48,
+      material: 49, labor: 50, tax: 51,
+      retailPerUnit2: 52, retailExt2: 53,
     };
 
     const SAFFRON = 'FFFFF2CC';
@@ -739,6 +749,16 @@ export default function PreFinalSummaryModule({ project }: Props) {
       { width: 12 }, { width: 12 }, { width: 14 }, { width: 14 },
       { width: 12 }, { width: 12 }, { width: 12 },
       { width: 14 }, { width: 14 },
+      { width: 3 },
+      { width: 14 }, { width: 14 },
+      { width: 14 }, { width: 14 },
+      { width: 14 }, { width: 14 },
+      { width: 14 }, { width: 14 },
+      { width: 14 }, { width: 14 },
+      { width: 14 }, { width: 14 },
+      { width: 14 }, { width: 14 },
+      { width: 14 },
+      { width: 14 }, { width: 14 },
     ];
 
     // Row 1: Section titles
@@ -749,6 +769,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
     secTitleRow.getCell(cc.vtopSqft).font = { bold: true, size: 9 };
     secTitleRow.getCell(cc.cabsRetail).value = 'RETAIL';
     secTitleRow.getCell(cc.cabsRetail).font = { bold: true, size: 9 };
+    secTitleRow.getCell(cc.cabsTotalCost).value = 'TOTAL COST & TOTAL RETAIL';
+    secTitleRow.getCell(cc.cabsTotalCost).font = { bold: true, size: 9 };
 
     // Row 2: Column headers
     const costHeaders: Record<number, string> = {
@@ -784,6 +806,25 @@ export default function PreFinalSummaryModule({ project }: Props) {
       [cc.laborRetail]: 'LABOR\nRETAIL',
       [cc.retailPerUnit]: 'RETAIL\nPER UNIT',
       [cc.retailExt]: 'RETAIL\nEXT',
+      [cc.cabsTotalCost]: 'CABS\nTOTAL COST',
+      [cc.cabsTotalRetail]: 'CABS\nTOTAL RETAIL',
+      [cc.pullsTotalCost]: 'PULLS\nTOTAL COST',
+      [cc.pullsTotalRetail]: 'PULLS\nTOTAL RETAIL',
+      [cc.ktopTotalCost]: 'QUARTZ GRP1\nKTOP\nTOTAL COST',
+      [cc.ktopTotalRetail]: 'QUARTZ GRP1\nKTOP\nTOTAL RETAIL',
+      [cc.vtopTotalCost]: 'QUARTZ GRP1\nVTOP\nTOTAL COST',
+      [cc.vtopTotalRetail]: 'QUARTZ GRP1\nVTOP\nTOTAL RETAIL',
+      [cc.stickTotalCost]: '2X3X8\nTOTAL COST',
+      [cc.stickTotalRetail]: '2X3X8\nTOTAL RETAIL',
+      [cc.dwTotalCost]: 'DW BRACKETS\nTOTAL COST',
+      [cc.dwTotalRetail]: 'DW BRACKETS\nTOTAL RETAIL',
+      [cc.laborTotalCost]: 'LABOR\nTOTAL COST',
+      [cc.laborTotalRetail]: 'LABOR\nTOTAL RETAIL',
+      [cc.material]: 'MATERIAL',
+      [cc.labor]: 'LABOR',
+      [cc.tax]: 'TAX',
+      [cc.retailPerUnit2]: 'RETAIL\nPER UNIT',
+      [cc.retailExt2]: 'RETAIL\nEXT',
     };
 
     const costHeaderRow2 = wsCosting.addRow([]);
@@ -802,7 +843,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
     const costRateRow = wsCosting.addRow([]);
     const saffronCostCols = [cc.pullsCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost];
     const saffronRetailCols = [cc.cabsRetail, cc.pullsRetail, cc.ktopRetail, cc.vtopRetail, cc.stickRetail, cc.dwRetail, cc.laborRetail];
-    [...saffronCostCols, ...saffronRetailCols].forEach(col => {
+    const saffronTotalCols = [cc.tax]; // tax multiplier
+    [...saffronCostCols, ...saffronRetailCols, ...saffronTotalCols].forEach(col => {
       const cell = costRateRow.getCell(col);
       cell.value = 0;
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: SAFFRON } };
@@ -892,9 +934,48 @@ export default function PreFinalSummaryModule({ project }: Props) {
       setFormula(row.getCell(cc.retailExt), safeMul(ref(cc.retailPerUnit, r), ref(cc.qty, r)), 0);
       row.getCell(cc.retailExt).numFmt = '$#,##0.00';
 
+      // ── TOTAL COST & TOTAL RETAIL section ──
+      const totalPairs = [
+        { totalCost: cc.cabsTotalCost, totalRetail: cc.cabsTotalRetail, cost: cc.cabsCost, retail: cc.cabsRetail },
+        { totalCost: cc.pullsTotalCost, totalRetail: cc.pullsTotalRetail, cost: cc.pullsCost, retail: cc.pullsRetail },
+        { totalCost: cc.ktopTotalCost, totalRetail: cc.ktopTotalRetail, cost: cc.ktopCost, retail: cc.ktopRetail },
+        { totalCost: cc.vtopTotalCost, totalRetail: cc.vtopTotalRetail, cost: cc.vtopCost, retail: cc.vtopRetail },
+        { totalCost: cc.stickTotalCost, totalRetail: cc.stickTotalRetail, cost: cc.stickCost, retail: cc.stickRetail },
+        { totalCost: cc.dwTotalCost, totalRetail: cc.dwTotalRetail, cost: cc.dwCost, retail: cc.dwRetail },
+        { totalCost: cc.laborTotalCost, totalRetail: cc.laborTotalRetail, cost: cc.laborCost, retail: cc.laborRetail },
+      ];
+      totalPairs.forEach(({ totalCost, totalRetail, cost, retail }) => {
+        setFormula(row.getCell(totalCost), safeMul(ref(cost, r), ref(cc.qty, r)), 0);
+        row.getCell(totalCost).numFmt = '$#,##0.00';
+        setFormula(row.getCell(totalRetail), safeMul(ref(retail, r), ref(cc.qty, r)), 0);
+        row.getCell(totalRetail).numFmt = '$#,##0.00';
+      });
+
+      // MATERIAL = sum of all total retail EXCEPT labor total retail
+      const matRetailCols = [cc.cabsTotalRetail, cc.pullsTotalRetail, cc.ktopTotalRetail, cc.vtopTotalRetail, cc.stickTotalRetail, cc.dwTotalRetail];
+      setFormula(row.getCell(cc.material), `IFERROR(${matRetailCols.map(c => `N(${ref(c, r)})`).join('+')},0)`, 0);
+      row.getCell(cc.material).numFmt = '$#,##0.00';
+
+      // LABOR = labor total retail
+      setFormula(row.getCell(cc.labor), `N(${ref(cc.laborTotalRetail, r)})`, 0);
+      row.getCell(cc.labor).numFmt = '$#,##0.00';
+
+      // TAX = material × saffron tax rate
+      const taxRateAbs = `$${excelCol(cc.tax)}$${costRateRowNum}`;
+      setFormula(row.getCell(cc.tax), safeMul(ref(cc.material, r), taxRateAbs), 0);
+      row.getCell(cc.tax).numFmt = '$#,##0.00';
+
+      // RETAIL PER UNIT 2 = material + labor + tax
+      setFormula(row.getCell(cc.retailPerUnit2), `IFERROR(N(${ref(cc.material, r)})+N(${ref(cc.labor, r)})+N(${ref(cc.tax, r)}),0)`, 0);
+      row.getCell(cc.retailPerUnit2).numFmt = '$#,##0.00';
+
+      // RETAIL EXT 2 = retail per unit 2 × qty
+      setFormula(row.getCell(cc.retailExt2), safeMul(ref(cc.retailPerUnit2, r), ref(cc.qty, r)), 0);
+      row.getCell(cc.retailExt2).numFmt = '$#,##0.00';
+
       // Center-align all numeric cells
-      for (let c = cc.qty; c <= cc.retailExt; c++) {
-        if (c !== cc.spacer) row.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' };
+      for (let c = cc.qty; c <= cc.retailExt2; c++) {
+        if (c !== cc.spacer && c !== cc.spacer2) row.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' };
       }
     });
 
@@ -913,12 +994,22 @@ export default function PreFinalSummaryModule({ project }: Props) {
       cc.costPerUnit, cc.costExt,
       cc.cabsRetail, cc.pullsRetail, cc.ktopRetail, cc.vtopRetail, cc.stickRetail, cc.dwRetail, cc.laborRetail,
       cc.retailPerUnit, cc.retailExt,
+      cc.cabsTotalCost, cc.cabsTotalRetail, cc.pullsTotalCost, cc.pullsTotalRetail,
+      cc.ktopTotalCost, cc.ktopTotalRetail, cc.vtopTotalCost, cc.vtopTotalRetail,
+      cc.stickTotalCost, cc.stickTotalRetail, cc.dwTotalCost, cc.dwTotalRetail,
+      cc.laborTotalCost, cc.laborTotalRetail,
+      cc.material, cc.labor, cc.tax, cc.retailPerUnit2, cc.retailExt2,
     ];
     const dollarCols = new Set([
       cc.cabsCost, cc.pullsCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.laborCost,
       cc.costPerUnit, cc.costExt,
       cc.cabsRetail, cc.pullsRetail, cc.ktopRetail, cc.vtopRetail, cc.stickRetail, cc.dwRetail, cc.laborRetail,
       cc.retailPerUnit, cc.retailExt,
+      cc.cabsTotalCost, cc.cabsTotalRetail, cc.pullsTotalCost, cc.pullsTotalRetail,
+      cc.ktopTotalCost, cc.ktopTotalRetail, cc.vtopTotalCost, cc.vtopTotalRetail,
+      cc.stickTotalCost, cc.stickTotalRetail, cc.dwTotalCost, cc.dwTotalRetail,
+      cc.laborTotalCost, cc.laborTotalRetail,
+      cc.material, cc.labor, cc.tax, cc.retailPerUnit2, cc.retailExt2,
     ]);
 
     summedCols.forEach(c => {
