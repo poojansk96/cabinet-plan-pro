@@ -300,6 +300,11 @@ export default function PreFinalSummaryModule({ project }: Props) {
     const colTotalCabFirstType = colTotalCabLabel + 1;
     const colTotalCabGrand = colTotalCabFirstType + nTypes;
 
+    // Cabinet Count Per Unit section (right of Total Cabinet Count)
+    const colSpacer4 = colTotalCabGrand + 1;
+    const colCpuLabel = colSpacer4 + 1;
+    const colCpuFirstType = colCpuLabel + 1;
+
     const pricingStart = colSpacer2; // keep naming used below
     const totalCabStart = colSpacer3; // keep naming used below
 
@@ -322,6 +327,10 @@ export default function PreFinalSummaryModule({ project }: Props) {
     colWidths.push({ width: 14 });
     for (let i = 0; i < nTypes; i++) colWidths.push({ width: 6 });
     colWidths.push({ width: 8 });
+    // Spacer + Cabinet Count Per Unit
+    colWidths.push({ width: 3 });
+    colWidths.push({ width: 18 });
+    for (let i = 0; i < nTypes; i++) colWidths.push({ width: 6 });
     wsCabs.columns = colWidths;
 
     // Section headers
