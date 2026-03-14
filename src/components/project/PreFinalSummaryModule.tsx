@@ -934,9 +934,48 @@ export default function PreFinalSummaryModule({ project }: Props) {
       setFormula(row.getCell(cc.retailExt), safeMul(ref(cc.retailPerUnit, r), ref(cc.qty, r)), 0);
       row.getCell(cc.retailExt).numFmt = '$#,##0.00';
 
+      // ── TOTAL COST & TOTAL RETAIL section ──
+      const totalPairs = [
+        { totalCost: cc.cabsTotalCost, totalRetail: cc.cabsTotalRetail, cost: cc.cabsCost, retail: cc.cabsRetail },
+        { totalCost: cc.pullsTotalCost, totalRetail: cc.pullsTotalRetail, cost: cc.pullsCost, retail: cc.pullsRetail },
+        { totalCost: cc.ktopTotalCost, totalRetail: cc.ktopTotalRetail, cost: cc.ktopCost, retail: cc.ktopRetail },
+        { totalCost: cc.vtopTotalCost, totalRetail: cc.vtopTotalRetail, cost: cc.vtopCost, retail: cc.vtopRetail },
+        { totalCost: cc.stickTotalCost, totalRetail: cc.stickTotalRetail, cost: cc.stickCost, retail: cc.stickRetail },
+        { totalCost: cc.dwTotalCost, totalRetail: cc.dwTotalRetail, cost: cc.dwCost, retail: cc.dwRetail },
+        { totalCost: cc.laborTotalCost, totalRetail: cc.laborTotalRetail, cost: cc.laborCost, retail: cc.laborRetail },
+      ];
+      totalPairs.forEach(({ totalCost, totalRetail, cost, retail }) => {
+        setFormula(row.getCell(totalCost), safeMul(ref(cost, r), ref(cc.qty, r)), 0);
+        row.getCell(totalCost).numFmt = '$#,##0.00';
+        setFormula(row.getCell(totalRetail), safeMul(ref(retail, r), ref(cc.qty, r)), 0);
+        row.getCell(totalRetail).numFmt = '$#,##0.00';
+      });
+
+      // MATERIAL = sum of all total retail EXCEPT labor total retail
+      const matRetailCols = [cc.cabsTotalRetail, cc.pullsTotalRetail, cc.ktopTotalRetail, cc.vtopTotalRetail, cc.stickTotalRetail, cc.dwTotalRetail];
+      setFormula(row.getCell(cc.material), `IFERROR(${matRetailCols.map(c => `N(${ref(c, r)})`).join('+')},0)`, 0);
+      row.getCell(cc.material).numFmt = '$#,##0.00';
+
+      // LABOR = labor total retail
+      setFormula(row.getCell(cc.labor), `N(${ref(cc.laborTotalRetail, r)})`, 0);
+      row.getCell(cc.labor).numFmt = '$#,##0.00';
+
+      // TAX = material × saffron tax rate
+      const taxRateAbs = `$${excelCol(cc.tax)}$${costRateRowNum}`;
+      setFormula(row.getCell(cc.tax), safeMul(ref(cc.material, r), taxRateAbs), 0);
+      row.getCell(cc.tax).numFmt = '$#,##0.00';
+
+      // RETAIL PER UNIT 2 = material + labor + tax
+      setFormula(row.getCell(cc.retailPerUnit2), `IFERROR(N(${ref(cc.material, r)})+N(${ref(cc.labor, r)})+N(${ref(cc.tax, r)}),0)`, 0);
+      row.getCell(cc.retailPerUnit2).numFmt = '$#,##0.00';
+
+      // RETAIL EXT 2 = retail per unit 2 × qty
+      setFormula(row.getCell(cc.retailExt2), safeMul(ref(cc.retailPerUnit2, r), ref(cc.qty, r)), 0);
+      row.getCell(cc.retailExt2).numFmt = '$#,##0.00';
+
       // Center-align all numeric cells
-      for (let c = cc.qty; c <= cc.retailExt; c++) {
-        if (c !== cc.spacer) row.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' };
+      for (let c = cc.qty; c <= cc.retailExt2; c++) {
+        if (c !== cc.spacer && c !== cc.spacer2) row.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' };
       }
     });
 
