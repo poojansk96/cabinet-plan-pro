@@ -327,7 +327,7 @@ VALID SKU PREFIXES (a label must start with one of these + a digit):
 B, DB, SB, CB, EB, LS, LSB, W, UB, WC, OH, BLW, BRW, T, UT, TC, PT, PTC, UC, V, VB, VD, VDC, FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR
 
 FINAL SWEEP: After your initial scan, go back and specifically look for: B09FH, B06FH, B12FH, BF3, BF6, WF3X30, WF6X30, DWR3, DWR6, CM8, TK, TKRUN, EP, LR, SCRIBE, BP. These appear as very small labels on narrow shapes.
-${textLayerSkus.length > 0 ? `\nTEXT LAYER CROSS-REFERENCE — the PDF text layer detected these SKUs on this page:\n${textLayerSkus.join(', ')}\nMake sure ALL of these appear in your results if they are visible as labels on the drawing. If any are missing from your results, look harder for them.\n` : ''}${unitType ? `\nUnit type context: ${unitType}` : ""}
+${textLayerSkus.length > 0 ? `\nMANDATORY CHECKLIST — The underlying PDF text layer confirms these SKUs exist on this page:\n${textLayerSkus.join(', ')}\n\nYou MUST scan the floor plan specifically for EVERY SINGLE item on this list. Do NOT finish your response until you have actively looked for each one: ${textLayerSkus.join(', ')}.\nFor each checklist SKU, report the quantity you found on the floor plan. If you genuinely cannot locate a checklist item in the drawing, still include it with quantity 1 (the text layer proves it exists).\n` : ''}${unitType ? `\nUnit type context: ${unitType}` : ""}
 If no cabinet SKUs are found, return {"items":[]}`;
 
     // Use quadrant tiles if provided (higher effective resolution), otherwise full image
