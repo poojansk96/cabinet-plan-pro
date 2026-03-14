@@ -666,6 +666,59 @@ export default function PreFinalSummaryModule({ project }: Props) {
        typeTotCell.numFmt = '$#,##0.00';
     }
 
+    // ── Cabinet Count Per Unit section (on same Cabinet Count sheet) ──
+    // Shows raw qty per type for cabinet boxes only (Wall/Base/Tall/Vanity); accessories left blank
+    const CABINET_BOX_TYPES = new Set(['Wall', 'Base', 'Tall', 'Vanity']);
+
+    wsCabs.addRow([]); // spacer
+    wsCabs.addRow([]); // spacer
+
+    const cpuTitleRow = wsCabs.addRow([]);
+    cpuTitleRow.getCell(colSku).value = '*Cabinet count perunit';
+    cpuTitleRow.getCell(colSku).font = { bold: true, size: 9 };
+
+    // Header row with unit type columns
+    const cpuHeaderValues: (string | number)[] = ['ITEM LIST'];
+    cabTypes.forEach(t => cpuHeaderValues.push(t));
+    const cpuHeader = wsCabs.addRow(cpuHeaderValues);
+    cpuHeader.height = 120;
+    cpuHeader.eachCell((cell, colNumber) => {
+      cell.font = { bold: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F0' } };
+      cell.border = { bottom: { style: 'thin', color: { argb: 'FF999999' } } };
+      cell.alignment = { vertical: 'bottom', wrapText: false };
+      if (colNumber > 1 && colNumber <= nTypes + 1) {
+        cell.alignment = { textRotation: 90, vertical: 'bottom', horizontal: 'center' };
+      }
+    });
+
+    // Data rows grouped by type, same as main cabinet count section
+    groupedSkus.forEach(({ group, skus }) => {
+      const groupRow = wsCabs.addRow([`${group} (${skus.length})`]);
+      groupRow.eachCell(cell => {
+        cell.font = { bold: true };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAEAEA' } };
+      });
+
+      const isCabinetBox = CABINET_BOX_TYPES.has(group);
+
+      skus.forEach(sku => {
+        const rowValues: (string | number)[] = [sku];
+        cabTypes.forEach(t => {
+          if (isCabinetBox) {
+            const qty = skuTypeQty[sku]?.[t] || 0;
+            rowValues.push(qty > 0 ? qty : '');
+          } else {
+            rowValues.push(''); // accessories left blank
+          }
+        });
+        const row = wsCabs.addRow(rowValues);
+        row.eachCell((cell, colNumber) => {
+          if (colNumber > 1) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        });
+      });
+    });
+
     // ── Sheet 4: Costing ────────────────────────────────────────────
     const wsCosting = wb.addWorksheet('Costing');
     wsCosting.columns = [
