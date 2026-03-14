@@ -330,9 +330,17 @@ FINAL SWEEP: After your initial scan, go back and specifically look for: B09FH, 
 ${textLayerSkus.length > 0 ? `\nTEXT LAYER CROSS-REFERENCE — the PDF text layer detected these SKUs on this page:\n${textLayerSkus.join(', ')}\nMake sure ALL of these appear in your results if they are visible as labels on the drawing. If any are missing from your results, look harder for them.\n` : ''}${unitType ? `\nUnit type context: ${unitType}` : ""}
 If no cabinet SKUs are found, return {"items":[]}`;
 
+    // Use quadrant tiles if provided (higher effective resolution), otherwise full image
+    const extractImages: string | string[] = (Array.isArray(pageQuadrants) && pageQuadrants.length > 0)
+      ? pageQuadrants
+      : pageImage;
+    if (Array.isArray(extractImages)) {
+      console.log(`Using ${extractImages.length} image tiles for extraction`);
+    }
+
     let extracted: any = { items: [] };
     try {
-      extracted = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", pageImage, extractPrompt, 0.1, 8192, EXTRACT_SCHEMA);
+      extracted = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", extractImages, extractPrompt, 0.1, 8192, EXTRACT_SCHEMA);
     } catch (e: any) {
       if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
