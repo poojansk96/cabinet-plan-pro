@@ -843,7 +843,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
     const costRateRow = wsCosting.addRow([]);
     const saffronCostCols = [cc.pullsCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost];
     const saffronRetailCols = [cc.cabsRetail, cc.pullsRetail, cc.ktopRetail, cc.vtopRetail, cc.stickRetail, cc.dwRetail, cc.laborRetail];
-    [...saffronCostCols, ...saffronRetailCols].forEach(col => {
+    const saffronTotalCols = [cc.tax]; // tax multiplier
+    [...saffronCostCols, ...saffronRetailCols, ...saffronTotalCols].forEach(col => {
       const cell = costRateRow.getCell(col);
       cell.value = 0;
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: SAFFRON } };
