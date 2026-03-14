@@ -361,8 +361,15 @@ If no cabinet SKUs are found, return {"items":[]}`;
     let finalItems = splitMergedSkus(rawItems);
     console.log(`Step 2: ${rawItems.length} raw → ${finalItems.length} after split`);
 
-    // Text-layer recovery REMOVED — it was seeding hallucinated data from legends/schedules.
-    // The AI extraction prompt now explicitly bans reading legends/tables.
+    // Text-layer recovery: if AI found nothing, seed from text-layer SKUs
+    if (finalItems.length === 0 && textLayerSkus.length > 0) {
+      console.log(`Recovery: AI returned 0 items, seeding ${textLayerSkus.length} SKUs from text layer`);
+      for (const sku of textLayerSkus) {
+        if (isValidSku(sku)) {
+          finalItems.push({ sku, type: classifySku(sku), room: "Kitchen", quantity: 1 });
+        }
+      }
+    }
 
     console.log(`Final: ${finalItems.length} items`);
 
