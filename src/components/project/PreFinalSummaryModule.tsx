@@ -749,6 +749,16 @@ export default function PreFinalSummaryModule({ project }: Props) {
       { width: 12 }, { width: 12 }, { width: 14 }, { width: 14 },
       { width: 12 }, { width: 12 }, { width: 12 },
       { width: 14 }, { width: 14 },
+      { width: 3 },
+      { width: 14 }, { width: 14 },
+      { width: 14 }, { width: 14 },
+      { width: 14 }, { width: 14 },
+      { width: 14 }, { width: 14 },
+      { width: 14 }, { width: 14 },
+      { width: 14 }, { width: 14 },
+      { width: 14 }, { width: 14 },
+      { width: 14 },
+      { width: 14 }, { width: 14 },
     ];
 
     // Row 1: Section titles
