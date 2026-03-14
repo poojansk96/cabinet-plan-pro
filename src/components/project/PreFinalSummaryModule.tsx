@@ -720,6 +720,16 @@ export default function PreFinalSummaryModule({ project }: Props) {
       cabsRetail: 25, pullsRetail: 26, ktopRetail: 27, vtopRetail: 28,
       stickRetail: 29, dwRetail: 30, laborRetail: 31,
       retailPerUnit: 32, retailExt: 33,
+      spacer2: 34,
+      cabsTotalCost: 35, cabsTotalRetail: 36,
+      pullsTotalCost: 37, pullsTotalRetail: 38,
+      ktopTotalCost: 39, ktopTotalRetail: 40,
+      vtopTotalCost: 41, vtopTotalRetail: 42,
+      stickTotalCost: 43, stickTotalRetail: 44,
+      dwTotalCost: 45, dwTotalRetail: 46,
+      laborTotalCost: 47, laborTotalRetail: 48,
+      material: 49, labor: 50, tax: 51,
+      retailPerUnit2: 52, retailExt2: 53,
     };
 
     const SAFFRON = 'FFFFF2CC';
