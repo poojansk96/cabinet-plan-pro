@@ -213,7 +213,7 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
-    const { pageImage, unitType, pageText, speedMode } = await req.json();
+    const { pageImage, pageQuadrants, unitType, pageText, speedMode } = await req.json();
 
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage (base64 string) required" }), {
