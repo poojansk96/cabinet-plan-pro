@@ -92,77 +92,6 @@ async function renderPageToBase64(page: any): Promise<string> {
   return canvas.toDataURL('image/jpeg', 0.95).split(',')[1];
 }
 
-/** Split a rendered PDF page into 4 quadrant tiles for higher effective AI resolution */
-async function renderPageQuadrants(page: any): Promise<string[]> {
-  const MAX_PX = 4096;
-  const baseViewport = page.getViewport({ scale: 1 });
-  const longSide = Math.max(baseViewport.width, baseViewport.height);
-  const scale = Math.min(4, MAX_PX / longSide);
-  const viewport = page.getViewport({ scale });
-
-  const fullW = Math.ceil(viewport.width);
-  const fullH = Math.ceil(viewport.height);
-
-  // Render full page first
-  let fullCanvas: any;
-  let fullCtx: any;
-  if (typeof OffscreenCanvas !== 'undefined') {
-    fullCanvas = new OffscreenCanvas(fullW, fullH);
-    fullCtx = fullCanvas.getContext('2d')!;
-  } else {
-    fullCanvas = document.createElement('canvas');
-    fullCanvas.width = fullW;
-    fullCanvas.height = fullH;
-    fullCtx = fullCanvas.getContext('2d')!;
-  }
-  await page.render({ canvasContext: fullCtx, viewport }).promise;
-
-  // Crop into 4 quadrants with 10% overlap to avoid cutting labels at boundaries
-  const halfW = Math.ceil(fullW / 2);
-  const halfH = Math.ceil(fullH / 2);
-  const overlapX = Math.ceil(fullW * 0.1);
-  const overlapY = Math.ceil(fullH * 0.1);
-
-  const regions = [
-    { x: 0, y: 0, w: halfW + overlapX, h: halfH + overlapY },                                     // Top-Left
-    { x: Math.max(0, halfW - overlapX), y: 0, w: fullW - halfW + overlapX, h: halfH + overlapY },  // Top-Right
-    { x: 0, y: Math.max(0, halfH - overlapY), w: halfW + overlapX, h: fullH - halfH + overlapY },  // Bottom-Left
-    { x: Math.max(0, halfW - overlapX), y: Math.max(0, halfH - overlapY), w: fullW - halfW + overlapX, h: fullH - halfH + overlapY }, // Bottom-Right
-  ];
-
-  const quadrants: string[] = [];
-  for (const r of regions) {
-    const cw = Math.min(r.w, fullW - r.x);
-    const ch = Math.min(r.h, fullH - r.y);
-    let tileCanvas: any;
-    let tileCtx: any;
-    if (typeof OffscreenCanvas !== 'undefined') {
-      tileCanvas = new OffscreenCanvas(cw, ch);
-      tileCtx = tileCanvas.getContext('2d')!;
-    } else {
-      tileCanvas = document.createElement('canvas');
-      tileCanvas.width = cw;
-      tileCanvas.height = ch;
-      tileCtx = tileCanvas.getContext('2d')!;
-    }
-    // Draw the cropped region
-    tileCtx.drawImage(fullCanvas, r.x, r.y, cw, ch, 0, 0, cw, ch);
-
-    if (typeof OffscreenCanvas !== 'undefined') {
-      const blob = await (tileCanvas as OffscreenCanvas).convertToBlob({ type: 'image/jpeg', quality: 0.92 });
-      const buf = await blob.arrayBuffer();
-      const bytes = new Uint8Array(buf);
-      let binary = '';
-      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-      quadrants.push(btoa(binary));
-    } else {
-      quadrants.push((tileCanvas as HTMLCanvasElement).toDataURL('image/jpeg', 0.92).split(',')[1]);
-    }
-  }
-
-  return quadrants;
-}
-
 function normalizeTypeKey(value: string): string {
   return String(value || '')
     .toUpperCase()
@@ -289,12 +218,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
     const processOnePage = async (p: number) => {
       onStatus(`Rendering "${file.name}" page ${p}/${pdf.numPages}…`);
       const page = await pdf.getPage(p);
-      
-      // Render full image (for classification) + 4 quadrant tiles (for extraction)
-      const [pageImage, pageQuadrants] = await Promise.all([
-        renderPageToBase64(page),
-        renderPageQuadrants(page),
-      ]);
+      const pageImage = await renderPageToBase64(page);
 
       // Extract text layer from the PDF page for cross-referencing
       let pageText = '';
@@ -343,7 +267,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         throw new Error('All attempts failed');
       };
 
-      const aiResponse = await fetchWithRetry(JSON.stringify({ pageImage, pageQuadrants, unitType, pageText, speedMode }));
+      const aiResponse = await fetchWithRetry(JSON.stringify({ pageImage, unitType, pageText, speedMode }));
 
       if (!aiResponse.ok) {
         const status = aiResponse.status;

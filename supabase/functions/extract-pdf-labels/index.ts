@@ -11,7 +11,7 @@ const corsHeaders = {
 async function callGemini(
   apiKey: string,
   model: string,
-  pageImages: string | string[],
+  pageImage: string,
   prompt: string,
   temperature = 0.1,
   maxTokens = 8192,
@@ -28,10 +28,6 @@ async function callGemini(
     genConfig.responseSchema = responseSchema;
   }
 
-  // Build image parts — supports single image or multiple tiles
-  const images = Array.isArray(pageImages) ? pageImages : [pageImages];
-  const imageParts = images.map(img => ({ inlineData: { mimeType: "image/jpeg", data: img } }));
-
   for (const currentModel of MODELS) {
     let modelSucceeded = false;
 
@@ -44,7 +40,7 @@ async function callGemini(
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               contents: [{ role: "user", parts: [
-                ...imageParts,
+                { inlineData: { mimeType: "image/jpeg", data: pageImage } },
                 { text: prompt },
               ]}],
               generationConfig: genConfig,
@@ -108,18 +104,15 @@ async function callGemini(
 const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|UB|WC|OH|BLW|BRW|T|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR)\d[\w\-\/]*/gi;
 const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
 const SKU_PREFIX_RE = /^(BLW|BRW|DB|SB|CB|EB|LSB|LS|BFFIL|WFFIL|TKRUN|TK|BF|WF|FIL|CM|LR|EP|FP|DWR|VDC|VB|VD|WC|UB|OH|PTC|PT|UTC|UT|TC|UC|W|T|V|B)\d/i;
-// Relaxed pattern: accepts any letter(s) + digit combo that the AI returns (trusts AI detection more)
-const RELAXED_SKU_RE = /^[A-Z]{1,6}\d/i;
 const NO_DIGIT_OK = /^(BP|SCRIBE)$/i;
 
-function isValidSku(s: string, relaxed = false): boolean {
+function isValidSku(s: string): boolean {
   const upper = s.toUpperCase().trim();
   if (!upper || upper.length < 2) return false;
   if (APPLIANCE_RE.test(upper)) return false;
   if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) return false;
   if (upper.includes('/') && !(/^(BLW|BRW)\d/i.test(upper))) return false;
-  // Strict mode: must match known cabinet prefix; Relaxed: any letter+digit combo
-  return SKU_PREFIX_RE.test(upper) || (relaxed && RELAXED_SKU_RE.test(upper));
+  return SKU_PREFIX_RE.test(upper);
 }
 
 function extractSkusFromText(pageText: string): string[] {
@@ -216,7 +209,7 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
-    const { pageImage, pageQuadrants, unitType, pageText, speedMode } = await req.json();
+    const { pageImage, unitType, pageText, speedMode } = await req.json();
 
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage (base64 string) required" }), {
@@ -271,8 +264,8 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
     console.log(`Step 1 Classification: pageType=${rawPageType}, unitType=${detectedUnitType}, isCommonArea=${isCommonArea}`);
 
     // ═══════════════════════════════════════════════════════════
-    // DECISION: Extract SKUs from plan views AND all elevations.
-    // Only skip title pages (no cabinets drawn).
+    // DECISION: Extract SKUs only from plan views and common area elevations
+    // Residential elevations are SKIPPED (same cabinets as plan view → double-count)
     // ═══════════════════════════════════════════════════════════
 
     const isPlanView = rawPageType.includes("plan");
@@ -281,7 +274,7 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
     const shouldExtract = isPlanView || (isElevation && isCommonArea);
 
     if (!shouldExtract) {
-      console.log(`Skipping extraction: pageType=${rawPageType} (title page)`);
+      console.log(`Skipping extraction: pageType=${rawPageType}, isCommonArea=${isCommonArea}`);
       return new Response(JSON.stringify({ items: [], unitTypeName: detectedUnitType }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -291,15 +284,7 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
     // STEP 2: EXTRACT CABINET SKUs (focused, single-pass)
     // ═══════════════════════════════════════════════════════════
 
-    const hasQuadrants = Array.isArray(pageQuadrants) && pageQuadrants.length > 0;
     const extractPrompt = `Extract ALL cabinet SKU labels from this 2020 Design shop drawing page.
-${hasQuadrants ? '\nYou are receiving 4 zoomed-in quadrant images of the same page (Top-Left, Top-Right, Bottom-Left, Bottom-Right with overlap). Examine ALL quadrants carefully — cabinets may appear in any quadrant. If the same SKU appears in overlapping regions, count it only ONCE.\n' : ''}
-
-CRITICAL EXTRACTION RULES — READ CAREFULLY:
-1. IGNORE ALL TABLES AND LEGENDS: 2020 drawings often have a "Cabinet Schedule", "Quote", "Bill of Materials", or "Legend" printed on the page (usually in a box or bordered area on the side/corner). DO NOT read these. DO NOT extract quantities from lists, tables, schedules, or any tabular data. These contain project totals that will massively inflate your counts.
-2. VISUAL COUNT ONLY: You must ONLY extract SKUs by visually looking at the physical cabinet shapes drawn on the floor plan or elevation wall. A valid SKU is a text label sitting ON or NEXT TO a drawn rectangle/shape representing a cabinet.
-3. COUNT EVERY INSTANCE: If you see the label "W2430" resting on three different cabinet boxes on the drawing, the quantity is 3. Do not aggregate based on outside text.
-4. DO NOT SKIP PAGES: If you see cabinet boxes with SKU labels on them (whether it is a plan view, elevation view, mirror view, residential, or common area), YOU MUST EXTRACT THEM. If cabinets are drawn, extract them.
 
 For each cabinet found, provide:
 1. sku: The SKU label exactly as written (e.g. B24, W3036, DB15, BF3, WF6X30, LS36-L, BLW36/3930-L, B09FH)
@@ -310,19 +295,20 @@ For each cabinet found, provide:
    - "Vanity" → V, VB, VD, VDC
    - "Accessory" → FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR
 3. room: From room labels on the plan (Kitchen, Bath, Laundry, Pantry — capitalize first letter only)
-4. quantity: Count EVERY separate physical cabinet shape with this label on the drawing
+4. quantity: Count EVERY separate label occurrence of this SKU on this page
 
 COUNTING — CRITICAL:
-- If "DB15" label appears on TWO different cabinet shapes → quantity 2
-- If "BF3" label appears on one shape → quantity 1. Do NOT skip small accessories.
-- ACCESSORIES MATTER: BF3, BF6, WF3X30, WF6X30, DWR3, DWR6, CM8, TK, TKRUN, EP, LR, SCRIBE, BP — count EVERY single one. Scan the ENTIRE drawing including corners, edges, and narrow gaps between cabinets.
-- FILLER-HEAD CABINETS: B09FH, B06FH, B12FH — these are VERY NARROW rectangles (6"-12" wide). They appear as thin slivers between larger cabinets or at the end of a run. ACTIVELY LOOK FOR THESE.
+- If "DB15" label appears in TWO different spots → quantity 2
+- If "BF3" label appears once → quantity 1. Do NOT skip small accessories.
+- ACCESSORIES MATTER: BF3, BF6, WF3X30, WF6X30, DWR3, DWR6, FIL3 — count EVERY single one. Scan the ENTIRE drawing including corners, edges, and narrow gaps between cabinets.
+- FILLER-HEAD CABINETS: B09FH, B06FH, B12FH — these are VERY NARROW rectangles (6"-12" wide). They appear as thin slivers between larger cabinets or at the end of a run. ACTIVELY LOOK FOR THESE — they are commonly missed.
 - Corner cabinets (LS, LSB) at wall junction = count ONCE even if label appears at junction of two wall runs.
 - Look for "xN" or "(2)" multiplier notation next to labels.
 
 STACKED / ADJACENT LABELS — MOST COMMON ERROR:
 - Two or more SKU labels near the same location are ALWAYS SEPARATE cabinets. NEVER merge them into one string.
 - "W1230" on one line and "VDC2430" below it → TWO separate entries: W1230 (qty 1) AND VDC2430 (qty 1). NOT "W1230VDC2430".
+- "W1530" near "BLW24/2730-R" → TWO separate entries. NOT "W1530-BLW24/2730-R".
 
 DOOR CONFIGURATION SUFFIXES — STRIP THESE:
 - "SB36B-1D", "B33-1D", "B24-2D" → report base SKU only: "SB36", "B33", "B24"
@@ -336,21 +322,13 @@ SKIP THESE — NOT CABINET SKUs:
 VALID SKU PREFIXES (a label must start with one of these + a digit):
 B, DB, SB, CB, EB, LS, LSB, W, UB, WC, OH, BLW, BRW, T, UT, TC, PT, PTC, UC, V, VB, VD, VDC, FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR
 
-FINAL SWEEP: After your initial scan, go back and specifically look for: B09FH, B06FH, B12FH, BF3, BF6, WF3X30, WF6X30, DWR3, DWR6, CM8, TK, TKRUN, EP, LR, SCRIBE, BP.
-${unitType ? `\nUnit type context: ${unitType}` : ""}
+FINAL SWEEP: After your initial scan, go back and specifically look for: B09FH, B06FH, B12FH, BF3, BF6, WF3X30, WF6X30, DWR3, DWR6, CM8, TK, TKRUN, EP, LR, SCRIBE, BP. These appear as very small labels on narrow shapes.
+${textLayerSkus.length > 0 ? `\nTEXT LAYER CROSS-REFERENCE — the PDF text layer detected these SKUs on this page:\n${textLayerSkus.join(', ')}\nMake sure ALL of these appear in your results if they are visible as labels on the drawing. If any are missing from your results, look harder for them.\n` : ''}${unitType ? `\nUnit type context: ${unitType}` : ""}
 If no cabinet SKUs are found, return {"items":[]}`;
-
-    // Use quadrant tiles if provided (higher effective resolution), otherwise full image
-    const extractImages: string | string[] = (Array.isArray(pageQuadrants) && pageQuadrants.length > 0)
-      ? pageQuadrants
-      : pageImage;
-    if (Array.isArray(extractImages)) {
-      console.log(`Using ${extractImages.length} image tiles for extraction`);
-    }
 
     let extracted: any = { items: [] };
     try {
-      extracted = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", extractImages, extractPrompt, 0.1, 8192, EXTRACT_SCHEMA);
+      extracted = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", pageImage, extractPrompt, 0.1, 8192, EXTRACT_SCHEMA);
     } catch (e: any) {
       if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -361,14 +339,17 @@ If no cabinet SKUs are found, return {"items":[]}`;
     let finalItems = splitMergedSkus(rawItems);
     console.log(`Step 2: ${rawItems.length} raw → ${finalItems.length} after split`);
 
-    // Text-layer recovery: if AI found nothing, seed from text-layer SKUs
+    // ── RECOVERY: If extraction is empty but text layer has SKUs ──
+    // This catches MIRROR pages and cases where the AI fails to read labels.
+    // Seed with qty=1 each (text counts are unreliable due to legends/notes).
     if (finalItems.length === 0 && textLayerSkus.length > 0) {
-      console.log(`Recovery: AI returned 0 items, seeding ${textLayerSkus.length} SKUs from text layer`);
+      console.log(`Extraction empty but text layer has ${textLayerSkus.length} SKUs — seeding with qty=1`);
       for (const sku of textLayerSkus) {
         if (isValidSku(sku)) {
           finalItems.push({ sku, type: classifySku(sku), room: "Kitchen", quantity: 1 });
         }
       }
+      console.log(`Text layer seed: ${finalItems.length} items`);
     }
 
     console.log(`Final: ${finalItems.length} items`);
@@ -387,8 +368,8 @@ If no cabinet SKUs are found, return {"items":[]}`;
         if (/^[A-Z]\d?-[A-Z]/i.test(upper) && upper.length <= 4) return false;
         // Filter callout / sheet references containing "/"
         if (upper.includes('/') && !(/^(BLW|BRW)\d/i.test(upper))) return false;
-        // Accept AI-detected SKUs with relaxed validation (trust the AI more)
-        if (!SKU_PREFIX_RE.test(upper) && !NO_DIGIT_OK.test(upper) && !RELAXED_SKU_RE.test(upper)) return false;
+        // Must match a known cabinet prefix
+        if (!SKU_PREFIX_RE.test(upper) && !NO_DIGIT_OK.test(upper)) return false;
         return true;
       })
       .map((c: any) => {

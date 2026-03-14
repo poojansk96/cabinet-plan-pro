@@ -103,6 +103,8 @@ export default function PreFinalModule({ project }: Props) {
       const knownResolved = resolveKnownType(rawType) || resolveKnownType(normalizedIncoming);
       const canPromoteIncomingType = normalizedIncoming.startsWith('TYPE ');
 
+      // Keep strict matching, but do not discard clearly-structured new types (e.g. TYPE 8 - MIRROR)
+      // when unit import missed them.
       const finalType = knownResolved || fallbackType || (canPromoteIncomingType
         ? normalizedIncoming
         : (knownTypes.length > 0 ? 'Unassigned' : (normalizedIncoming || 'Unassigned')));
@@ -112,10 +114,15 @@ export default function PreFinalModule({ project }: Props) {
       if (!orderedTypes.includes(finalType)) orderedTypes.push(finalType);
     }
 
-    // Build cabinet unit type list from ONLY types that have actual data
-    // or come from the PDF import order. Do NOT blindly copy all unit-count types
-    // as that adds blank/garbage columns with zero cabinet rows.
-    const typesWithData = new Set(orderedTypes);
+    // Use PDF page order from import if available, otherwise use row insertion order.
+    // IMPORTANT: Keep unit types even when they have zero cabinet rows.
+    const knownUnitTypes = store.unitTypes
+      .map(t => {
+        const norm = normalizeUnitType(t);
+        const resolved = resolveKnownType(t) || resolveKnownType(norm);
+        return resolved || norm;
+      })
+      .filter((t, i, arr) => !!t && arr.indexOf(t) === i);
 
     if (importTypeOrder && importTypeOrder.length > 0) {
       const normalizedOrder = importTypeOrder
@@ -124,18 +131,20 @@ export default function PreFinalModule({ project }: Props) {
           const resolved = resolveKnownType(t) || resolveKnownType(norm);
           return resolved || norm;
         })
-        .filter((t, i, arr) => !!t && t.trim() !== '' && arr.indexOf(t) === i);
+        .filter((t, i, arr) => arr.indexOf(t) === i);
 
-      // Only keep types from PDF order that have actual data OR are in importTypeOrder
-      for (const t of normalizedOrder) typesWithData.add(t);
-      const finalOrder = normalizedOrder
-        .concat(orderedTypes.filter(t => !normalizedOrder.includes(t)))
-        .filter((t, i, arr) => !!t && t !== 'Unassigned' && t.trim() !== '' && arr.indexOf(t) === i);
-      store.addCabinetUnitTypes(finalOrder, true);
+      // Keep all detected types from PDF order, then append row-derived extras,
+      // then append known unit-count types that were not detected this run.
+      const remaining = orderedTypes.filter(t => !normalizedOrder.includes(t));
+      const merged = [...normalizedOrder, ...remaining];
+      const missingKnown = knownUnitTypes.filter(t => !merged.includes(t));
+      const finalOrder = [...merged, ...missingKnown].filter((t, i, arr) => arr.indexOf(t) === i);
+      store.addCabinetUnitTypes(finalOrder.filter(t => t !== 'Unassigned'), true);
     } else {
-      const finalOrder = orderedTypes
-        .filter((t, i, arr) => !!t && t !== 'Unassigned' && t.trim() !== '' && arr.indexOf(t) === i);
-      store.addCabinetUnitTypes(finalOrder, true);
+      // Still enforce PDF row appearance order when explicit page order isn't provided,
+      // and keep known unit-count types to avoid losing AS/MIRROR variants.
+      const merged = [...orderedTypes, ...knownUnitTypes].filter((t, i, arr) => arr.indexOf(t) === i);
+      store.addCabinetUnitTypes(merged.filter(t => t !== 'Unassigned'), true);
     }
 
     for (const [unitType, typeRows] of rowsByType) {

@@ -299,11 +299,6 @@ export default function PreFinalSummaryModule({ project }: Props) {
     const colTotalCabLabel = colSpacer3 + 1;
     const colTotalCabFirstType = colTotalCabLabel + 1;
     const colTotalCabGrand = colTotalCabFirstType + nTypes;
-    const colSpacer4 = colTotalCabGrand + 1;
-
-    const colPerUnitLabel = colSpacer4 + 1;
-    const colPerUnitFirstType = colPerUnitLabel + 1;
-    const colPerUnitGrand = colPerUnitFirstType + nTypes;
 
     const pricingStart = colSpacer2; // keep naming used below
     const totalCabStart = colSpacer3; // keep naming used below
@@ -327,10 +322,6 @@ export default function PreFinalSummaryModule({ project }: Props) {
     colWidths.push({ width: 14 });
     for (let i = 0; i < nTypes; i++) colWidths.push({ width: 6 });
     colWidths.push({ width: 8 });
-    colWidths.push({ width: 3 });  // spacer4
-    colWidths.push({ width: 14 }); // per-unit label
-    for (let i = 0; i < nTypes; i++) colWidths.push({ width: 6 });
-    colWidths.push({ width: 8 });  // per-unit grand total
     wsCabs.columns = colWidths;
 
     // Section headers
@@ -343,8 +334,6 @@ export default function PreFinalSummaryModule({ project }: Props) {
     sectionRow.getCell(colPricingBid).font = { bold: true, size: 9 };
     sectionRow.getCell(colTotalCabLabel).value = 'TOTAL CABINET COUNT';
     sectionRow.getCell(colTotalCabLabel).font = { bold: true, size: 9 };
-    sectionRow.getCell(colPerUnitLabel).value = '*CABINET COUNT PER UNIT';
-    sectionRow.getCell(colPerUnitLabel).font = { bold: true, size: 9 };
 
     // Unit count reference row (used by formulas)
     const unitCountRow = wsCabs.addRow([]);
@@ -383,10 +372,6 @@ export default function PreFinalSummaryModule({ project }: Props) {
     headerValues.push('Total Cab Count');
     cabTypes.forEach(t => headerValues.push(t));
     headerValues.push('Grand Total');
-    headerValues.push('');
-    headerValues.push('*Cab Count/Unit');
-    cabTypes.forEach(t => headerValues.push(t));
-    headerValues.push('Grand Total');
 
     const cabHeader = wsCabs.addRow(headerValues);
     cabHeader.height = 120;
@@ -399,8 +384,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
       if ((idx >= 1 && idx <= nTypes) ||
           (idx >= colPullsFirstType - 1 && idx <= colPullsFirstType - 2 + nTypes) ||
           (idx >= colPricingFirstType - 1 && idx <= colPricingFirstType - 2 + nTypes) ||
-          (idx >= colTotalCabFirstType - 1 && idx <= colTotalCabFirstType - 2 + nTypes) ||
-          (idx >= colPerUnitFirstType - 1 && idx <= colPerUnitFirstType - 2 + nTypes)) {
+          (idx >= colTotalCabFirstType - 1 && idx <= colTotalCabFirstType - 2 + nTypes)) {
         cell.alignment = { textRotation: 90, vertical: 'bottom', horizontal: 'center' };
       }
     });
@@ -417,7 +401,6 @@ export default function PreFinalSummaryModule({ project }: Props) {
         cell.font = { bold: true };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAEAEA' } };
       });
-      const isAccessoryGroup = group === 'Accessory';
 
       skus.forEach(sku => {
         const pullsPerCab = store.handleQtyPerSku[sku] || 0;
@@ -453,12 +436,6 @@ export default function PreFinalSummaryModule({ project }: Props) {
         rowValues.push('');
 
         // Total cabinet count (formulas)
-        rowValues.push('');
-        cabTypes.forEach(() => rowValues.push(''));
-        rowValues.push('');
-        rowValues.push('');
-
-        // Cabinet count per unit (formulas — only for non-accessory)
         rowValues.push('');
         cabTypes.forEach(() => rowValues.push(''));
         rowValues.push('');
@@ -503,19 +480,6 @@ export default function PreFinalSummaryModule({ project }: Props) {
             : '0',
           0
         );
-
-        // Cabinet Count Per Unit — only for cabinet boxes, leave accessories empty
-        if (!isAccessoryGroup && nTypes > 0) {
-          for (let i = 0; i < nTypes; i++) {
-            const cabQtyCell = ref(colCabFirstType + i, r);
-            setFormula(row.getCell(colPerUnitFirstType + i), `${n(cabQtyCell)}`, 0);
-          }
-          setFormula(
-            row.getCell(colPerUnitGrand),
-            safeSum(ref(colPerUnitFirstType, r), ref(colPerUnitFirstType + nTypes - 1, r)),
-            0
-          );
-        }
 
         // Pricing (uses per-type Bid/Additional rows written after totals; formulas patched later)
         row.eachCell((cell, colNumber) => {
@@ -600,21 +564,6 @@ export default function PreFinalSummaryModule({ project }: Props) {
      setFormula(
        cabTotRow.getCell(colTotalCabGrand),
        safeSumColRange(excelCol(colTotalCabGrand), dataRangeStartRow, dataRangeEndRow),
-       0
-     );
-
-     // Cabinet count per unit totals
-     cabTotRow.getCell(colPerUnitLabel).value = 'TOTAL';
-     for (let i = 0; i < nTypes; i++) {
-       setFormula(
-         cabTotRow.getCell(colPerUnitFirstType + i),
-         safeSumColRange(excelCol(colPerUnitFirstType + i), dataRangeStartRow, dataRangeEndRow),
-         0
-       );
-     }
-     setFormula(
-       cabTotRow.getCell(colPerUnitGrand),
-       safeSumColRange(excelCol(colPerUnitGrand), dataRangeStartRow, dataRangeEndRow),
        0
      );
 
