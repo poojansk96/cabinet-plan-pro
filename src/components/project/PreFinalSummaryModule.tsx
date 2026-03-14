@@ -504,6 +504,19 @@ export default function PreFinalSummaryModule({ project }: Props) {
           0
         );
 
+        // Cabinet Count Per Unit — only for cabinet boxes, leave accessories empty
+        if (!isAccessoryGroup && nTypes > 0) {
+          for (let i = 0; i < nTypes; i++) {
+            const cabQtyCell = ref(colCabFirstType + i, r);
+            setFormula(row.getCell(colPerUnitFirstType + i), `${n(cabQtyCell)}`, 0);
+          }
+          setFormula(
+            row.getCell(colPerUnitGrand),
+            safeSum(ref(colPerUnitFirstType, r), ref(colPerUnitFirstType + nTypes - 1, r)),
+            0
+          );
+        }
+
         // Pricing (uses per-type Bid/Additional rows written after totals; formulas patched later)
         row.eachCell((cell, colNumber) => {
           if (colNumber > 1) cell.alignment = { horizontal: 'center', vertical: 'middle' };
