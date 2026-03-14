@@ -721,69 +721,253 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
     // ── Sheet 4: Costing ────────────────────────────────────────────
     const wsCosting = wb.addWorksheet('Costing');
+
+    // Column indices (1-based)
+    const cc = {
+      type: 1, qty: 2, cabsCost: 3,
+      pullsQty: 4, pullsCost: 5,
+      ktopSqft: 6, ktopRate: 7, ktopCost: 8,
+      kBackSplash: 9, kSinkCutout: 10, kFaucetHoles: 11, kRangeCutout: 12,
+      vtopSqft: 13, vtopRate: 14, vtopCost: 15,
+      vBackSplash: 16, vSinkCutout: 17, vFaucetHoles: 18,
+      stickQty: 19, stickCost: 20,
+      dwQty: 21, dwCost: 22,
+      laborCost: 23,
+      costPerUnit: 24, costExt: 25,
+      spacer: 26,
+      cabsRetail: 27, pullsRetail: 28, ktopRetail: 29, vtopRetail: 30,
+      dwRetail: 31, laborRetail: 32,
+      retailPerUnit: 33, retailExt: 34,
+    };
+
+    const SAFFRON = 'FFFFF2CC';
+
     wsCosting.columns = [
-      { width: 20 }, { width: 10 }, { width: 16 }, { width: 16 }, { width: 16 }, { width: 16 },
+      { width: 30 }, { width: 8 }, { width: 14 },
+      { width: 10 }, { width: 12 },
+      { width: 10 }, { width: 14 }, { width: 12 },
+      { width: 14 }, { width: 14 }, { width: 12 }, { width: 14 },
+      { width: 10 }, { width: 14 }, { width: 12 },
+      { width: 14 }, { width: 14 }, { width: 12 },
+      { width: 10 }, { width: 12 },
+      { width: 10 }, { width: 12 },
+      { width: 12 },
+      { width: 14 }, { width: 14 },
+      { width: 3 },
+      { width: 12 }, { width: 12 }, { width: 14 }, { width: 14 },
+      { width: 12 }, { width: 12 },
+      { width: 14 }, { width: 14 },
     ];
 
-    wsCosting.addRow([]);
-    const costHeader = wsCosting.addRow(['Unit Type', 'Qty', 'Cabinet Cost', 'Additional', 'Handle Cost', 'Total']);
-    styleHeader(costHeader);
-    costHeader.eachCell(cell => {
-      cell.alignment = { horizontal: 'center', vertical: 'bottom' };
-    });
-    costHeader.getCell(1).alignment = { horizontal: 'left', vertical: 'bottom' };
+    // Row 1: Section titles
+    const secTitleRow = wsCosting.addRow([]);
+    secTitleRow.getCell(cc.ktopSqft).value = 'STONE / SOLID SURFACE K-TOPS';
+    secTitleRow.getCell(cc.ktopSqft).font = { bold: true, size: 9 };
+    secTitleRow.getCell(cc.vtopSqft).value = 'STONE / SOLID SURFACE V-TOPS';
+    secTitleRow.getCell(cc.vtopSqft).font = { bold: true, size: 9 };
+    secTitleRow.getCell(cc.cabsRetail).value = 'RETAIL';
+    secTitleRow.getCell(cc.cabsRetail).font = { bold: true, size: 9 };
 
+    // Row 2: Column headers
+    const costHeaders: Record<number, string> = {
+      [cc.type]: 'SCHEME A',
+      [cc.qty]: 'QTY',
+      [cc.cabsCost]: 'CABS\nCOST',
+      [cc.pullsQty]: 'PULLS\nQTY',
+      [cc.pullsCost]: 'PULLS\nCOST',
+      [cc.ktopSqft]: 'KTOP\nSQFT',
+      [cc.ktopRate]: 'QUARTZ GRP1\nKTOP COST',
+      [cc.ktopCost]: 'KTOP\nCOST',
+      [cc.kBackSplash]: 'BACK &\nSIDESPLASH\nSQFT',
+      [cc.kSinkCutout]: 'UNDERMOUNT\nKITCHEN SINK\nCUTOUT',
+      [cc.kFaucetHoles]: 'FAUCET\nHOLES\n(select upto 3)',
+      [cc.kRangeCutout]: 'FREE STANDING\nRANGE CUTOUT\nQTY',
+      [cc.vtopSqft]: 'VTOP\nSQFT',
+      [cc.vtopRate]: 'QUARTZ GRP1\nVTOP COST',
+      [cc.vtopCost]: 'VTOP\nCOST',
+      [cc.vBackSplash]: 'BACK &\nSIDESPLASH\nSQFT',
+      [cc.vSinkCutout]: 'UNDERMOUNT\nVANITY SINK\nCUTOUT',
+      [cc.vFaucetHoles]: 'FAUCET HOLES\nfor each sink\n(select)',
+      [cc.stickQty]: '2X3X8\nSTICK QTY',
+      [cc.stickCost]: '2X3X8\nSTICK COST',
+      [cc.dwQty]: 'DW\nBRACKETS\nQTY',
+      [cc.dwCost]: 'DW\nBRACKETS\nCOST',
+      [cc.laborCost]: 'LABOR\nCOST',
+      [cc.costPerUnit]: 'COST\nPER UNIT',
+      [cc.costExt]: 'COST\nEXT',
+      [cc.cabsRetail]: 'CABS\nRETAIL',
+      [cc.pullsRetail]: 'PULLS\nRETAIL',
+      [cc.ktopRetail]: 'QUARTZ KTOP\nGRP1 RETAIL',
+      [cc.vtopRetail]: 'QUARTZ VTOP\nGRP1 RETAIL',
+      [cc.dwRetail]: 'DW BRACKETS\nRETAIL',
+      [cc.laborRetail]: 'LABOR\nRETAIL',
+      [cc.retailPerUnit]: 'RETAIL\nPER UNIT',
+      [cc.retailExt]: 'RETAIL\nEXT',
+    };
+
+    const costHeaderRow2 = wsCosting.addRow([]);
+    Object.entries(costHeaders).forEach(([col, label]) => {
+      const cell = costHeaderRow2.getCell(Number(col));
+      cell.value = label;
+      cell.font = { bold: true, size: 8 };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F0' } };
+      cell.border = allBorders;
+      cell.alignment = { vertical: 'bottom', wrapText: true, horizontal: 'center' };
+    });
+    costHeaderRow2.getCell(cc.type).alignment = { vertical: 'bottom', wrapText: true, horizontal: 'left' };
+    costHeaderRow2.height = 80;
+
+    // Row 3: Saffron rate/multiplier row (user-editable rates)
+    const costRateRow = wsCosting.addRow([]);
+    const saffronCells: number[] = [
+      cc.pullsCost, cc.ktopRate, cc.vtopRate,
+      cc.stickCost, cc.dwCost,
+      cc.cabsRetail, cc.pullsRetail, cc.ktopRetail, cc.vtopRetail, cc.dwRetail, cc.laborRetail,
+    ];
+    saffronCells.forEach(col => {
+      const cell = costRateRow.getCell(col);
+      cell.value = 0;
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: SAFFRON } };
+      cell.font = { bold: true };
+      cell.alignment = { horizontal: 'center' };
+    });
+    // Dollar format for cost rates
+    [cc.pullsCost, cc.ktopRate, cc.vtopRate, cc.stickCost, cc.dwCost].forEach(col => {
+      costRateRow.getCell(col).numFmt = '$#,##0.00';
+    });
+
+    const costRateRowNum = costRateRow.number;
+    const costDataStart = costRateRowNum + 1;
+
+    // Helpers for referencing cabinet count sheet
     const pullsSumRangeForType = (typeIndex: number) => {
       const col = colPullsFirstType + typeIndex;
       return `${excelCol(col)}${dataRangeStartRow}:${excelCol(col)}${dataRangeEndRow}`;
     };
 
+    // Data rows per unit type
     cabTypes.forEach((t, i) => {
-      const row = wsCosting.addRow([t, '', '', '', '', '']);
+      const row = wsCosting.addRow([]);
       const r = row.number;
+      row.getCell(cc.type).value = t;
 
-      // Qty references the Unit Count row in Cabinet Count sheet
-      const qtyRef = `'Cabinet Count'!${ref(colTotalCabFirstType + i, unitCountRow.number)}`;
-      setFormula(row.getCell(2), qtyRef, 0);
-      row.getCell(2).alignment = { horizontal: 'center' };
+      // QTY = unit count for this type
+      const qtyRefStr = `'Cabinet Count'!${ref(colTotalCabFirstType + i, unitCountRow.number)}`;
+      setFormula(row.getCell(cc.qty), qtyRefStr, 0);
+      row.getCell(cc.qty).alignment = { horizontal: 'center' };
 
-      // Cabinet cost = Qty * BidCost/Type (editable in Cabinet Count sheet)
-      const bidCostRef = `'Cabinet Count'!${ref(colPricingFirstType + i, bidCostRow.number)}`;
-      setFormula(row.getCell(3), `${ref(2, r)}*${bidCostRef}`, 0);
-      row.getCell(3).numFmt = '$#,##0.00';
+      // CABS COST per unit = total cabs for type × total cost per cab (bid+additional)
+      const cabCountRefStr = `'Cabinet Count'!${ref(colCabFirstType + i, cabTotRow.number)}`;
+      const totalCostRefStr = `'Cabinet Count'!${ref(colPricingFirstType + i, totalCostRow.number)}`;
+      setFormula(row.getCell(cc.cabsCost), safeMul(cabCountRefStr, totalCostRefStr), 0);
+      row.getCell(cc.cabsCost).numFmt = '$#,##0.00';
 
-      // Additional = Qty * Additional/Type
-      const addCostRef = `'Cabinet Count'!${ref(colPricingFirstType + i, addCostRow.number)}`;
-      setFormula(row.getCell(4), `${ref(2, r)}*${addCostRef}`, 0);
-      row.getCell(4).numFmt = '$#,##0.00';
+      // PULLS QTY = total pulls for this type (from cab count sheet)
+      const pullsRefStr = `'Cabinet Count'!${ref(colPullsFirstType + i, cabTotRow.number)}`;
+      setFormula(row.getCell(cc.pullsQty), pullsRefStr, 0);
+      row.getCell(cc.pullsQty).alignment = { horizontal: 'center' };
 
-      // Handle Cost (count) = Qty * SUM(Pulls-per-unit for this type across all SKUs)
-      const pullsSumRef = `SUM('Cabinet Count'!${pullsSumRangeForType(i)})`;
-      setFormula(row.getCell(5), `${ref(2, r)}*${pullsSumRef}`, 0);
-      row.getCell(5).alignment = { horizontal: 'center' };
+      // PULLS COST = PULLS QTY × pulls rate (saffron)
+      const pullsRateAbs = `$${excelCol(cc.pullsCost)}$${costRateRowNum}`;
+      setFormula(row.getCell(cc.pullsCost), safeMul(ref(cc.pullsQty, r), pullsRateAbs), 0);
+      row.getCell(cc.pullsCost).numFmt = '$#,##0.00';
 
-      // Total = Cabinet + Additional + Handles
-      setFormula(row.getCell(6), `${ref(3, r)}+${ref(4, r)}+${ref(5, r)}`, 0);
-      row.getCell(6).numFmt = '$#,##0.00';
+      // KTOP COST = KTOP SQFT × QUARTZ GRP1 KTOP COST rate (saffron)
+      const ktopRateAbs = `$${excelCol(cc.ktopRate)}$${costRateRowNum}`;
+      setFormula(row.getCell(cc.ktopCost), safeMul(ref(cc.ktopSqft, r), ktopRateAbs), 0);
+      row.getCell(cc.ktopCost).numFmt = '$#,##0.00';
+
+      // VTOP COST = VTOP SQFT × QUARTZ GRP1 VTOP COST rate (saffron)
+      const vtopRateAbs = `$${excelCol(cc.vtopRate)}$${costRateRowNum}`;
+      setFormula(row.getCell(cc.vtopCost), safeMul(ref(cc.vtopSqft, r), vtopRateAbs), 0);
+      row.getCell(cc.vtopCost).numFmt = '$#,##0.00';
+
+      // 2X3X8 STICK COST = 2X3X8 QTY × rate (saffron in same col)
+      const stickRateAbs = `$${excelCol(cc.stickCost)}$${costRateRowNum}`;
+      setFormula(row.getCell(cc.stickCost), safeMul(ref(cc.stickQty, r), stickRateAbs), 0);
+      row.getCell(cc.stickCost).numFmt = '$#,##0.00';
+
+      // DW BRACKETS COST = DW QTY × rate (saffron in same col)
+      const dwRateAbs = `$${excelCol(cc.dwCost)}$${costRateRowNum}`;
+      setFormula(row.getCell(cc.dwCost), safeMul(ref(cc.dwQty, r), dwRateAbs), 0);
+      row.getCell(cc.dwCost).numFmt = '$#,##0.00';
+
+      // LABOR COST = blank (user enters manually)
+
+      // COST PER UNIT = sum of all cost columns
+      const costCols = [cc.cabsCost, cc.pullsCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.laborCost];
+      const costFormula = costCols.map(c => `N(${ref(c, r)})`).join('+');
+      setFormula(row.getCell(cc.costPerUnit), `IFERROR(${costFormula},0)`, 0);
+      row.getCell(cc.costPerUnit).numFmt = '$#,##0.00';
+
+      // COST EXT = COST PER UNIT × QTY
+      setFormula(row.getCell(cc.costExt), safeMul(ref(cc.costPerUnit, r), ref(cc.qty, r)), 0);
+      row.getCell(cc.costExt).numFmt = '$#,##0.00';
+
+      // RETAIL columns = corresponding cost × retail multiplier (saffron)
+      const retailMap = [
+        { retail: cc.cabsRetail, cost: cc.cabsCost },
+        { retail: cc.pullsRetail, cost: cc.pullsCost },
+        { retail: cc.ktopRetail, cost: cc.ktopCost },
+        { retail: cc.vtopRetail, cost: cc.vtopCost },
+        { retail: cc.dwRetail, cost: cc.dwCost },
+        { retail: cc.laborRetail, cost: cc.laborCost },
+      ];
+      retailMap.forEach(({ retail, cost }) => {
+        const multAbs = `$${excelCol(retail)}$${costRateRowNum}`;
+        setFormula(row.getCell(retail), safeMul(ref(cost, r), multAbs), 0);
+        row.getCell(retail).numFmt = '$#,##0.00';
+      });
+
+      // RETAIL PER UNIT = sum of all retail columns
+      const retailColRefs = retailMap.map(m => ref(m.retail, r));
+      setFormula(row.getCell(cc.retailPerUnit), `IFERROR(${retailColRefs.map(c => `N(${c})`).join('+')},0)`, 0);
+      row.getCell(cc.retailPerUnit).numFmt = '$#,##0.00';
+
+      // RETAIL EXT = RETAIL PER UNIT × QTY
+      setFormula(row.getCell(cc.retailExt), safeMul(ref(cc.retailPerUnit, r), ref(cc.qty, r)), 0);
+      row.getCell(cc.retailExt).numFmt = '$#,##0.00';
+
+      // Center-align all numeric cells
+      for (let c = cc.qty; c <= cc.retailExt; c++) {
+        if (c === cc.spacer) continue;
+        if (!row.getCell(c).alignment) row.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' };
+        else row.getCell(c).alignment = { ...row.getCell(c).alignment, horizontal: 'center', vertical: 'middle' };
+      }
     });
 
+    const costDataEnd = wsCosting.lastRow?.number || costDataStart;
+
+    // TOTAL row
     wsCosting.addRow([]);
-    const costTotRow = wsCosting.addRow(['TOTAL', '', '', '', '', '']);
-    const firstCostDataRow = 3; // blank row + header row => first data row is 3
-    const lastCostDataRow = 2 + cabTypes.length; // header is row 2
+    const costTotRow2 = wsCosting.addRow([]);
+    costTotRow2.getCell(cc.type).value = 'TOTAL';
 
-    setFormula(costTotRow.getCell(2), `SUM(B${firstCostDataRow}:B${lastCostDataRow})`, 0);
-    setFormula(costTotRow.getCell(3), `SUM(C${firstCostDataRow}:C${lastCostDataRow})`, 0);
-    setFormula(costTotRow.getCell(4), `SUM(D${firstCostDataRow}:D${lastCostDataRow})`, 0);
-    setFormula(costTotRow.getCell(5), `SUM(E${firstCostDataRow}:E${lastCostDataRow})`, 0);
-    setFormula(costTotRow.getCell(6), `SUM(F${firstCostDataRow}:F${lastCostDataRow})`, 0);
+    const summedCols = [
+      cc.qty, cc.cabsCost, cc.pullsQty, cc.pullsCost,
+      cc.ktopSqft, cc.ktopCost, cc.kBackSplash, cc.kSinkCutout, cc.kFaucetHoles, cc.kRangeCutout,
+      cc.vtopSqft, cc.vtopCost, cc.vBackSplash, cc.vSinkCutout, cc.vFaucetHoles,
+      cc.stickQty, cc.stickCost, cc.dwQty, cc.dwCost, cc.laborCost,
+      cc.costPerUnit, cc.costExt,
+      cc.cabsRetail, cc.pullsRetail, cc.ktopRetail, cc.vtopRetail, cc.dwRetail, cc.laborRetail,
+      cc.retailPerUnit, cc.retailExt,
+    ];
+    const dollarCols = new Set([
+      cc.cabsCost, cc.pullsCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.laborCost,
+      cc.costPerUnit, cc.costExt,
+      cc.cabsRetail, cc.pullsRetail, cc.ktopRetail, cc.vtopRetail, cc.dwRetail, cc.laborRetail,
+      cc.retailPerUnit, cc.retailExt,
+    ]);
 
-    costTotRow.eachCell((cell, colNumber) => {
+    summedCols.forEach(c => {
+      setFormula(costTotRow2.getCell(c), safeSumColRange(excelCol(c), costDataStart, costDataEnd), 0);
+      if (dollarCols.has(c)) costTotRow2.getCell(c).numFmt = '$#,##0.00';
+    });
+
+    costTotRow2.eachCell((cell) => {
       cell.font = { bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
-      if (colNumber === 2) cell.alignment = { horizontal: 'center' };
-      if ([3, 4, 6].includes(colNumber)) cell.numFmt = '$#,##0.00';
-      if (colNumber === 5) cell.alignment = { horizontal: 'center' };
+      cell.alignment = { horizontal: 'center' };
     });
 
     // ── Sheet 5: Schedule of Values ─────────────────────────────────
