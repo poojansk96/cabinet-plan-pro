@@ -456,6 +456,12 @@ export default function PreFinalSummaryModule({ project }: Props) {
         rowValues.push('');
         cabTypes.forEach(() => rowValues.push(''));
         rowValues.push('');
+        rowValues.push('');
+
+        // Cabinet count per unit (formulas — only for non-accessory)
+        rowValues.push('');
+        cabTypes.forEach(() => rowValues.push(''));
+        rowValues.push('');
 
         const row = wsCabs.addRow(rowValues);
         const r = row.number;
