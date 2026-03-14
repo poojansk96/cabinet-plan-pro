@@ -722,22 +722,22 @@ export default function PreFinalSummaryModule({ project }: Props) {
     // ── Sheet 4: Costing ────────────────────────────────────────────
     const wsCosting = wb.addWorksheet('Costing');
 
-    // Column indices (1-based)
+    // Column indices (1-based) — KTOP/VTOP formula lives in the QUARTZ GRP1 column itself
     const cc = {
       type: 1, qty: 2, cabsCost: 3,
       pullsQty: 4, pullsCost: 5,
-      ktopSqft: 6, ktopRate: 7, ktopCost: 8,
-      kBackSplash: 9, kSinkCutout: 10, kFaucetHoles: 11, kRangeCutout: 12,
-      vtopSqft: 13, vtopRate: 14, vtopCost: 15,
-      vBackSplash: 16, vSinkCutout: 17, vFaucetHoles: 18,
-      stickQty: 19, stickCost: 20,
-      dwQty: 21, dwCost: 22,
-      laborCost: 23,
-      costPerUnit: 24, costExt: 25,
-      spacer: 26,
-      cabsRetail: 27, pullsRetail: 28, ktopRetail: 29, vtopRetail: 30,
-      dwRetail: 31, laborRetail: 32,
-      retailPerUnit: 33, retailExt: 34,
+      ktopSqft: 6, ktopCost: 7,
+      kBackSplash: 8, kSinkCutout: 9, kFaucetHoles: 10, kRangeCutout: 11,
+      vtopSqft: 12, vtopCost: 13,
+      vBackSplash: 14, vSinkCutout: 15, vFaucetHoles: 16,
+      stickQty: 17, stickCost: 18,
+      dwQty: 19, dwCost: 20,
+      laborCost: 21,
+      costPerUnit: 22, costExt: 23,
+      spacer: 24,
+      cabsRetail: 25, pullsRetail: 26, ktopRetail: 27, vtopRetail: 28,
+      stickRetail: 29, dwRetail: 30, laborRetail: 31,
+      retailPerUnit: 32, retailExt: 33,
     };
 
     const SAFFRON = 'FFFFF2CC';
@@ -745,9 +745,9 @@ export default function PreFinalSummaryModule({ project }: Props) {
     wsCosting.columns = [
       { width: 30 }, { width: 8 }, { width: 14 },
       { width: 10 }, { width: 12 },
-      { width: 10 }, { width: 14 }, { width: 12 },
+      { width: 10 }, { width: 14 },
       { width: 14 }, { width: 14 }, { width: 12 }, { width: 14 },
-      { width: 10 }, { width: 14 }, { width: 12 },
+      { width: 10 }, { width: 14 },
       { width: 14 }, { width: 14 }, { width: 12 },
       { width: 10 }, { width: 12 },
       { width: 10 }, { width: 12 },
@@ -755,7 +755,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
       { width: 14 }, { width: 14 },
       { width: 3 },
       { width: 12 }, { width: 12 }, { width: 14 }, { width: 14 },
-      { width: 12 }, { width: 12 },
+      { width: 12 }, { width: 12 }, { width: 12 },
       { width: 14 }, { width: 14 },
     ];
 
@@ -776,15 +776,13 @@ export default function PreFinalSummaryModule({ project }: Props) {
       [cc.pullsQty]: 'PULLS\nQTY',
       [cc.pullsCost]: 'PULLS\nCOST',
       [cc.ktopSqft]: 'KTOP\nSQFT',
-      [cc.ktopRate]: 'QUARTZ GRP1\nKTOP COST',
-      [cc.ktopCost]: 'KTOP\nCOST',
+      [cc.ktopCost]: 'QUARTZ GRP1\nKTOP COST',
       [cc.kBackSplash]: 'BACK &\nSIDESPLASH\nSQFT',
       [cc.kSinkCutout]: 'UNDERMOUNT\nKITCHEN SINK\nCUTOUT',
       [cc.kFaucetHoles]: 'FAUCET\nHOLES\n(select upto 3)',
       [cc.kRangeCutout]: 'FREE STANDING\nRANGE CUTOUT\nQTY',
       [cc.vtopSqft]: 'VTOP\nSQFT',
-      [cc.vtopRate]: 'QUARTZ GRP1\nVTOP COST',
-      [cc.vtopCost]: 'VTOP\nCOST',
+      [cc.vtopCost]: 'QUARTZ GRP1\nVTOP COST',
       [cc.vBackSplash]: 'BACK &\nSIDESPLASH\nSQFT',
       [cc.vSinkCutout]: 'UNDERMOUNT\nVANITY SINK\nCUTOUT',
       [cc.vFaucetHoles]: 'FAUCET HOLES\nfor each sink\n(select)',
@@ -799,6 +797,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
       [cc.pullsRetail]: 'PULLS\nRETAIL',
       [cc.ktopRetail]: 'QUARTZ KTOP\nGRP1 RETAIL',
       [cc.vtopRetail]: 'QUARTZ VTOP\nGRP1 RETAIL',
+      [cc.stickRetail]: '2X3X8\nRETAIL',
       [cc.dwRetail]: 'DW BRACKETS\nRETAIL',
       [cc.laborRetail]: 'LABOR\nRETAIL',
       [cc.retailPerUnit]: 'RETAIL\nPER UNIT',
@@ -819,27 +818,20 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
     // Row 3: Saffron rate/multiplier row (user-editable rates)
     const costRateRow = wsCosting.addRow([]);
-    const saffronCells: number[] = [
-      cc.pullsCost, cc.ktopRate, cc.vtopRate,
-      cc.stickCost, cc.dwCost,
-      cc.cabsRetail, cc.pullsRetail, cc.ktopRetail, cc.vtopRetail, cc.dwRetail, cc.laborRetail,
-    ];
-    saffronCells.forEach(col => {
+    const saffronCostCols = [cc.pullsCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost];
+    const saffronRetailCols = [cc.cabsRetail, cc.pullsRetail, cc.ktopRetail, cc.vtopRetail, cc.stickRetail, cc.dwRetail, cc.laborRetail];
+    [...saffronCostCols, ...saffronRetailCols].forEach(col => {
       const cell = costRateRow.getCell(col);
       cell.value = 0;
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: SAFFRON } };
       cell.font = { bold: true };
       cell.alignment = { horizontal: 'center' };
     });
-    // Dollar format for cost rates
-    [cc.pullsCost, cc.ktopRate, cc.vtopRate, cc.stickCost, cc.dwCost].forEach(col => {
-      costRateRow.getCell(col).numFmt = '$#,##0.00';
-    });
+    saffronCostCols.forEach(col => { costRateRow.getCell(col).numFmt = '$#,##0.00'; });
 
     const costRateRowNum = costRateRow.number;
     const costDataStart = costRateRowNum + 1;
 
-    // Helpers for referencing cabinet count sheet
     const pullsSumRangeForType = (typeIndex: number) => {
       const col = colPullsFirstType + typeIndex;
       return `${excelCol(col)}${dataRangeStartRow}:${excelCol(col)}${dataRangeEndRow}`;
@@ -851,77 +843,67 @@ export default function PreFinalSummaryModule({ project }: Props) {
       const r = row.number;
       row.getCell(cc.type).value = t;
 
-      // QTY = unit count for this type
-      const qtyRefStr = `'Cabinet Count'!${ref(colTotalCabFirstType + i, unitCountRow.number)}`;
-      setFormula(row.getCell(cc.qty), qtyRefStr, 0);
-      row.getCell(cc.qty).alignment = { horizontal: 'center' };
+      // QTY
+      setFormula(row.getCell(cc.qty), `'Cabinet Count'!${ref(colTotalCabFirstType + i, unitCountRow.number)}`, 0);
 
-      // CABS COST per unit = total cabs for type × total cost per cab (bid+additional)
-      const cabCountRefStr = `'Cabinet Count'!${ref(colCabFirstType + i, cabTotRow.number)}`;
-      const totalCostRefStr = `'Cabinet Count'!${ref(colPricingFirstType + i, totalCostRow.number)}`;
-      setFormula(row.getCell(cc.cabsCost), safeMul(cabCountRefStr, totalCostRefStr), 0);
+      // CABS COST per unit = total cabs for type × total cost per cab
+      setFormula(row.getCell(cc.cabsCost), safeMul(
+        `'Cabinet Count'!${ref(colCabFirstType + i, cabTotRow.number)}`,
+        `'Cabinet Count'!${ref(colPricingFirstType + i, totalCostRow.number)}`
+      ), 0);
       row.getCell(cc.cabsCost).numFmt = '$#,##0.00';
 
-      // PULLS QTY = total pulls for this type (from cab count sheet)
-      const pullsRefStr = `'Cabinet Count'!${ref(colPullsFirstType + i, cabTotRow.number)}`;
-      setFormula(row.getCell(cc.pullsQty), pullsRefStr, 0);
-      row.getCell(cc.pullsQty).alignment = { horizontal: 'center' };
+      // PULLS QTY
+      setFormula(row.getCell(cc.pullsQty), `'Cabinet Count'!${ref(colPullsFirstType + i, cabTotRow.number)}`, 0);
 
-      // PULLS COST = PULLS QTY × pulls rate (saffron)
-      const pullsRateAbs = `$${excelCol(cc.pullsCost)}$${costRateRowNum}`;
-      setFormula(row.getCell(cc.pullsCost), safeMul(ref(cc.pullsQty, r), pullsRateAbs), 0);
+      // PULLS COST = QTY × rate (saffron in same col)
+      setFormula(row.getCell(cc.pullsCost), safeMul(ref(cc.pullsQty, r), `$${excelCol(cc.pullsCost)}$${costRateRowNum}`), 0);
       row.getCell(cc.pullsCost).numFmt = '$#,##0.00';
 
-      // KTOP COST = KTOP SQFT × QUARTZ GRP1 KTOP COST rate (saffron)
-      const ktopRateAbs = `$${excelCol(cc.ktopRate)}$${costRateRowNum}`;
-      setFormula(row.getCell(cc.ktopCost), safeMul(ref(cc.ktopSqft, r), ktopRateAbs), 0);
+      // KTOP COST = SQFT × rate (saffron in same QUARTZ GRP1 KTOP COST col)
+      setFormula(row.getCell(cc.ktopCost), safeMul(ref(cc.ktopSqft, r), `$${excelCol(cc.ktopCost)}$${costRateRowNum}`), 0);
       row.getCell(cc.ktopCost).numFmt = '$#,##0.00';
 
-      // VTOP COST = VTOP SQFT × QUARTZ GRP1 VTOP COST rate (saffron)
-      const vtopRateAbs = `$${excelCol(cc.vtopRate)}$${costRateRowNum}`;
-      setFormula(row.getCell(cc.vtopCost), safeMul(ref(cc.vtopSqft, r), vtopRateAbs), 0);
+      // VTOP COST = SQFT × rate (saffron in same QUARTZ GRP1 VTOP COST col)
+      setFormula(row.getCell(cc.vtopCost), safeMul(ref(cc.vtopSqft, r), `$${excelCol(cc.vtopCost)}$${costRateRowNum}`), 0);
       row.getCell(cc.vtopCost).numFmt = '$#,##0.00';
 
-      // 2X3X8 STICK COST = 2X3X8 QTY × rate (saffron in same col)
-      const stickRateAbs = `$${excelCol(cc.stickCost)}$${costRateRowNum}`;
-      setFormula(row.getCell(cc.stickCost), safeMul(ref(cc.stickQty, r), stickRateAbs), 0);
+      // 2X3X8 STICK COST = QTY × rate
+      setFormula(row.getCell(cc.stickCost), safeMul(ref(cc.stickQty, r), `$${excelCol(cc.stickCost)}$${costRateRowNum}`), 0);
       row.getCell(cc.stickCost).numFmt = '$#,##0.00';
 
-      // DW BRACKETS COST = DW QTY × rate (saffron in same col)
-      const dwRateAbs = `$${excelCol(cc.dwCost)}$${costRateRowNum}`;
-      setFormula(row.getCell(cc.dwCost), safeMul(ref(cc.dwQty, r), dwRateAbs), 0);
+      // DW BRACKETS COST = QTY × rate
+      setFormula(row.getCell(cc.dwCost), safeMul(ref(cc.dwQty, r), `$${excelCol(cc.dwCost)}$${costRateRowNum}`), 0);
       row.getCell(cc.dwCost).numFmt = '$#,##0.00';
 
-      // LABOR COST = blank (user enters manually)
+      // LABOR COST = blank (user enters)
 
       // COST PER UNIT = sum of all cost columns
       const costCols = [cc.cabsCost, cc.pullsCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.laborCost];
-      const costFormula = costCols.map(c => `N(${ref(c, r)})`).join('+');
-      setFormula(row.getCell(cc.costPerUnit), `IFERROR(${costFormula},0)`, 0);
+      setFormula(row.getCell(cc.costPerUnit), `IFERROR(${costCols.map(c => `N(${ref(c, r)})`).join('+')},0)`, 0);
       row.getCell(cc.costPerUnit).numFmt = '$#,##0.00';
 
       // COST EXT = COST PER UNIT × QTY
       setFormula(row.getCell(cc.costExt), safeMul(ref(cc.costPerUnit, r), ref(cc.qty, r)), 0);
       row.getCell(cc.costExt).numFmt = '$#,##0.00';
 
-      // RETAIL columns = corresponding cost × retail multiplier (saffron)
+      // RETAIL = cost × multiplier (saffron)
       const retailMap = [
         { retail: cc.cabsRetail, cost: cc.cabsCost },
         { retail: cc.pullsRetail, cost: cc.pullsCost },
         { retail: cc.ktopRetail, cost: cc.ktopCost },
         { retail: cc.vtopRetail, cost: cc.vtopCost },
+        { retail: cc.stickRetail, cost: cc.stickCost },
         { retail: cc.dwRetail, cost: cc.dwCost },
         { retail: cc.laborRetail, cost: cc.laborCost },
       ];
       retailMap.forEach(({ retail, cost }) => {
-        const multAbs = `$${excelCol(retail)}$${costRateRowNum}`;
-        setFormula(row.getCell(retail), safeMul(ref(cost, r), multAbs), 0);
+        setFormula(row.getCell(retail), safeMul(ref(cost, r), `$${excelCol(retail)}$${costRateRowNum}`), 0);
         row.getCell(retail).numFmt = '$#,##0.00';
       });
 
-      // RETAIL PER UNIT = sum of all retail columns
-      const retailColRefs = retailMap.map(m => ref(m.retail, r));
-      setFormula(row.getCell(cc.retailPerUnit), `IFERROR(${retailColRefs.map(c => `N(${c})`).join('+')},0)`, 0);
+      // RETAIL PER UNIT
+      setFormula(row.getCell(cc.retailPerUnit), `IFERROR(${retailMap.map(m => `N(${ref(m.retail, r)})`).join('+')},0)`, 0);
       row.getCell(cc.retailPerUnit).numFmt = '$#,##0.00';
 
       // RETAIL EXT = RETAIL PER UNIT × QTY
@@ -930,9 +912,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
       // Center-align all numeric cells
       for (let c = cc.qty; c <= cc.retailExt; c++) {
-        if (c === cc.spacer) continue;
-        if (!row.getCell(c).alignment) row.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' };
-        else row.getCell(c).alignment = { ...row.getCell(c).alignment, horizontal: 'center', vertical: 'middle' };
+        if (c !== cc.spacer) row.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' };
       }
     });
 
@@ -949,13 +929,13 @@ export default function PreFinalSummaryModule({ project }: Props) {
       cc.vtopSqft, cc.vtopCost, cc.vBackSplash, cc.vSinkCutout, cc.vFaucetHoles,
       cc.stickQty, cc.stickCost, cc.dwQty, cc.dwCost, cc.laborCost,
       cc.costPerUnit, cc.costExt,
-      cc.cabsRetail, cc.pullsRetail, cc.ktopRetail, cc.vtopRetail, cc.dwRetail, cc.laborRetail,
+      cc.cabsRetail, cc.pullsRetail, cc.ktopRetail, cc.vtopRetail, cc.stickRetail, cc.dwRetail, cc.laborRetail,
       cc.retailPerUnit, cc.retailExt,
     ];
     const dollarCols = new Set([
       cc.cabsCost, cc.pullsCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.laborCost,
       cc.costPerUnit, cc.costExt,
-      cc.cabsRetail, cc.pullsRetail, cc.ktopRetail, cc.vtopRetail, cc.dwRetail, cc.laborRetail,
+      cc.cabsRetail, cc.pullsRetail, cc.ktopRetail, cc.vtopRetail, cc.stickRetail, cc.dwRetail, cc.laborRetail,
       cc.retailPerUnit, cc.retailExt,
     ]);
 
