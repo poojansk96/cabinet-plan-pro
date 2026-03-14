@@ -271,17 +271,17 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
     console.log(`Step 1 Classification: pageType=${rawPageType}, unitType=${detectedUnitType}, isCommonArea=${isCommonArea}`);
 
     // ═══════════════════════════════════════════════════════════
-    // DECISION: Extract SKUs only from plan views and common area elevations
-    // Residential elevations are SKIPPED (same cabinets as plan view → double-count)
+    // DECISION: Extract SKUs from plan views AND all elevations.
+    // Only skip title pages (no cabinets drawn).
     // ═══════════════════════════════════════════════════════════
 
     const isPlanView = rawPageType.includes("plan");
     const isElevation = rawPageType.includes("elev");
     const isTitlePage = rawPageType.includes("title");
-    const shouldExtract = isPlanView || (isElevation && isCommonArea);
+    const shouldExtract = isPlanView || isElevation;
 
     if (!shouldExtract) {
-      console.log(`Skipping extraction: pageType=${rawPageType}, isCommonArea=${isCommonArea}`);
+      console.log(`Skipping extraction: pageType=${rawPageType} (title page)`);
       return new Response(JSON.stringify({ items: [], unitTypeName: detectedUnitType }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
