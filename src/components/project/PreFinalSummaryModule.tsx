@@ -300,6 +300,11 @@ export default function PreFinalSummaryModule({ project }: Props) {
     const colTotalCabFirstType = colTotalCabLabel + 1;
     const colTotalCabGrand = colTotalCabFirstType + nTypes;
 
+    // Cabinet Count Per Unit section (right of Total Cabinet Count)
+    const colSpacer4 = colTotalCabGrand + 1;
+    const colCpuLabel = colSpacer4 + 1;
+    const colCpuFirstType = colCpuLabel + 1;
+
     const pricingStart = colSpacer2; // keep naming used below
     const totalCabStart = colSpacer3; // keep naming used below
 
@@ -322,6 +327,10 @@ export default function PreFinalSummaryModule({ project }: Props) {
     colWidths.push({ width: 14 });
     for (let i = 0; i < nTypes; i++) colWidths.push({ width: 6 });
     colWidths.push({ width: 8 });
+    // Spacer + Cabinet Count Per Unit
+    colWidths.push({ width: 3 });
+    colWidths.push({ width: 18 });
+    for (let i = 0; i < nTypes; i++) colWidths.push({ width: 6 });
     wsCabs.columns = colWidths;
 
     // Section headers
@@ -334,6 +343,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
     sectionRow.getCell(colPricingBid).font = { bold: true, size: 9 };
     sectionRow.getCell(colTotalCabLabel).value = 'TOTAL CABINET COUNT';
     sectionRow.getCell(colTotalCabLabel).font = { bold: true, size: 9 };
+    sectionRow.getCell(colCpuLabel).value = '*Cabinet Count Per Unit';
+    sectionRow.getCell(colCpuLabel).font = { bold: true, size: 9 };
 
     // Unit count reference row (used by formulas)
     const unitCountRow = wsCabs.addRow([]);
@@ -372,6 +383,10 @@ export default function PreFinalSummaryModule({ project }: Props) {
     headerValues.push('Total Cab Count');
     cabTypes.forEach(t => headerValues.push(t));
     headerValues.push('Grand Total');
+    // Cabinet Count Per Unit section
+    headerValues.push('');
+    headerValues.push('Cab Count/Unit');
+    cabTypes.forEach(t => headerValues.push(t));
 
     const cabHeader = wsCabs.addRow(headerValues);
     cabHeader.height = 120;
@@ -384,7 +399,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
       if ((idx >= 1 && idx <= nTypes) ||
           (idx >= colPullsFirstType - 1 && idx <= colPullsFirstType - 2 + nTypes) ||
           (idx >= colPricingFirstType - 1 && idx <= colPricingFirstType - 2 + nTypes) ||
-          (idx >= colTotalCabFirstType - 1 && idx <= colTotalCabFirstType - 2 + nTypes)) {
+          (idx >= colTotalCabFirstType - 1 && idx <= colTotalCabFirstType - 2 + nTypes) ||
+          (idx >= colCpuFirstType - 1 && idx <= colCpuFirstType - 2 + nTypes)) {
         cell.alignment = { textRotation: 90, vertical: 'bottom', horizontal: 'center' };
       }
     });
@@ -394,6 +410,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
     const dataRangeStartRow = cabHeader.number + 1;
 
+    const CABINET_BOX_TYPES = new Set(['Wall', 'Base', 'Tall', 'Vanity']);
+
     // Data rows
     groupedSkus.forEach(({ group, skus }) => {
       const groupRow = wsCabs.addRow([`${group} (${skus.length})`]);
@@ -401,6 +419,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
         cell.font = { bold: true };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAEAEA' } };
       });
+
+      const isCabinetBox = CABINET_BOX_TYPES.has(group);
 
       skus.forEach(sku => {
         const pullsPerCab = store.handleQtyPerSku[sku] || 0;
@@ -439,6 +459,18 @@ export default function PreFinalSummaryModule({ project }: Props) {
         rowValues.push('');
         cabTypes.forEach(() => rowValues.push(''));
         rowValues.push('');
+
+        // Cabinet Count Per Unit (spacer + label + types)
+        rowValues.push('');
+        rowValues.push(''); // label col stays blank for data rows
+        cabTypes.forEach(t => {
+          if (isCabinetBox) {
+            const qty = skuTypeQty[sku]?.[t] || 0;
+            rowValues.push(qty > 0 ? qty : '');
+          } else {
+            rowValues.push(''); // accessories left blank
+          }
+        });
 
         const row = wsCabs.addRow(rowValues);
         const r = row.number;
@@ -666,58 +698,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
        typeTotCell.numFmt = '$#,##0.00';
     }
 
-    // ── Cabinet Count Per Unit section (on same Cabinet Count sheet) ──
-    // Shows raw qty per type for cabinet boxes only (Wall/Base/Tall/Vanity); accessories left blank
-    const CABINET_BOX_TYPES = new Set(['Wall', 'Base', 'Tall', 'Vanity']);
 
-    wsCabs.addRow([]); // spacer
-    wsCabs.addRow([]); // spacer
 
-    const cpuTitleRow = wsCabs.addRow([]);
-    cpuTitleRow.getCell(colSku).value = '*Cabinet count perunit';
-    cpuTitleRow.getCell(colSku).font = { bold: true, size: 9 };
-
-    // Header row with unit type columns
-    const cpuHeaderValues: (string | number)[] = ['ITEM LIST'];
-    cabTypes.forEach(t => cpuHeaderValues.push(t));
-    const cpuHeader = wsCabs.addRow(cpuHeaderValues);
-    cpuHeader.height = 120;
-    cpuHeader.eachCell((cell, colNumber) => {
-      cell.font = { bold: true };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F0' } };
-      cell.border = { bottom: { style: 'thin', color: { argb: 'FF999999' } } };
-      cell.alignment = { vertical: 'bottom', wrapText: false };
-      if (colNumber > 1 && colNumber <= nTypes + 1) {
-        cell.alignment = { textRotation: 90, vertical: 'bottom', horizontal: 'center' };
-      }
-    });
-
-    // Data rows grouped by type, same as main cabinet count section
-    groupedSkus.forEach(({ group, skus }) => {
-      const groupRow = wsCabs.addRow([`${group} (${skus.length})`]);
-      groupRow.eachCell(cell => {
-        cell.font = { bold: true };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAEAEA' } };
-      });
-
-      const isCabinetBox = CABINET_BOX_TYPES.has(group);
-
-      skus.forEach(sku => {
-        const rowValues: (string | number)[] = [sku];
-        cabTypes.forEach(t => {
-          if (isCabinetBox) {
-            const qty = skuTypeQty[sku]?.[t] || 0;
-            rowValues.push(qty > 0 ? qty : '');
-          } else {
-            rowValues.push(''); // accessories left blank
-          }
-        });
-        const row = wsCabs.addRow(rowValues);
-        row.eachCell((cell, colNumber) => {
-          if (colNumber > 1) cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        });
-      });
-    });
 
     // ── Sheet 4: Costing ────────────────────────────────────────────
     const wsCosting = wb.addWorksheet('Costing');
