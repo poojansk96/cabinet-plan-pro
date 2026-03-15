@@ -73,24 +73,38 @@ Return ONLY valid JSON, no other text. Each unit entry MUST include a "bldg" fie
 {"bldg":null,"units":[{"unitNumber":"1A","unitType":"TYPE 1 - AS","floor":"1","bldg":"BLDG 1"},{"unitNumber":"1A","unitType":"TYPE 1 - AS","floor":"1","bldg":"BLDG 3"},{"unitNumber":"2A","unitType":"TYPE 1 - AS","floor":"2","bldg":"BLDG 1"},{"unitNumber":"2A","unitType":"TYPE 1 - AS","floor":"2","bldg":"BLDG 3"}]}`;
 
 function extractJSON(text: string): { units: any[]; bldg?: string } {
-  // Try markdown fences
-  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenceMatch) {
-    try { return JSON.parse(fenceMatch[1].trim()); } catch {}
-  }
+  // Strip markdown fences
+  let cleaned = text.trim();
+  const fenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch) cleaned = fenceMatch[1].trim();
 
-  // Find JSON object with "units"
-  const jsonMatches = text.match(/\{[^{}]*"units"\s*:\s*\[[\s\S]*?\]\s*[^{}]*\}/g);
+  // Try direct parse
+  try { return JSON.parse(cleaned); } catch {}
+
+  // Find JSON object with "units" array
+  const jsonMatches = cleaned.match(/\{[^{}]*"units"\s*:\s*\[[\s\S]*?\]\s*[^{}]*\}/g);
   if (jsonMatches) {
     for (let i = jsonMatches.length - 1; i >= 0; i--) {
       try { return JSON.parse(jsonMatches[i]); } catch {}
     }
   }
 
-  // Try whole text
-  try { return JSON.parse(text.trim()); } catch {}
+  // TRUNCATED JSON RECOVERY: If the response was cut off mid-JSON,
+  // extract individual unit objects from the incomplete array
+  const unitObjPattern = /\{\s*"unitNumber"\s*:\s*"([^"]+)"\s*,\s*"unitType"\s*:\s*"([^"]+)"\s*,\s*"floor"\s*:\s*"?([^",}]*)"?\s*,\s*"bldg"\s*:\s*"([^"]*)"\s*\}/g;
+  const units: any[] = [];
+  let m;
+  while ((m = unitObjPattern.exec(cleaned)) !== null) {
+    units.push({ unitNumber: m[1], unitType: m[2], floor: m[3] || null, bldg: m[4] });
+  }
+  if (units.length > 0) {
+    // Try to extract top-level bldg
+    const bldgMatch = cleaned.match(/"bldg"\s*:\s*"([^"]+)"/);
+    console.log(`Recovered ${units.length} units from truncated JSON`);
+    return { units, bldg: bldgMatch?.[1] };
+  }
 
-  console.error("JSON extraction failed:", text.slice(0, 500));
+  console.error("JSON extraction failed:", cleaned.slice(0, 500));
   return { units: [] };
 }
 
