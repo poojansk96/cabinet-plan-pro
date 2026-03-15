@@ -252,6 +252,21 @@ function normalizeTypeKey(value: string): string {
     .replace(/[^A-Z0-9]/g, '');
 }
 
+function normalizeTypeBase(value: string): string {
+  const text = String(value || '')
+    .toUpperCase()
+    .trim()
+    .replace(/[\u2010-\u2015]/g, '-')
+    .replace(/\s+/g, ' ');
+  const match = text.match(/\bTYPE\s+([A-Z0-9]+)/);
+  return match ? match[1] : '';
+}
+
+function isCommonAreaType(value: string): boolean {
+  return /\b(LAUNDRY|MAIL\s*ROOM|RESTROOM|LOBBY|CLUBHOUSE|FITNESS|LEASING|BUSINESS\s*CENTER|POOL\s*BATH|TRASH|MAINTENANCE|MODEL|STORAGE|GARAGE|CORRIDOR|MECHANICAL|COMMUNITY|BREAK\s*ROOM|OFFICE)\b/i
+    .test(String(value || ''));
+}
+
 function extractTypeHintsFromText(pageText: string): string[] {
   const text = String(pageText || '')
     .replace(/[\u2010-\u2015]/g, '-')
@@ -296,25 +311,40 @@ function resolvePageUnitType(aiType: unknown, pageText: string): { primary: stri
   const textHints = extractTypeHintsFromText(pageText);
 
   if (!ai && textHints.length === 0) return { primary: null, aliases: [] };
-  if (!ai && textHints.length > 0) return { primary: textHints[0], aliases: textHints };
-  if (ai && textHints.length === 0) return { primary: ai, aliases: [ai] };
+
+  if (ai) {
+    if (isCommonAreaType(ai)) {
+      return { primary: ai, aliases: [ai] };
+    }
+
+    const aiKey = normalizeTypeKey(ai);
+    const aiBase = normalizeTypeBase(ai);
+    const sameBaseHints = aiBase
+      ? textHints.filter((hint) => normalizeTypeBase(hint) === aiBase)
+      : [];
+
+    const aliases = [ai, ...sameBaseHints]
+      .map((t) => String(t || '').trim())
+      .filter((t, i, arr) => !!t && arr.findIndex((x) => normalizeTypeKey(x) === normalizeTypeKey(t)) === i);
+
+    const exactTextMatch = textHints.find((hint) => normalizeTypeKey(hint) === aiKey);
+    if (exactTextMatch && !aliases.some((hint) => normalizeTypeKey(hint) === normalizeTypeKey(exactTextMatch))) {
+      aliases.push(exactTextMatch);
+    }
+
+    return { primary: ai, aliases: aliases.length > 0 ? aliases : [ai] };
+  }
 
   if (textHints.length === 1) {
+    return { primary: textHints[0], aliases: [textHints[0]] };
+  }
+
+  const uniqueBases = new Set(textHints.map((hint) => normalizeTypeBase(hint)).filter(Boolean));
+  if (uniqueBases.size === 1) {
     return { primary: textHints[0], aliases: textHints };
   }
 
-  const aiKey = normalizeTypeKey(ai);
-  const exactTextMatch = textHints.find(t => normalizeTypeKey(t) === aiKey);
-  if (exactTextMatch) {
-    return { primary: exactTextMatch, aliases: textHints };
-  }
-
-  const aliases = [...textHints];
-  if (ai && !aliases.some(t => normalizeTypeKey(t) === aiKey)) {
-    aliases.push(ai);
-  }
-
-  return { primary: ai || aliases[0] || null, aliases };
+  return { primary: textHints[0], aliases: [textHints[0]] };
 }
 
 export default function ShopDrawingImportDialog({ unitType, onImport, onClose, prefinalPerson, speedMode = 'fast', skipClassify = false }: Props) {
@@ -518,6 +548,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         items: merged,
         unitTypeName: resolvedType.primary,
         unitTypeAliases: resolvedType.aliases,
+        isCommonArea,
       };
     };
 
@@ -536,16 +567,23 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
             ? (data as any).unitTypeAliases.map((t: unknown) => String(t || '').trim()).filter(Boolean)
             : [];
           const resolvedPageType = String(data.unitTypeName || '').trim();
+          const pageItems = Array.isArray(data.items) ? data.items : [];
+          const hasCabinetRows = pageItems.length > 0;
+          const isCommonAreaPage = Boolean((data as any).isCommonArea);
 
-          // Capture detected unit type from ALL pages — even those with 0 items
-          // Common areas (Laundry, Restroom, etc.) may have no cabinets but still need their type tracked
-          const typesForOrder = aliases.length > 0 ? aliases : (resolvedPageType ? [resolvedPageType] : []);
+          // Only keep zero-item type columns for true common-area pages.
+          // This prevents schedule/footer text from injecting unrelated residential type variants.
+          const shouldTrackType = hasCabinetRows || isCommonAreaPage;
+          const typesForOrder = shouldTrackType
+            ? (aliases.length > 0 ? aliases : (resolvedPageType ? [resolvedPageType] : []))
+            : [];
+
           for (const t of typesForOrder) {
             if (!detectedType) detectedType = t;
             if (!pageTypeOrder.includes(t)) pageTypeOrder.push(t);
           }
 
-          const pageRows = (data.items ?? []).map((c: any) => ({
+          const pageRows = pageItems.map((c: any) => ({
             sku: c.sku,
             type: c.type,
             room: c.room,
