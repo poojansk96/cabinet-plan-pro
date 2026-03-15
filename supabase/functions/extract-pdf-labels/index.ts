@@ -403,7 +403,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
     // ── RECOVERY: If extraction is empty but text layer has SKUs ──
     // This catches MIRROR pages and cases where the AI fails to read labels.
     // Seed with qty=1 each (text counts are unreliable due to legends/notes).
-    if (finalItems.length === 0 && textLayerSkus.length > 0) {
+    if (!isStrip && finalItems.length === 0 && textLayerSkus.length > 0) {
       console.log(`Extraction empty but text layer has ${textLayerSkus.length} SKUs — seeding with qty=1`);
       for (const sku of textLayerSkus) {
         if (isValidSku(sku)) {
