@@ -462,18 +462,25 @@ If no cabinet SKUs are found, return {"items":[]}`;
       return { ...item, quantity: nextQty };
     });
 
-    // ── Deduplicate — SUM quantities instead of MAX ──
-    // If the AI lists the same SKU twice (found in different spots), we ADD the quantities.
-    // Exception: Corner lazy susans (LS, LSB) use MAX since they sit at wall junctions.
+    // ── Deduplicate ──
     const isCornerLazySusan = (sku: string) => /^(LS|LSB)\d+/i.test(sku);
     const deduped = new Map<string, { sku: string; type: string; room: string; quantity: number }>();
+    
     for (const item of items) {
       const key = `${item.sku}|${item.room}`;
       const existing = deduped.get(key);
+      
       if (existing) {
-        existing.quantity = isCornerLazySusan(item.sku)
-          ? Math.max(existing.quantity, item.quantity)
-          : existing.quantity + item.quantity;  // SUM quantities!
+        // If this is a STRIP pass, we take the MAX quantity to prevent overlapping strips from double-counting the same cabinet.
+        // If this is a FULL PAGE pass, we SUM the quantities because the AI is seeing the whole room at once.
+        existing.quantity = isStrip 
+          ? Math.max(existing.quantity, item.quantity) 
+          : existing.quantity + item.quantity;
+          
+        // Always take MAX for Lazy Susans (typically only 1 per corner)
+        if (isCornerLazySusan(item.sku)) {
+          existing.quantity = Math.max(existing.quantity, item.quantity);
+        }
       } else {
         deduped.set(key, { ...item });
       }
