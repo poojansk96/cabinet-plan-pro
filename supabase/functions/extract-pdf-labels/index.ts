@@ -360,6 +360,10 @@ If no cabinet SKUs are found, return {"items":[]}`;
     }
 
     const rawItems = extracted.items ?? [];
+    // When skipClassify, the extraction also returns unitTypeName
+    if (skipClassify && !isStrip && extracted.unitTypeName) {
+      detectedUnitType = extracted.unitTypeName;
+    }
     let finalItems = splitMergedSkus(rawItems);
     console.log(`Step 2: ${rawItems.length} raw → ${finalItems.length} after split`);
 
