@@ -39,6 +39,7 @@ interface Props {
   onClose: () => void;
   prefinalPerson?: string;
   speedMode?: 'fast' | 'thorough';
+  skipClassify?: boolean;
 }
 
 const PERSONAL_QUOTES = [
@@ -236,7 +237,7 @@ function resolvePageUnitType(aiType: unknown, pageText: string): { primary: stri
   return { primary: ai || aliases[0] || null, aliases };
 }
 
-export default function ShopDrawingImportDialog({ unitType, onImport, onClose, prefinalPerson, speedMode = 'fast' }: Props) {
+export default function ShopDrawingImportDialog({ unitType, onImport, onClose, prefinalPerson, speedMode = 'fast', skipClassify = false }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<LabelRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -340,8 +341,8 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         throw new Error('All attempts failed');
       };
 
-      // ── PASS 1: Full page (classify + extract) ──
-      const fullResponse = await fetchWithRetry(JSON.stringify({ pageImage, unitType, pageText, speedMode }));
+      // ── PASS 1: Full page (extract, with optional classification skip) ──
+      const fullResponse = await fetchWithRetry(JSON.stringify({ pageImage, unitType, pageText, speedMode, skipClassify }));
       if (!fullResponse.ok) {
         const status = fullResponse.status;
         if (status === 429) throw new Error('rate_limit');
