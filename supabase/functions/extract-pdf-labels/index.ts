@@ -129,6 +129,22 @@ function extractSkusFromText(pageText: string): string[] {
   return [...skus];
 }
 
+function countSkusFromText(pageText: string): Record<string, number> {
+  const counts: Record<string, number> = {};
+  if (!pageText) return counts;
+
+  const matches = pageText.match(SKU_PATTERN) || [];
+  for (const m of matches) {
+    const upper = m.toUpperCase().trim();
+    if (APPLIANCE_RE.test(upper)) continue;
+    if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) continue;
+    if (!isValidSku(upper) && !NO_DIGIT_OK.test(upper)) continue;
+    counts[upper] = (counts[upper] ?? 0) + 1;
+  }
+
+  return counts;
+}
+
 function classifySku(sku: string): string {
   if (/^(BLW|BRW)/i.test(sku)) return "Wall";
   if (/^(W|UB|WC|OH)\d/i.test(sku)) return "Wall";
@@ -224,6 +240,8 @@ serve(async (req) => {
 
     // Extract SKUs from PDF text layer (instant, no AI needed)
     const textLayerSkus = extractSkusFromText(pageText ?? "");
+    const textLayerSkuSet = new Set(textLayerSkus.map((s) => s.toUpperCase()));
+    const textLayerSkuCounts = countSkusFromText(pageText ?? "");
     if (textLayerSkus.length > 0) {
       console.log(`Text layer found ${textLayerSkus.length} SKUs: ${textLayerSkus.join(', ')}`);
     }
@@ -385,7 +403,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
     // ── RECOVERY: If extraction is empty but text layer has SKUs ──
     // This catches MIRROR pages and cases where the AI fails to read labels.
     // Seed with qty=1 each (text counts are unreliable due to legends/notes).
-    if (finalItems.length === 0 && textLayerSkus.length > 0) {
+    if (!isStrip && finalItems.length === 0 && textLayerSkus.length > 0) {
       console.log(`Extraction empty but text layer has ${textLayerSkus.length} SKUs — seeding with qty=1`);
       for (const sku of textLayerSkus) {
         if (isValidSku(sku)) {
@@ -398,7 +416,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
     console.log(`Final: ${finalItems.length} items`);
 
     // ── Normalize and filter ──
-    const items = finalItems
+    let items = finalItems
       .filter((c: any) => c.sku && /^[A-Za-z]/.test(c.sku) && (/\d/.test(c.sku) || NO_DIGIT_OK.test(String(c.sku).trim())))
       .filter((c: any) => {
         const upper = String(c.sku).toUpperCase().trim();
@@ -416,7 +434,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
         return true;
       })
       .map((c: any) => {
-      let sku = String(c.sku).toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+        const sku = String(c.sku).toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
         // Preserve full SKU labels exactly as written — no suffix stripping
         let rawType = String(c.type ?? "Base").trim();
         if (/^BLW|^BRW/i.test(sku)) rawType = "Wall";
@@ -427,6 +445,27 @@ If no cabinet SKUs are found, return {"items":[]}`;
         const normalizedRoom = rawRoom.charAt(0).toUpperCase() + rawRoom.slice(1).toLowerCase();
         return { sku, type: normalizedType, room: normalizedRoom, quantity: Number(c.quantity) || 1 };
       });
+
+    // Strip passes: ignore SKUs that are not present in the page text layer to block crop hallucinations.
+    if (isStrip && textLayerSkuSet.size > 0) {
+      const before = items.length;
+      items = items.filter((item) => textLayerSkuSet.has(item.sku));
+      if (before !== items.length) {
+        console.log(`Strip text-layer filter removed ${before - items.length} unsupported SKUs`);
+      }
+    }
+
+    // Reconcile under-counted small accessories using text-layer occurrence counts (conservative floor).
+    const ACCESSORY_FLOOR_RE = /^(BF|WF|FIL|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR)\d/i;
+    items = items.map((item) => {
+      const textCount = textLayerSkuCounts[item.sku] ?? 0;
+      if (!ACCESSORY_FLOOR_RE.test(item.sku) || textCount < 2) return item;
+      const nextQty = Math.min(Math.max(item.quantity, textCount), 6);
+      if (nextQty !== item.quantity) {
+        console.log(`Accessory qty floor from text layer: ${item.sku} ${item.quantity} → ${nextQty}`);
+      }
+      return { ...item, quantity: nextQty };
+    });
 
     // ── Deduplicate — SUM quantities instead of MAX ──
     // If the AI lists the same SKU twice (found in different spots), we ADD the quantities.
