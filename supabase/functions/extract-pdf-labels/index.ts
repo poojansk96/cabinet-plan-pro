@@ -129,6 +129,22 @@ function extractSkusFromText(pageText: string): string[] {
   return [...skus];
 }
 
+function countSkusFromText(pageText: string): Record<string, number> {
+  const counts: Record<string, number> = {};
+  if (!pageText) return counts;
+
+  const matches = pageText.match(SKU_PATTERN) || [];
+  for (const m of matches) {
+    const upper = m.toUpperCase().trim();
+    if (APPLIANCE_RE.test(upper)) continue;
+    if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) continue;
+    if (!isValidSku(upper) && !NO_DIGIT_OK.test(upper)) continue;
+    counts[upper] = (counts[upper] ?? 0) + 1;
+  }
+
+  return counts;
+}
+
 function classifySku(sku: string): string {
   if (/^(BLW|BRW)/i.test(sku)) return "Wall";
   if (/^(W|UB|WC|OH)\d/i.test(sku)) return "Wall";
