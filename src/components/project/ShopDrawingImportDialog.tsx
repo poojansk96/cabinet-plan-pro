@@ -267,6 +267,35 @@ function isCommonAreaType(value: string): boolean {
     .test(String(value || ''));
 }
 
+const COMMON_AREA_LABELS: Array<{ label: string; re: RegExp }> = [
+  { label: 'Mail Room', re: /\bMAIL\s*ROOM\b/i },
+  { label: 'Break Room', re: /\bBREAK\s*ROOM\b/i },
+  { label: 'Business Center', re: /\bBUSINESS\s*CENTER\b/i },
+  { label: 'Community Room', re: /\bCOMMUNITY\s*ROOM\b/i },
+  { label: 'Pool Bath', re: /\bPOOL\s*BATH\b/i },
+  { label: 'Leasing', re: /\bLEASING\b/i },
+  { label: 'Clubhouse', re: /\bCLUBHOUSE\b/i },
+  { label: 'Fitness', re: /\bFITNESS\b/i },
+  { label: 'Laundry', re: /\bLAUNDRY\b/i },
+  { label: 'Restroom', re: /\bRESTROOM\b/i },
+  { label: 'Lobby', re: /\bLOBBY\b/i },
+  { label: 'Office', re: /\bOFFICE\b/i },
+  { label: 'Storage', re: /\bSTORAGE\b/i },
+  { label: 'Garage', re: /\bGARAGE\b/i },
+  { label: 'Corridor', re: /\bCORRIDOR\b/i },
+  { label: 'Mechanical', re: /\bMECHANICAL\b/i },
+  { label: 'Maintenance', re: /\bMAINTENANCE\b/i },
+  { label: 'Trash', re: /\bTRASH\b/i },
+];
+
+function extractCommonAreaLabel(pageText: string): string | null {
+  const text = String(pageText || '');
+  for (const entry of COMMON_AREA_LABELS) {
+    if (entry.re.test(text)) return entry.label;
+  }
+  return null;
+}
+
 function extractTypeHintsFromText(pageText: string): string[] {
   const text = String(pageText || '')
     .replace(/[\u2010-\u2015]/g, '-')
@@ -278,8 +307,9 @@ function extractTypeHintsFromText(pageText: string): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
   const push = (label: string) => {
-    const clean = label.trim();
+    const clean = label.trim().replace(/\s+/g, ' ');
     if (!clean) return;
+    if (/\b(TYPE\s+PLAN|ELEVATION|SECTION|DETAIL|SHEET|DRAWING|LEGEND)\b/i.test(clean)) return;
     const key = normalizeTypeKey(clean);
     if (!key || seen.has(key)) return;
     seen.add(key);
@@ -296,19 +326,34 @@ function extractTypeHintsFromText(pageText: string): string[] {
     push(`TYPE ${base} ${right}`);
   }
 
-  const single = /\bTYPE\s+([A-Z0-9]+)\s*(?:-|:)?\s*(AS|MIRROR)\b/g;
+  const single = /\bTYPE\s+([A-Z0-9]+)\s*(?:-|:)?\s*(AS|MIRROR|ADA|REV|ALT|OPTION)\b/g;
   while ((match = single.exec(text)) !== null) {
     const base = match[1];
     const variant = match[2];
     push(`TYPE ${base} ${variant}`);
   }
 
+  const generic = /\bTYPE\s+([A-Z0-9]+)\b/g;
+  while ((match = generic.exec(text)) !== null) {
+    push(`TYPE ${match[1]}`);
+  }
+
   return out;
 }
 
-function resolvePageUnitType(aiType: unknown, pageText: string): { primary: string | null; aliases: string[] } {
+function resolvePageUnitType(
+  aiType: unknown,
+  pageText: string,
+  isCommonAreaPage = false,
+): { primary: string | null; aliases: string[] } {
   const ai = String(aiType ?? '').trim();
   const textHints = extractTypeHintsFromText(pageText);
+
+  if (isCommonAreaPage) {
+    const commonAreaLabel = isCommonAreaType(ai) ? ai : extractCommonAreaLabel(pageText);
+    if (!commonAreaLabel) return { primary: null, aliases: [] };
+    return { primary: commonAreaLabel, aliases: [commonAreaLabel] };
+  }
 
   if (!ai && textHints.length === 0) return { primary: null, aliases: [] };
 
@@ -319,20 +364,19 @@ function resolvePageUnitType(aiType: unknown, pageText: string): { primary: stri
 
     const aiKey = normalizeTypeKey(ai);
     const aiBase = normalizeTypeBase(ai);
-    const sameBaseHints = aiBase
-      ? textHints.filter((hint) => normalizeTypeBase(hint) === aiBase)
-      : [];
-
-    const aliases = [ai, ...sameBaseHints]
-      .map((t) => String(t || '').trim())
-      .filter((t, i, arr) => !!t && arr.findIndex((x) => normalizeTypeKey(x) === normalizeTypeKey(t)) === i);
-
     const exactTextMatch = textHints.find((hint) => normalizeTypeKey(hint) === aiKey);
-    if (exactTextMatch && !aliases.some((hint) => normalizeTypeKey(hint) === normalizeTypeKey(exactTextMatch))) {
-      aliases.push(exactTextMatch);
+    const sameBaseMatch = aiBase
+      ? textHints.find((hint) => normalizeTypeBase(hint) === aiBase)
+      : undefined;
+
+    if (textHints.length > 0 && !exactTextMatch && !sameBaseMatch) {
+      if (textHints.length === 1) return { primary: textHints[0], aliases: [textHints[0]] };
+      const uniqueBases = new Set(textHints.map((hint) => normalizeTypeBase(hint)).filter(Boolean));
+      if (uniqueBases.size === 1) return { primary: textHints[0], aliases: [textHints[0]] };
+      return { primary: null, aliases: [] };
     }
 
-    return { primary: ai, aliases: aliases.length > 0 ? aliases : [ai] };
+    return { primary: ai, aliases: [ai] };
   }
 
   if (textHints.length === 1) {
@@ -341,10 +385,10 @@ function resolvePageUnitType(aiType: unknown, pageText: string): { primary: stri
 
   const uniqueBases = new Set(textHints.map((hint) => normalizeTypeBase(hint)).filter(Boolean));
   if (uniqueBases.size === 1) {
-    return { primary: textHints[0], aliases: textHints };
+    return { primary: textHints[0], aliases: [textHints[0]] };
   }
 
-  return { primary: textHints[0], aliases: [textHints[0]] };
+  return { primary: null, aliases: [] };
 }
 
 export default function ShopDrawingImportDialog({ unitType, onImport, onClose, prefinalPerson, speedMode = 'fast', skipClassify = false }: Props) {
