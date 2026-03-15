@@ -356,6 +356,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       const fullData = await fullResponse.json();
       if (fullData.error === 'rate_limit') throw new Error('rate_limit');
       if (fullData.error === 'credits') throw new Error('credits');
+      onStepDone?.(); // Full-page pass complete
 
       const resolvedType = resolvePageUnitType(fullData.unitTypeName, pageText);
       const fullItems = fullData.items ?? [];
