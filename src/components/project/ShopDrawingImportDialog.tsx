@@ -152,11 +152,20 @@ function mergeExtractionPasses(passes: any[][]): any[] {
 
   const map = new Map<string, any>();
   const stripOnly = new Map<string, { item: any; support: number; maxQty: number }>();
-  const keyOf = (item: any) => `${String(item.sku).toUpperCase()}|${String(item.room || 'Kitchen')}`;
-  const isHavSku = (sku: string) => /^HAV\d/i.test(String(sku || '').toUpperCase().trim());
+  const normalizeSkuLabel = (value: unknown): string =>
+    String(value || '')
+      .toUpperCase()
+      .trim()
+      .replace(/\s*-\s*/g, '-')
+      .replace(/\s+/g, '')
+      .replace(/\((?:SPLIT)\)$/i, '')
+      .replace(/\[(?:SPLIT)\]$/i, '')
+      .replace(/_SPLIT$/i, '');
+  const keyOf = (item: any) => `${normalizeSkuLabel(item.sku)}|${String(item.room || 'Kitchen')}`;
+  const isHavSku = (sku: string) => /^HAV\d/i.test(normalizeSkuLabel(sku));
 
   const findExistingSkuKey = (sku: string): string | undefined => {
-    const upper = String(sku || '').toUpperCase().trim();
+    const upper = normalizeSkuLabel(sku);
     if (!upper) return undefined;
     for (const existingKey of map.keys()) {
       if (existingKey.startsWith(`${upper}|`)) return existingKey;
@@ -551,7 +560,14 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
     const merged: Record<string, LabelRow> = {};
 
     for (const r of [...existing, ...incoming]) {
-      const normSku = r.sku.toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '')
+      const normSku = r.sku
+        .toUpperCase()
+        .trim()
+        .replace(/\s*-\s*/g, '-')
+        .replace(/\s+/g, '')
+        .replace(/\((?:SPLIT)\)$/i, '')
+        .replace(/\[(?:SPLIT)\]$/i, '')
+        .replace(/_SPLIT$/i, '')
         .replace(/B?-\d+D$/i, ''); // Strip door-config suffix (e.g. -1D, B-1D)
       // Include detectedUnitType in key so quantities stay separated per type
       const unitTypeKey = (r as any).detectedUnitType || '__none__';
