@@ -607,20 +607,15 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
 
         if (result.status === 'fulfilled') {
           const data = result.value;
-          const aliases = Array.isArray((data as any).unitTypeAliases)
-            ? (data as any).unitTypeAliases.map((t: unknown) => String(t || '').trim()).filter(Boolean)
-            : [];
           const resolvedPageType = String(data.unitTypeName || '').trim();
           const pageItems = Array.isArray(data.items) ? data.items : [];
           const hasCabinetRows = pageItems.length > 0;
           const isCommonAreaPage = Boolean((data as any).isCommonArea);
 
-          // Only keep zero-item type columns for true common-area pages.
-          // This prevents schedule/footer text from injecting unrelated residential type variants.
+          // Only track page type when this page contributed cabinets,
+          // or when it is explicitly identified as a common area page.
           const shouldTrackType = hasCabinetRows || isCommonAreaPage;
-          const typesForOrder = shouldTrackType
-            ? (aliases.length > 0 ? aliases : (resolvedPageType ? [resolvedPageType] : []))
-            : [];
+          const typesForOrder = shouldTrackType && resolvedPageType ? [resolvedPageType] : [];
 
           for (const t of typesForOrder) {
             if (!detectedType) detectedType = t;
@@ -634,7 +629,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
             quantity: c.quantity,
             selected: true,
             sourceFile: file.name,
-            detectedUnitType: resolvedPageType || undefined,
+            detectedUnitType: shouldTrackType ? (resolvedPageType || undefined) : undefined,
           }));
           allRows.push(...pageRows);
         } else {
