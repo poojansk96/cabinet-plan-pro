@@ -188,9 +188,14 @@ function mergeExtractionPasses(passes: any[][]): any[] {
     }
   }
 
+  const isStrongStripOnlySku = (sku: string): boolean => {
+    const upper = String(sku || '').toUpperCase().trim();
+    return /^(UC|BP|SCRIBE)$/.test(upper) || /^[A-Z]{2,8}\d[A-Z0-9\-\/]{2,}$/.test(upper);
+  };
+
   for (const [key, candidate] of stripOnly.entries()) {
-    // Require at least two strip confirmations before adding strip-only SKUs.
-    if (candidate.support >= 2) {
+    // Add strip-only SKUs when corroborated by 2 strips OR when a single strip finds a strong SKU pattern.
+    if (candidate.support >= 2 || (candidate.support >= 1 && isStrongStripOnlySku(candidate.item?.sku))) {
       map.set(key, { ...candidate.item, quantity: Math.max(Number(candidate.item.quantity) || 1, candidate.maxQty) });
     }
   }

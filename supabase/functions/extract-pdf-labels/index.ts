@@ -468,20 +468,32 @@ If no cabinet SKUs are found, return {"items":[]}`;
         return { sku, type: normalizedType, room: normalizedRoom, quantity: Number(c.quantity) || 1 };
       });
 
-    // Strip passes: validate AI-detected SKUs against text layer to block hallucinations.
-    // Use PREFIX matching since AI may return slightly different suffix variations (e.g. W3030 vs W3030B).
+    // Strip passes: text layer helps validation, but must not suppress real SKUs missing from OCR text.
     if (isStrip && textLayerSkuSet.size > 0) {
       const before = items.length;
+      let keptByStrongPattern = 0;
       items = items.filter((item) => {
         if (textLayerSkuSet.has(item.sku)) return true;
-        // Prefix match: accept if any text-layer SKU starts with the AI SKU or vice versa
+
+        // Prefix/suffix tolerant match (e.g. W3030 vs W3030B)
         for (const tlSku of textLayerSkuSet) {
           if (item.sku.startsWith(tlSku) || tlSku.startsWith(item.sku)) return true;
         }
+
+        // OCR text layer can miss tiny labels (UC, TF3X96, narrow fillers).
+        if (STRONG_STRIP_SKU_RE.test(item.sku)) {
+          keptByStrongPattern += 1;
+          return true;
+        }
+
         return false;
       });
+
       if (before !== items.length) {
         console.log(`Strip text-layer filter removed ${before - items.length} unsupported SKUs`);
+      }
+      if (keptByStrongPattern > 0) {
+        console.log(`Strip validation kept ${keptByStrongPattern} OCR-missing strong SKUs`);
       }
     }
 
