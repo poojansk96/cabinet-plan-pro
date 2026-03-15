@@ -253,6 +253,8 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
   const [progress, setProgress] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [processedPages, setProcessedPages] = useState(0);
+  const [totalSteps, setTotalSteps] = useState(0);
+  const stepsCompletedRef = useRef(0);
   const fileRef = useRef<HTMLInputElement>(null);
   const addMoreRef = useRef<HTMLInputElement>(null);
 
@@ -275,6 +277,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
     pdfjsLib: any,
     onStatus: (msg: string) => void,
     onPageDone?: () => void,
+    onStepDone?: () => void,
   ): Promise<{ rows: LabelRow[]; detectedType: string | null; typeOrder: string[] }> => {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -353,6 +356,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       const fullData = await fullResponse.json();
       if (fullData.error === 'rate_limit') throw new Error('rate_limit');
       if (fullData.error === 'credits') throw new Error('credits');
+      onStepDone?.(); // Full-page pass complete
 
       const resolvedType = resolvePageUnitType(fullData.unitTypeName, pageText);
       const fullItems = fullData.items ?? [];
@@ -362,6 +366,8 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       // Skip strips for title pages and non-extraction pages (residential elevations)
       const shouldDoStrips = !pageType.includes('title');
       if (!shouldDoStrips) {
+        // Mark remaining 6 strip steps as done
+        for (let s = 0; s < 6; s++) onStepDone?.();
         return {
           ...fullData,
           unitTypeName: resolvedType.primary,
@@ -400,10 +406,12 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
               console.log(`Page ${p} strip ${s + 1}: found ${stripData.items.length} items`);
             }
           }
+          onStepDone?.(); // Strip pass complete
         } catch (e: any) {
           if (e.message === 'rate_limit') throw e;
           if (e.message === 'credits') throw e;
           console.warn(`Strip ${s + 1} failed for page ${p}:`, e.message);
+          onStepDone?.(); // Count failed strip as done for progress
         }
       }
 
@@ -528,6 +536,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
     setStep('processing');
     setProgress(5);
     setProcessedPages(0);
+    stepsCompletedRef.current = 0;
 
     try {
       setProcessingStatus('Loading PDF library…');
@@ -542,6 +551,9 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         totalPagesCount += pdf.numPages;
       }
       setTotalPages(totalPagesCount);
+      // 7 AI steps per page (1 full + 6 strips)
+      const totalStepsCount = totalPagesCount * 7;
+      setTotalSteps(totalStepsCount);
       setProgress(10);
 
       let pagesProcessed = 0;
@@ -554,7 +566,10 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
           const result = await processSingleFile(files[i], pdfjsLib, setProcessingStatus, () => {
             pagesProcessed++;
             setProcessedPages(pagesProcessed);
-            setProgress(10 + Math.round((pagesProcessed / totalPagesCount) * 85));
+          }, () => {
+            stepsCompletedRef.current++;
+            // Progress: 10% (setup) → 95% (processing) → 100% (done)
+            setProgress(10 + Math.round((stepsCompletedRef.current / totalStepsCount) * 85));
           });
           allRows = mergeRows(result.rows, allRows);
           if (!firstDetectedType && result.detectedType) firstDetectedType = result.detectedType;
