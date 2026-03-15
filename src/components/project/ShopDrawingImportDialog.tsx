@@ -567,16 +567,23 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
             ? (data as any).unitTypeAliases.map((t: unknown) => String(t || '').trim()).filter(Boolean)
             : [];
           const resolvedPageType = String(data.unitTypeName || '').trim();
+          const pageItems = Array.isArray(data.items) ? data.items : [];
+          const hasCabinetRows = pageItems.length > 0;
+          const isCommonAreaPage = Boolean((data as any).isCommonArea);
 
-          // Capture detected unit type from ALL pages — even those with 0 items
-          // Common areas (Laundry, Restroom, etc.) may have no cabinets but still need their type tracked
-          const typesForOrder = aliases.length > 0 ? aliases : (resolvedPageType ? [resolvedPageType] : []);
+          // Only keep zero-item type columns for true common-area pages.
+          // This prevents schedule/footer text from injecting unrelated residential type variants.
+          const shouldTrackType = hasCabinetRows || isCommonAreaPage;
+          const typesForOrder = shouldTrackType
+            ? (aliases.length > 0 ? aliases : (resolvedPageType ? [resolvedPageType] : []))
+            : [];
+
           for (const t of typesForOrder) {
             if (!detectedType) detectedType = t;
             if (!pageTypeOrder.includes(t)) pageTypeOrder.push(t);
           }
 
-          const pageRows = (data.items ?? []).map((c: any) => ({
+          const pageRows = pageItems.map((c: any) => ({
             sku: c.sku,
             type: c.type,
             room: c.room,
