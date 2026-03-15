@@ -190,7 +190,11 @@ function mergeExtractionPasses(passes: any[][]): any[] {
 
   const isStrongStripOnlySku = (sku: string): boolean => {
     const upper = String(sku || '').toUpperCase().trim();
-    return /^(UC|BP|SCRIBE)$/.test(upper) || /^[A-Z]{2,8}\d[A-Z0-9\-\/]{2,}$/.test(upper);
+    // Trust no-digit SKUs immediately
+    if (/^(UC|BP|SCRIBE)$/.test(upper)) return true;
+    // Trust single-strip accessories (BF3, WF6X30, TK8, etc.) — they're too small to span 2 strips
+    if (/^(BF|WF|TF|FIL|TK|CM|EP|FP|LR|DWR)\d/i.test(upper)) return true;
+    return /^[A-Z]{2,8}\d[A-Z0-9\-\/]{2,}$/.test(upper);
   };
 
   for (const [key, candidate] of stripOnly.entries()) {
