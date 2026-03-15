@@ -406,10 +406,12 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
               console.log(`Page ${p} strip ${s + 1}: found ${stripData.items.length} items`);
             }
           }
+          onStepDone?.(); // Strip pass complete
         } catch (e: any) {
           if (e.message === 'rate_limit') throw e;
           if (e.message === 'credits') throw e;
           console.warn(`Strip ${s + 1} failed for page ${p}:`, e.message);
+          onStepDone?.(); // Count failed strip as done for progress
         }
       }
 
