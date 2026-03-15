@@ -116,12 +116,25 @@ async function callGemini(
 
 // ── SKU Helpers ──
 
-const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|UB|WC|OH|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HALC|HAL|SA|SV)\d[\w\-\/]*/gi;
+const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|UB|WC|OH|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HALC|HAL|SA|SV)\d[\w\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
 const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
 // Relaxed: accept any 1-8 letter prefix followed by a digit (catches manufacturer-specific SKUs like HAV, HALC)
 const SKU_PREFIX_RE = /^[A-Z]{1,8}\d/i;
 const NO_DIGIT_OK = /^(BP|SCRIBE|UC)$/i;
 const STRONG_STRIP_SKU_RE = /^(?:UC|BP|SCRIBE|[A-Z]{2,8}\d[A-Z0-9\-\/]{2,})$/i;
+const SPLIT_SUFFIX_RE = /(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)$/i;
+
+function normalizeSkuLabel(value: string): string {
+  return String(value || '')
+    .toUpperCase()
+    .trim()
+    .replace(/\s*-\s*/g, '-')
+    .replace(/\s+/g, '');
+}
+
+function stripSplitSuffix(value: string): string {
+  return normalizeSkuLabel(value).replace(SPLIT_SUFFIX_RE, '');
+}
 
 function isValidSku(s: string): boolean {
   const upper = s.toUpperCase().trim();
@@ -139,7 +152,7 @@ function extractSkusFromText(pageText: string): string[] {
   const skus = new Set<string>();
 
   for (const m of [...matches, ...noDigitMatches]) {
-    const upper = m.toUpperCase().trim();
+    const upper = normalizeSkuLabel(m);
     if (APPLIANCE_RE.test(upper)) continue;
     if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) continue;
     if (!isValidSku(upper) && !NO_DIGIT_OK.test(upper)) continue;
@@ -157,7 +170,7 @@ function countSkusFromText(pageText: string): Record<string, number> {
   const noDigitMatches = pageText.match(/\b(BP|SCRIBE|UC)\b/gi) || [];
 
   for (const m of [...matches, ...noDigitMatches]) {
-    const upper = m.toUpperCase().trim();
+    const upper = normalizeSkuLabel(m);
     if (APPLIANCE_RE.test(upper)) continue;
     if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) continue;
     if (!isValidSku(upper) && !NO_DIGIT_OK.test(upper)) continue;
@@ -262,8 +275,29 @@ serve(async (req) => {
 
     // Extract SKUs from PDF text layer (instant, no AI needed)
     const textLayerSkus = extractSkusFromText(pageText ?? "");
-    const textLayerSkuSet = new Set(textLayerSkus.map((s) => s.toUpperCase()));
+    const textLayerSkuSet = new Set(textLayerSkus.map((s) => normalizeSkuLabel(s)));
     const textLayerSkuCounts = countSkusFromText(pageText ?? "");
+    const textLayerSplitByBase = new Map<string, string>();
+    for (const sku of textLayerSkuSet) {
+      if (!SPLIT_SUFFIX_RE.test(sku)) continue;
+      const base = stripSplitSuffix(sku);
+      if (base && !textLayerSplitByBase.has(base)) textLayerSplitByBase.set(base, sku);
+    }
+    const canonicalizeSkuWithText = (rawSku: string): string => {
+      const normalized = normalizeSkuLabel(rawSku);
+      if (!normalized) return normalized;
+
+      const base = stripSplitSuffix(normalized);
+      if (SPLIT_SUFFIX_RE.test(normalized)) {
+        if (textLayerSkuSet.has(normalized)) return normalized; // SPLIT is explicitly in the plan text
+        if (textLayerSkuSet.has(base)) return base; // AI artifact suffix, collapse to base label
+        return normalized;
+      }
+
+      // If the plan text explicitly has only the SPLIT variant for this base, preserve that exact label.
+      return textLayerSplitByBase.get(base) ?? normalized;
+    };
+
     if (textLayerSkus.length > 0) {
       console.log(`Text layer found ${textLayerSkus.length} SKUs: ${textLayerSkus.join(', ')}`);
     }
@@ -459,15 +493,8 @@ If no cabinet SKUs are found, return {"items":[]}`;
         return true;
       })
       .map((c: any) => {
-        const sku = String(c.sku)
-          .toUpperCase()
-          .trim()
-          .replace(/\s*-\s*/g, '-')
-          .replace(/\s+/g, '')
-          .replace(/\((?:SPLIT)\)$/i, '')
-          .replace(/\[(?:SPLIT)\]$/i, '')
-          .replace(/_SPLIT$/i, '');
-        // Preserve full SKU labels exactly as written — no suffix stripping (except AI artifact tags like "(SPLIT)")
+        const sku = canonicalizeSkuWithText(String(c.sku ?? ''));
+        // Preserve full SKU labels exactly as written; collapse SPLIT only when not present in plan text.
         let rawType = String(c.type ?? "Base").trim();
         if (/^BLW|^BRW/i.test(sku)) rawType = "Wall";
         if (/^HAV\d/i.test(sku)) rawType = "Vanity";
