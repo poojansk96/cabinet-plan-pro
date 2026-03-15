@@ -153,6 +153,16 @@ function mergeExtractionPasses(passes: any[][]): any[] {
   const map = new Map<string, any>();
   const stripOnly = new Map<string, { item: any; support: number; maxQty: number }>();
   const keyOf = (item: any) => `${String(item.sku).toUpperCase()}|${String(item.room || 'Kitchen')}`;
+  const isHavSku = (sku: string) => /^HAV\d/i.test(String(sku || '').toUpperCase().trim());
+
+  const findExistingSkuKey = (sku: string): string | undefined => {
+    const upper = String(sku || '').toUpperCase().trim();
+    if (!upper) return undefined;
+    for (const existingKey of map.keys()) {
+      if (existingKey.startsWith(`${upper}|`)) return existingKey;
+    }
+    return undefined;
+  };
 
   // Pass 1 (full page) is the primary source of truth.
   for (const item of passes[0] ?? []) {
@@ -180,6 +190,19 @@ function mergeExtractionPasses(passes: any[][]): any[] {
         continue;
       }
 
+      // HAV vanity labels can be mis-roomed in strip crops. If full pass already has same HAV SKU,
+      // update that existing row instead of creating a duplicate row with a different room.
+      if (isHavSku(item.sku)) {
+        const existingSkuKey = findExistingSkuKey(item.sku);
+        if (existingSkuKey) {
+          const existingSkuRow = map.get(existingSkuKey);
+          if (existingSkuRow) {
+            existingSkuRow.quantity = Math.max(existingSkuRow.quantity || 1, qty);
+            continue;
+          }
+        }
+      }
+
       const candidate = stripOnly.get(key) ?? { item: { ...item }, support: 0, maxQty: 0 };
       if (!seenInThisStrip.has(key)) candidate.support += 1;
       candidate.maxQty = Math.max(candidate.maxQty, qty);
@@ -196,6 +219,18 @@ function mergeExtractionPasses(passes: any[][]): any[] {
   for (const [key, candidate] of stripOnly.entries()) {
     // Add strip-only SKUs when corroborated by 2 strips OR when a single strip finds a strong SKU pattern.
     if (candidate.support >= 2 || (candidate.support >= 1 && isStrongStripOnlySku(candidate.item?.sku))) {
+      // Prevent duplicate HAV rows when full pass already found the same SKU under a different room label.
+      if (isHavSku(candidate.item?.sku)) {
+        const existingSkuKey = findExistingSkuKey(candidate.item?.sku);
+        if (existingSkuKey) {
+          const existingSkuRow = map.get(existingSkuKey);
+          if (existingSkuRow) {
+            existingSkuRow.quantity = Math.max(existingSkuRow.quantity || 1, candidate.maxQty);
+            continue;
+          }
+        }
+      }
+
       map.set(key, { ...candidate.item, quantity: Math.max(Number(candidate.item.quantity) || 1, candidate.maxQty) });
     }
   }
@@ -513,16 +548,13 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
   const mergeRows = (incoming: LabelRow[], existing: LabelRow[] = []): LabelRow[] => {
     // For items within the SAME unit type: use MAX qty across pages (same cabinet seen on multiple pages).
     // For items across DIFFERENT unit types: keep separate (different unit types = different physical units).
-    // Corner cabinets (LS/LSB) and vanity cabinets (HAV/?"HALC) always use MAX across ALL unit types
-    // because they appear on multiple elevation pages but represent a single physical unit.
     const merged: Record<string, LabelRow> = {};
-    const isMaxAcrossTypes = (sku: string) => /^(LS|LSB|HAV|HALC)\d*/i.test(sku);
 
     for (const r of [...existing, ...incoming]) {
       const normSku = r.sku.toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '')
         .replace(/B?-\d+D$/i, ''); // Strip door-config suffix (e.g. -1D, B-1D)
-      // For vanity/corner SKUs, ignore unit type in key — they appear on multiple pages but are single units
-      const unitTypeKey = isMaxAcrossTypes(normSku) ? '__global__' : ((r as any).detectedUnitType || '__none__');
+      // Include detectedUnitType in key so quantities stay separated per type
+      const unitTypeKey = (r as any).detectedUnitType || '__none__';
       const key = `${normSku}__${r.room}__${unitTypeKey}`;
       if (merged[key]) {
         // Use MAX instead of SUM — multiple pages of the same unit type show the SAME cabinets
