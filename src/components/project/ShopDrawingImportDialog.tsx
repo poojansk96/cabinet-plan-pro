@@ -277,6 +277,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
     pdfjsLib: any,
     onStatus: (msg: string) => void,
     onPageDone?: () => void,
+    onStepDone?: () => void,
   ): Promise<{ rows: LabelRow[]; detectedType: string | null; typeOrder: string[] }> => {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
