@@ -240,6 +240,8 @@ serve(async (req) => {
 
     // Extract SKUs from PDF text layer (instant, no AI needed)
     const textLayerSkus = extractSkusFromText(pageText ?? "");
+    const textLayerSkuSet = new Set(textLayerSkus.map((s) => s.toUpperCase()));
+    const textLayerSkuCounts = countSkusFromText(pageText ?? "");
     if (textLayerSkus.length > 0) {
       console.log(`Text layer found ${textLayerSkus.length} SKUs: ${textLayerSkus.join(', ')}`);
     }
