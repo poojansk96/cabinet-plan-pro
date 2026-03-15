@@ -249,14 +249,19 @@ Common formats: "TYPE 1 - AS", "TYPE 1 - MIRROR", "TYPE 2 - ADA", "TYPE 3 - AS",
 Return null for unitTypeName ONLY if you truly cannot find any unit type identifier.
 ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
 
-    let classification: any = { pageType: "plan_view", unitTypeName: null, isCommonArea: false };
-    try {
-      classification = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", pageImage, classifyPrompt, 0.1, 1024, CLASSIFY_SCHEMA);
-    } catch (e: any) {
-      if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      console.error("Step 1 classification error:", e.message);
-      // Default to plan_view on error so we don't miss data
+    let classification: any;
+    if (classificationOverride) {
+      classification = classificationOverride;
+      console.log("Using classification override (strip pass)");
+    } else {
+      classification = { pageType: "plan_view", unitTypeName: null, isCommonArea: false };
+      try {
+        classification = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", pageImage, classifyPrompt, 0.1, 1024, CLASSIFY_SCHEMA);
+      } catch (e: any) {
+        if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        console.error("Step 1 classification error:", e.message);
+      }
     }
 
     const rawPageType = String(classification.pageType ?? "plan_view").toLowerCase().replace(/[\s_-]+/g, '_');
