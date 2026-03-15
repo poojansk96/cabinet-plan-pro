@@ -148,19 +148,53 @@ async function renderPageStrips(
 }
 
 function mergeExtractionPasses(passes: any[][]): any[] {
+  if (!passes.length) return [];
+
   const map = new Map<string, any>();
-  for (const items of passes) {
-    for (const item of items) {
-      if (!item?.sku) continue;
-      const key = `${String(item.sku).toUpperCase()}|${String(item.room || 'Kitchen')}`;
-      const existing = map.get(key);
-      if (existing) {
-        existing.quantity = Math.max(existing.quantity || 1, item.quantity || 1);
-      } else {
-        map.set(key, { ...item });
-      }
+  const stripOnly = new Map<string, { item: any; support: number; maxQty: number }>();
+  const keyOf = (item: any) => `${String(item.sku).toUpperCase()}|${String(item.room || 'Kitchen')}`;
+
+  // Pass 1 (full page) is the primary source of truth.
+  for (const item of passes[0] ?? []) {
+    if (!item?.sku) continue;
+    const key = keyOf(item);
+    const existing = map.get(key);
+    if (existing) {
+      existing.quantity = Math.max(existing.quantity || 1, item.quantity || 1);
+    } else {
+      map.set(key, { ...item });
     }
   }
+
+  // Strip passes can increase qty for known SKUs and add only strongly-supported missing SKUs.
+  for (const items of passes.slice(1)) {
+    const seenInThisStrip = new Set<string>();
+    for (const item of items) {
+      if (!item?.sku) continue;
+      const key = keyOf(item);
+      const qty = Number(item.quantity) || 1;
+
+      const existing = map.get(key);
+      if (existing) {
+        existing.quantity = Math.max(existing.quantity || 1, qty);
+        continue;
+      }
+
+      const candidate = stripOnly.get(key) ?? { item: { ...item }, support: 0, maxQty: 0 };
+      if (!seenInThisStrip.has(key)) candidate.support += 1;
+      candidate.maxQty = Math.max(candidate.maxQty, qty);
+      stripOnly.set(key, candidate);
+      seenInThisStrip.add(key);
+    }
+  }
+
+  for (const [key, candidate] of stripOnly.entries()) {
+    // Require at least two strip confirmations before adding strip-only SKUs.
+    if (candidate.support >= 2) {
+      map.set(key, { ...candidate.item, quantity: Math.max(Number(candidate.item.quantity) || 1, candidate.maxQty) });
+    }
+  }
+
   return Array.from(map.values());
 }
 
