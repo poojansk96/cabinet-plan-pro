@@ -493,15 +493,8 @@ If no cabinet SKUs are found, return {"items":[]}`;
         return true;
       })
       .map((c: any) => {
-        const sku = String(c.sku)
-          .toUpperCase()
-          .trim()
-          .replace(/\s*-\s*/g, '-')
-          .replace(/\s+/g, '')
-          .replace(/\((?:SPLIT)\)$/i, '')
-          .replace(/\[(?:SPLIT)\]$/i, '')
-          .replace(/_SPLIT$/i, '');
-        // Preserve full SKU labels exactly as written — no suffix stripping (except AI artifact tags like "(SPLIT)")
+        const sku = canonicalizeSkuWithText(String(c.sku ?? ''));
+        // Preserve full SKU labels exactly as written; collapse SPLIT only when not present in plan text.
         let rawType = String(c.type ?? "Base").trim();
         if (/^BLW|^BRW/i.test(sku)) rawType = "Wall";
         if (/^HAV\d/i.test(sku)) rawType = "Vanity";
