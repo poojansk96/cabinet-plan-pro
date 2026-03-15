@@ -237,7 +237,7 @@ function resolvePageUnitType(aiType: unknown, pageText: string): { primary: stri
   return { primary: ai || aliases[0] || null, aliases };
 }
 
-export default function ShopDrawingImportDialog({ unitType, onImport, onClose, prefinalPerson, speedMode = 'fast' }: Props) {
+export default function ShopDrawingImportDialog({ unitType, onImport, onClose, prefinalPerson, speedMode = 'fast', skipClassify = false }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<LabelRow[]>([]);
   const [error, setError] = useState<string | null>(null);
