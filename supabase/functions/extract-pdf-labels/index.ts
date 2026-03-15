@@ -269,75 +269,25 @@ serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════
-    // STEP 1: CLASSIFY THE PAGE (skipped when skipClassify=true)
-    // Pre-Final always sends plan views, so classification is unnecessary.
+    // STEP 1: BYPASS CLASSIFICATION (Guaranteed Plan View)
     // ═══════════════════════════════════════════════════════════
 
-    let rawPageType = "plan_view";
+    const rawPageType = "plan_view";
     let detectedUnitType: string | null = null;
     let isCommonArea = false;
 
-    if (skipClassify) {
-      // Skip classification entirely — assume plan_view, detect unit type from extraction
-      console.log("Skipping classification (skipClassify=true, assuming plan_view)");
-      rawPageType = "plan_view";
-      // Detect common area from text hints
-      const commonAreaPattern = /\b(LAUNDRY|MAIL\s*ROOM|RESTROOM|LOBBY|CLUBHOUSE|FITNESS|LEASING|BUSINESS\s*CENTER|POOL\s*BATH|TRASH|MAINTENANCE|MODEL|STORAGE|GARAGE|CORRIDOR|MECHANICAL|COMMUNITY|BREAK\s*ROOM)\b/i;
-      isCommonArea = commonAreaPattern.test(pageText || '');
-    } else if (classificationOverride) {
-      const co = classificationOverride;
-      rawPageType = String(co.pageType ?? "plan_view").toLowerCase().replace(/[\s_-]+/g, '_');
-      detectedUnitType = co.unitTypeName ?? null;
-      isCommonArea = co.isCommonArea ?? false;
-      console.log("Using classification override (strip pass)");
-    } else {
-      const classifyPrompt = `Classify this 2020 Design shop drawing page.
-
-PAGE TYPES (return one of these exact strings for pageType):
-- "plan_view": Top-down bird's-eye view showing room layout with cabinet outlines and SKU labels on or near cabinet shapes. Walls appear as thick lines. You see the room from ABOVE. MIRRORED plan views (horizontally flipped) are STILL "plan_view".
-- "elevation": Front/side view of cabinets. You see cabinet doors and drawers as tall rectangles. Dimension lines show heights (e.g. 32 7/8", 65 3/4"). Base cabinets sit on bottom, wall cabinets hang at top.
-- "title_page": Cover page or title page with project info, unit type name, unit numbers list. No cabinet drawings visible.
-
-COMMON AREAS (set isCommonArea to true for ANY of these):
-Laundry, Mail Room, Restroom, Lobby, Clubhouse, Fitness Center, Leasing Office, Business Center, Pool Bath, Trash Room, Maintenance, Model, Storage, Garage, Corridor, Mechanical, Community Room, Break Room, Kitchen (Common), any non-residential space.
-
-RESIDENTIAL (set isCommonArea to false):
-Type 1, Type 2, Type 3, Studio, 1 Bed, 2 Bed, 1BR, 2BR, Unit A, Unit B, any numbered/lettered residential unit type including AS and MIRROR variants.
-
-UNIT TYPE NAME: Look in the title block, header, sheet title, or prominent labels on this page.
-Common formats: "TYPE 1 - AS", "TYPE 1 - MIRROR", "TYPE 2 - ADA", "TYPE 3 - AS", "Laundry", "Mail Room", etc.
-Return null for unitTypeName ONLY if you truly cannot find any unit type identifier.
-${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
-
-      let classification: any = { pageType: "plan_view", unitTypeName: null, isCommonArea: false };
-      try {
-        classification = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", pageImage, classifyPrompt, 0.1, 1024, CLASSIFY_SCHEMA);
-      } catch (e: any) {
-        if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        console.error("Step 1 classification error:", e.message);
-      }
-      rawPageType = String(classification.pageType ?? "plan_view").toLowerCase().replace(/[\s_-]+/g, '_');
-      detectedUnitType = classification.unitTypeName ?? null;
-      isCommonArea = classification.isCommonArea ?? false;
+    // Use fast regex on the text layer to grab the Unit Type, saving an AI call
+    const typeMatch = (pageText || '').match(/\bTYPE\s+([A-Z0-9\s-]+)\b/i);
+    if (typeMatch) detectedUnitType = typeMatch[0].trim();
+    
+    if (classificationOverride) {
+      detectedUnitType = classificationOverride.unitTypeName ?? detectedUnitType;
     }
 
-    console.log(`Classification: pageType=${rawPageType}, unitType=${detectedUnitType}, isCommonArea=${isCommonArea}, skipClassify=${!!skipClassify}`);
+    console.log(`Bypassing classification: Forced plan_view, unitType=${detectedUnitType}`);
 
-    // ═══════════════════════════════════════════════════════════
-    // DECISION: Extract SKUs only from plan views and common area elevations
-    // ═══════════════════════════════════════════════════════════
-
-    const isPlanView = rawPageType.includes("plan");
-    const isElevation = rawPageType.includes("elev");
-    const shouldExtract = isPlanView || (isElevation && isCommonArea);
-
-    if (!shouldExtract) {
-      console.log(`Skipping extraction: pageType=${rawPageType}, isCommonArea=${isCommonArea}`);
-      return new Response(JSON.stringify({ items: [], unitTypeName: detectedUnitType, pageType: rawPageType, isCommonArea }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // We ALWAYS extract because the user guarantees plan views
+    const shouldExtract = true;
 
     // ═══════════════════════════════════════════════════════════
     // STEP 2: EXTRACT CABINET SKUs (focused, single-pass)
