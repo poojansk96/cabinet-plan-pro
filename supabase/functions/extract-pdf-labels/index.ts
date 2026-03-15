@@ -227,12 +227,29 @@ serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════
-    // STEP 1: CLASSIFY THE PAGE (The Gatekeeper)
-    // Isolates the page-type decision from extraction to prevent
-    // the AI from struggling with complex negative constraints.
+    // STEP 1: CLASSIFY THE PAGE (skipped when skipClassify=true)
+    // Pre-Final always sends plan views, so classification is unnecessary.
     // ═══════════════════════════════════════════════════════════
 
-    const classifyPrompt = `Classify this 2020 Design shop drawing page.
+    let rawPageType = "plan_view";
+    let detectedUnitType: string | null = null;
+    let isCommonArea = false;
+
+    if (skipClassify) {
+      // Skip classification entirely — assume plan_view, detect unit type from extraction
+      console.log("Skipping classification (skipClassify=true, assuming plan_view)");
+      rawPageType = "plan_view";
+      // Detect common area from text hints
+      const commonAreaPattern = /\b(LAUNDRY|MAIL\s*ROOM|RESTROOM|LOBBY|CLUBHOUSE|FITNESS|LEASING|BUSINESS\s*CENTER|POOL\s*BATH|TRASH|MAINTENANCE|MODEL|STORAGE|GARAGE|CORRIDOR|MECHANICAL|COMMUNITY|BREAK\s*ROOM)\b/i;
+      isCommonArea = commonAreaPattern.test(pageText || '');
+    } else if (classificationOverride) {
+      const co = classificationOverride;
+      rawPageType = String(co.pageType ?? "plan_view").toLowerCase().replace(/[\s_-]+/g, '_');
+      detectedUnitType = co.unitTypeName ?? null;
+      isCommonArea = co.isCommonArea ?? false;
+      console.log("Using classification override (strip pass)");
+    } else {
+      const classifyPrompt = `Classify this 2020 Design shop drawing page.
 
 PAGE TYPES (return one of these exact strings for pageType):
 - "plan_view": Top-down bird's-eye view showing room layout with cabinet outlines and SKU labels on or near cabinet shapes. Walls appear as thick lines. You see the room from ABOVE. MIRRORED plan views (horizontally flipped) are STILL "plan_view".
@@ -250,12 +267,7 @@ Common formats: "TYPE 1 - AS", "TYPE 1 - MIRROR", "TYPE 2 - ADA", "TYPE 3 - AS",
 Return null for unitTypeName ONLY if you truly cannot find any unit type identifier.
 ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
 
-    let classification: any;
-    if (classificationOverride) {
-      classification = classificationOverride;
-      console.log("Using classification override (strip pass)");
-    } else {
-      classification = { pageType: "plan_view", unitTypeName: null, isCommonArea: false };
+      let classification: any = { pageType: "plan_view", unitTypeName: null, isCommonArea: false };
       try {
         classification = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", pageImage, classifyPrompt, 0.1, 1024, CLASSIFY_SCHEMA);
       } catch (e: any) {
@@ -263,21 +275,19 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
         if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         console.error("Step 1 classification error:", e.message);
       }
+      rawPageType = String(classification.pageType ?? "plan_view").toLowerCase().replace(/[\s_-]+/g, '_');
+      detectedUnitType = classification.unitTypeName ?? null;
+      isCommonArea = classification.isCommonArea ?? false;
     }
 
-    const rawPageType = String(classification.pageType ?? "plan_view").toLowerCase().replace(/[\s_-]+/g, '_');
-    const detectedUnitType = classification.unitTypeName ?? null;
-    const isCommonArea = classification.isCommonArea ?? false;
-    console.log(`Step 1 Classification: pageType=${rawPageType}, unitType=${detectedUnitType}, isCommonArea=${isCommonArea}`);
+    console.log(`Classification: pageType=${rawPageType}, unitType=${detectedUnitType}, isCommonArea=${isCommonArea}, skipClassify=${!!skipClassify}`);
 
     // ═══════════════════════════════════════════════════════════
     // DECISION: Extract SKUs only from plan views and common area elevations
-    // Residential elevations are SKIPPED (same cabinets as plan view → double-count)
     // ═══════════════════════════════════════════════════════════
 
     const isPlanView = rawPageType.includes("plan");
     const isElevation = rawPageType.includes("elev");
-    const isTitlePage = rawPageType.includes("title");
     const shouldExtract = isPlanView || (isElevation && isCommonArea);
 
     if (!shouldExtract) {
