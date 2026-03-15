@@ -512,10 +512,10 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       if (fullData.error === 'credits') throw new Error('credits');
       onStepDone?.(); // Full-page pass complete
 
-      const resolvedType = resolvePageUnitType(fullData.unitTypeName, pageText);
       const fullItems = fullData.items ?? [];
       const pageType = String(fullData.pageType || 'plan_view');
       const isCommonArea = fullData.isCommonArea ?? false;
+      const resolvedType = resolvePageUnitType(fullData.unitTypeName, pageText, isCommonArea);
 
       // Skip strips for title pages and non-extraction pages (residential elevations)
       const shouldDoStrips = !pageType.includes('title');
