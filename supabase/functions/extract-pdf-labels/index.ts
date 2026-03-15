@@ -512,18 +512,19 @@ If no cabinet SKUs are found, return {"items":[]}`;
       return { ...item, quantity: nextQty };
     });
 
-    // ── Deduplicate — SUM quantities instead of MAX ──
-    // If the AI lists the same SKU twice (found in different spots), we ADD the quantities.
-    // Exception: Corner lazy susans (LS, LSB) use MAX since they sit at wall junctions.
-    const isCornerLazySusan = (sku: string) => /^(LS|LSB)\d+/i.test(sku);
+    // ── Deduplicate ──
+    // For most SKUs, duplicate entries are summed (multiple distinct labels on page).
+    // For corner units and HAV vanities, duplicate detections are usually the same physical cabinet,
+    // so keep MAX instead of SUM to avoid overcounting.
+    const isMaxDedupSku = (sku: string) => /^(LS|LSB|HAV)\d+/i.test(sku);
     const deduped = new Map<string, { sku: string; type: string; room: string; quantity: number }>();
     for (const item of items) {
       const key = `${item.sku}|${item.room}`;
       const existing = deduped.get(key);
       if (existing) {
-        existing.quantity = isCornerLazySusan(item.sku)
+        existing.quantity = isMaxDedupSku(item.sku)
           ? Math.max(existing.quantity, item.quantity)
-          : existing.quantity + item.quantity;  // SUM quantities!
+          : existing.quantity + item.quantity;
       } else {
         deduped.set(key, { ...item });
       }
