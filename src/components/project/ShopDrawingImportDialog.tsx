@@ -253,6 +253,8 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
   const [progress, setProgress] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [processedPages, setProcessedPages] = useState(0);
+  const [totalSteps, setTotalSteps] = useState(0);
+  const stepsCompletedRef = useRef(0);
   const fileRef = useRef<HTMLInputElement>(null);
   const addMoreRef = useRef<HTMLInputElement>(null);
 
