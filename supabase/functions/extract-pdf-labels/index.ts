@@ -174,7 +174,7 @@ function classifySku(sku: string): string {
   if (/^(HALC)\d/i.test(sku)) return "Tall";
   if (/^(V|VB|VD|VDC)\d/i.test(sku)) return "Vanity";
   if (/^(HAV)\d/i.test(sku)) return "Vanity";
-  if (/^(FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR)\d/i.test(sku)) return "Accessory";
+  if (/^(FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|TF)\d/i.test(sku)) return "Accessory";
   return "Base";
 }
 
