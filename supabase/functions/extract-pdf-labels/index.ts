@@ -413,7 +413,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
       }
     }
 
-    return new Response(JSON.stringify({ items: Array.from(deduped.values()), unitTypeName: detectedUnitType }), {
+    return new Response(JSON.stringify({ items: Array.from(deduped.values()), unitTypeName: detectedUnitType, pageType: rawPageType, isCommonArea }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
