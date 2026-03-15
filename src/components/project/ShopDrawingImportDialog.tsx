@@ -39,6 +39,7 @@ interface Props {
   onClose: () => void;
   prefinalPerson?: string;
   speedMode?: 'fast' | 'thorough';
+  skipClassify?: boolean;
 }
 
 const PERSONAL_QUOTES = [
