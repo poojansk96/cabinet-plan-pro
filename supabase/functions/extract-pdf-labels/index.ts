@@ -152,7 +152,7 @@ function extractSkusFromText(pageText: string): string[] {
   const skus = new Set<string>();
 
   for (const m of [...matches, ...noDigitMatches]) {
-    const upper = m.toUpperCase().trim();
+    const upper = normalizeSkuLabel(m);
     if (APPLIANCE_RE.test(upper)) continue;
     if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) continue;
     if (!isValidSku(upper) && !NO_DIGIT_OK.test(upper)) continue;
