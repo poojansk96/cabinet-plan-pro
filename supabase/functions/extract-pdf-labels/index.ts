@@ -275,8 +275,29 @@ serve(async (req) => {
 
     // Extract SKUs from PDF text layer (instant, no AI needed)
     const textLayerSkus = extractSkusFromText(pageText ?? "");
-    const textLayerSkuSet = new Set(textLayerSkus.map((s) => s.toUpperCase()));
+    const textLayerSkuSet = new Set(textLayerSkus.map((s) => normalizeSkuLabel(s)));
     const textLayerSkuCounts = countSkusFromText(pageText ?? "");
+    const textLayerSplitByBase = new Map<string, string>();
+    for (const sku of textLayerSkuSet) {
+      if (!SPLIT_SUFFIX_RE.test(sku)) continue;
+      const base = stripSplitSuffix(sku);
+      if (base && !textLayerSplitByBase.has(base)) textLayerSplitByBase.set(base, sku);
+    }
+    const canonicalizeSkuWithText = (rawSku: string): string => {
+      const normalized = normalizeSkuLabel(rawSku);
+      if (!normalized) return normalized;
+
+      const base = stripSplitSuffix(normalized);
+      if (SPLIT_SUFFIX_RE.test(normalized)) {
+        if (textLayerSkuSet.has(normalized)) return normalized; // SPLIT is explicitly in the plan text
+        if (textLayerSkuSet.has(base)) return base; // AI artifact suffix, collapse to base label
+        return normalized;
+      }
+
+      // If the plan text explicitly has only the SPLIT variant for this base, preserve that exact label.
+      return textLayerSplitByBase.get(base) ?? normalized;
+    };
+
     if (textLayerSkus.length > 0) {
       console.log(`Text layer found ${textLayerSkus.length} SKUs: ${textLayerSkus.join(', ')}`);
     }
