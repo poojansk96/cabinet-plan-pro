@@ -501,7 +501,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
     }
 
     // Reconcile under-counted small accessories using text-layer occurrence counts (conservative floor).
-    const ACCESSORY_FLOOR_RE = /^(BF|WF|FIL|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR)\d/i;
+    const ACCESSORY_FLOOR_RE = /^(BF|WF|FIL|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|TF)\d/i;
     items = items.map((item) => {
       const textCount = textLayerSkuCounts[item.sku] ?? 0;
       if (!ACCESSORY_FLOOR_RE.test(item.sku) || textCount < 2) return item;
