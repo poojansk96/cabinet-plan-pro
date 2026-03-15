@@ -516,7 +516,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
     // Corner cabinets (LS/LSB) and vanity cabinets (HAV/?"HALC) always use MAX across ALL unit types
     // because they appear on multiple elevation pages but represent a single physical unit.
     const merged: Record<string, LabelRow> = {};
-    const isMaxAcrossTypes = (sku: string) => /^(LS|LSB|HAV|?"HALC)\d*/i.test(sku);
+    const isMaxAcrossTypes = (sku: string) => /^(LS|LSB|HAV|HALC)\d*/i.test(sku);
 
     for (const r of [...existing, ...incoming]) {
       const normSku = r.sku.toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '')
