@@ -548,9 +548,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
   const mergeRows = (incoming: LabelRow[], existing: LabelRow[] = []): LabelRow[] => {
     // For items within the SAME unit type: use MAX qty across pages (same cabinet seen on multiple pages).
     // For items across DIFFERENT unit types: keep separate (different unit types = different physical units).
-    // Corner cabinets (LS/LSB) always use MAX.
     const merged: Record<string, LabelRow> = {};
-    const isCornerLazySusan = (sku: string) => /^(LS|LSB)\d+/i.test(sku);
 
     for (const r of [...existing, ...incoming]) {
       const normSku = r.sku.toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '')
