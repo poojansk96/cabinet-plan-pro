@@ -324,11 +324,16 @@ For each cabinet found, provide:
 
 COUNTING — CRITICAL:
 - If "DB15" label appears in TWO different spots → quantity 2
-- If "BF3" label appears once → quantity 1. Do NOT skip small accessories.
-- ACCESSORIES MATTER: BF3, BF6, WF3X30, WF6X30, DWR3, DWR6, FIL3 — count EVERY single one. Scan the ENTIRE drawing including corners, edges, and narrow gaps between cabinets.
+- If "BF3" label appears once → quantity 1. If "BF3" appears in TWO different spots → quantity 2. Do NOT skip small accessories.
+- ACCESSORIES MATTER: BF3, BF6, WF3X30, WF6X30, DWR3, DWR6, FIL3 — count EVERY single one. Scan the ENTIRE drawing including corners, edges, and narrow gaps between cabinets. These labels often appear on BOTH sides of a kitchen run — check LEFT side AND RIGHT side of counter runs.
+- BF (Base Filler) labels commonly appear in PAIRS — one on each end of a cabinet run. Scan every end-of-run and corner transition for BF labels.
 - FILLER-HEAD CABINETS: B09FH, B06FH, B12FH — these are VERY NARROW rectangles (6"-12" wide). They appear as thin slivers between larger cabinets or at the end of a run. ACTIVELY LOOK FOR THESE — they are commonly missed.
 - Corner cabinets (LS, LSB) at wall junction = count ONCE even if label appears at junction of two wall runs.
 - Look for "xN" or "(2)" multiplier notation next to labels.
+
+HAV PREFIX = VANITY (NOT Base):
+- Any SKU starting with "HAV" (e.g. HAV3621BFH-REM) is a VANITY cabinet. Classify as type "Vanity", NOT "Base".
+- Do NOT duplicate HAV items — report each HAV label exactly ONCE with the correct type "Vanity".
 
 STACKED / ADJACENT LABELS — MOST COMMON ERROR:
 - Two or more SKU labels near the same location are ALWAYS SEPARATE cabinets. NEVER merge them into one string.
