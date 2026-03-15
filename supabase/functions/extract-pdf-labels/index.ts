@@ -301,8 +301,14 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
     // STEP 2: EXTRACT CABINET SKUs (focused, single-pass)
     // ═══════════════════════════════════════════════════════════
 
-    const extractPrompt = `Extract ALL cabinet SKU labels from this 2020 Design shop drawing page.
+    const unitTypeDetectInstructions = skipClassify && !isStrip ? `
+UNIT TYPE NAME: Also detect the unit type name from the title block, header, or prominent text on this page.
+Look for formats like: "TYPE 1 - AS", "TYPE A - MIRROR", "TYPE 2 - ADA", "Laundry", "Mail Room", etc.
+Return it as "unitTypeName" in your response. Return null if no unit type is found.
+` : '';
 
+    const extractPrompt = `Extract ALL cabinet SKU labels from this 2020 Design shop drawing plan view.
+${unitTypeDetectInstructions}
 For each cabinet found, provide:
 1. sku: The SKU label exactly as written (e.g. B24, W3036, DB15, BF3, WF6X30, LS36-L, BLW36/3930-L, B09FH)
 2. type: Classify by prefix:
