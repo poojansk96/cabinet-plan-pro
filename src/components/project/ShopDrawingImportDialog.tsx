@@ -455,7 +455,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         };
       }
 
-      // ── PASSES 2-7: 6 overlapping strips for detail recovery ──
+      // ── PASSES 2-7: 6 overlapping strips for detail recovery (3 at a time) ──
       onStatus(`Detail scanning "${file.name}" page ${p}/${pdf.numPages}…`);
       const strips = await renderPageStrips(canvas, canvasW, canvasH);
       const allPassItems = [fullItems];
@@ -466,32 +466,47 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         isCommonArea,
       };
 
-      for (let s = 0; s < strips.length; s++) {
-        onStatus(`Detail scan ${s + 1}/6 on "${file.name}" page ${p}/${pdf.numPages}…`);
-        try {
-          const stripResponse = await fetchWithRetry(JSON.stringify({
-            pageImage: strips[s],
-            unitType,
-            pageText,
-            speedMode,
-            classificationOverride,
-            isStrip: true,
-          }));
-          if (stripResponse.ok) {
-            const stripData = await stripResponse.json();
-            if (stripData.error) {
-              console.warn(`Strip ${s + 1} error:`, stripData.error);
-            } else if (stripData.items?.length > 0) {
-              allPassItems.push(stripData.items);
-              console.log(`Page ${p} strip ${s + 1}: found ${stripData.items.length} items`);
+      const PARALLEL_BATCH = 3;
+      for (let batchStart = 0; batchStart < strips.length; batchStart += PARALLEL_BATCH) {
+        const batch = strips.slice(batchStart, batchStart + PARALLEL_BATCH);
+        onStatus(`Detail scan ${batchStart + 1}-${batchStart + batch.length}/6 on "${file.name}" page ${p}/${pdf.numPages}…`);
+
+        const batchResults = await Promise.allSettled(
+          batch.map(async (stripImage, idx) => {
+            const s = batchStart + idx;
+            const stripResponse = await fetchWithRetry(JSON.stringify({
+              pageImage: stripImage,
+              unitType,
+              pageText,
+              speedMode,
+              classificationOverride,
+              isStrip: true,
+            }));
+            if (stripResponse.ok) {
+              const stripData = await stripResponse.json();
+              if (stripData.error) {
+                console.warn(`Strip ${s + 1} error:`, stripData.error);
+                return null;
+              }
+              if (stripData.items?.length > 0) {
+                console.log(`Page ${p} strip ${s + 1}: found ${stripData.items.length} items`);
+                return stripData.items;
+              }
             }
+            return null;
+          })
+        );
+
+        for (const result of batchResults) {
+          if (result.status === 'fulfilled' && result.value) {
+            allPassItems.push(result.value);
+          } else if (result.status === 'rejected') {
+            const err = result.reason;
+            if (err?.message === 'rate_limit') throw err;
+            if (err?.message === 'credits') throw err;
+            console.warn(`Strip batch failed:`, err?.message);
           }
-          onStepDone?.(); // Strip pass complete
-        } catch (e: any) {
-          if (e.message === 'rate_limit') throw e;
-          if (e.message === 'credits') throw e;
-          console.warn(`Strip ${s + 1} failed for page ${p}:`, e.message);
-          onStepDone?.(); // Count failed strip as done for progress
+          onStepDone?.(); // Count each strip (pass or fail) for progress
         }
       }
 
