@@ -90,7 +90,22 @@ async function callGemini(
       // Fallback: strip markdown fences
       const cleaned = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
       try { return JSON.parse(cleaned); } catch {
-        console.error("Structured output parse failed:", text.slice(0, 500));
+        console.warn("Structured output parse failed, attempting truncated JSON recovery...");
+        // ── Truncated JSON recovery ──
+        // The AI sometimes returns truncated JSON. Try to recover complete item objects.
+        const itemRegex = /\{\s*"sku"\s*:\s*"([^"]+)"\s*,\s*"type"\s*:\s*"([^"]+)"\s*,\s*"room"\s*:\s*"([^"]+)"\s*,\s*"quantity"\s*:\s*(\d+)\s*\}/g;
+        const recoveredItems: any[] = [];
+        let match;
+        while ((match = itemRegex.exec(text)) !== null) {
+          recoveredItems.push({ sku: match[1], type: match[2], room: match[3], quantity: parseInt(match[4]) });
+        }
+        if (recoveredItems.length > 0) {
+          console.log(`Recovered ${recoveredItems.length} items from truncated response`);
+          // Also try to extract unitTypeName if present
+          const unitTypeMatch = text.match(/"unitTypeName"\s*:\s*"([^"]+)"/);
+          return { items: recoveredItems, unitTypeName: unitTypeMatch ? unitTypeMatch[1] : null };
+        }
+        console.error("No items recovered from truncated response:", text.slice(0, 300));
         return {};
       }
     }
@@ -446,10 +461,18 @@ If no cabinet SKUs are found, return {"items":[]}`;
         return { sku, type: normalizedType, room: normalizedRoom, quantity: Number(c.quantity) || 1 };
       });
 
-    // Strip passes: ignore SKUs that are not present in the page text layer to block crop hallucinations.
+    // Strip passes: validate AI-detected SKUs against text layer to block hallucinations.
+    // Use PREFIX matching since AI may return slightly different suffix variations (e.g. W3030 vs W3030B).
     if (isStrip && textLayerSkuSet.size > 0) {
       const before = items.length;
-      items = items.filter((item) => textLayerSkuSet.has(item.sku));
+      items = items.filter((item) => {
+        if (textLayerSkuSet.has(item.sku)) return true;
+        // Prefix match: accept if any text-layer SKU starts with the AI SKU or vice versa
+        for (const tlSku of textLayerSkuSet) {
+          if (item.sku.startsWith(tlSku) || tlSku.startsWith(item.sku)) return true;
+        }
+        return false;
+      });
       if (before !== items.length) {
         console.log(`Strip text-layer filter removed ${before - items.length} unsupported SKUs`);
       }
