@@ -289,7 +289,10 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
     const processOnePage = async (p: number) => {
       onStatus(`Rendering "${file.name}" page ${p}/${pdf.numPages}…`);
       const page = await pdf.getPage(p);
-      const pageImage = await renderPageToBase64(page);
+
+      // Render to canvas (kept in memory for strip cropping)
+      const { canvas, width: canvasW, height: canvasH } = await renderPageToCanvasData(page);
+      const pageImage = await canvasToBase64Full(canvas);
 
       // Extract text layer from the PDF page for cross-referencing
       let pageText = '';
@@ -303,16 +306,16 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         console.warn(`Text extraction failed for page ${p}:`, e);
       }
 
-      onStatus(`AI reading labels on "${file.name}" page ${p}/${pdf.numPages}…`);
+      onStatus(`AI analyzing "${file.name}" page ${p}/${pdf.numPages}…`);
 
-      // Retry helper: try up to 2 times with a 5-minute timeout each attempt
+      // Retry helper: try up to 3 times with a 5-minute timeout each attempt
       const fetchWithRetry = async (body: string, attempts = 3): Promise<Response> => {
         for (let attempt = 1; attempt <= attempts; attempt++) {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 min
+          const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000);
           try {
             if (attempt > 1) {
-              onStatus(`AI reading labels on "${file.name}" page ${p}/${pdf.numPages} (retry ${attempt - 1})…`);
+              onStatus(`AI reading "${file.name}" page ${p}/${pdf.numPages} (retry ${attempt - 1})…`);
             }
             const res = await fetch(EDGE_FUNCTION_URL, {
               method: 'POST',
@@ -321,7 +324,6 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
               signal: controller.signal,
             });
             clearTimeout(timeoutId);
-            // Retry on 503 (model unavailable) and 500
             if ((res.status === 503 || res.status === 500) && attempt < attempts) {
               console.warn(`Page ${p} attempt ${attempt}: AI unavailable (${res.status}), retrying in ${3 * attempt}s…`);
               await new Promise(r => setTimeout(r, 3000 * attempt));
@@ -332,29 +334,84 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
             clearTimeout(timeoutId);
             if (attempt === attempts) throw err;
             console.warn(`Page ${p} attempt ${attempt} failed (${err.message}), retrying…`);
-            await new Promise(r => setTimeout(r, 2000)); // wait 2s before retry
+            await new Promise(r => setTimeout(r, 2000));
           }
         }
         throw new Error('All attempts failed');
       };
 
-      const aiResponse = await fetchWithRetry(JSON.stringify({ pageImage, unitType, pageText, speedMode }));
-
-      if (!aiResponse.ok) {
-        const status = aiResponse.status;
+      // ── PASS 1: Full page (classify + extract) ──
+      const fullResponse = await fetchWithRetry(JSON.stringify({ pageImage, unitType, pageText, speedMode }));
+      if (!fullResponse.ok) {
+        const status = fullResponse.status;
         if (status === 429) throw new Error('rate_limit');
         if (status === 402) throw new Error('credits');
         throw new Error(`failed (${status})`);
       }
 
-      const data = await aiResponse.json();
-      if (data.error === 'rate_limit') throw new Error('rate_limit');
-      if (data.error === 'credits') throw new Error('credits');
+      const fullData = await fullResponse.json();
+      if (fullData.error === 'rate_limit') throw new Error('rate_limit');
+      if (fullData.error === 'credits') throw new Error('credits');
 
-      const resolvedType = resolvePageUnitType(data.unitTypeName, pageText);
+      const resolvedType = resolvePageUnitType(fullData.unitTypeName, pageText);
+      const fullItems = fullData.items ?? [];
+      const pageType = String(fullData.pageType || 'plan_view');
+      const isCommonArea = fullData.isCommonArea ?? false;
+
+      // Skip strips for title pages and non-extraction pages (residential elevations)
+      const shouldDoStrips = !pageType.includes('title');
+      if (!shouldDoStrips) {
+        return {
+          ...fullData,
+          unitTypeName: resolvedType.primary,
+          unitTypeAliases: resolvedType.aliases,
+        };
+      }
+
+      // ── PASSES 2-7: 6 overlapping strips for detail recovery ──
+      onStatus(`Detail scanning "${file.name}" page ${p}/${pdf.numPages}…`);
+      const strips = await renderPageStrips(canvas, canvasW, canvasH);
+      const allPassItems = [fullItems];
+
+      const classificationOverride = {
+        pageType,
+        unitTypeName: resolvedType.primary,
+        isCommonArea,
+      };
+
+      for (let s = 0; s < strips.length; s++) {
+        onStatus(`Detail scan ${s + 1}/6 on "${file.name}" page ${p}/${pdf.numPages}…`);
+        try {
+          const stripResponse = await fetchWithRetry(JSON.stringify({
+            pageImage: strips[s],
+            unitType,
+            pageText,
+            speedMode,
+            classificationOverride,
+            isStrip: true,
+          }));
+          if (stripResponse.ok) {
+            const stripData = await stripResponse.json();
+            if (stripData.error) {
+              console.warn(`Strip ${s + 1} error:`, stripData.error);
+            } else if (stripData.items?.length > 0) {
+              allPassItems.push(stripData.items);
+              console.log(`Page ${p} strip ${s + 1}: found ${stripData.items.length} items`);
+            }
+          }
+        } catch (e: any) {
+          if (e.message === 'rate_limit') throw e;
+          if (e.message === 'credits') throw e;
+          console.warn(`Strip ${s + 1} failed for page ${p}:`, e.message);
+        }
+      }
+
+      // ── Merge all passes: MAX qty per SKU+room ──
+      const merged = mergeExtractionPasses(allPassItems);
+      console.log(`Page ${p}: ${fullItems.length} full-page + strips → ${merged.length} merged items`);
 
       return {
-        ...data,
+        items: merged,
         unitTypeName: resolvedType.primary,
         unitTypeAliases: resolvedType.aliases,
       };
