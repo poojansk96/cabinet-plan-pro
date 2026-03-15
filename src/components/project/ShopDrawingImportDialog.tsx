@@ -513,15 +513,16 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
   const mergeRows = (incoming: LabelRow[], existing: LabelRow[] = []): LabelRow[] => {
     // For items within the SAME unit type: use MAX qty across pages (same cabinet seen on multiple pages).
     // For items across DIFFERENT unit types: keep separate (different unit types = different physical units).
-    // Corner cabinets (LS/LSB) always use MAX.
+    // Corner cabinets (LS/LSB) and vanity cabinets (HAV/?"HALC) always use MAX across ALL unit types
+    // because they appear on multiple elevation pages but represent a single physical unit.
     const merged: Record<string, LabelRow> = {};
-    const isCornerLazySusan = (sku: string) => /^(LS|LSB)\d+/i.test(sku);
+    const isMaxAcrossTypes = (sku: string) => /^(LS|LSB|HAV|HALC)\d*/i.test(sku);
 
     for (const r of [...existing, ...incoming]) {
       const normSku = r.sku.toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '')
         .replace(/B?-\d+D$/i, ''); // Strip door-config suffix (e.g. -1D, B-1D)
-      // Include detectedUnitType in key so quantities stay separated per type
-      const unitTypeKey = (r as any).detectedUnitType || '__none__';
+      // For vanity/corner SKUs, ignore unit type in key — they appear on multiple pages but are single units
+      const unitTypeKey = isMaxAcrossTypes(normSku) ? '__global__' : ((r as any).detectedUnitType || '__none__');
       const key = `${normSku}__${r.room}__${unitTypeKey}`;
       if (merged[key]) {
         // Use MAX instead of SUM — multiple pages of the same unit type show the SAME cabinets
