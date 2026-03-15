@@ -135,13 +135,17 @@ function isValidSku(s: string): boolean {
 function extractSkusFromText(pageText: string): string[] {
   if (!pageText) return [];
   const matches = pageText.match(SKU_PATTERN) || [];
+  const noDigitMatches = pageText.match(/\b(BP|SCRIBE|UC)\b/gi) || [];
   const skus = new Set<string>();
-  for (const m of matches) {
+
+  for (const m of [...matches, ...noDigitMatches]) {
     const upper = m.toUpperCase().trim();
     if (APPLIANCE_RE.test(upper)) continue;
     if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) continue;
+    if (!isValidSku(upper) && !NO_DIGIT_OK.test(upper)) continue;
     skus.add(upper);
   }
+
   return [...skus];
 }
 
