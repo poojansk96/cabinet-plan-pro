@@ -80,7 +80,9 @@ export default function PreFinalModule({ project }: Props) {
         .replace(/^TYPE\s+/, '')
         .replace(/[^A-Z0-9]/g, '');
 
-    const knownTypes = [...store.unitTypes, ...store.cabinetUnitTypes];
+    // IMPORTANT: cabinet import replaces cabinet data, so only map against Unit Count types.
+    // Never reuse previous cabinet-only types from older imports.
+    const knownTypes = [...store.unitTypes];
     const resolveKnownType = (raw: string): string => {
       const key = toTypeKey(raw);
       if (!key) return '';
@@ -89,7 +91,16 @@ export default function PreFinalModule({ project }: Props) {
       return exact || '';
     };
 
-    const fallbackType = resolveKnownType(importTargetType) || (importTargetType ? normalizeUnitType(importTargetType) : '');
+    const isCommonAreaLabel = (value: string) =>
+      /\b(LAUNDRY|MAIL\s*ROOM|RESTROOM|LOBBY|CLUBHOUSE|FITNESS|LEASING|BUSINESS\s*CENTER|POOL\s*BATH|TRASH|MAINTENANCE|MODEL|STORAGE|GARAGE|CORRIDOR|MECHANICAL|COMMUNITY|BREAK\s*ROOM|OFFICE)\b/i
+        .test(String(value || ''));
+
+    const importOrderKeys = new Set(
+      (importTypeOrder || [])
+        .map(t => toTypeKey(normalizeUnitType(t)))
+        .filter(Boolean)
+    );
+
     const rowsByType = new Map<string, typeof rows>();
     // Clear all existing cabinet data before importing fresh
     store.clearCabinets();
@@ -98,21 +109,25 @@ export default function PreFinalModule({ project }: Props) {
     const orderedTypes: string[] = [];
 
     for (const row of rows) {
-      const rawType = (row as any).detectedUnitType || detectedUnitType || importTargetType || '';
+      const rawType = (row as any).detectedUnitType || detectedUnitType || '';
       const normalizedIncoming = rawType ? normalizeUnitType(rawType) : '';
+      const incomingKey = toTypeKey(normalizedIncoming);
       const knownResolved = resolveKnownType(rawType) || resolveKnownType(normalizedIncoming);
-      const canPromoteIncomingType = normalizedIncoming.startsWith('TYPE ');
+      const hasImportOrderEvidence = importOrderKeys.size === 0 || importOrderKeys.has(incomingKey);
+      const canPromoteIncomingType = Boolean(
+        incomingKey &&
+        hasImportOrderEvidence &&
+        (normalizedIncoming.startsWith('TYPE ') || isCommonAreaLabel(normalizedIncoming))
+      );
 
-      // Keep strict matching, but do not discard clearly-structured new types (e.g. TYPE 8 - MIRROR)
-      // when unit import missed them.
-      const finalType = knownResolved || fallbackType || (canPromoteIncomingType
-        ? normalizedIncoming
-        : (knownTypes.length > 0 ? 'Unassigned' : (normalizedIncoming || 'Unassigned')));
+      const finalType = knownResolved || (canPromoteIncomingType ? normalizedIncoming : 'Unassigned');
 
       if (!rowsByType.has(finalType)) rowsByType.set(finalType, []);
       rowsByType.get(finalType)!.push(row);
       if (!orderedTypes.includes(finalType)) orderedTypes.push(finalType);
     }
+
+    const rowTypeKeys = new Set(orderedTypes.map(t => toTypeKey(t)).filter(Boolean));
 
     // Use PDF page order from import when available.
     // Keep this import scoped to types detected in this cabinet run only.
@@ -123,7 +138,8 @@ export default function PreFinalModule({ project }: Props) {
           const resolved = resolveKnownType(t) || resolveKnownType(norm);
           return resolved || norm;
         })
-        .filter((t, i, arr) => arr.indexOf(t) === i);
+        .filter((t, i, arr) => arr.indexOf(t) === i)
+        .filter(t => rowTypeKeys.size === 0 || rowTypeKeys.has(toTypeKey(t)));
 
       const remaining = orderedTypes.filter(t => !normalizedOrder.includes(t));
       const finalOrder = [...normalizedOrder, ...remaining].filter((t, i, arr) => arr.indexOf(t) === i);
