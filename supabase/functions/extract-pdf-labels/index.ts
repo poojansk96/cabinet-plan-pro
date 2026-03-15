@@ -116,11 +116,12 @@ async function callGemini(
 
 // ── SKU Helpers ──
 
-const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|UB|WC|OH|BLW|BRW|T|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HALC|HAL|SA|SV)\d[\w\-\/]*/gi;
+const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|UB|WC|OH|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HALC|HAL|SA|SV)\d[\w\-\/]*/gi;
 const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
 // Relaxed: accept any 1-8 letter prefix followed by a digit (catches manufacturer-specific SKUs like HAV, HALC)
 const SKU_PREFIX_RE = /^[A-Z]{1,8}\d/i;
-const NO_DIGIT_OK = /^(BP|SCRIBE)$/i;
+const NO_DIGIT_OK = /^(BP|SCRIBE|UC)$/i;
+const STRONG_STRIP_SKU_RE = /^(?:UC|BP|SCRIBE|[A-Z]{2,8}\d[A-Z0-9\-\/]{2,})$/i;
 
 function isValidSku(s: string): boolean {
   const upper = s.toUpperCase().trim();
@@ -134,13 +135,17 @@ function isValidSku(s: string): boolean {
 function extractSkusFromText(pageText: string): string[] {
   if (!pageText) return [];
   const matches = pageText.match(SKU_PATTERN) || [];
+  const noDigitMatches = pageText.match(/\b(BP|SCRIBE|UC)\b/gi) || [];
   const skus = new Set<string>();
-  for (const m of matches) {
+
+  for (const m of [...matches, ...noDigitMatches]) {
     const upper = m.toUpperCase().trim();
     if (APPLIANCE_RE.test(upper)) continue;
     if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) continue;
+    if (!isValidSku(upper) && !NO_DIGIT_OK.test(upper)) continue;
     skus.add(upper);
   }
+
   return [...skus];
 }
 
@@ -149,7 +154,9 @@ function countSkusFromText(pageText: string): Record<string, number> {
   if (!pageText) return counts;
 
   const matches = pageText.match(SKU_PATTERN) || [];
-  for (const m of matches) {
+  const noDigitMatches = pageText.match(/\b(BP|SCRIBE|UC)\b/gi) || [];
+
+  for (const m of [...matches, ...noDigitMatches]) {
     const upper = m.toUpperCase().trim();
     if (APPLIANCE_RE.test(upper)) continue;
     if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) continue;
@@ -163,11 +170,11 @@ function countSkusFromText(pageText: string): Record<string, number> {
 function classifySku(sku: string): string {
   if (/^(BLW|BRW)/i.test(sku)) return "Wall";
   if (/^(W|UB|WC|OH)\d/i.test(sku)) return "Wall";
-  if (/^(T|UT|TC|PT|PTC|UC)\d/i.test(sku)) return "Tall";
+  if (/^(T|UT|TC|PT|PTC|UC)(\d|$)/i.test(sku)) return "Tall";
   if (/^(HALC)\d/i.test(sku)) return "Tall";
   if (/^(V|VB|VD|VDC)\d/i.test(sku)) return "Vanity";
   if (/^(HAV)\d/i.test(sku)) return "Vanity";
-  if (/^(FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR)\d/i.test(sku)) return "Accessory";
+  if (/^(FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|TF)\d/i.test(sku)) return "Accessory";
   return "Base";
 }
 
@@ -351,7 +358,7 @@ For each cabinet found, provide:
    - "Wall" → W, UB, WC, OH, BLW, BRW
    - "Tall" → T, UT, TC, PT, PTC, UC, HALC
    - "Vanity" → V, VB, VD, VDC, HAV (HAV = Vanity, NOT Base)
-   - "Accessory" → FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR
+   - "Accessory" → FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR, TF
 3. room: From room labels on the plan (Kitchen, Bath, Laundry, Pantry — capitalize first letter only)
 4. quantity: Count EVERY separate label occurrence of this SKU on this page
 
@@ -391,16 +398,19 @@ SKIP THESE — NOT CABINET SKUs:
 - Non-SKU text: unit numbers, elevation titles, dimension text, page numbers
 
 VALID SKU PREFIXES (a label must start with letters followed by a digit):
-B, DB, SB, CB, EB, LS, LSB, W, UB, WC, OH, BLW, BRW, T, UT, TC, PT, PTC, UC, V, VB, VD, VDC, FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR
+B, DB, SB, CB, EB, LS, LSB, W, UB, WC, OH, BLW, BRW, T, TF, UT, TC, PT, PTC, UC, V, VB, VD, VDC, FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR
 Also accept manufacturer-specific longer prefixes (e.g. HA, HAV, HALC, SA, SV) followed by digits.
 
-FINAL SWEEP: After your initial scan, go back and specifically look for: B09FH, B06FH, B12FH, BF3, BF6, WF3X30, WF6X30, DWR3, DWR6, CM8, TK, TKRUN, EP, LR, SCRIBE, BP. These appear as very small labels on narrow shapes.
+VALID NO-DIGIT SKUS:
+UC, SCRIBE, BP
+
+FINAL SWEEP: After your initial scan, go back and specifically look for: B09FH, B06FH, B12FH, BF3, BF6, WF3X30, WF6X30, TF3X96, DWR3, DWR6, CM8, TK, TKRUN, EP, LR, UC, SCRIBE, BP. These appear as very small labels on narrow shapes.
 ${isStrip ? '\nNOTE: This image shows a CROPPED SECTION of a larger drawing page. Extract all cabinet labels visible in this cropped section.\n' : ''}${textLayerSkus.length > 0 ? `\nTEXT LAYER CROSS-REFERENCE — the PDF text layer detected these SKUs on this page:\n${textLayerSkus.join(', ')}\nMake sure ALL of these appear in your results if they are visible as labels on the drawing. If any are missing from your results, look harder for them.\n` : ''}${unitType ? `\nUnit type context: ${unitType}` : ""}
 If no cabinet SKUs are found, return {"items":[]}`;
 
     let extracted: any = { items: [] };
     try {
-      extracted = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", pageImage, extractPrompt, 0.1, 8192, EXTRACT_SCHEMA);
+      extracted = await callGemini(GEMINI_API_KEY, "gemini-2.5-pro", pageImage, extractPrompt, 0.2, 8192, EXTRACT_SCHEMA);
     } catch (e: any) {
       if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -461,25 +471,37 @@ If no cabinet SKUs are found, return {"items":[]}`;
         return { sku, type: normalizedType, room: normalizedRoom, quantity: Number(c.quantity) || 1 };
       });
 
-    // Strip passes: validate AI-detected SKUs against text layer to block hallucinations.
-    // Use PREFIX matching since AI may return slightly different suffix variations (e.g. W3030 vs W3030B).
+    // Strip passes: text layer helps validation, but must not suppress real SKUs missing from OCR text.
     if (isStrip && textLayerSkuSet.size > 0) {
       const before = items.length;
+      let keptByStrongPattern = 0;
       items = items.filter((item) => {
         if (textLayerSkuSet.has(item.sku)) return true;
-        // Prefix match: accept if any text-layer SKU starts with the AI SKU or vice versa
+
+        // Prefix/suffix tolerant match (e.g. W3030 vs W3030B)
         for (const tlSku of textLayerSkuSet) {
           if (item.sku.startsWith(tlSku) || tlSku.startsWith(item.sku)) return true;
         }
+
+        // OCR text layer can miss tiny labels (UC, TF3X96, narrow fillers).
+        if (STRONG_STRIP_SKU_RE.test(item.sku)) {
+          keptByStrongPattern += 1;
+          return true;
+        }
+
         return false;
       });
+
       if (before !== items.length) {
         console.log(`Strip text-layer filter removed ${before - items.length} unsupported SKUs`);
+      }
+      if (keptByStrongPattern > 0) {
+        console.log(`Strip validation kept ${keptByStrongPattern} OCR-missing strong SKUs`);
       }
     }
 
     // Reconcile under-counted small accessories using text-layer occurrence counts (conservative floor).
-    const ACCESSORY_FLOOR_RE = /^(BF|WF|FIL|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR)\d/i;
+    const ACCESSORY_FLOOR_RE = /^(BF|WF|FIL|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|TF)\d/i;
     items = items.map((item) => {
       const textCount = textLayerSkuCounts[item.sku] ?? 0;
       if (!ACCESSORY_FLOOR_RE.test(item.sku) || textCount < 2) return item;
