@@ -182,6 +182,7 @@ const CLASSIFY_SCHEMA = {
 const EXTRACT_SCHEMA = {
   type: "OBJECT",
   properties: {
+    unitTypeName: { type: "STRING", nullable: true },
     items: {
       type: "ARRAY",
       items: {
