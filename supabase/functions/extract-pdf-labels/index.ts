@@ -281,7 +281,7 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
 
     if (!shouldExtract) {
       console.log(`Skipping extraction: pageType=${rawPageType}, isCommonArea=${isCommonArea}`);
-      return new Response(JSON.stringify({ items: [], unitTypeName: detectedUnitType }), {
+      return new Response(JSON.stringify({ items: [], unitTypeName: detectedUnitType, pageType: rawPageType, isCommonArea }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
