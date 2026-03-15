@@ -90,7 +90,22 @@ async function callGemini(
       // Fallback: strip markdown fences
       const cleaned = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
       try { return JSON.parse(cleaned); } catch {
-        console.error("Structured output parse failed:", text.slice(0, 500));
+        console.warn("Structured output parse failed, attempting truncated JSON recovery...");
+        // ── Truncated JSON recovery ──
+        // The AI sometimes returns truncated JSON. Try to recover complete item objects.
+        const itemRegex = /\{\s*"sku"\s*:\s*"([^"]+)"\s*,\s*"type"\s*:\s*"([^"]+)"\s*,\s*"room"\s*:\s*"([^"]+)"\s*,\s*"quantity"\s*:\s*(\d+)\s*\}/g;
+        const recoveredItems: any[] = [];
+        let match;
+        while ((match = itemRegex.exec(text)) !== null) {
+          recoveredItems.push({ sku: match[1], type: match[2], room: match[3], quantity: parseInt(match[4]) });
+        }
+        if (recoveredItems.length > 0) {
+          console.log(`Recovered ${recoveredItems.length} items from truncated response`);
+          // Also try to extract unitTypeName if present
+          const unitTypeMatch = text.match(/"unitTypeName"\s*:\s*"([^"]+)"/);
+          return { items: recoveredItems, unitTypeName: unitTypeMatch ? unitTypeMatch[1] : null };
+        }
+        console.error("No items recovered from truncated response:", text.slice(0, 300));
         return {};
       }
     }
