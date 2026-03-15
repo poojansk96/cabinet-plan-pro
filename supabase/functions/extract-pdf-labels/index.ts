@@ -101,9 +101,10 @@ async function callGemini(
 
 // ── SKU Helpers ──
 
-const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|UB|WC|OH|BLW|BRW|T|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR)\d[\w\-\/]*/gi;
+const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|UB|WC|OH|BLW|BRW|T|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HALC|HAL|SA|SV)\d[\w\-\/]*/gi;
 const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
-const SKU_PREFIX_RE = /^(BLW|BRW|DB|SB|CB|EB|LSB|LS|BFFIL|WFFIL|TKRUN|TK|BF|WF|FIL|CM|LR|EP|FP|DWR|VDC|VB|VD|WC|UB|OH|PTC|PT|UTC|UT|TC|UC|W|T|V|B)\d/i;
+// Relaxed: accept any 1-8 letter prefix followed by a digit (catches manufacturer-specific SKUs like HAV, HALC)
+const SKU_PREFIX_RE = /^[A-Z]{1,8}\d/i;
 const NO_DIGIT_OK = /^(BP|SCRIBE)$/i;
 
 function isValidSku(s: string): boolean {
@@ -209,7 +210,7 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
-    const { pageImage, unitType, pageText, speedMode } = await req.json();
+    const { pageImage, unitType, pageText, speedMode, classificationOverride, isStrip } = await req.json();
 
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage (base64 string) required" }), {
@@ -248,14 +249,19 @@ Common formats: "TYPE 1 - AS", "TYPE 1 - MIRROR", "TYPE 2 - ADA", "TYPE 3 - AS",
 Return null for unitTypeName ONLY if you truly cannot find any unit type identifier.
 ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
 
-    let classification: any = { pageType: "plan_view", unitTypeName: null, isCommonArea: false };
-    try {
-      classification = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", pageImage, classifyPrompt, 0.1, 1024, CLASSIFY_SCHEMA);
-    } catch (e: any) {
-      if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      console.error("Step 1 classification error:", e.message);
-      // Default to plan_view on error so we don't miss data
+    let classification: any;
+    if (classificationOverride) {
+      classification = classificationOverride;
+      console.log("Using classification override (strip pass)");
+    } else {
+      classification = { pageType: "plan_view", unitTypeName: null, isCommonArea: false };
+      try {
+        classification = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", pageImage, classifyPrompt, 0.1, 1024, CLASSIFY_SCHEMA);
+      } catch (e: any) {
+        if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        console.error("Step 1 classification error:", e.message);
+      }
     }
 
     const rawPageType = String(classification.pageType ?? "plan_view").toLowerCase().replace(/[\s_-]+/g, '_');
@@ -275,7 +281,7 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
 
     if (!shouldExtract) {
       console.log(`Skipping extraction: pageType=${rawPageType}, isCommonArea=${isCommonArea}`);
-      return new Response(JSON.stringify({ items: [], unitTypeName: detectedUnitType }), {
+      return new Response(JSON.stringify({ items: [], unitTypeName: detectedUnitType, pageType: rawPageType, isCommonArea }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -319,11 +325,12 @@ SKIP THESE — NOT CABINET SKUs:
 - Sheet/callout references: B1/A4-403, A404, A3-201, B2/A5-100 (contain "/" or don't match cabinet prefix)
 - Non-SKU text: unit numbers, elevation titles, dimension text, page numbers
 
-VALID SKU PREFIXES (a label must start with one of these + a digit):
+VALID SKU PREFIXES (a label must start with letters followed by a digit):
 B, DB, SB, CB, EB, LS, LSB, W, UB, WC, OH, BLW, BRW, T, UT, TC, PT, PTC, UC, V, VB, VD, VDC, FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR
+Also accept manufacturer-specific longer prefixes (e.g. HA, HAV, HALC, SA, SV) followed by digits.
 
 FINAL SWEEP: After your initial scan, go back and specifically look for: B09FH, B06FH, B12FH, BF3, BF6, WF3X30, WF6X30, DWR3, DWR6, CM8, TK, TKRUN, EP, LR, SCRIBE, BP. These appear as very small labels on narrow shapes.
-${textLayerSkus.length > 0 ? `\nTEXT LAYER CROSS-REFERENCE — the PDF text layer detected these SKUs on this page:\n${textLayerSkus.join(', ')}\nMake sure ALL of these appear in your results if they are visible as labels on the drawing. If any are missing from your results, look harder for them.\n` : ''}${unitType ? `\nUnit type context: ${unitType}` : ""}
+${isStrip ? '\nNOTE: This image shows a CROPPED SECTION of a larger drawing page. Extract all cabinet labels visible in this cropped section.\n' : ''}${textLayerSkus.length > 0 ? `\nTEXT LAYER CROSS-REFERENCE — the PDF text layer detected these SKUs on this page:\n${textLayerSkus.join(', ')}\nMake sure ALL of these appear in your results if they are visible as labels on the drawing. If any are missing from your results, look harder for them.\n` : ''}${unitType ? `\nUnit type context: ${unitType}` : ""}
 If no cabinet SKUs are found, return {"items":[]}`;
 
     let extracted: any = { items: [] };
@@ -376,8 +383,11 @@ If no cabinet SKUs are found, return {"items":[]}`;
         let sku = String(c.sku).toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
         // Strip door-configuration suffixes: "-1D", "-2D", "B-1D", "B-2D"
         sku = sku.replace(/B?-\d+D$/i, '');
-        // Strip trailing "B" door-config suffix (W3018B→W3018, SB33B→SB33)
-        sku = sku.replace(/(\d)B$/i, '$1');
+        // Strip trailing "B" door-config suffix only for traditional short-prefix SKUs
+        // Manufacturer-specific prefixes (HAV, HALC, etc.) may use B meaningfully
+        if (/^(W|B|DB|SB|CB|EB|T|UT|TC|PT|PTC|V|VB|VD|VDC|LS|LSB|UC|UB|WC|OH)\d/i.test(sku)) {
+          sku = sku.replace(/(\d)B$/i, '$1');
+        }
         let rawType = String(c.type ?? "Base").trim();
         if (/^BLW|^BRW/i.test(sku)) rawType = "Wall";
         const normalizedType = rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase();
@@ -403,7 +413,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
       }
     }
 
-    return new Response(JSON.stringify({ items: Array.from(deduped.values()), unitTypeName: detectedUnitType }), {
+    return new Response(JSON.stringify({ items: Array.from(deduped.values()), unitTypeName: detectedUnitType, pageType: rawPageType, isCommonArea }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
