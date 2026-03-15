@@ -133,7 +133,9 @@ function classifySku(sku: string): string {
   if (/^(BLW|BRW)/i.test(sku)) return "Wall";
   if (/^(W|UB|WC|OH)\d/i.test(sku)) return "Wall";
   if (/^(T|UT|TC|PT|PTC|UC)\d/i.test(sku)) return "Tall";
+  if (/^(HALC)\d/i.test(sku)) return "Tall";
   if (/^(V|VB|VD|VDC)\d/i.test(sku)) return "Vanity";
+  if (/^(HAV)\d/i.test(sku)) return "Vanity";
   if (/^(FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR)\d/i.test(sku)) return "Accessory";
   return "Base";
 }
@@ -312,21 +314,26 @@ ${unitTypeDetectInstructions}
 For each cabinet found, provide:
 1. sku: The SKU label exactly as written (e.g. B24, W3036, DB15, BF3, WF6X30, LS36-L, BLW36/3930-L, B09FH)
 2. type: Classify by prefix:
-   - "Base" → B, DB, SB, CB, EB, LS, LSB (but NOT BLW/BRW — those are Wall)
+   - "Base" → B, DB, SB, CB, EB, LS, LSB (but NOT BLW/BRW — those are Wall, NOT HAV — those are Vanity)
    - "Wall" → W, UB, WC, OH, BLW, BRW
-   - "Tall" → T, UT, TC, PT, PTC, UC
-   - "Vanity" → V, VB, VD, VDC
+   - "Tall" → T, UT, TC, PT, PTC, UC, HALC
+   - "Vanity" → V, VB, VD, VDC, HAV (HAV = Vanity, NOT Base)
    - "Accessory" → FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR
 3. room: From room labels on the plan (Kitchen, Bath, Laundry, Pantry — capitalize first letter only)
 4. quantity: Count EVERY separate label occurrence of this SKU on this page
 
 COUNTING — CRITICAL:
 - If "DB15" label appears in TWO different spots → quantity 2
-- If "BF3" label appears once → quantity 1. Do NOT skip small accessories.
-- ACCESSORIES MATTER: BF3, BF6, WF3X30, WF6X30, DWR3, DWR6, FIL3 — count EVERY single one. Scan the ENTIRE drawing including corners, edges, and narrow gaps between cabinets.
+- If "BF3" label appears once → quantity 1. If "BF3" appears in TWO different spots → quantity 2. Do NOT skip small accessories.
+- ACCESSORIES MATTER: BF3, BF6, WF3X30, WF6X30, DWR3, DWR6, FIL3 — count EVERY single one. Scan the ENTIRE drawing including corners, edges, and narrow gaps between cabinets. These labels often appear on BOTH sides of a kitchen run — check LEFT side AND RIGHT side of counter runs.
+- BF (Base Filler) labels commonly appear in PAIRS — one on each end of a cabinet run. Scan every end-of-run and corner transition for BF labels.
 - FILLER-HEAD CABINETS: B09FH, B06FH, B12FH — these are VERY NARROW rectangles (6"-12" wide). They appear as thin slivers between larger cabinets or at the end of a run. ACTIVELY LOOK FOR THESE — they are commonly missed.
 - Corner cabinets (LS, LSB) at wall junction = count ONCE even if label appears at junction of two wall runs.
 - Look for "xN" or "(2)" multiplier notation next to labels.
+
+HAV PREFIX = VANITY (NOT Base):
+- Any SKU starting with "HAV" (e.g. HAV3621BFH-REM) is a VANITY cabinet. Classify as type "Vanity", NOT "Base".
+- Do NOT duplicate HAV items — report each HAV label exactly ONCE with the correct type "Vanity".
 
 STACKED / ADJACENT LABELS — MOST COMMON ERROR:
 - Two or more SKU labels near the same location are ALWAYS SEPARATE cabinets. NEVER merge them into one string.
@@ -413,6 +420,8 @@ If no cabinet SKUs are found, return {"items":[]}`;
         // Preserve full SKU labels exactly as written — no suffix stripping
         let rawType = String(c.type ?? "Base").trim();
         if (/^BLW|^BRW/i.test(sku)) rawType = "Wall";
+        if (/^HAV\d/i.test(sku)) rawType = "Vanity";
+        if (/^HALC\d/i.test(sku)) rawType = "Tall";
         const normalizedType = rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase();
         const rawRoom = String(c.room ?? "Kitchen").trim();
         const normalizedRoom = rawRoom.charAt(0).toUpperCase() + rawRoom.slice(1).toLowerCase();
