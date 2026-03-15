@@ -409,14 +409,8 @@ If no cabinet SKUs are found, return {"items":[]}`;
         return true;
       })
       .map((c: any) => {
-        let sku = String(c.sku).toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
-        // Strip door-configuration suffixes: "-1D", "-2D", "B-1D", "B-2D"
-        sku = sku.replace(/B?-\d+D$/i, '');
-        // Strip trailing "B" door-config suffix only for traditional short-prefix SKUs
-        // Manufacturer-specific prefixes (HAV, HALC, etc.) may use B meaningfully
-        if (/^(W|B|DB|SB|CB|EB|T|UT|TC|PT|PTC|V|VB|VD|VDC|LS|LSB|UC|UB|WC|OH)\d/i.test(sku)) {
-          sku = sku.replace(/(\d)B$/i, '$1');
-        }
+      let sku = String(c.sku).toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+        // Preserve full SKU labels exactly as written — no suffix stripping
         let rawType = String(c.type ?? "Base").trim();
         if (/^BLW|^BRW/i.test(sku)) rawType = "Wall";
         const normalizedType = rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase();
