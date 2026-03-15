@@ -157,10 +157,7 @@ function mergeExtractionPasses(passes: any[][]): any[] {
       .toUpperCase()
       .trim()
       .replace(/\s*-\s*/g, '-')
-      .replace(/\s+/g, '')
-      .replace(/\((?:SPLIT)\)$/i, '')
-      .replace(/\[(?:SPLIT)\]$/i, '')
-      .replace(/_SPLIT$/i, '');
+      .replace(/\s+/g, '');
   const keyOf = (item: any) => `${normalizeSkuLabel(item.sku)}|${String(item.room || 'Kitchen')}`;
   const isHavSku = (sku: string) => /^HAV\d/i.test(normalizeSkuLabel(sku));
 
