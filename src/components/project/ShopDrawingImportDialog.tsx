@@ -366,6 +366,8 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       // Skip strips for title pages and non-extraction pages (residential elevations)
       const shouldDoStrips = !pageType.includes('title');
       if (!shouldDoStrips) {
+        // Mark remaining 6 strip steps as done
+        for (let s = 0; s < 6; s++) onStepDone?.();
         return {
           ...fullData,
           unitTypeName: resolvedType.primary,
