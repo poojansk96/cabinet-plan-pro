@@ -560,7 +560,14 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
     const merged: Record<string, LabelRow> = {};
 
     for (const r of [...existing, ...incoming]) {
-      const normSku = r.sku.toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '')
+      const normSku = r.sku
+        .toUpperCase()
+        .trim()
+        .replace(/\s*-\s*/g, '-')
+        .replace(/\s+/g, '')
+        .replace(/\((?:SPLIT)\)$/i, '')
+        .replace(/\[(?:SPLIT)\]$/i, '')
+        .replace(/_SPLIT$/i, '')
         .replace(/B?-\d+D$/i, ''); // Strip door-config suffix (e.g. -1D, B-1D)
       // Include detectedUnitType in key so quantities stay separated per type
       const unitTypeKey = (r as any).detectedUnitType || '__none__';
