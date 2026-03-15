@@ -154,7 +154,9 @@ function countSkusFromText(pageText: string): Record<string, number> {
   if (!pageText) return counts;
 
   const matches = pageText.match(SKU_PATTERN) || [];
-  for (const m of matches) {
+  const noDigitMatches = pageText.match(/\b(BP|SCRIBE|UC)\b/gi) || [];
+
+  for (const m of [...matches, ...noDigitMatches]) {
     const upper = m.toUpperCase().trim();
     if (APPLIANCE_RE.test(upper)) continue;
     if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) continue;
