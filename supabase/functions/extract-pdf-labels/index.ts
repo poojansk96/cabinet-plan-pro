@@ -333,9 +333,17 @@ STACKED / ADJACENT LABELS — MOST COMMON ERROR:
 - "W1230" on one line and "VDC2430" below it → TWO separate entries: W1230 (qty 1) AND VDC2430 (qty 1). NOT "W1230VDC2430".
 - "W1530" near "BLW24/2730-R" → TWO separate entries. NOT "W1530-BLW24/2730-R".
 
-DOOR CONFIGURATION SUFFIXES — STRIP THESE:
-- "SB36B-1D", "B33-1D", "B24-2D" → report base SKU only: "SB36", "B33", "B24"
-- Trailing "B" after digits: "W3018B" → report "W3018"
+PRESERVE FULL SKU LABELS — CRITICAL:
+- Report the COMPLETE label exactly as printed on the drawing, including ALL suffixes.
+- "W1230-L" → report "W1230-L" (NOT "W1230")
+- "W1230-R" → report "W1230-R" (NOT "W1230")
+- "SB33-1D-REM" → report "SB33-1D-REM" (NOT "SB33")
+- "LS36-L" → report "LS36-L" (NOT "LS36")
+- "HAV3621BFH-REM" → report "HAV3621BFH-REM" (NOT "HAV3621")
+- "W3324B-FB" → report "W3324B-FB" (NOT "W3324" or "W3324B")
+- "W3030B" → report "W3030B" exactly as written
+- Do NOT strip trailing letters, "-1D", "-2D", "-REM", "-L", "-R", "-FB" or any other suffix.
+- Each unique label on the drawing = one unique SKU entry. Do NOT report both a truncated and full version.
 
 SKIP THESE — NOT CABINET SKUs:
 - Appliances: REF, REFRIG, DW, DISHWASHER, RANGE, HOOD, MICRO, OTR, OVEN, VENT, DISP, CKT
