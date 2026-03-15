@@ -536,6 +536,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
     setStep('processing');
     setProgress(5);
     setProcessedPages(0);
+    stepsCompletedRef.current = 0;
 
     try {
       setProcessingStatus('Loading PDF library…');
@@ -550,6 +551,9 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         totalPagesCount += pdf.numPages;
       }
       setTotalPages(totalPagesCount);
+      // 7 AI steps per page (1 full + 6 strips)
+      const totalStepsCount = totalPagesCount * 7;
+      setTotalSteps(totalStepsCount);
       setProgress(10);
 
       let pagesProcessed = 0;
@@ -562,7 +566,10 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
           const result = await processSingleFile(files[i], pdfjsLib, setProcessingStatus, () => {
             pagesProcessed++;
             setProcessedPages(pagesProcessed);
-            setProgress(10 + Math.round((pagesProcessed / totalPagesCount) * 85));
+          }, () => {
+            stepsCompletedRef.current++;
+            // Progress: 10% (setup) → 95% (processing) → 100% (done)
+            setProgress(10 + Math.round((stepsCompletedRef.current / totalStepsCount) * 85));
           });
           allRows = mergeRows(result.rows, allRows);
           if (!firstDetectedType && result.detectedType) firstDetectedType = result.detectedType;
