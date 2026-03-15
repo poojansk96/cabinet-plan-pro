@@ -548,6 +548,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         items: merged,
         unitTypeName: resolvedType.primary,
         unitTypeAliases: resolvedType.aliases,
+        isCommonArea,
       };
     };
 
