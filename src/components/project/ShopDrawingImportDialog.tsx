@@ -63,18 +63,36 @@ const ROOMS: Room[] = ['Kitchen', 'Pantry', 'Laundry', 'Bath', 'Other'];
 const ALL_TYPES = [...CABINET_TYPES, 'Accessory'];
 
 async function renderPageToBase64(page: any): Promise<string> {
+  const { canvas } = await renderPageToCanvasData(page);
+  return canvasToBase64Full(canvas);
+}
+
+async function renderPageToCanvasData(page: any): Promise<{ canvas: OffscreenCanvas | HTMLCanvasElement; width: number; height: number }> {
   const MAX_PX = 4096;
   const baseViewport = page.getViewport({ scale: 1 });
   const longSide = Math.max(baseViewport.width, baseViewport.height);
   const scale = Math.min(4, MAX_PX / longSide);
   const viewport = page.getViewport({ scale });
+  const w = Math.ceil(viewport.width);
+  const h = Math.ceil(viewport.height);
 
-  // Use OffscreenCanvas when available — it works even when the tab is
-  // in the background or minimised, unlike a regular DOM canvas.
   if (typeof OffscreenCanvas !== 'undefined') {
-    const canvas = new OffscreenCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
+    const canvas = new OffscreenCanvas(w, h);
     const ctx = canvas.getContext('2d')!;
     await page.render({ canvasContext: ctx, viewport }).promise;
+    return { canvas, width: w, height: h };
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d')!;
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  return { canvas, width: w, height: h };
+}
+
+async function canvasToBase64Full(canvas: OffscreenCanvas | HTMLCanvasElement): Promise<string> {
+  if (canvas instanceof OffscreenCanvas) {
     const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.95 });
     const buf = await blob.arrayBuffer();
     const bytes = new Uint8Array(buf);
@@ -82,14 +100,67 @@ async function renderPageToBase64(page: any): Promise<string> {
     for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
     return btoa(binary);
   }
+  return (canvas as HTMLCanvasElement).toDataURL('image/jpeg', 0.95).split(',')[1];
+}
 
-  // Fallback for older browsers
-  const canvas = document.createElement('canvas');
-  canvas.width = viewport.width;
-  canvas.height = viewport.height;
-  const ctx = canvas.getContext('2d')!;
-  await page.render({ canvasContext: ctx, viewport }).promise;
-  return canvas.toDataURL('image/jpeg', 0.95).split(',')[1];
+async function canvasCropToBase64(
+  sourceCanvas: OffscreenCanvas | HTMLCanvasElement,
+  sx: number, sy: number, sw: number, sh: number
+): Promise<string> {
+  if (typeof OffscreenCanvas !== 'undefined') {
+    const crop = new OffscreenCanvas(sw, sh);
+    const ctx = crop.getContext('2d')!;
+    ctx.drawImage(sourceCanvas as any, sx, sy, sw, sh, 0, 0, sw, sh);
+    const blob = await crop.convertToBlob({ type: 'image/jpeg', quality: 0.92 });
+    const buf = await blob.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
+  }
+  const crop = document.createElement('canvas');
+  crop.width = sw;
+  crop.height = sh;
+  const ctx = crop.getContext('2d')!;
+  ctx.drawImage(sourceCanvas as HTMLCanvasElement, sx, sy, sw, sh, 0, 0, sw, sh);
+  return crop.toDataURL('image/jpeg', 0.92).split(',')[1];
+}
+
+async function renderPageStrips(
+  canvas: OffscreenCanvas | HTMLCanvasElement,
+  w: number, h: number
+): Promise<string[]> {
+  // 2 cols × 3 rows with ~30% overlap for comprehensive coverage
+  const colRanges: [number, number][] = [[0, 0.65], [0.35, 1.0]];
+  const rowRanges: [number, number][] = [[0, 0.47], [0.27, 0.73], [0.53, 1.0]];
+  const strips: string[] = [];
+  for (const [ry, rye] of rowRanges) {
+    for (const [rx, rxe] of colRanges) {
+      const sx = Math.floor(rx * w);
+      const sy = Math.floor(ry * h);
+      const sw = Math.ceil((rxe - rx) * w);
+      const sh = Math.ceil((rye - ry) * h);
+      strips.push(await canvasCropToBase64(canvas, sx, sy, sw, sh));
+    }
+  }
+  return strips;
+}
+
+function mergeExtractionPasses(passes: any[][]): any[] {
+  const map = new Map<string, any>();
+  for (const items of passes) {
+    for (const item of items) {
+      if (!item?.sku) continue;
+      const key = `${String(item.sku).toUpperCase()}|${String(item.room || 'Kitchen')}`;
+      const existing = map.get(key);
+      if (existing) {
+        existing.quantity = Math.max(existing.quantity || 1, item.quantity || 1);
+      } else {
+        map.set(key, { ...item });
+      }
+    }
+  }
+  return Array.from(map.values());
 }
 
 function normalizeTypeKey(value: string): string {
