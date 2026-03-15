@@ -395,7 +395,7 @@ Return the corrected JSON (same format), no other text. Each entry MUST have a "
             { inlineData: { mimeType: "image/jpeg", data: pageImage } },
             { text: VERIFY_PROMPT + "\n\nPreviously extracted data:\n" + JSON.stringify({ bldg: parsed.bldg || null, units: firstPassUnits }) },
           ]}],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 4096 },
+          generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
         });
 
         const verifyRes = await fetch(
