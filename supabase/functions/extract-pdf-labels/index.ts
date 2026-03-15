@@ -170,7 +170,7 @@ function countSkusFromText(pageText: string): Record<string, number> {
   const noDigitMatches = pageText.match(/\b(BP|SCRIBE|UC)\b/gi) || [];
 
   for (const m of [...matches, ...noDigitMatches]) {
-    const upper = m.toUpperCase().trim();
+    const upper = normalizeSkuLabel(m);
     if (APPLIANCE_RE.test(upper)) continue;
     if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) continue;
     if (!isValidSku(upper) && !NO_DIGIT_OK.test(upper)) continue;
