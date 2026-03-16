@@ -341,12 +341,20 @@ function extractTypeHintsFromText(pageText: string): string[] {
   return out;
 }
 
+// Strip bedroom-count prefixes like "2BR", "3BR", "1BR", "STUDIO" from AI type names
+function stripBedroomPrefix(value: string): string {
+  return String(value || '')
+    .replace(/^\d+\s*BR\s+/i, '')
+    .replace(/^STUDIO\s+/i, '')
+    .trim();
+}
+
 function resolvePageUnitType(
   aiType: unknown,
   pageText: string,
   isCommonAreaPage = false,
 ): { primary: string | null; aliases: string[] } {
-  const ai = String(aiType ?? '').trim();
+  const ai = stripBedroomPrefix(String(aiType ?? '').trim());
   const textHints = extractTypeHintsFromText(pageText);
 
   if (isCommonAreaPage) {

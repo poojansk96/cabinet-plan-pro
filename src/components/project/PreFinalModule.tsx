@@ -122,7 +122,7 @@ export default function PreFinalModule({ project }: Props) {
       const canPromoteIncomingType = Boolean(
         incomingKey &&
         hasImportOrderEvidence &&
-        (normalizedIncoming.startsWith('TYPE ') || isCommonAreaLabel(normalizedIncoming))
+        (normalizedIncoming.startsWith('TYPE ') || /\bTYPE\s/i.test(normalizedIncoming) || isCommonAreaLabel(normalizedIncoming))
       );
 
       const finalType = knownResolved || (canPromoteIncomingType ? normalizedIncoming : 'Unassigned');
