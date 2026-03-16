@@ -34,6 +34,9 @@ IF THIS IS A FLOOR PLAN PAGE, EXTRACT:
    - For COMMON AREA spaces (restroom, office, laundry, mail room, etc.), use the ROOM LABEL as the unitType (e.g. "Restroom", "Office", "Laundry", "Mail Room")
    - If you cannot find ANY type label, use the room/space name visible on the plan as unitType
    - Preserve EXACT text including suffixes like "-AS", "-Mirror", "-Rev", "-3BR"
+   - STRIP bedroom-count prefixes: Remove leading "1BR", "2BR", "3BR", "STUDIO" from the type. Example: "2BR TYPE B1" → "TYPE B1", "STUDIO TYPE S1" → "TYPE S1", "3BR TYPE C" → "TYPE C"
+   - CRITICAL: Preserve trailing digits! "TYPE B1" and "TYPE B" are DIFFERENT types. "TYPE A1" and "TYPE A" are DIFFERENT. Read each character carefully — do NOT truncate trailing numbers.
+   - CRITICAL: Every distinct type label on the page MUST appear in the output. Do NOT merge or skip types that look similar. "TYPE B", "TYPE B1", "TYPE B-AS", "TYPE B-MIRROR" are ALL separate types.
    - Never use sheet numbers, dimensions, cabinet SKUs, or drawing labels as unitType
 
 2. UNIT NUMBERS (CRITICAL — DO NOT MISS ANY):
