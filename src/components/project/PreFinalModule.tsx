@@ -118,12 +118,10 @@ export default function PreFinalModule({ project }: Props) {
       const normalizedIncoming = rawType ? normalizeUnitType(rawType) : '';
       const incomingKey = toTypeKey(normalizedIncoming);
       const knownResolved = resolveKnownType(rawType) || resolveKnownType(normalizedIncoming);
-      const hasImportOrderEvidence = importOrderKeys.size === 0 || importOrderKeys.has(incomingKey);
-      const canPromoteIncomingType = Boolean(
-        incomingKey &&
-        hasImportOrderEvidence &&
-        (normalizedIncoming.startsWith('TYPE ') || /\bTYPE\s/i.test(normalizedIncoming) || isCommonAreaLabel(normalizedIncoming))
-      );
+
+      // Promote any detected type with a non-empty key as its own column.
+      // Missing columns is far worse than an extra column the user can delete.
+      const canPromoteIncomingType = Boolean(incomingKey);
 
       const finalType = knownResolved || (canPromoteIncomingType ? normalizedIncoming : 'Unassigned');
 
