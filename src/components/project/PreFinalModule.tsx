@@ -96,15 +96,6 @@ export default function PreFinalModule({ project }: Props) {
       return exact || '';
     };
 
-    const isCommonAreaLabel = (value: string) =>
-      /\b(LAUNDRY|MAIL\s*ROOM|RESTROOM|LOBBY|CLUBHOUSE|FITNESS|LEASING|BUSINESS\s*CENTER|POOL\s*BATH|TRASH|MAINTENANCE|MODEL|STORAGE|GARAGE|CORRIDOR|MECHANICAL|COMMUNITY|BREAK\s*ROOM|OFFICE)\b/i
-        .test(String(value || ''));
-
-    const importOrderKeys = new Set(
-      (importTypeOrder || [])
-        .map(t => toTypeKey(normalizeUnitType(t)))
-        .filter(Boolean)
-    );
 
     const rowsByType = new Map<string, typeof rows>();
     // Clear all existing cabinet data before importing fresh
@@ -118,12 +109,10 @@ export default function PreFinalModule({ project }: Props) {
       const normalizedIncoming = rawType ? normalizeUnitType(rawType) : '';
       const incomingKey = toTypeKey(normalizedIncoming);
       const knownResolved = resolveKnownType(rawType) || resolveKnownType(normalizedIncoming);
-      const hasImportOrderEvidence = importOrderKeys.size === 0 || importOrderKeys.has(incomingKey);
-      const canPromoteIncomingType = Boolean(
-        incomingKey &&
-        hasImportOrderEvidence &&
-        (normalizedIncoming.startsWith('TYPE ') || /\bTYPE\s/i.test(normalizedIncoming) || isCommonAreaLabel(normalizedIncoming))
-      );
+
+      // Promote any detected type with a non-empty key as its own column.
+      // Missing columns is far worse than an extra column the user can delete.
+      const canPromoteIncomingType = Boolean(incomingKey);
 
       const finalType = knownResolved || (canPromoteIncomingType ? normalizedIncoming : 'Unassigned');
 
