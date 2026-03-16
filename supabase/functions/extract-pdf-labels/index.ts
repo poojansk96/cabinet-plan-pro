@@ -440,10 +440,10 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
 
     const unitTypeDetectInstructions = skipClassify && !isStrip ? `
 UNIT TYPE NAME: Also detect the unit type name from the title block, header, or prominent text on this page.
-Look for formats like: "TYPE 1 - AS", "TYPE A - MIRROR", "TYPE 2 - ADA", "TYPE B1", "TYPE C2", "Laundry", "Mail Room", etc.
-IMPORTANT: Return ONLY the type portion starting with "TYPE". Strip bedroom-count prefixes like "1BR", "2BR", "3BR", "STUDIO".
-  Example: If the title says "2BR TYPE B1" → return "TYPE B1" (NOT "2BR TYPE B1").
-  Example: If the title says "1BR TYPE A - AS" → return "TYPE A - AS".
+Look for formats like: "3BR TYPE C-MIRROR", "2BR TYPE B1", "TYPE 1 - AS", "TYPE A - MIRROR", "TYPE 2 - ADA", "TYPE B1", "TYPE C2", "Laundry", "Mail Room", etc.
+IMPORTANT: Return the FULL type name exactly as written, INCLUDING bedroom-count prefixes like "1BR", "2BR", "3BR", "STUDIO".
+  Example: If the title says "2BR TYPE B1" → return "2BR TYPE B1" (NOT just "TYPE B1").
+  Example: If the title says "3BR TYPE C-MIRROR" → return "3BR TYPE C-MIRROR".
   Example: If the title says "STUDIO TYPE S1" → return "TYPE S1".
 IMPORTANT: "TYPE B1" and "TYPE B" are DIFFERENT types. Do NOT drop trailing digits. "B1" is the full type code, not "B" with variant "1".
 Return it as "unitTypeName" in your response. Return null if no unit type is found.
