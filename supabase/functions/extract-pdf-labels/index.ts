@@ -121,7 +121,7 @@ const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RAN
 // Relaxed: accept any 1-8 letter prefix followed by a digit (catches manufacturer-specific SKUs like HAV, HALC)
 const SKU_PREFIX_RE = /^[A-Z]{1,8}\d/i;
 const NO_DIGIT_OK = /^(BP|SCRIBE|UC)$/i;
-const STRONG_STRIP_SKU_RE = /^(?:UC|BP|SCRIBE|[A-Z]{2,8}\d[A-Z0-9\-\/]{2,})$/i;
+const STRONG_STRIP_SKU_RE = /^(?:UC|BP|SCRIBE|APPRON|[A-Z]{2,8}\d[A-Z0-9\-\/]{2,})$/i;
 const SPLIT_SUFFIX_RE = /(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)$/i;
 
 function normalizeSkuLabel(value: string): string {
