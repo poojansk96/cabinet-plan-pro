@@ -191,9 +191,56 @@ function classifySku(sku: string): string {
   return "Base";
 }
 
-// Split ONLY on explicit hyphens where both parts are valid SKUs
-// Removed concatenation splitting entirely — prevents hallucinated double SKUs
-function splitMergedSkus(items: any[]): any[] {
+function trySplitConcatenatedSku(rawSku: string, knownTextSkus: string[] = []): string[] | null {
+  const sku = normalizeSkuLabel(rawSku);
+  if (!sku) return null;
+
+  const known = [...new Set(knownTextSkus.map(normalizeSkuLabel).filter(Boolean))]
+    .sort((a, b) => b.length - a.length);
+  const knownSet = new Set(known);
+
+  if (knownSet.has(sku)) return null;
+
+  const memo = new Map<number, string[] | null>();
+  const segmentWithKnown = (start: number): string[] | null => {
+    if (start === sku.length) return [];
+    if (memo.has(start)) return memo.get(start)!;
+
+    for (const candidate of known) {
+      if (!candidate || !sku.startsWith(candidate, start)) continue;
+      const rest = segmentWithKnown(start + candidate.length);
+      if (rest) {
+        const found = [candidate, ...rest];
+        memo.set(start, found);
+        return found;
+      }
+    }
+
+    memo.set(start, null);
+    return null;
+  };
+
+  const exactSegments = segmentWithKnown(0);
+  if (exactSegments && exactSegments.length >= 2) return exactSegments;
+
+  const possibleBoundaryCount = (sku.match(/[A-Z]{1,8}\d/g) || []).length;
+  if (possibleBoundaryCount < 2) return null;
+
+  for (let i = 2; i < sku.length - 2; i++) {
+    const left = sku.slice(0, i);
+    const right = sku.slice(i);
+    const leftValid = isValidSku(left) || NO_DIGIT_OK.test(left);
+    const rightValid = isValidSku(right) || NO_DIGIT_OK.test(right);
+    if (leftValid && rightValid) return [left, right];
+  }
+
+  return null;
+}
+
+// Split merged/touching SKUs conservatively:
+// 1) explicit hyphen boundaries where both sides are valid SKUs
+// 2) text-layer-guided concatenations like HCUC15X8HCOC3082D or W1230VDC2430
+function splitMergedSkus(items: any[], knownTextSkus: string[] = []): any[] {
   const result: any[] = [];
   for (const item of items) {
     const sku = String(item?.sku ?? '').toUpperCase().trim();
@@ -207,11 +254,22 @@ function splitMergedSkus(items: any[]): any[] {
         const right = hyphenParts.slice(i).join('-');
         if (isValidSku(left) && isValidSku(right)) {
           console.log(`Split merged SKU: "${sku}" → "${left}" + "${right}"`);
-          result.push({ ...item, sku: left, type: classifySku(left), quantity: 1 });
-          result.push({ ...item, sku: right, type: classifySku(right), quantity: 1 });
+          result.push({ ...item, sku: left, type: classifySku(left), quantity: Number(item.quantity) || 1 });
+          result.push({ ...item, sku: right, type: classifySku(right), quantity: Number(item.quantity) || 1 });
           wasSplit = true;
           break;
         }
+      }
+    }
+
+    if (!wasSplit) {
+      const concatenated = trySplitConcatenatedSku(sku, knownTextSkus);
+      if (concatenated && concatenated.length >= 2) {
+        console.log(`Split touching SKU labels: "${sku}" → ${concatenated.join(' + ')}`);
+        for (const part of concatenated) {
+          result.push({ ...item, sku: part, type: classifySku(part), quantity: Number(item.quantity) || 1 });
+        }
+        wasSplit = true;
       }
     }
 
