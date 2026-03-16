@@ -604,7 +604,9 @@ If no cabinet SKUs are found, return {"items":[]}`;
         return true;
       })
       .map((c: any) => {
-        const sku = canonicalizeSkuWithText(String(c.sku ?? ''));
+        let sku = canonicalizeSkuWithText(String(c.sku ?? ''));
+        // Strip stray leading characters from adjacent labels (e.g. "RW1230" from "RANGE" + "W1230")
+        sku = stripStrayLeadingChar(sku);
         // Preserve full SKU labels exactly as written; collapse SPLIT only when not present in plan text.
         let rawType = String(c.type ?? "Base").trim();
         if (/^BLW|^BRW/i.test(sku)) rawType = "Wall";
