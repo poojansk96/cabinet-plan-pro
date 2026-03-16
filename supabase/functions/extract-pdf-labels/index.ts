@@ -129,7 +129,8 @@ function normalizeSkuLabel(value: string): string {
     .toUpperCase()
     .trim()
     .replace(/\s*-\s*/g, '-')
-    .replace(/\s+/g, '');
+    .replace(/\s+/g, '')
+    .replace(/-+$/, ''); // Strip trailing hyphens (truncated/hidden labels)
 }
 
 function stripSplitSuffix(value: string): string {
