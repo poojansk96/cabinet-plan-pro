@@ -217,6 +217,8 @@ function cleanUnits(rawUnits: any[], pageBldg: string | null) {
     .filter((u: any) => u.unitNumber && typeof u.unitNumber === "string")
     .map((u: any) => {
       let unitType = u.unitType ? String(u.unitType).trim() : "";
+      // Strip bedroom-count prefixes (e.g. "2BR TYPE B1" → "TYPE B1")
+      unitType = unitType.replace(/^\d+\s*BR\s+/i, '').replace(/^STUDIO\s+/i, '').trim();
       if (/^(FLOOR|LEVEL|ELEVATION|ELEV|PLAN|SECTION|DETAIL|SHEET|DRAWING|DWG|REV|DATE|SCALE|NOTE|LEGEND)\b/i.test(unitType)) unitType = "";
       if (/^(W|B|SB|DB|UB|UC|TC|TK|WF|BF|V|OH|PT|PTC|UT|HAV|HASB|HASP|HAT|HAF|LS|LSB|FIL|CM|LR|EP|FP)\d/i.test(unitType.replace(/\s+/g, '').toUpperCase())) unitType = "";
       return {
