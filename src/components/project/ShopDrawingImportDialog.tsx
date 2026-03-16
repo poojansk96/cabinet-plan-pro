@@ -94,7 +94,7 @@ async function renderPageToCanvasData(page: any): Promise<{ canvas: OffscreenCan
 
 async function canvasToBase64Full(canvas: OffscreenCanvas | HTMLCanvasElement): Promise<string> {
   if (canvas instanceof OffscreenCanvas) {
-    const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.95 });
+    const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.7 });
     const buf = await blob.arrayBuffer();
     const bytes = new Uint8Array(buf);
     let binary = '';
