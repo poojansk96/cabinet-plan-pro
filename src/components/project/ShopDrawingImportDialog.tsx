@@ -593,7 +593,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
 
         // Breather between batches to avoid overwhelming the API with cold-starts
         if (batchStart + PARALLEL_BATCH < strips.length) {
-          await new Promise(r => setTimeout(r, 1000));
+          await new Promise(r => setTimeout(r, 2000));
         }
       }
 
