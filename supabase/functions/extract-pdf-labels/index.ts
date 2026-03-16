@@ -491,7 +491,7 @@ For each cabinet found, provide:
 1. sku: The SKU label exactly as written (e.g. B24, W3036, DB15, BF3, WF6X30, LS36-L, BLW36/3930-L, B09FH)
 2. type: Classify by prefix:
    - "Base" → B, DB, SB, CB, EB, LS, LSB (but NOT BLW/BRW — those are Wall, NOT HAV — those are Vanity)
-   - "Wall" → W, UB, WC, OH, BLW, BRW
+   - "Wall" → W, WDC, UB, WC, OH, BLW, BRW
    - "Tall" → T, UT, TC, PT, PTC, UC, HALC
    - "Vanity" → V, VB, VD, VDC, HAV (HAV = Vanity, NOT Base)
    - "Accessory" → FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR, TF
