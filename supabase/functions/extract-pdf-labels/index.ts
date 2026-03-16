@@ -607,6 +607,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
         // Preserve full SKU labels exactly as written; collapse SPLIT only when not present in plan text.
         let rawType = String(c.type ?? "Base").trim();
         if (/^BLW|^BRW/i.test(sku)) rawType = "Wall";
+        if (/^WDC\d/i.test(sku)) rawType = "Wall";
         if (/^HAV\d/i.test(sku)) rawType = "Vanity";
         if (/^HALC\d/i.test(sku)) rawType = "Tall";
         const normalizedType = rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase();
