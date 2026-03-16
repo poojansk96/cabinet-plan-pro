@@ -621,6 +621,39 @@ If no cabinet SKUs are found, return {"items":[]}`;
       return { ...item, quantity: nextQty };
     });
 
+    // ── Merge truncated SKUs into suffixed variants ──
+    // When a label is partially hidden (e.g., "W1230-L" cut off → "W1230"), the AI may
+    // return both "W1230" (truncated) and "W1230-R" or "W1230-L" as separate entries.
+    // If a bare SKU exists alongside a suffixed variant (same base + "-X" suffix) in the
+    // same room, absorb the bare SKU's quantity into the suffixed one to prevent duplicates.
+    const itemsByRoom = new Map<string, typeof items>();
+    for (const item of items) {
+      const arr = itemsByRoom.get(item.room) || [];
+      arr.push(item);
+      itemsByRoom.set(item.room, arr);
+    }
+    const mergedItems: typeof items = [];
+    for (const [room, roomItems] of itemsByRoom) {
+      const suffixed = roomItems.filter(i => /-[A-Z]+$/i.test(i.sku));
+      const bare = roomItems.filter(i => !/-[A-Z]+$/i.test(i.sku));
+      const absorbedBare = new Set<number>();
+      for (let bi = 0; bi < bare.length; bi++) {
+        const bareSku = bare[bi].sku;
+        // Find suffixed variants that start with this bare SKU + "-"
+        const variants = suffixed.filter(s => s.sku.startsWith(bareSku + '-'));
+        if (variants.length > 0) {
+          // This bare SKU is a truncated version of a suffixed one — absorb it
+          absorbedBare.add(bi);
+          console.log(`Merged truncated SKU "${bareSku}" into suffixed variant(s) [${variants.map(v=>v.sku).join(',')}] in room ${room}`);
+        }
+      }
+      for (let bi = 0; bi < bare.length; bi++) {
+        if (!absorbedBare.has(bi)) mergedItems.push(bare[bi]);
+      }
+      mergedItems.push(...suffixed);
+    }
+    items = mergedItems;
+
     // ── Deduplicate ──
     // For most SKUs, duplicate entries are summed (multiple distinct labels on page).
     // For corner units and HAV vanities, duplicate detections are usually the same physical cabinet,
