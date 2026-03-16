@@ -116,7 +116,7 @@ async function callGemini(
 
 // ── SKU Helpers ──
 
-const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|UB|WC|OH|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HALC|HAL|SA|SV|APPRON|UREP|REP)\d[\w\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
+const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|WDC|UB|WC|OH|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HALC|HAL|SA|SV|APPRON|UREP|REP)\d[\w\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
 const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
 // Relaxed: accept any 1-8 letter prefix followed by a digit (catches manufacturer-specific SKUs like HAV, HALC)
 const SKU_PREFIX_RE = /^[A-Z]{1,8}\d/i;
@@ -183,7 +183,7 @@ function countSkusFromText(pageText: string): Record<string, number> {
 
 function classifySku(sku: string): string {
   if (/^(BLW|BRW)/i.test(sku)) return "Wall";
-  if (/^(W|UB|WC|OH)\d/i.test(sku)) return "Wall";
+  if (/^(W|WDC|UB|WC|OH)\d/i.test(sku)) return "Wall";
   if (/^(T|UT|TC|PT|PTC|UC)(\d|$)/i.test(sku)) return "Tall";
   if (/^(HALC)\d/i.test(sku)) return "Tall";
   if (/^(V|VB|VD|VDC)\d/i.test(sku)) return "Vanity";
@@ -491,7 +491,7 @@ For each cabinet found, provide:
 1. sku: The SKU label exactly as written (e.g. B24, W3036, DB15, BF3, WF6X30, LS36-L, BLW36/3930-L, B09FH)
 2. type: Classify by prefix:
    - "Base" → B, DB, SB, CB, EB, LS, LSB (but NOT BLW/BRW — those are Wall, NOT HAV — those are Vanity)
-   - "Wall" → W, UB, WC, OH, BLW, BRW
+   - "Wall" → W, WDC, UB, WC, OH, BLW, BRW
    - "Tall" → T, UT, TC, PT, PTC, UC, HALC
    - "Vanity" → V, VB, VD, VDC, HAV (HAV = Vanity, NOT Base)
    - "Accessory" → FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR, TF
@@ -538,7 +538,7 @@ SKIP THESE — NOT CABINET SKUs:
 - Non-SKU text: unit numbers, elevation titles, dimension text, page numbers
 
 VALID SKU PREFIXES (a label must start with letters followed by a digit):
-B, DB, SB, CB, EB, LS, LSB, W, UB, WC, OH, BLW, BRW, T, TF, UT, TC, PT, PTC, UC, V, VB, VD, VDC, FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR
+B, DB, SB, CB, EB, LS, LSB, W, WDC, UB, WC, OH, BLW, BRW, T, TF, UT, TC, PT, PTC, UC, V, VB, VD, VDC, FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR
 Also accept manufacturer-specific longer prefixes (e.g. HA, HAV, HALC, SA, SV) followed by digits.
 
 VALID NO-DIGIT SKUS:
@@ -607,6 +607,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
         // Preserve full SKU labels exactly as written; collapse SPLIT only when not present in plan text.
         let rawType = String(c.type ?? "Base").trim();
         if (/^BLW|^BRW/i.test(sku)) rawType = "Wall";
+        if (/^WDC\d/i.test(sku)) rawType = "Wall";
         if (/^HAV\d/i.test(sku)) rawType = "Vanity";
         if (/^HALC\d/i.test(sku)) rawType = "Tall";
         const normalizedType = rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase();
