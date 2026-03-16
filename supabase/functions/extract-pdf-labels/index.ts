@@ -600,8 +600,10 @@ If no cabinet SKUs are found, return {"items":[]}`;
       })
       .map((c: any) => {
         let sku = canonicalizeSkuWithText(String(c.sku ?? ''));
-        // Strip stray leading characters from adjacent labels (e.g. "RW1230" from "RANGE" + "W1230")
-        sku = stripStrayLeadingChar(sku);
+        // Fix AI-merged adjacent labels using text layer (e.g. "RW1230" → "W1230")
+        if (textLayerSkuSet.size > 0) {
+          sku = fixMergedAdjacentLabel(sku, textLayerSkuSet);
+        }
         // Preserve full SKU labels exactly as written; collapse SPLIT only when not present in plan text.
         let rawType = String(c.type ?? "Base").trim();
         if (/^BLW|^BRW/i.test(sku)) rawType = "Wall";
