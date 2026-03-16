@@ -625,10 +625,10 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
           const hasCabinetRows = pageItems.length > 0;
           const isCommonAreaPage = Boolean((data as any).isCommonArea);
 
-          // Only track page type when this page contributed cabinets,
-          // or when it is explicitly identified as a common area page.
-          const shouldTrackType = hasCabinetRows || isCommonAreaPage;
-          const typesForOrder = shouldTrackType && resolvedPageType ? [resolvedPageType] : [];
+          // Track every resolved page type, even if this page produced zero cabinet rows.
+          // This keeps the cabinet matrix column visible instead of dropping the whole type.
+          const shouldTrackType = Boolean(resolvedPageType) || isCommonAreaPage || hasCabinetRows;
+          const typesForOrder = resolvedPageType ? [resolvedPageType] : [];
 
           for (const t of typesForOrder) {
             if (!detectedType) detectedType = t;

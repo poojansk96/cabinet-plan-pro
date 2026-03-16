@@ -132,10 +132,9 @@ export default function PreFinalModule({ project }: Props) {
       if (!orderedTypes.includes(finalType)) orderedTypes.push(finalType);
     }
 
-    const rowTypeKeys = new Set(orderedTypes.map(t => toTypeKey(t)).filter(Boolean));
-
     // Use PDF page order from import when available.
-    // Keep this import scoped to types detected in this cabinet run only.
+    // IMPORTANT: keep all detected types from this import even when a page had zero cabinet rows,
+    // otherwise missed AI extraction on a page would hide the whole unit type column.
     if (importTypeOrder && importTypeOrder.length > 0) {
       const normalizedOrder = importTypeOrder
         .map(t => {
@@ -143,8 +142,7 @@ export default function PreFinalModule({ project }: Props) {
           const resolved = resolveKnownType(t) || resolveKnownType(norm);
           return resolved || norm;
         })
-        .filter((t, i, arr) => arr.indexOf(t) === i)
-        .filter(t => rowTypeKeys.size === 0 || rowTypeKeys.has(toTypeKey(t)));
+        .filter((t, i, arr) => arr.indexOf(t) === i);
 
       const remaining = orderedTypes.filter(t => !normalizedOrder.includes(t));
       const finalOrder = [...normalizedOrder, ...remaining].filter((t, i, arr) => arr.indexOf(t) === i);
