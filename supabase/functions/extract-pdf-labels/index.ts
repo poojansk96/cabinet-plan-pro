@@ -526,7 +526,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
     if (skipClassify && !isStrip && extracted.unitTypeName) {
       detectedUnitType = extracted.unitTypeName;
     }
-    let finalItems = splitMergedSkus(rawItems);
+    let finalItems = splitMergedSkus(rawItems, textLayerSkus);
     console.log(`Step 2: ${rawItems.length} raw → ${finalItems.length} after split`);
 
     // ── RECOVERY: If extraction is empty but text layer has SKUs ──
