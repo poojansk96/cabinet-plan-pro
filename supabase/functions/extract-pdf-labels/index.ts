@@ -339,7 +339,10 @@ RESIDENTIAL (set isCommonArea to false):
 Type 1, Type 2, Type 3, Studio, 1 Bed, 2 Bed, 1BR, 2BR, Unit A, Unit B, any numbered/lettered residential unit type including AS and MIRROR variants.
 
 UNIT TYPE NAME: Look in the title block, header, sheet title, or prominent labels on this page.
-Common formats: "TYPE 1 - AS", "TYPE 1 - MIRROR", "TYPE 2 - ADA", "TYPE 3 - AS", "Laundry", "Mail Room", etc.
+Common formats: "TYPE 1 - AS", "TYPE 1 - MIRROR", "TYPE 2 - ADA", "TYPE 3 - AS", "TYPE B1", "TYPE C2", "Laundry", "Mail Room", etc.
+IMPORTANT: Return ONLY the type portion starting with "TYPE". Strip bedroom-count prefixes like "1BR", "2BR", "3BR", "STUDIO".
+  Example: "2BR TYPE B1" → return "TYPE B1". "1BR TYPE A - AS" → return "TYPE A - AS".
+IMPORTANT: "TYPE B1" and "TYPE B" are DIFFERENT types. Do NOT drop trailing digits.
 Return null for unitTypeName ONLY if you truly cannot find any unit type identifier.
 ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
 
