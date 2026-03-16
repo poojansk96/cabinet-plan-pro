@@ -639,12 +639,14 @@ If no cabinet SKUs are found, return {"items":[]}`;
       const absorbedBare = new Set<number>();
       for (let bi = 0; bi < bare.length; bi++) {
         const bareSku = bare[bi].sku;
+        const bareQty = bare[bi].quantity;
         // Find suffixed variants that start with this bare SKU + "-"
         const variants = suffixed.filter(s => s.sku.startsWith(bareSku + '-'));
-        if (variants.length > 0) {
-          // This bare SKU is a truncated version of a suffixed one — absorb it
+        // Only absorb if bare qty is 1 (truncation artifact). If qty > 1, the AI
+        // is confident about multiple instances, so keep the bare SKU as-is.
+        if (variants.length > 0 && bareQty <= 1) {
           absorbedBare.add(bi);
-          console.log(`Merged truncated SKU "${bareSku}" into suffixed variant(s) [${variants.map(v=>v.sku).join(',')}] in room ${room}`);
+          console.log(`Merged truncated SKU "${bareSku}" (qty ${bareQty}) into suffixed variant(s) [${variants.map(v=>v.sku).join(',')}] in room ${room}`);
         }
       }
       for (let bi = 0; bi < bare.length; bi++) {
