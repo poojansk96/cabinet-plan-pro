@@ -22,7 +22,12 @@ interface Props {
 
 function normalizeUnitType(raw: string): string {
   let s = raw.trim();
-  const hasTypePrefix = /^type\s+/i.test(s);
+  // Strip bedroom-count prefixes like "2BR", "3BR", "1BR", "STUDIO"
+  s = s.replace(/^\d+\s*BR\s+/i, '').replace(/^STUDIO\s+/i, '').trim();
+  const hasTypePrefix = /^type\s+/i.test(s) || /\btype\s+/i.test(s);
+  // Extract everything from "TYPE" onward if TYPE appears anywhere
+  const typeMatch = s.match(/\b(type\s+.*)/i);
+  if (typeMatch) s = typeMatch[1];
   s = s.replace(/^type\s+/i, '');
   s = s.replace(/\s*-\s*/g, '-');
   s = s.toUpperCase();
@@ -117,7 +122,7 @@ export default function PreFinalModule({ project }: Props) {
       const canPromoteIncomingType = Boolean(
         incomingKey &&
         hasImportOrderEvidence &&
-        (normalizedIncoming.startsWith('TYPE ') || isCommonAreaLabel(normalizedIncoming))
+        (normalizedIncoming.startsWith('TYPE ') || /\bTYPE\s/i.test(normalizedIncoming) || isCommonAreaLabel(normalizedIncoming))
       );
 
       const finalType = knownResolved || (canPromoteIncomingType ? normalizedIncoming : 'Unassigned');
