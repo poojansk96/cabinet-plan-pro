@@ -191,9 +191,56 @@ function classifySku(sku: string): string {
   return "Base";
 }
 
-// Split ONLY on explicit hyphens where both parts are valid SKUs
-// Removed concatenation splitting entirely — prevents hallucinated double SKUs
-function splitMergedSkus(items: any[]): any[] {
+function trySplitConcatenatedSku(rawSku: string, knownTextSkus: string[] = []): string[] | null {
+  const sku = normalizeSkuLabel(rawSku);
+  if (!sku) return null;
+
+  const known = [...new Set(knownTextSkus.map(normalizeSkuLabel).filter(Boolean))]
+    .sort((a, b) => b.length - a.length);
+  const knownSet = new Set(known);
+
+  if (knownSet.has(sku)) return null;
+
+  const memo = new Map<number, string[] | null>();
+  const segmentWithKnown = (start: number): string[] | null => {
+    if (start === sku.length) return [];
+    if (memo.has(start)) return memo.get(start)!;
+
+    for (const candidate of known) {
+      if (!candidate || !sku.startsWith(candidate, start)) continue;
+      const rest = segmentWithKnown(start + candidate.length);
+      if (rest) {
+        const found = [candidate, ...rest];
+        memo.set(start, found);
+        return found;
+      }
+    }
+
+    memo.set(start, null);
+    return null;
+  };
+
+  const exactSegments = segmentWithKnown(0);
+  if (exactSegments && exactSegments.length >= 2) return exactSegments;
+
+  const possibleBoundaryCount = (sku.match(/[A-Z]{1,8}\d/g) || []).length;
+  if (possibleBoundaryCount < 2) return null;
+
+  for (let i = 2; i < sku.length - 2; i++) {
+    const left = sku.slice(0, i);
+    const right = sku.slice(i);
+    const leftValid = isValidSku(left) || NO_DIGIT_OK.test(left);
+    const rightValid = isValidSku(right) || NO_DIGIT_OK.test(right);
+    if (leftValid && rightValid) return [left, right];
+  }
+
+  return null;
+}
+
+// Split merged/touching SKUs conservatively:
+// 1) explicit hyphen boundaries where both sides are valid SKUs
+// 2) text-layer-guided concatenations like HCUC15X8HCOC3082D or W1230VDC2430
+function splitMergedSkus(items: any[], knownTextSkus: string[] = []): any[] {
   const result: any[] = [];
   for (const item of items) {
     const sku = String(item?.sku ?? '').toUpperCase().trim();
@@ -207,11 +254,22 @@ function splitMergedSkus(items: any[]): any[] {
         const right = hyphenParts.slice(i).join('-');
         if (isValidSku(left) && isValidSku(right)) {
           console.log(`Split merged SKU: "${sku}" → "${left}" + "${right}"`);
-          result.push({ ...item, sku: left, type: classifySku(left), quantity: 1 });
-          result.push({ ...item, sku: right, type: classifySku(right), quantity: 1 });
+          result.push({ ...item, sku: left, type: classifySku(left), quantity: Number(item.quantity) || 1 });
+          result.push({ ...item, sku: right, type: classifySku(right), quantity: Number(item.quantity) || 1 });
           wasSplit = true;
           break;
         }
+      }
+    }
+
+    if (!wasSplit) {
+      const concatenated = trySplitConcatenatedSku(sku, knownTextSkus);
+      if (concatenated && concatenated.length >= 2) {
+        console.log(`Split touching SKU labels: "${sku}" → ${concatenated.join(' + ')}`);
+        for (const part of concatenated) {
+          result.push({ ...item, sku: part, type: classifySku(part), quantity: Number(item.quantity) || 1 });
+        }
+        wasSplit = true;
       }
     }
 
@@ -421,6 +479,10 @@ STACKED / ADJACENT LABELS — MOST COMMON ERROR:
 - Two or more SKU labels near the same location are ALWAYS SEPARATE cabinets. NEVER merge them into one string.
 - "W1230" on one line and "VDC2430" below it → TWO separate entries: W1230 (qty 1) AND VDC2430 (qty 1). NOT "W1230VDC2430".
 - "W1530" near "BLW24/2730-R" → TWO separate entries. NOT "W1530-BLW24/2730-R".
+- If two labels visually touch or OCR reads them with NO separator, split them into separate SKUs when both parts are valid labels.
+- Example: "HCUC15X8HCOC3082D" means TWO entries: "HCUC15X8" and "HCOC3082D".
+- Example: "HSS318XCHSS3032LB" means TWO entries: "HSS318X" and "CHSS3032LB".
+- Example: "W1230VDC2430" means TWO entries: "W1230" and "VDC2430".
 
 PRESERVE FULL SKU LABELS — CRITICAL:
 - Report the COMPLETE label exactly as printed on the drawing, including ALL suffixes.
@@ -464,7 +526,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
     if (skipClassify && !isStrip && extracted.unitTypeName) {
       detectedUnitType = extracted.unitTypeName;
     }
-    let finalItems = splitMergedSkus(rawItems);
+    let finalItems = splitMergedSkus(rawItems, textLayerSkus);
     console.log(`Step 2: ${rawItems.length} raw → ${finalItems.length} after split`);
 
     // ── RECOVERY: If extraction is empty but text layer has SKUs ──
