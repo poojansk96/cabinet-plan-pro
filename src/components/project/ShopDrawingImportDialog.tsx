@@ -582,6 +582,21 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
           }
           onStepDone?.(); // Count each strip (pass or fail) for progress
         }
+
+        // Breather between batches to avoid overwhelming the API with cold-starts
+        if (batchStart + PARALLEL_BATCH < strips.length) {
+          await new Promise(r => setTimeout(r, 1000));
+        }
+          if (result.status === 'fulfilled' && result.value) {
+            allPassItems.push(result.value);
+          } else if (result.status === 'rejected') {
+            const err = result.reason;
+            if (err?.message === 'rate_limit') throw err;
+            if (err?.message === 'credits') throw err;
+            console.warn(`Strip batch failed:`, err?.message);
+          }
+          onStepDone?.(); // Count each strip (pass or fail) for progress
+        }
       }
 
       // ── Merge all passes: MAX qty per SKU+room ──
