@@ -94,7 +94,7 @@ async function renderPageToCanvasData(page: any): Promise<{ canvas: OffscreenCan
 
 async function canvasToBase64Full(canvas: OffscreenCanvas | HTMLCanvasElement): Promise<string> {
   if (canvas instanceof OffscreenCanvas) {
-    const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.95 });
+    const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.7 });
     const buf = await blob.arrayBuffer();
     const bytes = new Uint8Array(buf);
     let binary = '';
@@ -112,7 +112,7 @@ async function canvasCropToBase64(
     const crop = new OffscreenCanvas(sw, sh);
     const ctx = crop.getContext('2d')!;
     ctx.drawImage(sourceCanvas as any, sx, sy, sw, sh, 0, 0, sw, sh);
-    const blob = await crop.convertToBlob({ type: 'image/jpeg', quality: 0.92 });
+    const blob = await crop.convertToBlob({ type: 'image/jpeg', quality: 0.7 });
     const buf = await blob.arrayBuffer();
     const bytes = new Uint8Array(buf);
     let binary = '';
@@ -593,7 +593,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
 
         // Breather between batches to avoid overwhelming the API with cold-starts
         if (batchStart + PARALLEL_BATCH < strips.length) {
-          await new Promise(r => setTimeout(r, 1000));
+          await new Promise(r => setTimeout(r, 2000));
         }
       }
 
