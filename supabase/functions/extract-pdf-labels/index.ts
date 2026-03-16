@@ -479,6 +479,10 @@ STACKED / ADJACENT LABELS — MOST COMMON ERROR:
 - Two or more SKU labels near the same location are ALWAYS SEPARATE cabinets. NEVER merge them into one string.
 - "W1230" on one line and "VDC2430" below it → TWO separate entries: W1230 (qty 1) AND VDC2430 (qty 1). NOT "W1230VDC2430".
 - "W1530" near "BLW24/2730-R" → TWO separate entries. NOT "W1530-BLW24/2730-R".
+- If two labels visually touch or OCR reads them with NO separator, split them into separate SKUs when both parts are valid labels.
+- Example: "HCUC15X8HCOC3082D" means TWO entries: "HCUC15X8" and "HCOC3082D".
+- Example: "HSS318XCHSS3032LB" means TWO entries: "HSS318X" and "CHSS3032LB".
+- Example: "W1230VDC2430" means TWO entries: "W1230" and "VDC2430".
 
 PRESERVE FULL SKU LABELS — CRITICAL:
 - Report the COMPLETE label exactly as printed on the drawing, including ALL suffixes.
