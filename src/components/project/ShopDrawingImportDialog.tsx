@@ -341,12 +341,9 @@ function extractTypeHintsFromText(pageText: string): string[] {
   return out;
 }
 
-// Strip bedroom-count prefixes like "2BR", "3BR", "1BR", "STUDIO" from AI type names
+// Preserve full type name including bedroom prefixes (no longer stripped)
 function stripBedroomPrefix(value: string): string {
-  return String(value || '')
-    .replace(/^\d+\s*BR\s+/i, '')
-    .replace(/^STUDIO\s+/i, '')
-    .trim();
+  return String(value || '').trim();
 }
 
 function resolvePageUnitType(
