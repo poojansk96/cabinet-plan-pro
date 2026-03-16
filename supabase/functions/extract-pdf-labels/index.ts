@@ -283,6 +283,42 @@ function splitMergedSkus(items: any[], knownTextSkus: string[] = []): any[] {
   return result;
 }
 
+// Known cabinet SKU prefixes (for stray-character detection)
+const KNOWN_PREFIXES = [
+  'APPRON','UREP','REP','BFFIL','WFFIL','TKRUN','HALC','HAL','HAV',
+  'BLW','BRW','LSB','PTC','VDC','DWR',
+  'DB','SB','CB','EB','LS','UB','WC','OH','TF','UT','TC','PT','UC',
+  'VB','VD','FIL','BF','WF','TK','CM','LR','EP','FP','HA','SA','SV',
+  'B','W','T','V',
+];
+
+/**
+ * Strip stray leading character(s) that the AI picked up from adjacent labels.
+ * E.g., "RW1230" → "W1230" (the "R" came from nearby "RANGE" or "REF").
+ * Only strips if the original prefix is NOT a known cabinet prefix and
+ * removing 1 char yields a known prefix.
+ */
+function stripStrayLeadingChar(sku: string): string {
+  const upper = sku.toUpperCase();
+  // Extract the letter prefix
+  const prefixMatch = upper.match(/^([A-Z]+)\d/);
+  if (!prefixMatch) return sku;
+  const prefix = prefixMatch[1];
+
+  // If the prefix is already a known cabinet prefix, no stripping needed
+  if (KNOWN_PREFIXES.includes(prefix)) return sku;
+
+  // Try removing 1 leading character
+  const stripped1 = upper.slice(1);
+  const stripped1Prefix = stripped1.match(/^([A-Z]+)\d/);
+  if (stripped1Prefix && KNOWN_PREFIXES.includes(stripped1Prefix[1])) {
+    console.log(`Stripped stray leading char: "${sku}" → "${stripped1}"`);
+    return stripped1;
+  }
+
+  return sku;
+}
+
 // ── Structured Output Schemas (Gemini native JSON mode) ──
 
 const CLASSIFY_SCHEMA = {
@@ -568,7 +604,9 @@ If no cabinet SKUs are found, return {"items":[]}`;
         return true;
       })
       .map((c: any) => {
-        const sku = canonicalizeSkuWithText(String(c.sku ?? ''));
+        let sku = canonicalizeSkuWithText(String(c.sku ?? ''));
+        // Strip stray leading characters from adjacent labels (e.g. "RW1230" from "RANGE" + "W1230")
+        sku = stripStrayLeadingChar(sku);
         // Preserve full SKU labels exactly as written; collapse SPLIT only when not present in plan text.
         let rawType = String(c.type ?? "Base").trim();
         if (/^BLW|^BRW/i.test(sku)) rawType = "Wall";
