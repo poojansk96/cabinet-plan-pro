@@ -283,40 +283,35 @@ function splitMergedSkus(items: any[], knownTextSkus: string[] = []): any[] {
   return result;
 }
 
-// Known cabinet SKU prefixes (for stray-character detection)
-const KNOWN_PREFIXES = [
-  'APPRON','UREP','REP','BFFIL','WFFIL','TKRUN','HALC','HAL','HAV',
-  'BLW','BRW','LSB','PTC','VDC','DWR',
-  'DB','SB','CB','EB','LS','UB','WC','OH','TF','UT','TC','PT','UC',
-  'VB','VD','FIL','BF','WF','TK','CM','LR','EP','FP','HA','SA','SV',
-  'B','W','T','V',
-];
-
 /**
- * Strip stray leading character(s) that the AI picked up from adjacent labels.
- * E.g., "RW1230" → "W1230" (the "R" came from nearby "RANGE" or "REF").
- * Only strips if the original prefix is NOT a known cabinet prefix and
- * removing 1 char yields a known prefix.
+ * Fix AI-merged adjacent labels using the text layer as ground truth.
+ * E.g., AI returns "RW1230" but text layer has "W1230" → use "W1230".
+ * The leading chars belonged to a different adjacent cabinet label.
+ * Only corrects when the text layer confirms the shorter SKU exists.
  */
-function stripStrayLeadingChar(sku: string): string {
+function fixMergedAdjacentLabel(sku: string, textLayerSkuSet: Set<string>): string {
   const upper = sku.toUpperCase();
-  // Extract the letter prefix
-  const prefixMatch = upper.match(/^([A-Z]+)\d/);
-  if (!prefixMatch) return sku;
-  const prefix = prefixMatch[1];
+  if (textLayerSkuSet.has(upper)) return upper; // Already exact match
 
-  // If the prefix is already a known cabinet prefix, no stripping needed
-  if (KNOWN_PREFIXES.includes(prefix)) return sku;
-
-  // Try removing 1 leading character
-  const stripped1 = upper.slice(1);
-  const stripped1Prefix = stripped1.match(/^([A-Z]+)\d/);
-  if (stripped1Prefix && KNOWN_PREFIXES.includes(stripped1Prefix[1])) {
-    console.log(`Stripped stray leading char: "${sku}" → "${stripped1}"`);
-    return stripped1;
+  // Try removing 1-3 leading characters and check if result is in text layer
+  for (let strip = 1; strip <= 3 && strip < upper.length - 2; strip++) {
+    const candidate = upper.slice(strip);
+    if (textLayerSkuSet.has(candidate) && isValidSku(candidate)) {
+      console.log(`Fixed merged adjacent label: "${sku}" → "${candidate}" (text layer match)`);
+      return candidate;
+    }
+    // Also check suffix variants (e.g., text has "W1230-L" but AI returned "RW1230-L")
+    for (const tlSku of textLayerSkuSet) {
+      if (tlSku.startsWith(candidate + '-') || candidate.startsWith(tlSku)) {
+        if (isValidSku(candidate)) {
+          console.log(`Fixed merged adjacent label: "${sku}" → "${candidate}" (text layer prefix match)`);
+          return candidate;
+        }
+      }
+    }
   }
 
-  return sku;
+  return upper;
 }
 
 // ── Structured Output Schemas (Gemini native JSON mode) ──
