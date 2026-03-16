@@ -96,15 +96,6 @@ export default function PreFinalModule({ project }: Props) {
       return exact || '';
     };
 
-    const isCommonAreaLabel = (value: string) =>
-      /\b(LAUNDRY|MAIL\s*ROOM|RESTROOM|LOBBY|CLUBHOUSE|FITNESS|LEASING|BUSINESS\s*CENTER|POOL\s*BATH|TRASH|MAINTENANCE|MODEL|STORAGE|GARAGE|CORRIDOR|MECHANICAL|COMMUNITY|BREAK\s*ROOM|OFFICE)\b/i
-        .test(String(value || ''));
-
-    const importOrderKeys = new Set(
-      (importTypeOrder || [])
-        .map(t => toTypeKey(normalizeUnitType(t)))
-        .filter(Boolean)
-    );
 
     const rowsByType = new Map<string, typeof rows>();
     // Clear all existing cabinet data before importing fresh
