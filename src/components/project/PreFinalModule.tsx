@@ -156,7 +156,7 @@ export default function PreFinalModule({ project }: Props) {
       length: r.length,
       depth: r.depth,
       splashHeight: r.splashHeight,
-      isIsland: r.isIsland,
+      category: r.category || (r.depth <= 22 ? 'bath' : 'kitchen'),
       room: r.room,
       unitType: targetType,
     }));
@@ -177,8 +177,8 @@ export default function PreFinalModule({ project }: Props) {
     });
   })();
 
-  const calcStoneSqft = (row: PrefinalStoneRow): number => {
-    const effectiveDepth = row.depth + (row.splashHeight ?? 0);
+  const calcStoneSqft = (row: PrefinalStoneRow, backsplashHeight: number): number => {
+    const effectiveDepth = row.depth + backsplashHeight;
     return Math.ceil((row.length * effectiveDepth) / 144);
   };
 
@@ -853,95 +853,133 @@ export default function PreFinalModule({ project }: Props) {
                 {stoneUnitTypes.map(unitType => {
                   const typeRows = store.stoneRows.filter(r => r.unitType === unitType);
                   if (typeRows.length === 0) return null;
-                  const typeSqft = typeRows.reduce((s, r) => s + calcStoneSqft(r), 0);
-                  const unitCount = store.unitNumbers.filter(u => u.assignments[unitType]).length;
+                  const unitCount = store.unitNumbers.filter(u => u.assignments[unitType]).length || 1;
+                  const bsH = store.stoneBacksplashHeight[unitType] || { kitchen: 0, bath: 0 };
+
+                  // Group by category then depth
+                  const groupByCategory = (cat: 'kitchen' | 'bath') => {
+                    const catRows = typeRows.filter(r => r.category === cat);
+                    const depthMap = new Map<number, number>();
+                    catRows.forEach(r => depthMap.set(r.depth, (depthMap.get(r.depth) || 0) + r.length));
+                    return Array.from(depthMap.entries())
+                      .sort((a, b) => b[0] - a[0]) // larger depth first
+                      .map(([depth, totalLength]) => ({ depth, totalLength }));
+                  };
+
+                  const kitchenGroups = groupByCategory('kitchen');
+                  const bathGroups = groupByCategory('bath');
+
+                  const calcGroupSqft = (groups: { depth: number; totalLength: number }[], splashH: number) =>
+                    groups.reduce((sum, g) => sum + Math.ceil((g.totalLength * (g.depth + splashH)) / 144), 0);
+
+                  const kitchenSqft = calcGroupSqft(kitchenGroups, bsH.kitchen);
+                  const bathSqft = calcGroupSqft(bathGroups, bsH.bath);
+
+                  const renderCategoryTable = (
+                    label: string,
+                    groups: { depth: number; totalLength: number }[],
+                    category: 'kitchen' | 'bath',
+                    sqft: number,
+                    splashH: number
+                  ) => {
+                    if (groups.length === 0) return null;
+                    return (
+                      <div className="mb-4">
+                        <div className="flex items-center gap-3 px-4 py-2">
+                          <span className="text-xs font-bold uppercase tracking-wider text-foreground">{label}</span>
+                          <div className="flex items-center gap-1.5 ml-auto">
+                            <span className="text-[10px] text-muted-foreground font-medium">Backsplash Height:</span>
+                            <input
+                              type="number"
+                              min={0}
+                              step={0.5}
+                              className="est-input text-xs w-14 text-right font-mono"
+                              value={splashH || ''}
+                              onChange={e => store.setStoneBacksplashHeight(unitType, category, Number(e.target.value) || 0)}
+                              placeholder="0"
+                            />
+                            <span className="text-[10px] text-muted-foreground">"</span>
+                          </div>
+                        </div>
+                        <table className="est-table text-xs">
+                          <thead>
+                            <tr>
+                              <th>Depth</th>
+                              <th className="text-right">Total Inches</th>
+                              <th className="text-right">Splash"</th>
+                              <th className="text-right">SQFT</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {groups.map((g, idx) => (
+                              <tr key={idx}>
+                                <td className="font-mono">{g.depth}"</td>
+                                <td className="text-right font-mono">{g.totalLength}</td>
+                                <td className="text-right font-mono">{splashH || '—'}</td>
+                                <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>
+                                  {Math.ceil((g.totalLength * (g.depth + splashH)) / 144)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="font-bold border-t border-border">
+                              <td colSpan={3} className="text-right">{label} SQFT:</td>
+                              <td className="text-right" style={{ color: 'hsl(var(--primary))' }}>{sqft}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    );
+                  };
 
                   return (
-                    <div key={unitType} className="mb-4">
+                    <div key={unitType} className="mb-6">
                       <div className="px-4 py-2 flex items-center justify-between" style={{ background: 'hsl(213 72% 35%)', color: '#fff' }}>
                         <span className="text-xs font-bold">{unitType}</span>
                         <div className="flex items-center gap-4 text-xs">
-                          <span>Sections: {typeRows.length}</span>
-                          <span>SQFT/Unit: <strong>{typeSqft}</strong></span>
-                          {unitCount > 0 && (
-                            <span>Total SQFT ({unitCount} units): <strong>{typeSqft * unitCount}</strong></span>
-                          )}
+                          {kitchenSqft > 0 && <span>Kitchen: <strong>{kitchenSqft}</strong> sqft</span>}
+                          {bathSqft > 0 && <span>Bath: <strong>{bathSqft}</strong> sqft</span>}
+                          {unitCount > 1 && <span>× {unitCount} units</span>}
                         </div>
                       </div>
-                      <table className="est-table text-xs">
-                        <thead>
-                          <tr>
-                            <th>Label</th>
-                            <th>Room</th>
-                            <th className="text-right">Length"</th>
-                            <th className="text-right">Depth"</th>
-                            <th className="text-right">Backsplash"</th>
-                            <th className="text-center">Island</th>
-                            <th className="text-right">SQFT</th>
-                            <th className="w-8"></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {typeRows.map((row, idx) => (
-                            <tr key={idx}>
-                              <td className="font-medium">{row.label}</td>
-                              <td className="text-muted-foreground">{row.room}</td>
-                              <td className="text-right font-mono">{row.length}</td>
-                              <td className="text-right font-mono">{row.depth}</td>
-                              <td className="text-right font-mono">{row.splashHeight ?? '—'}</td>
-                              <td className="text-center">{row.isIsland ? '✓' : '—'}</td>
-                              <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{calcStoneSqft(row)}</td>
-                              <td>
-                                <button
-                                  onClick={() => store.deleteStoneRow(unitType, idx)}
-                                  className="text-muted-foreground hover:text-destructive transition-colors"
-                                >
-                                  <Trash2 size={13} />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot>
-                          <tr className="font-bold border-t border-border">
-                            <td colSpan={6} className="text-right">Type Total SQFT:</td>
-                            <td className="text-right" style={{ color: 'hsl(var(--primary))' }}>{typeSqft}</td>
-                            <td></td>
-                          </tr>
-                        </tfoot>
-                      </table>
+                      {renderCategoryTable('Kitchen Top', kitchenGroups, 'kitchen', kitchenSqft, bsH.kitchen)}
+                      {renderCategoryTable('Bath / Vanity Top', bathGroups, 'bath', bathSqft, bsH.bath)}
                     </div>
                   );
                 })}
 
-                {/* Grand total */}
-                {stoneUnitTypes.length > 1 && (
-                  <div className="px-4 py-3 border-t border-border flex justify-end">
-                    <div className="text-sm font-bold">
-                      Grand Total SQFT:{' '}
-                      <span style={{ color: 'hsl(var(--primary))' }}>
-                        {store.stoneRows.reduce((s, r) => s + calcStoneSqft(r), 0)}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Per-type total with unit multiplier summary */}
-                <div className="px-4 py-3 border-t border-border">
-                  <div className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Total SQFT by Type (× Unit Count)</div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                    {stoneUnitTypes.map(type => {
-                      const typeRows = store.stoneRows.filter(r => r.unitType === type);
-                      const typeSqft = typeRows.reduce((s, r) => s + calcStoneSqft(r), 0);
-                      const unitCount = store.unitNumbers.filter(u => u.assignments[type]).length || 1;
+                {/* Grand totals: Kitchen + Bath */}
+                <div className="px-4 py-4 border-t border-border">
+                  <div className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Total SQFT (× Unit Count)</div>
+                  <div className="grid grid-cols-2 gap-4">
+                    {(() => {
+                      let grandKitchen = 0;
+                      let grandBath = 0;
+                      stoneUnitTypes.forEach(type => {
+                        const typeRows = store.stoneRows.filter(r => r.unitType === type);
+                        const unitCount = store.unitNumbers.filter(u => u.assignments[type]).length || 1;
+                        const bsH = store.stoneBacksplashHeight[type] || { kitchen: 0, bath: 0 };
+                        typeRows.forEach(r => {
+                          const splash = r.category === 'kitchen' ? bsH.kitchen : bsH.bath;
+                          const sqft = Math.ceil((r.length * (r.depth + splash)) / 144);
+                          if (r.category === 'kitchen') grandKitchen += sqft * unitCount;
+                          else grandBath += sqft * unitCount;
+                        });
+                      });
                       return (
-                        <div key={type} className="rounded-lg border border-border p-3 text-center">
-                          <div className="text-[10px] font-bold text-muted-foreground uppercase truncate">{type}</div>
-                          <div className="text-lg font-bold" style={{ color: 'hsl(var(--primary))' }}>{typeSqft * unitCount}</div>
-                          <div className="text-[10px] text-muted-foreground">{typeSqft} sqft × {unitCount} unit{unitCount !== 1 ? 's' : ''}</div>
-                        </div>
+                        <>
+                          <div className="rounded-lg border border-border p-4 text-center">
+                            <div className="text-[10px] font-bold text-muted-foreground uppercase">Total Kitchen SQFT</div>
+                            <div className="text-2xl font-bold" style={{ color: 'hsl(var(--primary))' }}>{grandKitchen}</div>
+                          </div>
+                          <div className="rounded-lg border border-border p-4 text-center">
+                            <div className="text-[10px] font-bold text-muted-foreground uppercase">Total Bath SQFT</div>
+                            <div className="text-2xl font-bold" style={{ color: 'hsl(var(--primary))' }}>{grandBath}</div>
+                          </div>
+                        </>
                       );
-                    })}
+                    })()}
                   </div>
                 </div>
               </div>

@@ -1,87 +1,79 @@
 
 
-## Pre-Final Stone SQFT Redesign
+# Fix W3030 Quantity Detection Issue
 
-### What changes
+## Problem
+The AI vision model (Gemini 2.5 Flash) consistently returns quantity 1 for W3030 even when 2 cabinet boxes are visible in the elevation drawing. The current prompt improvements have not been sufficient to make the AI correctly count physical cabinet boxes.
 
-The Stone SQFT section needs a complete rework to:
-1. **Classify tops as Kitchen or Bath** — AI detects from drawing; fallback rule: depth <= 22" = Bath, else Kitchen
-2. **Group by depth within each category** — same-depth sections are summed into one line (total inches), different depths shown as sub-rows
-3. **User-selectable backsplash height** — a global input per type (not per row) that applies to all sections; AI detects if double-line backsplash is present
-4. **Output: Kitchen SQFT and Bath SQFT per type**, with grand totals for Kitchen total and Bath total across all types
+## Root Cause
+Looking at the edge function logs, the AI returns `W3030B` with quantity 1 from a single page. The prompt tells the AI to count boxes, but the model is not reliably distinguishing adjacent identical cabinet rectangles visually. This is a limitation of prompt-based instruction alone.
 
-### Data model changes
+## Solution: Multi-Pronged Approach
 
-**`PrefinalStoneRow`** (in `usePrefinalStore.ts`):
-- Add `category: 'kitchen' | 'bath'` field
-- Remove `isIsland` (not needed in this workflow)
-- Keep `label`, `length`, `depth`, `splashHeight`, `room`, `unitType`
+### 1. Increase Image Resolution for Better Box Detection
+Currently, pages are rendered at a default scale. Increasing the rendering scale will give the AI more visual detail to distinguish adjacent cabinet boxes.
 
-**New store fields** (in `PrefinalData`):
-- `stoneBacksplashHeight: Record<string, { kitchen: number; bath: number }>` — per unit-type backsplash heights (user-editable, default 0)
+**File:** `src/components/project/ShopDrawingImportDialog.tsx`
+- Update `renderPageToBase64()` to use a higher scale (e.g., scale 3 instead of default) for sharper images
 
-**New store actions:**
-- `setStoneBacksplashHeight(unitType: string, category: 'kitchen' | 'bath', height: number)`
+### 2. Switch to a More Capable Model for Cabinet Extraction
+Use `gemini-2.5-pro` instead of `gemini-2.5-flash` for cabinet label extraction. The Pro model has stronger visual reasoning and is better at counting objects in technical drawings.
 
-### Edge function changes (`extract-pdf-countertops/index.ts`)
+**File:** `supabase/functions/extract-pdf-labels/index.ts`
+- Change the model from `gemini-2.5-flash` to `gemini-2.5-pro` for more accurate visual analysis
 
-Update the AI prompt to:
-- Classify each section as `"category": "kitchen"` or `"category": "bath"`
-- Detect backsplash presence (double-line indicator) and return `"hasBacksplash": true/false`
-- Return JSON: `{"countertops":[{"label":"...", "length":120, "depth":25.5, "category":"kitchen", "hasBacksplash":true, "room":"Kitchen"}]}`
-- Fallback classification rule in post-processing: depth <= 22" → bath, else → kitchen
+### 3. Add Chain-of-Thought Reasoning to the Prompt
+Add explicit instructions for the AI to first list every cabinet box it sees with position descriptions before producing the final JSON. This forces the model to "think" through each box individually.
 
-### Import dialog changes (`StonePDFImportDialog.tsx`)
+**File:** `supabase/functions/extract-pdf-labels/index.ts`
+- Update the prompt to include a step-by-step counting instruction:
+  - "First, mentally scan the elevation from left to right. For each cabinet box, note its position (far left, center-left, etc.) and its SKU label."
+  - "Then group by SKU and count the distinct boxes per SKU to determine quantity."
+- Increase `maxOutputTokens` to accommodate the reasoning output
+- Add a post-processing step to extract only the final JSON from the response (since the model may output reasoning text before the JSON)
 
-- Update `StoneExtractedRow` to include `category: 'kitchen' | 'bath'`
-- Review table shows category column (editable dropdown: Kitchen/Bath)
-- Remove Island column
-- Group rows by category in review for clarity
-- Pass category through to `onImport`
+### 4. Increase Temperature Slightly
+A temperature of 0.1 may cause the model to be too conservative. Raising it slightly to 0.2 may help with visual interpretation.
 
-### Stone import handler (`PreFinalModule.tsx`)
+**File:** `supabase/functions/extract-pdf-labels/index.ts`
+- Change temperature from 0.1 to 0.2
 
-- When importing, rows already carry `category`
-- Aggregate: for each unitType + category + depth, sum all lengths into a single combined row
-- Store aggregated rows
+## Technical Details
 
-### Stone SQFT UI layout (`PreFinalModule.tsx`)
-
-Per unit type, the new layout:
-
+### Changes to `renderPageToBase64` in ShopDrawingImportDialog.tsx
 ```text
-┌─────────────────────────────────────────────────────────┐
-│ TYPE A                                                   │
-├─────────────────────────────────────────────────────────┤
-│ Kitchen Top                                              │
-│  Backsplash Height: [__4__]"  (user input)              │
-│  ┌────────────┬──────────┬───────────┬──────┐           │
-│  │ Depth      │ Total"   │ Splash"   │ SQFT │           │
-│  │ 25.5"      │ 312      │ 4         │ XX   │           │
-│  │ 36" (island)│ 96      │ 0         │ XX   │           │
-│  └────────────┴──────────┴───────────┴──────┘           │
-│  Kitchen SQFT: XX                                        │
-│                                                          │
-│ Bath/Vanity Top                                          │
-│  Backsplash Height: [__4__]"  (user input)              │
-│  ┌────────────┬──────────┬───────────┬──────┐           │
-│  │ Depth      │ Total"   │ Splash"   │ SQFT │           │
-│  │ 22"        │ 144      │ 4         │ XX   │           │
-│  └────────────┴──────────┴───────────┴──────┘           │
-│  Bath SQFT: XX                                           │
-└─────────────────────────────────────────────────────────┘
+- Current: renders at default scale (likely 1-2x)  
+- Updated: render at scale 3 for higher resolution images sent to AI
 ```
 
-SQFT calculation per depth-group: `Math.ceil((totalLength * (depth + backsplashHeight)) / 144)`
+### Changes to edge function `extract-pdf-labels/index.ts`
+```text
+- Model: gemini-2.5-flash -> gemini-2.5-pro  
+- Temperature: 0.1 -> 0.2  
+- maxOutputTokens: 4096 -> 8192  
+- Prompt: Add chain-of-thought counting instructions  
+- Response parsing: Extract JSON after any reasoning text  
+```
 
-At the bottom — two grand total cards:
-- **Total Kitchen SQFT** = sum of all types' kitchen sqft × unit count
-- **Total Bath SQFT** = sum of all types' bath sqft × unit count
+### Prompt Addition (excerpt)
+```text
+COUNTING METHOD:
+Before producing JSON, mentally scan the elevation LEFT to RIGHT.
+For each distinct cabinet rectangle you see, note:
+  - Its approximate horizontal position (e.g. "far left", "center", "right of sink")
+  - The SKU label it belongs to
+Then count how many distinct rectangles share each SKU and use that as the quantity.
+```
 
-### Files to modify
+### Response Parsing Update
+Since chain-of-thought may produce text before JSON, add logic to find the last JSON object in the response:
+```text
+- Search for the last occurrence of {"items": or {"unitTypeName":
+- Parse from that position
+- Fall back to current parsing if not found
+```
 
-1. **`supabase/functions/extract-pdf-countertops/index.ts`** — Update prompt for kitchen/bath classification + backsplash detection
-2. **`src/hooks/usePrefinalStore.ts`** — Add `category` to `PrefinalStoneRow`, add `stoneBacksplashHeight` state + setter
-3. **`src/components/project/StonePDFImportDialog.tsx`** — Add category to extracted rows, update review table
-4. **`src/components/project/PreFinalModule.tsx`** — New stone UI with depth-grouped kitchen/bath layout, backsplash height inputs, two grand totals
+## Files to Modify
+1. `supabase/functions/extract-pdf-labels/index.ts` - Model, prompt, temperature, token limit, response parsing
+2. `src/components/project/ShopDrawingImportDialog.tsx` - Image rendering scale
 
