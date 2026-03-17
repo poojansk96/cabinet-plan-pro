@@ -28,6 +28,16 @@ function normalizeUnitType(raw: string): string {
   return s;
 }
 
+function normalizeDetectedStoneType(raw: string): string {
+  return normalizeUnitType(raw)
+    .replace(/^UNIT\s+TYPE\s+/, '')
+    .replace(/^TYPE\s+/, '')
+    .replace(/^PLAN\s+/, '')
+    .replace(/^MODEL\s+/, '')
+    .replace(/^LAYOUT\s+/, '')
+    .trim();
+}
+
 export default function PreFinalModule({ project }: Props) {
   const [activeSubTab, setActiveSubTab] = useState<'units' | 'cabinets' | 'stone'>('units');
   const store = usePrefinalStore(project.id);
