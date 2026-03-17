@@ -46,10 +46,14 @@ RULES:
 - Look for dimension lines, annotations, and measurements in the drawing
 - For L-shaped or U-shaped runs, break them into individual straight segments
 - If a countertop wraps around a corner, create separate sections for each leg — and DEDUCT the depth from the return leg's length (the return's front edge is shorter than the wall dimension)
+- For a standalone rectangular section, the LONGER wall run is usually the length and the SHORT side dimension is the depth
+- If a standalone piece shows a visible backsplash double line on one edge and also shows a side depth dimension around 25.5\" or 25 1/4\", treat it as a regular perimeter kitchen countertop section, NOT an island
+- A piece is ONLY island-like if it has no visible backsplash double line and its depth is actually large (typically 30\"+)
+- Do NOT mistake a 33\" wall-run with a 25.5\" side depth as a 33\"-deep island; in that case length = 33\" and depth = 25.5\"
 - Do NOT include appliance surfaces (range top, sink cutout dimensions) as separate sections — they are part of the countertop run
 - If the page has no countertop information, return {"unitType":null,"countertops":[]}
 - Round all dimensions to nearest 0.5 inch
-- Standard depths: perimeter kitchen = 25.5", island = 36", bar = 12-18", vanity/bath = 22"
+- Standard depths: perimeter kitchen = 25.5\", island = 36\", bar = 12-18\", vanity/bath = 22\"
 - BACKSPLASH DETECTION: A double line at the back wall edge means backsplash is present. If you do NOT see a double line on an edge, that edge has NO backsplash — do not count it.
 - BACKSPLASH LENGTH: ONLY sum inches where you can see the double line. Do NOT add depth at corner junctions. The corner where two countertop sections meet is NOT backsplash.
 - A double line at the short side/end of the countertop at a wall is a SIDESPLASH — count how many ends have this
