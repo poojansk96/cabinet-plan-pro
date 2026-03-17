@@ -262,6 +262,15 @@ function loadData(projectId: string): PrefinalData {
 
     const unitNumbers = dedupeSameTypeSameUnit(dedupeUnitNumbers(rawUnitNumbers));
 
+    // Migrate old stoneRows: convert isIsland to category
+    const rawStoneRows = (parsed.stoneRows || []).map((r: any) => {
+      const { isIsland, ...rest } = r;
+      return {
+        ...rest,
+        category: r.category || (r.depth <= 22 ? 'bath' : 'kitchen'),
+      };
+    });
+
     return {
       unitTypes: dedupedUnitTypes,
       unitNumbers,
@@ -270,29 +279,13 @@ function loadData(projectId: string): PrefinalData {
       handleQtyPerSku: parsed.handleQtyPerSku || {},
       bidCostPerType: parsed.bidCostPerType || {},
       additionalCostPerType: parsed.additionalCostPerType || {},
-      // Migrate old stoneRows: convert isIsland to category
-      const rawStoneRows = (parsed.stoneRows || []).map((r: any) => ({
-        ...r,
-        category: r.category || (r.depth <= 22 ? 'bath' : 'kitchen'),
-      }));
-      // Remove isIsland from migrated rows
-      const stoneRows = rawStoneRows.map(({ isIsland, ...rest }: any) => rest);
-
-      return {
-        unitTypes: dedupedUnitTypes,
-        unitNumbers,
-        cabinetRows,
-        cabinetUnitTypes: dedupedCabTypes,
-        handleQtyPerSku: parsed.handleQtyPerSku || {},
-        bidCostPerType: parsed.bidCostPerType || {},
-        additionalCostPerType: parsed.additionalCostPerType || {},
-        stoneRows,
-        stoneUnitTypes: parsed.stoneUnitTypes || [],
-        stoneBacksplashHeight: parsed.stoneBacksplashHeight || {},
-      };
-    } catch {
-      return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [], stoneBacksplashHeight: {} };
-    }
+      stoneRows: rawStoneRows,
+      stoneUnitTypes: parsed.stoneUnitTypes || [],
+      stoneBacksplashHeight: parsed.stoneBacksplashHeight || {},
+    };
+  } catch {
+    return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [], stoneBacksplashHeight: {} };
+  }
 }
 
 function saveData(projectId: string, data: PrefinalData) {
