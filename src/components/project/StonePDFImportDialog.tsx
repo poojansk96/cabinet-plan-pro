@@ -69,13 +69,7 @@ async function renderPageToBase64(page: any, scale = 3): Promise<string> {
   return b64;
 }
 
-async function extractPageText(page: any): Promise<string> {
-  const content = await page.getTextContent();
-  return content.items
-    .filter((item: any) => 'str' in item)
-    .map((item: any) => String(item.str || ''))
-    .join(' ');
-}
+// extractPageText removed — AI now returns unitType directly
 
 function cleanDetectedType(raw: string): string {
   return String(raw || '')
