@@ -871,6 +871,40 @@ export default function PreFinalModule({ project }: Props) {
               </div>
             ) : (
               <div className="overflow-x-auto">
+                {/* Common backsplash height controls */}
+                <div className="px-4 py-3 border-b border-border flex flex-wrap items-center gap-4">
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Common Backsplash Height:</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-medium text-foreground">Kitchen:</span>
+                    <input
+                      type="number" min={0} step={0.5}
+                      className="est-input text-xs w-16 text-right font-mono"
+                      value={commonSplash.kitchen || ''}
+                      onChange={e => {
+                        const val = Number(e.target.value) || 0;
+                        setCommonSplash(prev => ({ ...prev, kitchen: val }));
+                        stoneUnitTypes.forEach(t => store.setStoneBacksplashHeight(t, 'kitchen', val));
+                      }}
+                      placeholder="0"
+                    />
+                    <span className="text-[10px] text-muted-foreground">"</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-medium text-foreground">Bath:</span>
+                    <input
+                      type="number" min={0} step={0.5}
+                      className="est-input text-xs w-16 text-right font-mono"
+                      value={commonSplash.bath || ''}
+                      onChange={e => {
+                        const val = Number(e.target.value) || 0;
+                        setCommonSplash(prev => ({ ...prev, bath: val }));
+                        stoneUnitTypes.forEach(t => store.setStoneBacksplashHeight(t, 'bath', val));
+                      }}
+                      placeholder="0"
+                    />
+                    <span className="text-[10px] text-muted-foreground">"</span>
+                  </div>
+                </div>
                 {stoneUnitTypes.map(unitType => {
                   const typeRows = store.stoneRows.filter(r => r.unitType === unitType);
                   if (typeRows.length === 0) return null;
