@@ -339,7 +339,6 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
         const fileRowStartIndex = allRows.length;
 
         for (let p = 1; p <= pdf.numPages; p++) {
-          setStatusMsg(`Processing ${file.name} — page ${p}/${pdf.numPages}`);
           const page = await pdf.getPage(p);
 
           let pageText = '';
@@ -354,69 +353,98 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
           }
 
           const textType = detectTypeFromText(pageText);
-          const pageImage = await renderPageToBase64(page);
 
-          try {
+          // Helper to call edge function and parse result
+          const callExtract = async (imageB64: string): Promise<{ countertops: RawCountertop[]; unitType: string | null }> => {
             const resp = await fetch(`${SUPABASE_URL}/functions/v1/extract-pdf-countertops`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${SUPABASE_KEY}`,
               },
-              body: JSON.stringify({ pageImage }),
+              body: JSON.stringify({ pageImage: imageB64 }),
             });
 
-            if (resp.status === 429) { setError('Rate limit reached. Please wait and try again.'); break; }
-            if (resp.status === 402) { setError('AI credits exhausted.'); break; }
+            if (resp.status === 429) { setError('Rate limit reached. Please wait and try again.'); return { countertops: [], unitType: null }; }
+            if (resp.status === 402) { setError('AI credits exhausted.'); return { countertops: [], unitType: null }; }
 
             if (resp.ok) {
               const data = await resp.json();
               const aiType = data.unitType ? cleanDetectedType(String(data.unitType).trim()) : null;
-              const resolvedPageType = aiType || textType || fileType || fileFallbackType || null;
-
-              if (resolvedPageType && !fileType) {
-                fileType = resolvedPageType;
-              }
-
-              if (fileType) {
-                for (let i = fileRowStartIndex; i < allRows.length; i++) {
-                  if (allRows[i].sourceFile === file.name && !allRows[i].detectedUnitType) {
-                    allRows[i] = { ...allRows[i], detectedUnitType: fileType };
-                  }
-                }
-              }
-
-              if (resolvedPageType && !lastFileType) {
-                lastFileType = resolvedPageType;
-                setDetectedType(resolvedPageType);
-              }
-
-              for (const ct of (data.countertops ?? [])) {
-                  const length = ct.length;
-                  const backsplashLength = Number.isFinite(Number(ct.backsplashLength))
-                    ? Number(ct.backsplashLength)
-                    : 0;
-                  allRows.push({
-                    label: ct.label,
-                    length,
-                    depth: ct.depth,
-                    splashHeight: ct.splashHeight ?? null,
-                    sidesplashCount: Number(ct.sidesplashCount) || 0,
-                    backsplashLength,
-                    category: ct.category || (ct.depth <= 22 ? 'bath' : 'kitchen'),
-                  room: ct.room || 'Kitchen',
-                  selected: true,
-                  sourceFile: file.name,
-                  detectedUnitType: resolvedPageType || fileType || undefined,
-                });
-              }
+              const cts: RawCountertop[] = (data.countertops ?? []).map((ct: any) => ({
+                label: String(ct.label || 'Section').trim(),
+                length: ct.length,
+                depth: ct.depth,
+                splashHeight: ct.splashHeight ?? null,
+                sidesplashCount: Number(ct.sidesplashCount) || 0,
+                backsplashLength: Number.isFinite(Number(ct.backsplashLength)) ? Number(ct.backsplashLength) : 0,
+                category: ct.category || (ct.depth <= 22 ? 'bath' : 'kitchen'),
+                room: String(ct.room || 'Kitchen').trim(),
+              }));
+              return { countertops: cts, unitType: aiType };
             }
-          } catch (err) {
-            console.error(`Error processing page ${p}:`, err);
-          }
+            return { countertops: [], unitType: null };
+          };
 
+          // Pass 1: Full page
+          setStatusMsg(`Processing ${file.name} — page ${p}/${pdf.numPages} (full scan)`);
+          const pageImage = await renderPageToBase64(page);
+          let fullResult: { countertops: RawCountertop[]; unitType: string | null } = { countertops: [], unitType: null };
+          try {
+            fullResult = await callExtract(pageImage);
+          } catch (err) {
+            console.error(`Error on full pass page ${p}:`, err);
+          }
           pagesDone++;
           setProgress(Math.round((pagesDone / pagesTotal) * 100));
+
+          // Passes 2-4: 3 horizontal strips
+          const allPasses: RawCountertop[][] = [fullResult.countertops];
+          for (let s = 0; s < STRIP_REGIONS.length; s++) {
+            setStatusMsg(`Processing ${file.name} — page ${p}/${pdf.numPages} (strip ${s + 1}/3)`);
+            try {
+              const stripImage = await renderStripToBase64(page, STRIP_REGIONS[s].yStart, STRIP_REGIONS[s].yEnd);
+              const stripResult = await callExtract(stripImage);
+              allPasses.push(stripResult.countertops);
+            } catch (err) {
+              console.error(`Error on strip ${s + 1} page ${p}:`, err);
+              allPasses.push([]);
+            }
+            pagesDone++;
+            setProgress(Math.round((pagesDone / pagesTotal) * 100));
+          }
+
+          // Merge passes: take MIN backsplashLength per section
+          const merged = mergePassResults(allPasses);
+
+          // Resolve type
+          const resolvedPageType = fullResult.unitType || textType || fileType || fileFallbackType || null;
+
+          if (resolvedPageType && !fileType) {
+            fileType = resolvedPageType;
+          }
+
+          if (fileType) {
+            for (let i = fileRowStartIndex; i < allRows.length; i++) {
+              if (allRows[i].sourceFile === file.name && !allRows[i].detectedUnitType) {
+                allRows[i] = { ...allRows[i], detectedUnitType: fileType };
+              }
+            }
+          }
+
+          if (resolvedPageType && !lastFileType) {
+            lastFileType = resolvedPageType;
+            setDetectedType(resolvedPageType);
+          }
+
+          for (const ct of merged) {
+            allRows.push({
+              ...ct,
+              selected: true,
+              sourceFile: file.name,
+              detectedUnitType: resolvedPageType || fileType || undefined,
+            });
+          }
         }
 
         if (fileType) {
