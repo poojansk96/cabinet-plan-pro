@@ -546,6 +546,4 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
       </div>
     </div>
   );
-});
-
-export default StonePDFImportDialog;
+}
