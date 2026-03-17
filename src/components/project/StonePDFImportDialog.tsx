@@ -1,8 +1,6 @@
 import { useState, useRef } from 'react';
 import { X, Upload, Loader2, Check, Trash2, Sparkles } from 'lucide-react';
 
-import { extractUnitsFromPDF } from '@/lib/pdfExtractor';
-
 export interface StoneExtractedRow {
   label: string;
   length: number;
