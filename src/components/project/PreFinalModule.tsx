@@ -953,8 +953,7 @@ export default function PreFinalModule({ project }: Props) {
                         catLabel: string,
                         groups: { depth: number; totalLength: number }[],
                         category: 'kitchen' | 'bath',
-                        splashH: number,
-                        isFirst: boolean
+                        splashH: number
                       ) => {
                         if (groups.length === 0) return [];
                         const rows: React.ReactNode[] = [];
@@ -969,40 +968,7 @@ export default function PreFinalModule({ project }: Props) {
                           catSplashTotal += rowSplashSqft;
                           rows.push(
                             <tr key={`${unitType}-${category}-${idx}`}>
-                              {idx === 0 && isFirst ? (
-                                <td rowSpan={999} className="font-semibold align-top border-r" style={{ borderColor: 'hsl(var(--table-border))' }}>
-                                  <div className="flex flex-col gap-0.5">
-                                    <span>{unitType}</span>
-                                    <div className="flex items-center gap-1 mt-1">
-                                      <span className="text-[9px] text-muted-foreground">K:</span>
-                                      <input
-                                        type="number" min={0} step={0.5}
-                                        className="est-input text-[10px] w-10 text-right font-mono py-0 px-0.5"
-                                        value={bsH.kitchen || ''}
-                                        onChange={e => store.setStoneBacksplashHeight(unitType, 'kitchen', Number(e.target.value) || 0)}
-                                        placeholder="0"
-                                      />
-                                      <span className="text-[9px] text-muted-foreground">"</span>
-                                    </div>
-                                    {bathGroups.length > 0 && (
-                                      <div className="flex items-center gap-1">
-                                        <span className="text-[9px] text-muted-foreground">B:</span>
-                                        <input
-                                          type="number" min={0} step={0.5}
-                                          className="est-input text-[10px] w-10 text-right font-mono py-0 px-0.5"
-                                          value={bsH.bath || ''}
-                                          onChange={e => store.setStoneBacksplashHeight(unitType, 'bath', Number(e.target.value) || 0)}
-                                          placeholder="0"
-                                        />
-                                        <span className="text-[9px] text-muted-foreground">"</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                </td>
-                              ) : idx === 0 && !isFirst ? null : null}
-                              <td className={`font-medium ${idx === 0 ? 'border-t' : ''}`} style={idx === 0 ? { borderColor: 'hsl(var(--table-border))' } : undefined}>
-                                {idx === 0 ? catLabel : ''}
-                              </td>
+                              <td>{idx === 0 ? catLabel : ''}</td>
                               <td className="text-right font-mono">{g.depth}"</td>
                               <td className="text-right font-mono">{g.totalLength}</td>
                               <td className="text-right font-mono italic">{isIsland ? 'Island' : (splashH > 0 ? g.totalLength : '—')}</td>
@@ -1014,10 +980,10 @@ export default function PreFinalModule({ project }: Props) {
                           );
                         });
 
-                        // Subtotal row for category
+                        // Subtotal
                         rows.push(
                           <tr key={`${unitType}-${category}-sub`} className="border-t" style={{ borderColor: 'hsl(var(--table-border))' }}>
-                            <td className="text-right font-bold text-[10px]" colSpan={5}>{catLabel} SQFT:</td>
+                            <td colSpan={5} className="text-right font-bold text-[10px]">{catLabel} SQFT:</td>
                             <td className="text-right font-bold text-[10px]" style={{ color: 'hsl(var(--primary))' }}>{catTopTotal}</td>
                             <td className="text-right font-bold text-[10px]" style={{ color: 'hsl(var(--primary))' }}>{catSplashTotal || '—'}</td>
                             <td className="text-right font-bold text-[10px]" style={{ color: 'hsl(var(--primary))' }}>{catTopTotal + catSplashTotal}</td>
@@ -1026,15 +992,47 @@ export default function PreFinalModule({ project }: Props) {
                         return rows;
                       };
 
-                      const kitchenRows = renderCatRows('Kitchen', kitchenGroups, 'kitchen', bsH.kitchen, true);
-                      const bathRows = renderCatRows('Bath', bathGroups, 'bath', bsH.bath, kitchenGroups.length === 0);
+                      const kitchenRows = renderCatRows('Kitchen', kitchenGroups, 'kitchen', bsH.kitchen);
+                      const bathRows = renderCatRows('Bath', bathGroups, 'bath', bsH.bath);
 
                       return (
                         <React.Fragment key={unitType}>
+                          {/* Type header row */}
+                          <tr style={{ background: 'hsl(213 72% 35%)' }}>
+                            <td colSpan={8} className="!py-1.5 !px-3">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-white">{unitType}</span>
+                                <div className="flex items-center gap-3">
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-[10px] text-blue-200">K Splash:</span>
+                                    <input
+                                      type="number" min={0} step={0.5}
+                                      className="est-input text-[10px] w-12 text-right font-mono py-0 px-1 bg-white/90"
+                                      value={bsH.kitchen || ''}
+                                      onChange={e => store.setStoneBacksplashHeight(unitType, 'kitchen', Number(e.target.value) || 0)}
+                                      placeholder="0"
+                                    />
+                                    <span className="text-[10px] text-blue-200">"</span>
+                                  </div>
+                                  {bathGroups.length > 0 && (
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-[10px] text-blue-200">B Splash:</span>
+                                      <input
+                                        type="number" min={0} step={0.5}
+                                        className="est-input text-[10px] w-12 text-right font-mono py-0 px-1 bg-white/90"
+                                        value={bsH.bath || ''}
+                                        onChange={e => store.setStoneBacksplashHeight(unitType, 'bath', Number(e.target.value) || 0)}
+                                        placeholder="0"
+                                      />
+                                      <span className="text-[10px] text-blue-200">"</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
                           {kitchenRows}
                           {bathRows}
-                          {/* spacer between types */}
-                          <tr><td colSpan={9} className="py-1" style={{ background: 'hsl(var(--accent))' }}></td></tr>
                         </React.Fragment>
                       );
                     })}
