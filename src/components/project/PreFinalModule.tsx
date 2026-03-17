@@ -220,6 +220,46 @@ export default function PreFinalModule({ project }: Props) {
     return Math.ceil((row.length * effectiveDepth) / 144);
   };
 
+  const normalizeStoneLabelKey = (value: string) =>
+    String(value || '')
+      .toUpperCase()
+      .replace(/[\u2010-\u2015]/g, '-')
+      .replace(/[^A-Z0-9 -]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const isWrappedStoneSegment = (label: string) => /\b(?:MAIN|RETURN|LEG)\b/.test(normalizeStoneLabelKey(label));
+
+  const getWrappedStoneSegmentBase = (row: PrefinalStoneRow) =>
+    normalizeStoneLabelKey(row.label)
+      .replace(/\b(?:L|U)\b/g, ' ')
+      .replace(/\b(?:MAIN|RETURN|LEG)\b/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const getEffectiveSidesplashCount = (row: PrefinalStoneRow, siblingRows: PrefinalStoneRow[]): number => {
+    const rawCount = Math.max(0, Math.min(2, Number(row.sidesplashCount) || 0));
+    if (rawCount === 0 || !isWrappedStoneSegment(row.label)) return rawCount;
+
+    const baseKey = getWrappedStoneSegmentBase(row);
+    if (!baseKey) return rawCount;
+
+    const hasSiblingWrapSegment = siblingRows.some(candidate => {
+      if (candidate === row) return false;
+      if (candidate.category !== row.category || candidate.room !== row.room) return false;
+      if (Math.abs(Number(candidate.depth) - Number(row.depth)) > 0.01) return false;
+      return isWrappedStoneSegment(candidate.label) && getWrappedStoneSegmentBase(candidate) === baseKey;
+    });
+
+    return hasSiblingWrapSegment ? 0 : rawCount;
+  };
+
+  const getCombinedSplashInches = (row: PrefinalStoneRow, siblingRows: PrefinalStoneRow[]): number => {
+    if (row.depth >= 30) return 0;
+    const backsplashLength = Number.isFinite(Number(row.backsplashLength)) ? Number(row.backsplashLength) : 0;
+    return backsplashLength + (getEffectiveSidesplashCount(row, siblingRows) * row.depth);
+  };
+
 
   const cabUnitTypes = (() => {
     const seen = new Set<string>();
@@ -982,10 +1022,7 @@ export default function PreFinalModule({ project }: Props) {
                         catRows.forEach(r => {
                           const ex = depthMap.get(r.depth) || { totalLength: 0, combinedSplashInches: 0 };
                           ex.totalLength += r.length;
-                          // Combined: actual backsplash wall-run inches + sidesplash inches
-                          const bsLen = Number.isFinite(Number(r.backsplashLength)) ? Number(r.backsplashLength) : 0;
-                          const ssLen = (r.sidesplashCount || 0) * r.depth;
-                          ex.combinedSplashInches += bsLen + ssLen;
+                          ex.combinedSplashInches += getCombinedSplashInches(r, catRows);
                           depthMap.set(r.depth, ex);
                         });
                         return Array.from(depthMap.entries())
@@ -1119,7 +1156,7 @@ export default function PreFinalModule({ project }: Props) {
                             const isIsland = r.depth >= 30;
                             const splash = isIsland ? 0 : (r.category === 'kitchen' ? bsH.kitchen : bsH.bath);
                             const topSqft = Math.ceil((r.length * r.depth) / 144);
-                            const combinedInches = (Number.isFinite(Number(r.backsplashLength)) ? Number(r.backsplashLength) : 0) + ((r.sidesplashCount || 0) * r.depth);
+                            const combinedInches = getCombinedSplashInches(r, typeRows);
                             const splashSqft = splash > 0 ? Math.ceil((combinedInches * splash) / 144) : 0;
                             if (r.category === 'kitchen') typeKitchen += topSqft + splashSqft;
                             else typeBath += topSqft + splashSqft;
@@ -1166,7 +1203,7 @@ export default function PreFinalModule({ project }: Props) {
                           const isIsland = r.depth >= 30;
                           const splash = isIsland ? 0 : (r.category === 'kitchen' ? bsH.kitchen : bsH.bath);
                           const topSqft = Math.ceil((r.length * r.depth) / 144);
-                          const combinedInches = (Number.isFinite(Number(r.backsplashLength)) ? Number(r.backsplashLength) : 0) + ((r.sidesplashCount || 0) * r.depth);
+                          const combinedInches = getCombinedSplashInches(r, typeRows);
                           const splashSqft = splash > 0 ? Math.ceil((combinedInches * splash) / 144) : 0;
                           if (r.category === 'kitchen') grandKitchen += (topSqft + splashSqft) * unitCount;
                           else grandBath += (topSqft + splashSqft) * unitCount;
