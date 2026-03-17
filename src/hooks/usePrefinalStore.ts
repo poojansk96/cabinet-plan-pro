@@ -674,7 +674,7 @@ export function usePrefinalStore(projectId: string) {
     });
   }, [projectId]);
 
-
+  const clearStone = useCallback(() => {
     commit({ ...data, stoneRows: [], stoneUnitTypes: [], stoneBacksplashHeight: {} });
   }, [commit, data]);
 
