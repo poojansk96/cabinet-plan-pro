@@ -423,6 +423,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                     <thead>
                       <tr>
                         <th className="w-8"></th>
+                        <th>Type</th>
                         <th>Label</th>
                         <th>Room</th>
                         <th className="text-right">Length"</th>
@@ -437,6 +438,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                       {rows.map((row, idx) => (
                         <tr key={idx} className={!row.selected ? 'opacity-50' : ''}>
                           <td><input type="checkbox" checked={row.selected} onChange={e => updateRow(idx, { selected: e.target.checked })} /></td>
+                          <td><input className="est-input w-20 text-xs font-semibold" value={row.detectedUnitType || ''} onChange={e => updateRow(idx, { detectedUnitType: e.target.value || undefined })} placeholder="—" /></td>
                           <td><input className="est-input w-full text-xs" value={row.label} onChange={e => updateRow(idx, { label: e.target.value })} /></td>
                           <td><input className="est-input w-20 text-xs" value={row.room} onChange={e => updateRow(idx, { room: e.target.value })} /></td>
                           <td className="text-right"><input type="number" className="est-input w-16 text-right text-xs" value={row.length} min={1} onChange={e => updateRow(idx, { length: +e.target.value })} /></td>
@@ -455,7 +457,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                     </tbody>
                     <tfoot>
                       <tr className="font-bold border-t border-border">
-                        <td colSpan={7} className="text-right">Total SQFT:</td>
+                        <td colSpan={8} className="text-right">Total SQFT:</td>
                         <td className="text-right" style={{ color: 'hsl(var(--primary))' }}>{totalSqft}</td>
                         <td></td>
                       </tr>
