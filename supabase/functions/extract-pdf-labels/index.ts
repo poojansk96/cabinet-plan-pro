@@ -559,8 +559,19 @@ If no cabinet SKUs are found, return {"items":[]}`;
 
     const rawItems = extracted.items ?? [];
     // When skipClassify, the extraction also returns unitTypeName
-    if (skipClassify && !isStrip && extracted.unitTypeName) {
-      detectedUnitType = extracted.unitTypeName;
+    if (skipClassify && !isStrip) {
+      const extractedType = extracted.unitTypeName ?? null;
+      if (extractedType) {
+        detectedUnitType = extractedType;
+      }
+      // If extraction lost unitTypeName due to truncation but we have text hints, try to recover
+      if (!detectedUnitType && pageText) {
+        const typeMatch = (pageText || '').match(/\b(?:(\d+BR)\s+)?(TYPE\s+[A-Z0-9]+(?:\s*[-–]\s*(?:AS|ADA|MIRROR|ALT))?)\b/i);
+        if (typeMatch) {
+          detectedUnitType = ((typeMatch[1] || '') + ' ' + (typeMatch[2] || '')).trim().toUpperCase();
+          console.log(`Recovered unitTypeName from text layer: ${detectedUnitType}`);
+        }
+      }
     }
     let finalItems = splitMergedSkus(rawItems, textLayerSkus);
     console.log(`Step 2: ${rawItems.length} raw → ${finalItems.length} after split`);
