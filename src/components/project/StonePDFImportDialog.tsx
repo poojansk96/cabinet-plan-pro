@@ -343,7 +343,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                         <th className="text-right">Length"</th>
                         <th className="text-right">Depth"</th>
                         <th className="text-right">Backsplash"</th>
-                        <th className="text-center">Island</th>
+                        <th className="text-center">Category</th>
                         <th className="text-right">SQFT</th>
                         <th></th>
                       </tr>
