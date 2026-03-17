@@ -177,8 +177,8 @@ export default function PreFinalModule({ project }: Props) {
     });
   })();
 
-  const calcStoneSqft = (row: PrefinalStoneRow): number => {
-    const effectiveDepth = row.depth + (row.splashHeight ?? 0);
+  const calcStoneSqft = (row: PrefinalStoneRow, backsplashHeight: number): number => {
+    const effectiveDepth = row.depth + backsplashHeight;
     return Math.ceil((row.length * effectiveDepth) / 144);
   };
 
