@@ -172,6 +172,7 @@ export default function PreFinalModule({ project }: Props) {
         depth: row.depth,
         splashHeight: row.splashHeight,
         sidesplashCount: row.sidesplashCount || 0,
+        backsplashLength: row.backsplashLength || row.length,
         category: row.category || (row.depth <= 22 ? 'bath' : 'kitchen'),
         room: row.room,
         unitType: targetType,

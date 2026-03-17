@@ -246,12 +246,14 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
               }
 
               for (const ct of (data.countertops ?? [])) {
+                const length = ct.length;
                 allRows.push({
                   label: ct.label,
-                  length: ct.length,
+                  length,
                   depth: ct.depth,
                   splashHeight: ct.splashHeight ?? null,
                   sidesplashCount: Number(ct.sidesplashCount) || 0,
+                  backsplashLength: Number(ct.backsplashLength) || length,
                   category: ct.category || (ct.depth <= 22 ? 'bath' : 'kitchen'),
                   room: ct.room || 'Kitchen',
                   selected: true,
