@@ -991,8 +991,8 @@ export default function PreFinalModule({ project }: Props) {
                           {unitCount > 1 && <span>× {unitCount} units</span>}
                         </div>
                       </div>
-                      {renderCategoryTable('Kitchen Top', kitchenGroups, 'kitchen', kitchenSqft, bsH.kitchen)}
-                      {renderCategoryTable('Bath / Vanity Top', bathGroups, 'bath', bathSqft, bsH.bath)}
+                      {renderCategoryTable('Kitchen Top', kitchenGroups, 'kitchen', kitchenTopSqft, kitchenSplashSqft, kitchenSqft, bsH.kitchen)}
+                      {renderCategoryTable('Bath / Vanity Top', bathGroups, 'bath', bathTopSqft, bathSplashSqft, bathSqft, bsH.bath)}
                     </div>
                   );
                 })}
