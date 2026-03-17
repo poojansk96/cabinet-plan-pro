@@ -24,16 +24,19 @@ serve(async (req) => {
       });
     }
 
-    const prompt = `You are an expert millwork estimator analyzing a countertop / kitchen plan drawing.
+    const prompt = `You are an expert millwork estimator analyzing a countertop / stone plan from 2020 shop drawings.
 
 TASK:
 Examine this drawing and extract every countertop section visible. For each section extract:
 
 1. **label** — a short descriptive name based on its location (e.g. "Perimeter Left", "Perimeter Right", "Island", "Peninsula", "Bar Top", "Vanity", "L-Section", "U-Section"). If the drawing has text labels, use those.
 2. **length** — total linear length in inches. Read dimension labels first. If no label, estimate from the drawing.
-3. **depth** — depth in inches. Standard countertop depth is 25.5". Islands are often 36-42". Read from labels or use defaults.
-4. **splashHeight** — backsplash height in inches if noted (typically 4" or 6"). Use null if not shown.
-5. **isIsland** — true if this section is an island or peninsula (not against a wall).
+3. **depth** — depth in inches. Standard kitchen countertop depth is 25.5". Islands are often 36-42". Vanity/bath tops are typically 22" or 19". Read from labels or use defaults.
+4. **category** — classify as "kitchen" or "bath":
+   - If the drawing shows bathroom fixtures (toilet, tub), or text says "bath", "vanity", "powder", "master bath", "ensuite" → "bath"
+   - If depth is 22" or less, or 19" → "bath"
+   - Otherwise → "kitchen"
+5. **hasBacksplash** — true if you see a double line along the back edge of the countertop (indicating a backsplash), or if the drawing annotates a backsplash. false otherwise.
 6. **room** — the room this countertop is in (Kitchen, Bath, Laundry, Bar, Pantry, etc.)
 
 RULES:
@@ -43,10 +46,11 @@ RULES:
 - Do NOT include appliance surfaces (range top, sink cutout dimensions) as separate sections — they are part of the countertop run
 - If the page has no countertop information, return {"countertops":[]}
 - Round all dimensions to nearest 0.5 inch
-- Standard depths: perimeter = 25.5", island = 36", bar = 12-18", vanity = 22"
+- Standard depths: perimeter kitchen = 25.5", island = 36", bar = 12-18", vanity/bath = 22"
+- A double line at the back wall edge means backsplash is present
 
 Return ONLY valid JSON — no markdown fences, no explanation:
-{"countertops":[{"label":"Perimeter Left","length":96,"depth":25.5,"splashHeight":4,"isIsland":false,"room":"Kitchen"}]}`;
+{"countertops":[{"label":"Perimeter Left","length":96,"depth":25.5,"category":"kitchen","hasBacksplash":true,"room":"Kitchen"}]}`;
 
     let response: Response | null = null;
     const MAX_RETRIES = 3;
@@ -104,7 +108,6 @@ Return ONLY valid JSON — no markdown fences, no explanation:
     let parsed: { countertops: any[] } = { countertops: [] };
     try {
       let cleaned = content.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
-      // Try to find JSON object if there's reasoning text before it
       const jsonStart = cleaned.lastIndexOf('{"countertops"');
       if (jsonStart > 0) cleaned = cleaned.slice(jsonStart);
       parsed = JSON.parse(cleaned);
@@ -112,14 +115,22 @@ Return ONLY valid JSON — no markdown fences, no explanation:
       console.error("JSON parse failed, raw:", content.slice(0, 500));
     }
 
-    const countertops = (parsed.countertops ?? []).map((ct: any) => ({
-      label: String(ct.label || "Section").trim(),
-      length: Math.round((Number(ct.length) || 96) * 2) / 2,
-      depth: Math.round((Number(ct.depth) || 25.5) * 2) / 2,
-      splashHeight: ct.splashHeight ? Math.round(Number(ct.splashHeight) * 2) / 2 : null,
-      isIsland: Boolean(ct.isIsland),
-      room: String(ct.room || "Kitchen").trim(),
-    }));
+    const countertops = (parsed.countertops ?? []).map((ct: any) => {
+      const depth = Math.round((Number(ct.depth) || 25.5) * 2) / 2;
+      // Fallback classification: depth <= 22 → bath, else kitchen
+      let category: string = String(ct.category || "").toLowerCase();
+      if (category !== "kitchen" && category !== "bath") {
+        category = depth <= 22 ? "bath" : "kitchen";
+      }
+      return {
+        label: String(ct.label || "Section").trim(),
+        length: Math.round((Number(ct.length) || 96) * 2) / 2,
+        depth,
+        hasBacksplash: Boolean(ct.hasBacksplash),
+        category,
+        room: String(ct.room || "Kitchen").trim(),
+      };
+    });
 
     return new Response(JSON.stringify({ countertops }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
