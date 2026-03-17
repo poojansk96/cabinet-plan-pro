@@ -181,7 +181,7 @@ const QUOTES = [
   "Calculating surface areas...",
 ];
 
-export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson }: Props) {
+const StonePDFImportDialog = forwardRef<HTMLDivElement, Props>(function StonePDFImportDialog({ onImport, onClose, prefinalPerson }, _ref) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<StoneExtractedRow[]>([]);
   const [error, setError] = useState('');
