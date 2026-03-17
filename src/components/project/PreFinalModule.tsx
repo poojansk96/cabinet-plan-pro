@@ -56,6 +56,7 @@ export default function PreFinalModule({ project }: Props) {
   // ── Stone SQFT state ──────────────────────────────────────────────────
   const [showStoneImport, setShowStoneImport] = useState(false);
   const [stoneImportedCount, setStoneImportedCount] = useState<number | null>(null);
+  const [commonSplash, setCommonSplash] = useState<{ kitchen: number; bath: number }>({ kitchen: 0, bath: 0 });
 
   // ── Unit import handler ───────────────────────────────────────────────────
   const handleUnitImport = (rows: { unitNumber: string; unitType: string; bldg: string }[], typeOrder?: string[]) => {
@@ -870,6 +871,40 @@ export default function PreFinalModule({ project }: Props) {
               </div>
             ) : (
               <div className="overflow-x-auto">
+                {/* Common backsplash height controls */}
+                <div className="px-4 py-3 border-b border-border flex flex-wrap items-center gap-4">
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Common Backsplash Height:</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-medium text-foreground">Kitchen:</span>
+                    <input
+                      type="number" min={0} step={0.5}
+                      className="est-input text-xs w-16 text-right font-mono"
+                      value={commonSplash.kitchen || ''}
+                      onChange={e => {
+                        const val = Number(e.target.value) || 0;
+                        setCommonSplash(prev => ({ ...prev, kitchen: val }));
+                        stoneUnitTypes.forEach(t => store.setStoneBacksplashHeight(t, 'kitchen', val));
+                      }}
+                      placeholder="0"
+                    />
+                    <span className="text-[10px] text-muted-foreground">"</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-medium text-foreground">Bath:</span>
+                    <input
+                      type="number" min={0} step={0.5}
+                      className="est-input text-xs w-16 text-right font-mono"
+                      value={commonSplash.bath || ''}
+                      onChange={e => {
+                        const val = Number(e.target.value) || 0;
+                        setCommonSplash(prev => ({ ...prev, bath: val }));
+                        stoneUnitTypes.forEach(t => store.setStoneBacksplashHeight(t, 'bath', val));
+                      }}
+                      placeholder="0"
+                    />
+                    <span className="text-[10px] text-muted-foreground">"</span>
+                  </div>
+                </div>
                 {stoneUnitTypes.map(unitType => {
                   const typeRows = store.stoneRows.filter(r => r.unitType === unitType);
                   if (typeRows.length === 0) return null;
@@ -892,7 +927,7 @@ export default function PreFinalModule({ project }: Props) {
                   const calcTopSqft = (groups: { depth: number; totalLength: number }[]) =>
                     groups.reduce((sum, g) => sum + Math.ceil((g.totalLength * g.depth) / 144), 0);
                   const calcSplashSqft = (groups: { depth: number; totalLength: number }[], splashH: number) =>
-                    splashH > 0 ? groups.reduce((sum, g) => sum + Math.ceil((g.totalLength * splashH) / 144), 0) : 0;
+                    splashH > 0 ? groups.filter(g => g.depth < 30).reduce((sum, g) => sum + Math.ceil((g.totalLength * splashH) / 144), 0) : 0;
 
                   const kitchenTopSqft = calcTopSqft(kitchenGroups);
                   const kitchenSplashSqft = calcSplashSqft(kitchenGroups, bsH.kitchen);
@@ -953,14 +988,15 @@ export default function PreFinalModule({ project }: Props) {
                           </thead>
                           <tbody>
                             {groups.map((g, idx) => {
+                              const isIsland = g.depth >= 30;
                               const rowTopSqft = Math.ceil((g.totalLength * g.depth) / 144);
-                              const rowSplashSqft = splashH > 0 ? Math.ceil((g.totalLength * splashH) / 144) : 0;
+                              const rowSplashSqft = (!isIsland && splashH > 0) ? Math.ceil((g.totalLength * splashH) / 144) : 0;
                               return (
                                 <tr key={idx}>
                                   <td className="font-mono">{g.depth}"</td>
                                   <td className="text-right font-mono">{g.totalLength}</td>
-                                  <td className="text-right font-mono">{splashH > 0 ? g.totalLength : '—'}</td>
-                                  <td className="text-right font-mono">{splashH || '—'}</td>
+                                  <td className="text-right font-mono italic">{isIsland ? 'Island' : (splashH > 0 ? g.totalLength : '—')}</td>
+                                  <td className="text-right font-mono">{isIsland ? '—' : (splashH || '—')}</td>
                                   <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{rowTopSqft}</td>
                                   <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{rowSplashSqft || '—'}</td>
                                   <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{rowTopSqft + rowSplashSqft}</td>
