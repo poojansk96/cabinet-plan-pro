@@ -181,14 +181,14 @@ export default function PreFinalModule({ project }: Props) {
         rowsByType.set(targetType, []);
         orderedTypes.push(targetType);
       }
-      rowsByType.get(targetType)!.push({
-        label: row.label,
-        length: row.length,
-        depth: row.depth,
-        splashHeight: row.splashHeight,
-        sidesplashCount: row.sidesplashCount || 0,
-        backsplashLength: row.backsplashLength || row.length,
-        category: row.category || (row.depth <= 22 ? 'bath' : 'kitchen'),
+        rowsByType.get(targetType)!.push({
+          label: row.label,
+          length: row.length,
+          depth: row.depth,
+          splashHeight: row.splashHeight,
+          sidesplashCount: row.sidesplashCount || 0,
+          backsplashLength: Number.isFinite(Number(row.backsplashLength)) ? Number(row.backsplashLength) : 0,
+          category: row.category || (row.depth <= 22 ? 'bath' : 'kitchen'),
         room: row.room,
         unitType: targetType,
       });
@@ -982,8 +982,8 @@ export default function PreFinalModule({ project }: Props) {
                         catRows.forEach(r => {
                           const ex = depthMap.get(r.depth) || { totalLength: 0, combinedSplashInches: 0 };
                           ex.totalLength += r.length;
-                          // Combined: backsplash length (which already includes wall runs) + sidesplash inches
-                          const bsLen = r.backsplashLength || r.length;
+                          // Combined: actual backsplash wall-run inches + sidesplash inches
+                          const bsLen = Number.isFinite(Number(r.backsplashLength)) ? Number(r.backsplashLength) : 0;
                           const ssLen = (r.sidesplashCount || 0) * r.depth;
                           ex.combinedSplashInches += bsLen + ssLen;
                           depthMap.set(r.depth, ex);
@@ -1119,7 +1119,7 @@ export default function PreFinalModule({ project }: Props) {
                             const isIsland = r.depth >= 30;
                             const splash = isIsland ? 0 : (r.category === 'kitchen' ? bsH.kitchen : bsH.bath);
                             const topSqft = Math.ceil((r.length * r.depth) / 144);
-                            const combinedInches = (r.backsplashLength || r.length) + ((r.sidesplashCount || 0) * r.depth);
+                            const combinedInches = (Number.isFinite(Number(r.backsplashLength)) ? Number(r.backsplashLength) : 0) + ((r.sidesplashCount || 0) * r.depth);
                             const splashSqft = splash > 0 ? Math.ceil((combinedInches * splash) / 144) : 0;
                             if (r.category === 'kitchen') typeKitchen += topSqft + splashSqft;
                             else typeBath += topSqft + splashSqft;
@@ -1166,7 +1166,7 @@ export default function PreFinalModule({ project }: Props) {
                           const isIsland = r.depth >= 30;
                           const splash = isIsland ? 0 : (r.category === 'kitchen' ? bsH.kitchen : bsH.bath);
                           const topSqft = Math.ceil((r.length * r.depth) / 144);
-                          const combinedInches = (r.backsplashLength || r.length) + ((r.sidesplashCount || 0) * r.depth);
+                          const combinedInches = (Number.isFinite(Number(r.backsplashLength)) ? Number(r.backsplashLength) : 0) + ((r.sidesplashCount || 0) * r.depth);
                           const splashSqft = splash > 0 ? Math.ceil((combinedInches * splash) / 144) : 0;
                           if (r.category === 'kitchen') grandKitchen += (topSqft + splashSqft) * unitCount;
                           else grandBath += (topSqft + splashSqft) * unitCount;
