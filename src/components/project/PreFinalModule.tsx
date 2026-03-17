@@ -982,8 +982,8 @@ export default function PreFinalModule({ project }: Props) {
                         catRows.forEach(r => {
                           const ex = depthMap.get(r.depth) || { totalLength: 0, combinedSplashInches: 0 };
                           ex.totalLength += r.length;
-                          // Combined: backsplash length (which already includes wall runs) + sidesplash inches
-                          const bsLen = r.backsplashLength || r.length;
+                          // Combined: actual backsplash wall-run inches + sidesplash inches
+                          const bsLen = Number.isFinite(Number(r.backsplashLength)) ? Number(r.backsplashLength) : 0;
                           const ssLen = (r.sidesplashCount || 0) * r.depth;
                           ex.combinedSplashInches += bsLen + ssLen;
                           depthMap.set(r.depth, ex);
