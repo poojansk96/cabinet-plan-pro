@@ -20,6 +20,7 @@ export interface PrefinalStoneRow {
   length: number;       // inches
   depth: number;        // inches
   splashHeight: number | null;
+  sidesplashCount: number;
   category: 'kitchen' | 'bath';
   room: string;
   unitType: string;
