@@ -120,16 +120,12 @@ Return ONLY valid JSON — no markdown fences, no explanation:
       console.error("JSON parse failed, raw:", content.slice(0, 500));
     }
 
-    // Clean up the unit type
+    // Clean up the unit type — preserve ALL names from the drawing as-is
     let unitType: string | null = null;
     if (parsed.unitType && typeof parsed.unitType === "string") {
       let ut = parsed.unitType.trim().toUpperCase();
       // Remove "TYPE " prefix if present
       ut = ut.replace(/^TYPE\s+/, "");
-      // Remove room-name false positives
-      if (/^(KITCHEN|BATH|LAUNDRY|BAR|PANTRY|COMMUNITY|BREAK|MAIL|OFFICE|LOBBY)(\s|$)/i.test(ut)) {
-        ut = "";
-      }
       if (ut.length > 0 && ut.length <= 30) {
         unitType = ut;
       }

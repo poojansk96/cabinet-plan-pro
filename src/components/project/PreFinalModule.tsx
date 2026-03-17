@@ -29,13 +29,8 @@ function normalizeUnitType(raw: string): string {
 }
 
 function normalizeDetectedStoneType(raw: string): string {
-  return normalizeUnitType(raw)
-    .replace(/^UNIT\s+TYPE\s+/, '')
-    .replace(/^TYPE\s+/, '')
-    .replace(/^PLAN\s+/, '')
-    .replace(/^MODEL\s+/, '')
-    .replace(/^LAYOUT\s+/, '')
-    .trim();
+  // Preserve the type name exactly as detected from the drawing — no filtering
+  return normalizeUnitType(raw).trim();
 }
 
 export default function PreFinalModule({ project }: Props) {
