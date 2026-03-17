@@ -546,4 +546,6 @@ const StonePDFImportDialog = forwardRef<HTMLDivElement, Props>(function StonePDF
       </div>
     </div>
   );
-}
+});
+
+export default StonePDFImportDialog;
