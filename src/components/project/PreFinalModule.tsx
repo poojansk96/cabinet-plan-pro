@@ -889,11 +889,17 @@ export default function PreFinalModule({ project }: Props) {
                   const kitchenGroups = groupByCategory('kitchen');
                   const bathGroups = groupByCategory('bath');
 
-                  const calcGroupSqft = (groups: { depth: number; totalLength: number }[], splashH: number) =>
-                    groups.reduce((sum, g) => sum + Math.ceil((g.totalLength * (g.depth + splashH)) / 144), 0);
+                  const calcTopSqft = (groups: { depth: number; totalLength: number }[]) =>
+                    groups.reduce((sum, g) => sum + Math.ceil((g.totalLength * g.depth) / 144), 0);
+                  const calcSplashSqft = (groups: { depth: number; totalLength: number }[], splashH: number) =>
+                    splashH > 0 ? groups.reduce((sum, g) => sum + Math.ceil((g.totalLength * splashH) / 144), 0) : 0;
 
-                  const kitchenSqft = calcGroupSqft(kitchenGroups, bsH.kitchen);
-                  const bathSqft = calcGroupSqft(bathGroups, bsH.bath);
+                  const kitchenTopSqft = calcTopSqft(kitchenGroups);
+                  const kitchenSplashSqft = calcSplashSqft(kitchenGroups, bsH.kitchen);
+                  const kitchenSqft = kitchenTopSqft + kitchenSplashSqft;
+                  const bathTopSqft = calcTopSqft(bathGroups);
+                  const bathSplashSqft = calcSplashSqft(bathGroups, bsH.bath);
+                  const bathSqft = bathTopSqft + bathSplashSqft;
 
                   const renderCategoryTable = (
                     label: string,
