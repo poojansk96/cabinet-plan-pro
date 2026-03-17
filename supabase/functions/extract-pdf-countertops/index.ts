@@ -31,15 +31,16 @@ TASK:
 
 2. Then extract every countertop section visible. For each section extract:
    a. **label** — a short descriptive name based on its location (e.g. "Perimeter Left", "Island", "Vanity", "L-Section"). If the drawing has text labels, use those.
-   b. **length** — total linear length in inches. Read dimension labels first. If no label, estimate from the drawing.
+   b. **length** — total linear length of the COUNTERTOP TOP in inches. Read dimension labels first. If no label, estimate from the drawing.
    c. **depth** — depth in inches. Standard kitchen countertop depth is 25.5". Islands are often 36-42". Vanity/bath tops are typically 22" or 19". Read from labels or use defaults.
    d. **category** — classify as "kitchen" or "bath":
       - If the drawing shows bathroom fixtures (toilet, tub), or text says "bath", "vanity", "powder", "master bath", "ensuite" → "bath"
       - If depth is 22" or less, or 19" → "bath"
       - Otherwise → "kitchen"
    e. **hasBacksplash** — true if you see a double line along the back edge of the countertop (indicating a backsplash), or if the drawing annotates a backsplash. false otherwise.
-   f. **sidesplashCount** — count the number of sidesplashes (short returns at the ends of the countertop where it meets a wall). A sidesplash appears as a double line at the SHORT side/end of the countertop at a wall. Count each sidesplash you see (0, 1, or 2). Islands have 0 sidesplashes.
-   g. **room** — the room this countertop is in (Kitchen, Bath, Laundry, Bar, Pantry, etc.)
+   f. **backsplashLength** — the TOTAL linear inches where the backsplash double line runs. IMPORTANT: backsplash often runs along MORE edges than just the top length. For example, an L-shaped countertop at a wall may have backsplash running along the back AND down a side wall. Trace every edge where you see the double backsplash line and SUM them all. Example: a countertop 129" long with backsplash running 129" along the back, plus 39" down the left wall, plus 33" down the right = backsplashLength of 201. If no backsplash, set to 0.
+   g. **sidesplashCount** — count the number of sidesplashes (short returns at the ends of the countertop where it meets a wall). A sidesplash appears as a double line at the SHORT side/end of the countertop at a wall. Count each sidesplash you see (0, 1, or 2). Islands have 0 sidesplashes.
+   h. **room** — the room this countertop is in (Kitchen, Bath, Laundry, Bar, Pantry, etc.)
 
 RULES:
 - Look for dimension lines, annotations, and measurements in the drawing
@@ -50,11 +51,12 @@ RULES:
 - Round all dimensions to nearest 0.5 inch
 - Standard depths: perimeter kitchen = 25.5", island = 36", bar = 12-18", vanity/bath = 22"
 - A double line at the back wall edge means backsplash is present
+- BACKSPLASH LENGTH: Trace ALL edges where the double backsplash line appears and sum the total inches. This is often MORE than the countertop top length when backsplash wraps around corners or runs along side walls.
 - A double line at the short side/end of the countertop at a wall is a SIDESPLASH — count how many ends have this
 - The unitType is the PLAN/UNIT TYPE identifier from the title block — NOT a room name like "Kitchen" or "Bath"
 
 Return ONLY valid JSON — no markdown fences, no explanation:
-{"unitType":"1.1B-AS","countertops":[{"label":"Perimeter Left","length":96,"depth":25.5,"category":"kitchen","hasBacksplash":true,"sidesplashCount":1,"room":"Kitchen"}]}`;
+{"unitType":"1.1B-AS","countertops":[{"label":"Perimeter Left","length":96,"depth":25.5,"category":"kitchen","hasBacksplash":true,"backsplashLength":135,"sidesplashCount":1,"room":"Kitchen"}]}`;
 
     let response: Response | null = null;
     const MAX_RETRIES = 3;
@@ -140,11 +142,17 @@ Return ONLY valid JSON — no markdown fences, no explanation:
       if (category !== "kitchen" && category !== "bath") {
         category = depth <= 22 ? "bath" : "kitchen";
       }
+      const length = Math.round((Number(ct.length) || 96) * 2) / 2;
+      const hasBacksplash = Boolean(ct.hasBacksplash);
+      // backsplashLength: use AI-detected value, fallback to top length if hasBacksplash
+      let backsplashLength = Math.round((Number(ct.backsplashLength) || 0) * 2) / 2;
+      if (hasBacksplash && backsplashLength === 0) backsplashLength = length;
       return {
         label: String(ct.label || "Section").trim(),
-        length: Math.round((Number(ct.length) || 96) * 2) / 2,
+        length,
         depth,
-        hasBacksplash: Boolean(ct.hasBacksplash),
+        hasBacksplash,
+        backsplashLength,
         sidesplashCount: Math.max(0, Math.min(2, Number(ct.sidesplashCount) || 0)),
         category,
         room: String(ct.room || "Kitchen").trim(),

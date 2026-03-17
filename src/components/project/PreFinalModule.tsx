@@ -172,6 +172,7 @@ export default function PreFinalModule({ project }: Props) {
         depth: row.depth,
         splashHeight: row.splashHeight,
         sidesplashCount: row.sidesplashCount || 0,
+        backsplashLength: row.backsplashLength || row.length,
         category: row.category || (row.depth <= 22 ? 'bath' : 'kitchen'),
         room: row.room,
         unitType: targetType,
@@ -942,16 +943,17 @@ export default function PreFinalModule({ project }: Props) {
 
                       const groupByCategory = (cat: 'kitchen' | 'bath') => {
                         const catRows = typeRows.filter(r => r.category === cat);
-                        const depthMap = new Map<number, { totalLength: number; ssInches: number }>();
+                        const depthMap = new Map<number, { totalLength: number; totalBsLength: number; ssInches: number }>();
                         catRows.forEach(r => {
-                          const ex = depthMap.get(r.depth) || { totalLength: 0, ssInches: 0 };
+                          const ex = depthMap.get(r.depth) || { totalLength: 0, totalBsLength: 0, ssInches: 0 };
                           ex.totalLength += r.length;
+                          ex.totalBsLength += (r.backsplashLength || r.length);
                           ex.ssInches += (r.sidesplashCount || 0) * r.depth;
                           depthMap.set(r.depth, ex);
                         });
                         return Array.from(depthMap.entries())
                           .sort((a, b) => b[0] - a[0])
-                          .map(([depth, d]) => ({ depth, totalLength: d.totalLength, ssInches: d.ssInches }));
+                          .map(([depth, d]) => ({ depth, totalLength: d.totalLength, totalBsLength: d.totalBsLength, ssInches: d.ssInches }));
                       };
 
                       const kitchenGroups = groupByCategory('kitchen');
@@ -959,7 +961,7 @@ export default function PreFinalModule({ project }: Props) {
 
                       const renderCatRows = (
                         catLabel: string,
-                        groups: { depth: number; totalLength: number; ssInches: number }[],
+                        groups: { depth: number; totalLength: number; totalBsLength: number; ssInches: number }[],
                         category: 'kitchen' | 'bath',
                         splashH: number
                       ) => {
@@ -972,7 +974,7 @@ export default function PreFinalModule({ project }: Props) {
                         groups.forEach((g, idx) => {
                           const isIsland = g.depth >= 30;
                           const rowTopSqft = Math.ceil((g.totalLength * g.depth) / 144);
-                          const rowBsSqft = (!isIsland && splashH > 0) ? Math.ceil((g.totalLength * splashH) / 144) : 0;
+                          const rowBsSqft = (!isIsland && splashH > 0) ? Math.ceil((g.totalBsLength * splashH) / 144) : 0;
                           const rowSsSqft = (g.ssInches > 0 && splashH > 0) ? Math.ceil((g.ssInches * splashH) / 144) : 0;
                           catTopTotal += rowTopSqft;
                           catBsTotal += rowBsSqft;
@@ -982,7 +984,7 @@ export default function PreFinalModule({ project }: Props) {
                               <td>{idx === 0 ? catLabel : ''}</td>
                               <td className="text-right font-mono">{g.depth}"</td>
                               <td className="text-right font-mono">{g.totalLength}</td>
-                              <td className="text-right font-mono italic">{isIsland ? 'Island' : (splashH > 0 ? g.totalLength : '—')}</td>
+                              <td className="text-right font-mono italic">{isIsland ? 'Island' : (splashH > 0 ? g.totalBsLength : '—')}</td>
                               <td className="text-right font-mono">{g.ssInches > 0 ? g.ssInches : '—'}</td>
                               <td className="text-right font-mono">{isIsland ? '—' : (splashH || '—')}</td>
                               <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{rowTopSqft}</td>
@@ -1086,7 +1088,8 @@ export default function PreFinalModule({ project }: Props) {
                             const isIsland = r.depth >= 30;
                             const splash = isIsland ? 0 : (r.category === 'kitchen' ? bsH.kitchen : bsH.bath);
                             const topSqft = Math.ceil((r.length * r.depth) / 144);
-                            const bsSqft = splash > 0 ? Math.ceil((r.length * splash) / 144) : 0;
+                            const bsLength = r.backsplashLength || r.length;
+                            const bsSqft = splash > 0 ? Math.ceil((bsLength * splash) / 144) : 0;
                             const ssSqft = ((r.sidesplashCount || 0) > 0 && splash > 0) ? Math.ceil(((r.sidesplashCount || 0) * r.depth * splash) / 144) : 0;
                             if (r.category === 'kitchen') typeKitchen += topSqft + bsSqft + ssSqft;
                             else typeBath += topSqft + bsSqft + ssSqft;
@@ -1133,7 +1136,8 @@ export default function PreFinalModule({ project }: Props) {
                           const isIsland = r.depth >= 30;
                           const splash = isIsland ? 0 : (r.category === 'kitchen' ? bsH.kitchen : bsH.bath);
                           const topSqft = Math.ceil((r.length * r.depth) / 144);
-                          const bsSqft = splash > 0 ? Math.ceil((r.length * splash) / 144) : 0;
+                          const bsLength = r.backsplashLength || r.length;
+                          const bsSqft = splash > 0 ? Math.ceil((bsLength * splash) / 144) : 0;
                           const ssSqft = ((r.sidesplashCount || 0) > 0 && splash > 0) ? Math.ceil(((r.sidesplashCount || 0) * r.depth * splash) / 144) : 0;
                           if (r.category === 'kitchen') grandKitchen += (topSqft + bsSqft + ssSqft) * unitCount;
                           else grandBath += (topSqft + bsSqft + ssSqft) * unitCount;
