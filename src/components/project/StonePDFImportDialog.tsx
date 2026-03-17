@@ -137,34 +137,32 @@ function normalizeLabel(label: string): string {
 
 // Merge multiple pass results: match by label+length+depth, take MIN backsplashLength
 function mergePassResults(passes: RawCountertop[][]): RawCountertop[] {
-  // Use full-page (first pass) as base
-  const base = passes[0] || [];
-  if (passes.length <= 1) return base;
+  if (passes.length === 0) return [];
+  if (passes.length === 1) return passes[0] || [];
 
-  // Build map from normalized key -> all backsplashLength values seen
-  const backsplashMap = new Map<string, number[]>();
+  // Aggregate ALL items from ALL passes into a single Map
+  const merged = new Map<string, RawCountertop>();
 
   for (const pass of passes) {
     for (const ct of pass) {
-      const key = `${normalizeLabel(ct.label)}|${ct.length}|${ct.depth}`;
-      if (!backsplashMap.has(key)) backsplashMap.set(key, []);
-      backsplashMap.get(key)!.push(ct.backsplashLength);
+      const key = `${normalizeLabel(ct.label)}|${ct.length}|${ct.depth}|${ct.room}`;
+      const existing = merged.get(key);
+      if (existing) {
+        // Keep lowest backsplashLength (if > 0), highest sidesplashCount
+        const backsplashValues = [existing.backsplashLength, ct.backsplashLength].filter(v => v > 0);
+        const minBacksplash = backsplashValues.length > 0 ? Math.min(...backsplashValues) : 0;
+        const maxSidesplash = Math.max(existing.sidesplashCount, ct.sidesplashCount);
+        if (minBacksplash !== existing.backsplashLength || maxSidesplash !== existing.sidesplashCount) {
+          console.log(`Stone merge: "${ct.label}" backsplash ${existing.backsplashLength} -> ${minBacksplash}, sidesplash ${existing.sidesplashCount} -> ${maxSidesplash}`);
+        }
+        merged.set(key, { ...existing, backsplashLength: minBacksplash, sidesplashCount: maxSidesplash });
+      } else {
+        merged.set(key, { ...ct });
+      }
     }
   }
 
-  // Apply MIN backsplashLength to base results
-  return base.map(ct => {
-    const key = `${normalizeLabel(ct.label)}|${ct.length}|${ct.depth}`;
-    const allValues = backsplashMap.get(key);
-    if (allValues && allValues.length > 1) {
-      const minBacksplash = Math.min(...allValues);
-      if (minBacksplash < ct.backsplashLength) {
-        console.log(`Stone merge: "${ct.label}" backsplash ${ct.backsplashLength} -> ${minBacksplash} (MIN of ${allValues.join(',')})`);
-        return { ...ct, backsplashLength: minBacksplash };
-      }
-    }
-    return ct;
-  });
+  return Array.from(merged.values());
 }
 
 // extractPageText removed — AI now returns unitType directly
