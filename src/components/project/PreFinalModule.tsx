@@ -220,6 +220,46 @@ export default function PreFinalModule({ project }: Props) {
     return Math.ceil((row.length * effectiveDepth) / 144);
   };
 
+  const normalizeStoneLabelKey = (value: string) =>
+    String(value || '')
+      .toUpperCase()
+      .replace(/[\u2010-\u2015]/g, '-')
+      .replace(/[^A-Z0-9 -]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const isWrappedStoneSegment = (label: string) => /\b(?:MAIN|RETURN|LEG)\b/.test(normalizeStoneLabelKey(label));
+
+  const getWrappedStoneSegmentBase = (row: PrefinalStoneRow) =>
+    normalizeStoneLabelKey(row.label)
+      .replace(/\b(?:L|U)\b/g, ' ')
+      .replace(/\b(?:MAIN|RETURN|LEG)\b/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const getEffectiveSidesplashCount = (row: PrefinalStoneRow, siblingRows: PrefinalStoneRow[]): number => {
+    const rawCount = Math.max(0, Math.min(2, Number(row.sidesplashCount) || 0));
+    if (rawCount === 0 || !isWrappedStoneSegment(row.label)) return rawCount;
+
+    const baseKey = getWrappedStoneSegmentBase(row);
+    if (!baseKey) return rawCount;
+
+    const hasSiblingWrapSegment = siblingRows.some(candidate => {
+      if (candidate === row) return false;
+      if (candidate.category !== row.category || candidate.room !== row.room) return false;
+      if (Math.abs(Number(candidate.depth) - Number(row.depth)) > 0.01) return false;
+      return isWrappedStoneSegment(candidate.label) && getWrappedStoneSegmentBase(candidate) === baseKey;
+    });
+
+    return hasSiblingWrapSegment ? 0 : rawCount;
+  };
+
+  const getCombinedSplashInches = (row: PrefinalStoneRow, siblingRows: PrefinalStoneRow[]): number => {
+    if (row.depth >= 30) return 0;
+    const backsplashLength = Number.isFinite(Number(row.backsplashLength)) ? Number(row.backsplashLength) : 0;
+    return backsplashLength + (getEffectiveSidesplashCount(row, siblingRows) * row.depth);
+  };
+
 
   const cabUnitTypes = (() => {
     const seen = new Set<string>();
