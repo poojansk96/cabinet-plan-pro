@@ -38,7 +38,8 @@ TASK:
       - If depth is 22" or less, or 19" → "bath"
       - Otherwise → "kitchen"
    e. **hasBacksplash** — true if you see a double line along the back edge of the countertop (indicating a backsplash), or if the drawing annotates a backsplash. false otherwise.
-   f. **room** — the room this countertop is in (Kitchen, Bath, Laundry, Bar, Pantry, etc.)
+   f. **sidesplashCount** — count the number of sidesplashes (short returns at the ends of the countertop where it meets a wall). A sidesplash appears as a double line at the SHORT side/end of the countertop at a wall. Count each sidesplash you see (0, 1, or 2). Islands have 0 sidesplashes.
+   g. **room** — the room this countertop is in (Kitchen, Bath, Laundry, Bar, Pantry, etc.)
 
 RULES:
 - Look for dimension lines, annotations, and measurements in the drawing
@@ -49,10 +50,11 @@ RULES:
 - Round all dimensions to nearest 0.5 inch
 - Standard depths: perimeter kitchen = 25.5", island = 36", bar = 12-18", vanity/bath = 22"
 - A double line at the back wall edge means backsplash is present
+- A double line at the short side/end of the countertop at a wall is a SIDESPLASH — count how many ends have this
 - The unitType is the PLAN/UNIT TYPE identifier from the title block — NOT a room name like "Kitchen" or "Bath"
 
 Return ONLY valid JSON — no markdown fences, no explanation:
-{"unitType":"1.1B-AS","countertops":[{"label":"Perimeter Left","length":96,"depth":25.5,"category":"kitchen","hasBacksplash":true,"room":"Kitchen"}]}`;
+{"unitType":"1.1B-AS","countertops":[{"label":"Perimeter Left","length":96,"depth":25.5,"category":"kitchen","hasBacksplash":true,"sidesplashCount":1,"room":"Kitchen"}]}`;
 
     let response: Response | null = null;
     const MAX_RETRIES = 3;
@@ -143,6 +145,7 @@ Return ONLY valid JSON — no markdown fences, no explanation:
         length: Math.round((Number(ct.length) || 96) * 2) / 2,
         depth,
         hasBacksplash: Boolean(ct.hasBacksplash),
+        sidesplashCount: Math.max(0, Math.min(2, Number(ct.sidesplashCount) || 0)),
         category,
         room: String(ct.room || "Kitchen").trim(),
       };
