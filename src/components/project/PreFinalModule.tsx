@@ -961,7 +961,7 @@ export default function PreFinalModule({ project }: Props) {
 
                       const renderCatRows = (
                         catLabel: string,
-                        groups: { depth: number; totalLength: number; ssInches: number }[],
+                        groups: { depth: number; totalLength: number; totalBsLength: number; ssInches: number }[],
                         category: 'kitchen' | 'bath',
                         splashH: number
                       ) => {
@@ -974,7 +974,7 @@ export default function PreFinalModule({ project }: Props) {
                         groups.forEach((g, idx) => {
                           const isIsland = g.depth >= 30;
                           const rowTopSqft = Math.ceil((g.totalLength * g.depth) / 144);
-                          const rowBsSqft = (!isIsland && splashH > 0) ? Math.ceil((g.totalLength * splashH) / 144) : 0;
+                          const rowBsSqft = (!isIsland && splashH > 0) ? Math.ceil((g.totalBsLength * splashH) / 144) : 0;
                           const rowSsSqft = (g.ssInches > 0 && splashH > 0) ? Math.ceil((g.ssInches * splashH) / 144) : 0;
                           catTopTotal += rowTopSqft;
                           catBsTotal += rowBsSqft;
@@ -984,7 +984,7 @@ export default function PreFinalModule({ project }: Props) {
                               <td>{idx === 0 ? catLabel : ''}</td>
                               <td className="text-right font-mono">{g.depth}"</td>
                               <td className="text-right font-mono">{g.totalLength}</td>
-                              <td className="text-right font-mono italic">{isIsland ? 'Island' : (splashH > 0 ? g.totalLength : '—')}</td>
+                              <td className="text-right font-mono italic">{isIsland ? 'Island' : (splashH > 0 ? g.totalBsLength : '—')}</td>
                               <td className="text-right font-mono">{g.ssInches > 0 ? g.ssInches : '—'}</td>
                               <td className="text-right font-mono">{isIsland ? '—' : (splashH || '—')}</td>
                               <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{rowTopSqft}</td>
