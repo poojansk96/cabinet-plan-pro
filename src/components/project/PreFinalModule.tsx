@@ -978,14 +978,21 @@ export default function PreFinalModule({ project }: Props) {
                 {/* Type-wise Kitchen & Bath SQFT breakdown */}
                 <div className="px-4 py-4 border-t border-border">
                   <div className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">SQFT Breakdown by Type (× Unit Count)</div>
-                  <table className="est-table text-xs w-full mb-4">
+                  <table className="est-table text-xs w-full mb-4" style={{ minWidth: 500, tableLayout: 'fixed' }}>
+                    <colgroup>
+                      <col style={{ width: '30%' }} />
+                      <col style={{ width: '12%' }} />
+                      <col style={{ width: '20%' }} />
+                      <col style={{ width: '18%' }} />
+                      <col style={{ width: '20%' }} />
+                    </colgroup>
                     <thead>
                       <tr>
-                        <th>Unit Type</th>
-                        <th className="text-center">Units</th>
-                        <th className="text-right">Kitchen SQFT</th>
-                        <th className="text-right">Bath SQFT</th>
-                        <th className="text-right">Total SQFT</th>
+                        <th className="!text-left">Unit Type</th>
+                        <th className="!text-center">Units</th>
+                        <th className="!text-right">Kitchen SQFT</th>
+                        <th className="!text-right">Bath SQFT</th>
+                        <th className="!text-right">Total SQFT</th>
                       </tr>
                     </thead>
                     <tbody>
