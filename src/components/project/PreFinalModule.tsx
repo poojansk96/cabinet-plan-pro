@@ -28,6 +28,16 @@ function normalizeUnitType(raw: string): string {
   return s;
 }
 
+function normalizeDetectedStoneType(raw: string): string {
+  return normalizeUnitType(raw)
+    .replace(/^UNIT\s+TYPE\s+/, '')
+    .replace(/^TYPE\s+/, '')
+    .replace(/^PLAN\s+/, '')
+    .replace(/^MODEL\s+/, '')
+    .replace(/^LAYOUT\s+/, '')
+    .trim();
+}
+
 export default function PreFinalModule({ project }: Props) {
   const [activeSubTab, setActiveSubTab] = useState<'units' | 'cabinets' | 'stone'>('units');
   const store = usePrefinalStore(project.id);
@@ -148,20 +158,35 @@ export default function PreFinalModule({ project }: Props) {
     setTimeout(() => setCabinetImportedCount(null), 4000);
   };
   // ── Stone import handler ────────────────────────────────────────────────
-  const handleStoneImport = (rows: StoneExtractedRow[], detectedUnitType?: string) => {
-    const targetType = detectedUnitType ? normalizeUnitType(detectedUnitType) : 'Unassigned';
-    store.addStoneUnitTypes([targetType]);
-    const stoneRows: PrefinalStoneRow[] = rows.filter(r => r.selected !== false).map(r => ({
-      label: r.label,
-      length: r.length,
-      depth: r.depth,
-      splashHeight: r.splashHeight,
-      category: r.category || (r.depth <= 22 ? 'bath' : 'kitchen'),
-      room: r.room,
-      unitType: targetType,
-    }));
-    store.addStoneImport(stoneRows, targetType);
-    setStoneImportedCount(stoneRows.length);
+  const handleStoneImport = (rows: StoneExtractedRow[]) => {
+    const selectedRows = rows.filter(r => r.selected !== false);
+    const rowsByType = new Map<string, PrefinalStoneRow[]>();
+    const orderedTypes: string[] = [];
+
+    for (const row of selectedRows) {
+      const rawType = row.detectedUnitType?.trim();
+      const targetType = rawType ? normalizeDetectedStoneType(rawType) : 'Unassigned';
+      if (!rowsByType.has(targetType)) {
+        rowsByType.set(targetType, []);
+        orderedTypes.push(targetType);
+      }
+      rowsByType.get(targetType)!.push({
+        label: row.label,
+        length: row.length,
+        depth: row.depth,
+        splashHeight: row.splashHeight,
+        category: row.category || (row.depth <= 22 ? 'bath' : 'kitchen'),
+        room: row.room,
+        unitType: targetType,
+      });
+    }
+
+    store.addStoneUnitTypes(orderedTypes);
+    for (const [unitType, stoneRows] of rowsByType) {
+      store.addStoneImport(stoneRows, unitType);
+    }
+
+    setStoneImportedCount(selectedRows.length);
     setShowStoneImport(false);
     setTimeout(() => setStoneImportedCount(null), 4000);
   };
@@ -281,7 +306,7 @@ export default function PreFinalModule({ project }: Props) {
       {/* Stone Import Dialog */}
       {showStoneImport && (
         <StonePDFImportDialog
-          onImport={(rows, detectedUnitType) => handleStoneImport(rows, detectedUnitType)}
+          onImport={(rows) => handleStoneImport(rows)}
           onClose={() => setShowStoneImport(false)}
           prefinalPerson={project.specs?.takeoffPerson}
         />
