@@ -1,4 +1,4 @@
-import { useState, useRef, forwardRef } from 'react';
+import { useState, useRef } from 'react';
 import { X, Upload, Loader2, Check, Trash2, Sparkles } from 'lucide-react';
 
 export interface StoneExtractedRow {
