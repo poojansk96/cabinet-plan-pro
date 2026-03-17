@@ -344,7 +344,7 @@ const EXTRACT_SCHEMA = {
       },
     },
   },
-  required: ["items"],
+  required: ["unitTypeName", "items"],
 };
 
 // ── Main Handler ──
@@ -442,7 +442,7 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
 
       let classification: any = { pageType: "plan_view", unitTypeName: null, isCommonArea: false };
       try {
-        classification = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", pageImage, classifyPrompt, 0.1, 1024, CLASSIFY_SCHEMA);
+        classification = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", pageImage, classifyPrompt, 0.1, 2048, CLASSIFY_SCHEMA);
       } catch (e: any) {
         if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -550,7 +550,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
 
     let extracted: any = { items: [] };
     try {
-      extracted = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", pageImage, extractPrompt, 0.2, 8192, EXTRACT_SCHEMA);
+      extracted = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", pageImage, extractPrompt, 0.2, 16384, EXTRACT_SCHEMA);
     } catch (e: any) {
       if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -559,8 +559,19 @@ If no cabinet SKUs are found, return {"items":[]}`;
 
     const rawItems = extracted.items ?? [];
     // When skipClassify, the extraction also returns unitTypeName
-    if (skipClassify && !isStrip && extracted.unitTypeName) {
-      detectedUnitType = extracted.unitTypeName;
+    if (skipClassify && !isStrip) {
+      const extractedType = extracted.unitTypeName ?? null;
+      if (extractedType) {
+        detectedUnitType = extractedType;
+      }
+      // If extraction lost unitTypeName due to truncation but we have text hints, try to recover
+      if (!detectedUnitType && pageText) {
+        const typeMatch = (pageText || '').match(/\b(?:(\d+BR)\s+)?(TYPE\s+[A-Z0-9]+(?:\s*[-–]\s*(?:AS|ADA|MIRROR|ALT))?)\b/i);
+        if (typeMatch) {
+          detectedUnitType = ((typeMatch[1] || '') + ' ' + (typeMatch[2] || '')).trim().toUpperCase();
+          console.log(`Recovered unitTypeName from text layer: ${detectedUnitType}`);
+        }
+      }
     }
     let finalItems = splitMergedSkus(rawItems, textLayerSkus);
     console.log(`Step 2: ${rawItems.length} raw → ${finalItems.length} after split`);
