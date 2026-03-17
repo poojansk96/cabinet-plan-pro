@@ -31,21 +31,21 @@ TASK:
 
 2. Then extract every countertop section visible. For each section extract:
    a. **label** — a short descriptive name based on its location (e.g. "Perimeter Left", "Island", "Vanity", "L-Section"). If the drawing has text labels, use those.
-   b. **length** — total linear length of the COUNTERTOP TOP in inches. Read dimension labels first. If no label, estimate from the drawing.
+   b. **length** — the FRONT-EDGE (top surface) linear measurement in inches, NOT the wall dimension. For the MAIN/LONGEST run of an L or U shape, use the full dimension as labeled. For RETURN LEGS (shorter segments that meet the main run at a corner), you MUST DEDUCT the depth of the perpendicular section from the wall dimension. Example: An L-shaped counter has a main run labeled 129" and a return labeled 39" on the wall. The return's front-edge length = 39" - 25.5" (the main run's depth) = 13.5". A separate standalone piece labeled 33" stays 33" because it does not share a corner with another piece. Read dimension labels first, then apply the corner deduction rule.
    c. **depth** — depth in inches. Standard kitchen countertop depth is 25.5". Islands are often 36-42". Vanity/bath tops are typically 22" or 19". Read from labels or use defaults.
    d. **category** — classify as "kitchen" or "bath":
       - If the drawing shows bathroom fixtures (toilet, tub), or text says "bath", "vanity", "powder", "master bath", "ensuite" → "bath"
       - If depth is 22" or less, or 19" → "bath"
       - Otherwise → "kitchen"
    e. **hasBacksplash** — true if you see a double line along the back edge of the countertop (indicating a backsplash), or if the drawing annotates a backsplash. false otherwise.
-   f. **backsplashLength** — the TOTAL linear inches where the backsplash double line runs. IMPORTANT: backsplash often runs along MORE edges than just the top length. For example, an L-shaped countertop at a wall may have backsplash running along the back AND down a side wall. Trace every edge where you see the double backsplash line and SUM them all. Example: a countertop 129" long with backsplash running 129" along the back, plus 39" down the left wall, plus 33" down the right = backsplashLength of 201. If no backsplash, set to 0.
+   f. **backsplashLength** — the TOTAL linear inches where the backsplash/double-line runs along WALL EDGES (do NOT deduct depth here — use the raw wall dimensions). Trace every edge where you see the double backsplash line and SUM them all. Example: a countertop 129" long with backsplash running 129" along the back, plus 39" down the left wall, plus 33" down the right = backsplashLength of 201. If no backsplash, set to 0.
    g. **sidesplashCount** — count the number of sidesplashes (short returns at the ends of the countertop where it meets a wall). A sidesplash appears as a double line at the SHORT side/end of the countertop at a wall. Count each sidesplash you see (0, 1, or 2). Islands have 0 sidesplashes.
    h. **room** — the room this countertop is in (Kitchen, Bath, Laundry, Bar, Pantry, etc.)
 
 RULES:
 - Look for dimension lines, annotations, and measurements in the drawing
 - For L-shaped or U-shaped runs, break them into individual straight segments
-- If a countertop wraps around a corner, create separate sections for each leg
+- If a countertop wraps around a corner, create separate sections for each leg — and DEDUCT the depth from the return leg's length (the return's front edge is shorter than the wall dimension)
 - Do NOT include appliance surfaces (range top, sink cutout dimensions) as separate sections — they are part of the countertop run
 - If the page has no countertop information, return {"unitType":null,"countertops":[]}
 - Round all dimensions to nearest 0.5 inch
