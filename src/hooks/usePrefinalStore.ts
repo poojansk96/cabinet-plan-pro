@@ -692,6 +692,8 @@ export function usePrefinalStore(projectId: string) {
     additionalCostPerType: data.additionalCostPerType,
     stoneRows: data.stoneRows,
     stoneUnitTypes: data.stoneUnitTypes,
+    stoneBacksplashHeight: data.stoneBacksplashHeight,
+    stoneUnitTypes: data.stoneUnitTypes,
     addUnitTypes,
     deleteUnitType,
     renameUnitType,
