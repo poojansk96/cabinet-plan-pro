@@ -677,7 +677,17 @@ If no cabinet SKUs are found, return {"items":[]}`;
       return { ...item, quantity: nextQty };
     });
 
-    // ── Merge truncated SKUs into suffixed variants ──
+    // Cap non-accessory SKU quantities using text layer counts (prevents AI overcounting from strips)
+    items = items.map((item) => {
+      if (ACCESSORY_FLOOR_RE.test(item.sku)) return item; // Don't cap accessories
+      const textCount = textLayerSkuCounts[item.sku] ?? 0;
+      if (textCount > 0 && item.quantity > textCount) {
+        console.log(`Text-layer qty cap: ${item.sku} ${item.quantity} → ${textCount}`);
+        return { ...item, quantity: textCount };
+      }
+      return item;
+    });
+
     // When a label is partially hidden (e.g., "W1230-L" cut off → "W1230"), the AI may
     // return both "W1230" (truncated) and "W1230-R" or "W1230-L" as separate entries.
     // If a bare SKU exists alongside a suffixed variant (same base + "-X" suffix) in the
