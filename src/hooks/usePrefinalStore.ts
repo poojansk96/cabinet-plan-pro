@@ -20,7 +20,7 @@ export interface PrefinalStoneRow {
   length: number;       // inches
   depth: number;        // inches
   splashHeight: number | null;
-  isIsland: boolean;
+  category: 'kitchen' | 'bath';
   room: string;
   unitType: string;
 }
@@ -35,6 +35,7 @@ interface PrefinalData {
   additionalCostPerType: Record<string, number>;
   stoneRows: PrefinalStoneRow[];
   stoneUnitTypes: string[];
+  stoneBacksplashHeight: Record<string, { kitchen: number; bath: number }>;
 }
 
 function sanitizeUnitNumber(value: string): string {
