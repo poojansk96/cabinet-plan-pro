@@ -306,7 +306,7 @@ export default function PreFinalModule({ project }: Props) {
       {/* Stone Import Dialog */}
       {showStoneImport && (
         <StonePDFImportDialog
-          onImport={(rows, detectedUnitType) => handleStoneImport(rows, detectedUnitType)}
+          onImport={(rows) => handleStoneImport(rows)}
           onClose={() => setShowStoneImport(false)}
           prefinalPerson={project.specs?.takeoffPerson}
         />

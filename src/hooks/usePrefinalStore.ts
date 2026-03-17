@@ -642,9 +642,10 @@ export function usePrefinalStore(projectId: string) {
 
   const addStoneImport = useCallback((rows: PrefinalStoneRow[], unitType: string) => {
     setData(prev => {
+      const canonicalType = resolveExistingTypeName(unitType, [...prev.stoneUnitTypes, ...prev.unitTypes]);
       // Replace all rows for this unitType
-      const existingOther = prev.stoneRows.filter(r => r.unitType !== unitType);
-      const stoneRows = [...existingOther, ...rows.map(r => ({ ...r, unitType }))];
+      const existingOther = prev.stoneRows.filter(r => resolveExistingTypeName(r.unitType, [...prev.stoneUnitTypes, ...prev.unitTypes]) !== canonicalType);
+      const stoneRows = [...existingOther, ...rows.map(r => ({ ...r, unitType: canonicalType }))];
       const next = { ...prev, stoneRows };
       saveData(projectId, next);
       return next;
