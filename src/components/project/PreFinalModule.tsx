@@ -889,20 +889,29 @@ export default function PreFinalModule({ project }: Props) {
                   const kitchenGroups = groupByCategory('kitchen');
                   const bathGroups = groupByCategory('bath');
 
-                  const calcGroupSqft = (groups: { depth: number; totalLength: number }[], splashH: number) =>
-                    groups.reduce((sum, g) => sum + Math.ceil((g.totalLength * (g.depth + splashH)) / 144), 0);
+                  const calcTopSqft = (groups: { depth: number; totalLength: number }[]) =>
+                    groups.reduce((sum, g) => sum + Math.ceil((g.totalLength * g.depth) / 144), 0);
+                  const calcSplashSqft = (groups: { depth: number; totalLength: number }[], splashH: number) =>
+                    splashH > 0 ? groups.reduce((sum, g) => sum + Math.ceil((g.totalLength * splashH) / 144), 0) : 0;
 
-                  const kitchenSqft = calcGroupSqft(kitchenGroups, bsH.kitchen);
-                  const bathSqft = calcGroupSqft(bathGroups, bsH.bath);
+                  const kitchenTopSqft = calcTopSqft(kitchenGroups);
+                  const kitchenSplashSqft = calcSplashSqft(kitchenGroups, bsH.kitchen);
+                  const kitchenSqft = kitchenTopSqft + kitchenSplashSqft;
+                  const bathTopSqft = calcTopSqft(bathGroups);
+                  const bathSplashSqft = calcSplashSqft(bathGroups, bsH.bath);
+                  const bathSqft = bathTopSqft + bathSplashSqft;
 
                   const renderCategoryTable = (
                     label: string,
                     groups: { depth: number; totalLength: number }[],
                     category: 'kitchen' | 'bath',
-                    sqft: number,
+                    topSqft: number,
+                    splashSqft: number,
+                    totalSqft: number,
                     splashH: number
                   ) => {
                     if (groups.length === 0) return null;
+                    const topLabel = category === 'kitchen' ? 'KTop SQFT' : 'Bath SQFT';
                     return (
                       <div className="mb-4">
                         <div className="flex items-center gap-3 px-4 py-2">
@@ -921,37 +930,50 @@ export default function PreFinalModule({ project }: Props) {
                             <span className="text-[10px] text-muted-foreground">"</span>
                           </div>
                         </div>
-                        <table className="est-table text-xs" style={{ minWidth: 500, tableLayout: 'fixed' }}>
+                        <table className="est-table text-xs" style={{ minWidth: 700, tableLayout: 'fixed' }}>
                           <colgroup>
-                            <col style={{ width: '20%' }} />
-                            <col style={{ width: '30%' }} />
-                            <col style={{ width: '25%' }} />
-                            <col style={{ width: '25%' }} />
+                            <col style={{ width: '10%' }} />
+                            <col style={{ width: '16%' }} />
+                            <col style={{ width: '18%' }} />
+                            <col style={{ width: '14%' }} />
+                            <col style={{ width: '14%' }} />
+                            <col style={{ width: '14%' }} />
+                            <col style={{ width: '14%' }} />
                           </colgroup>
                           <thead>
                             <tr>
                               <th className="!text-left">Depth</th>
                               <th className="!text-right">Total Inches</th>
-                              <th className="!text-right">Splash"</th>
-                              <th className="!text-right">SQFT</th>
+                              <th className="!text-right">Backsplash Inches</th>
+                              <th className="!text-right">Splash Height</th>
+                              <th className="!text-right">{topLabel}</th>
+                              <th className="!text-right">Backsplash SQFT</th>
+                              <th className="!text-right">Total SQFT</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {groups.map((g, idx) => (
-                              <tr key={idx}>
-                                <td className="font-mono">{g.depth}"</td>
-                                <td className="text-right font-mono">{g.totalLength}</td>
-                                <td className="text-right font-mono">{splashH || '—'}</td>
-                                <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>
-                                  {Math.ceil((g.totalLength * (g.depth + splashH)) / 144)}
-                                </td>
-                              </tr>
-                            ))}
+                            {groups.map((g, idx) => {
+                              const rowTopSqft = Math.ceil((g.totalLength * g.depth) / 144);
+                              const rowSplashSqft = splashH > 0 ? Math.ceil((g.totalLength * splashH) / 144) : 0;
+                              return (
+                                <tr key={idx}>
+                                  <td className="font-mono">{g.depth}"</td>
+                                  <td className="text-right font-mono">{g.totalLength}</td>
+                                  <td className="text-right font-mono">{splashH > 0 ? g.totalLength : '—'}</td>
+                                  <td className="text-right font-mono">{splashH || '—'}</td>
+                                  <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{rowTopSqft}</td>
+                                  <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{rowSplashSqft || '—'}</td>
+                                  <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{rowTopSqft + rowSplashSqft}</td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                           <tfoot>
                             <tr className="font-bold border-t border-border">
-                              <td colSpan={3} className="text-right">{label} SQFT:</td>
-                              <td className="text-right" style={{ color: 'hsl(var(--primary))' }}>{sqft}</td>
+                              <td colSpan={4} className="text-right">{label} SQFT:</td>
+                              <td className="text-right" style={{ color: 'hsl(var(--primary))' }}>{topSqft}</td>
+                              <td className="text-right" style={{ color: 'hsl(var(--primary))' }}>{splashSqft || '—'}</td>
+                              <td className="text-right" style={{ color: 'hsl(var(--primary))' }}>{totalSqft}</td>
                             </tr>
                           </tfoot>
                         </table>
@@ -969,8 +991,8 @@ export default function PreFinalModule({ project }: Props) {
                           {unitCount > 1 && <span>× {unitCount} units</span>}
                         </div>
                       </div>
-                      {renderCategoryTable('Kitchen Top', kitchenGroups, 'kitchen', kitchenSqft, bsH.kitchen)}
-                      {renderCategoryTable('Bath / Vanity Top', bathGroups, 'bath', bathSqft, bsH.bath)}
+                      {renderCategoryTable('Kitchen Top', kitchenGroups, 'kitchen', kitchenTopSqft, kitchenSplashSqft, kitchenSqft, bsH.kitchen)}
+                      {renderCategoryTable('Bath / Vanity Top', bathGroups, 'bath', bathTopSqft, bathSplashSqft, bathSqft, bsH.bath)}
                     </div>
                   );
                 })}
