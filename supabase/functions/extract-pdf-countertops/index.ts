@@ -145,6 +145,7 @@ Return ONLY valid JSON — no markdown fences, no explanation:
         length: Math.round((Number(ct.length) || 96) * 2) / 2,
         depth,
         hasBacksplash: Boolean(ct.hasBacksplash),
+        sidesplashCount: Math.max(0, Math.min(2, Number(ct.sidesplashCount) || 0)),
         category,
         room: String(ct.room || "Kitchen").trim(),
       };
