@@ -943,16 +943,17 @@ export default function PreFinalModule({ project }: Props) {
 
                       const groupByCategory = (cat: 'kitchen' | 'bath') => {
                         const catRows = typeRows.filter(r => r.category === cat);
-                        const depthMap = new Map<number, { totalLength: number; ssInches: number }>();
+                        const depthMap = new Map<number, { totalLength: number; totalBsLength: number; ssInches: number }>();
                         catRows.forEach(r => {
-                          const ex = depthMap.get(r.depth) || { totalLength: 0, ssInches: 0 };
+                          const ex = depthMap.get(r.depth) || { totalLength: 0, totalBsLength: 0, ssInches: 0 };
                           ex.totalLength += r.length;
+                          ex.totalBsLength += (r.backsplashLength || r.length);
                           ex.ssInches += (r.sidesplashCount || 0) * r.depth;
                           depthMap.set(r.depth, ex);
                         });
                         return Array.from(depthMap.entries())
                           .sort((a, b) => b[0] - a[0])
-                          .map(([depth, d]) => ({ depth, totalLength: d.totalLength, ssInches: d.ssInches }));
+                          .map(([depth, d]) => ({ depth, totalLength: d.totalLength, totalBsLength: d.totalBsLength, ssInches: d.ssInches }));
                       };
 
                       const kitchenGroups = groupByCategory('kitchen');
