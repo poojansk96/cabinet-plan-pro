@@ -318,10 +318,13 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
       let pagesDone = 0;
       let pagesTotal = 0;
 
+      // 4 passes per page: 1 full + 3 strips
+      const PASSES_PER_PAGE = 4;
+
       for (const file of files) {
         const buf = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-        pagesTotal += pdf.numPages;
+        pagesTotal += pdf.numPages * PASSES_PER_PAGE;
       }
       setTotalPages(pagesTotal);
       setDetectedType(null);
