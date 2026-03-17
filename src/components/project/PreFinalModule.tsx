@@ -237,21 +237,37 @@ export default function PreFinalModule({ project }: Props) {
       .replace(/\s+/g, ' ')
       .trim();
 
-  const getEffectiveSidesplashCount = (row: PrefinalStoneRow, siblingRows: PrefinalStoneRow[]): number => {
-    const rawCount = Math.max(0, Math.min(2, Number(row.sidesplashCount) || 0));
-    if (rawCount === 0 || !isWrappedStoneSegment(row.label)) return rawCount;
-
+  const getWrappedStoneGroup = (row: PrefinalStoneRow, siblingRows: PrefinalStoneRow[]) => {
+    if (!isWrappedStoneSegment(row.label)) return [row];
     const baseKey = getWrappedStoneSegmentBase(row);
-    if (!baseKey) return rawCount;
+    if (!baseKey) return [row];
 
-    const hasSiblingWrapSegment = siblingRows.some(candidate => {
-      if (candidate === row) return false;
+    return siblingRows.filter(candidate => {
       if (candidate.category !== row.category || candidate.room !== row.room) return false;
       if (Math.abs(Number(candidate.depth) - Number(row.depth)) > 0.01) return false;
       return isWrappedStoneSegment(candidate.label) && getWrappedStoneSegmentBase(candidate) === baseKey;
     });
+  };
 
-    return hasSiblingWrapSegment ? 0 : rawCount;
+  const getEffectiveSidesplashCount = (row: PrefinalStoneRow, siblingRows: PrefinalStoneRow[]): number => {
+    const rawCount = Math.max(0, Math.min(2, Number(row.sidesplashCount) || 0));
+    const wrapGroup = getWrappedStoneGroup(row, siblingRows);
+    if (wrapGroup.length <= 1) return rawCount;
+
+    const totalRawCount = wrapGroup.reduce((sum, item) => sum + Math.max(0, Math.min(2, Number(item.sidesplashCount) || 0)), 0);
+    if (totalRawCount <= 1) return rawCount;
+
+    const primaryRow = [...wrapGroup].sort((a, b) => {
+      const aMain = /\bMAIN\b/.test(normalizeStoneLabelKey(a.label)) ? 1 : 0;
+      const bMain = /\bMAIN\b/.test(normalizeStoneLabelKey(b.label)) ? 1 : 0;
+      if (aMain !== bMain) return bMain - aMain;
+      const aScore = Math.max(Number(a.backsplashLength) || 0, Number(a.length) || 0);
+      const bScore = Math.max(Number(b.backsplashLength) || 0, Number(b.length) || 0);
+      return bScore - aScore;
+    })[0];
+
+    const primaryCount = Math.max(...wrapGroup.map(item => Math.max(0, Math.min(2, Number(item.sidesplashCount) || 0))));
+    return row === primaryRow ? primaryCount : 0;
   };
 
   const getCombinedSplashInches = (row: PrefinalStoneRow, siblingRows: PrefinalStoneRow[]): number => {
