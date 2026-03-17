@@ -1006,7 +1006,7 @@ export default function PreFinalModule({ project }: Props) {
                         <React.Fragment key={unitType}>
                           {/* Type header row */}
                           <tr style={{ background: 'hsl(213 72% 35%)' }}>
-                            <td colSpan={10} className="!py-1.5 !px-3">
+                            <td colSpan={8} className="!py-1.5 !px-3">
                               <div className="flex items-center justify-between">
                                 <span className="text-xs font-bold text-white">{unitType}</span>
                                 <div className="flex items-center gap-3">
