@@ -7,6 +7,7 @@ export interface StoneExtractedRow {
   depth: number;
   splashHeight: number | null;
   sidesplashCount: number;
+  backsplashLength: number;
   category: 'kitchen' | 'bath';
   room: string;
   selected: boolean;

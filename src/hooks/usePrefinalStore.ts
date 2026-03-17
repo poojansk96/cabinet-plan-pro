@@ -17,10 +17,11 @@ export interface PrefinalCabinetRow {
 
 export interface PrefinalStoneRow {
   label: string;
-  length: number;       // inches
+  length: number;       // inches (top)
   depth: number;        // inches
   splashHeight: number | null;
   sidesplashCount: number;
+  backsplashLength: number; // total linear inches where backsplash runs (can be > length)
   category: 'kitchen' | 'bath';
   room: string;
   unitType: string;

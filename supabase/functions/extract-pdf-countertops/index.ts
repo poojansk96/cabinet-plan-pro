@@ -140,11 +140,17 @@ Return ONLY valid JSON — no markdown fences, no explanation:
       if (category !== "kitchen" && category !== "bath") {
         category = depth <= 22 ? "bath" : "kitchen";
       }
+      const length = Math.round((Number(ct.length) || 96) * 2) / 2;
+      const hasBacksplash = Boolean(ct.hasBacksplash);
+      // backsplashLength: use AI-detected value, fallback to top length if hasBacksplash
+      let backsplashLength = Math.round((Number(ct.backsplashLength) || 0) * 2) / 2;
+      if (hasBacksplash && backsplashLength === 0) backsplashLength = length;
       return {
         label: String(ct.label || "Section").trim(),
-        length: Math.round((Number(ct.length) || 96) * 2) / 2,
+        length,
         depth,
-        hasBacksplash: Boolean(ct.hasBacksplash),
+        hasBacksplash,
+        backsplashLength,
         sidesplashCount: Math.max(0, Math.min(2, Number(ct.sidesplashCount) || 0)),
         category,
         room: String(ct.room || "Kitchen").trim(),
