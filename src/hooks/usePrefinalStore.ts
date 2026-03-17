@@ -219,7 +219,7 @@ function loadData(projectId: string): PrefinalData {
         handleQtyPerSku: parsed.handleQtyPerSku || {},
         bidCostPerType: parsed.bidCostPerType || {},
         additionalCostPerType: parsed.additionalCostPerType || {},
-        stoneRows: parsed.stoneRows || [],
+        stoneBacksplashHeight: {},
         stoneUnitTypes: parsed.stoneUnitTypes || [],
       };
     }
