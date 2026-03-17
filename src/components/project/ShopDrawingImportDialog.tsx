@@ -241,6 +241,33 @@ function mergeExtractionPasses(passes: any[][]): any[] {
     }
   }
 
+  // ── Absorb bare SKUs into suffixed variants across passes ──
+  // E.g., Pass 1 returns HCOC3082D, Pass 3 returns HCOC3082D-H → keep only HCOC3082D-H
+  const allItems = Array.from(map.values());
+  const roomGroups = new Map<string, typeof allItems>();
+  for (const item of allItems) {
+    const room = String(item.room || 'Kitchen');
+    const arr = roomGroups.get(room) || [];
+    arr.push(item);
+    roomGroups.set(room, arr);
+  }
+  const absorbedKeys = new Set<string>();
+  for (const [, roomItems] of roomGroups) {
+    const suffixed = roomItems.filter(i => /-[A-Z]+$/i.test(normalizeSkuLabel(i.sku)));
+    const bare = roomItems.filter(i => !/-[A-Z]+$/i.test(normalizeSkuLabel(i.sku)));
+    for (const b of bare) {
+      const bSku = normalizeSkuLabel(b.sku);
+      const variants = suffixed.filter(s => normalizeSkuLabel(s.sku).startsWith(bSku + '-'));
+      if (variants.length > 0 && (b.quantity || 1) <= 1) {
+        absorbedKeys.add(keyOf(b));
+        console.log(`Cross-pass merge: absorbed bare "${bSku}" into suffixed variant(s) [${variants.map(v => v.sku).join(',')}]`);
+      }
+    }
+  }
+  if (absorbedKeys.size > 0) {
+    for (const key of absorbedKeys) map.delete(key);
+  }
+
   return Array.from(map.values());
 }
 
