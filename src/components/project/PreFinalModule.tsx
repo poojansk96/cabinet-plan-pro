@@ -1022,10 +1022,7 @@ export default function PreFinalModule({ project }: Props) {
                         catRows.forEach(r => {
                           const ex = depthMap.get(r.depth) || { totalLength: 0, combinedSplashInches: 0 };
                           ex.totalLength += r.length;
-                          // Combined: actual backsplash wall-run inches + sidesplash inches
-                          const bsLen = Number.isFinite(Number(r.backsplashLength)) ? Number(r.backsplashLength) : 0;
-                          const ssLen = (r.sidesplashCount || 0) * r.depth;
-                          ex.combinedSplashInches += bsLen + ssLen;
+                          ex.combinedSplashInches += getCombinedSplashInches(r, catRows);
                           depthMap.set(r.depth, ex);
                         });
                         return Array.from(depthMap.entries())
