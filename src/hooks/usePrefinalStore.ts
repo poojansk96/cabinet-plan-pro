@@ -693,7 +693,6 @@ export function usePrefinalStore(projectId: string) {
     stoneRows: data.stoneRows,
     stoneUnitTypes: data.stoneUnitTypes,
     stoneBacksplashHeight: data.stoneBacksplashHeight,
-    stoneUnitTypes: data.stoneUnitTypes,
     addUnitTypes,
     deleteUnitType,
     renameUnitType,
