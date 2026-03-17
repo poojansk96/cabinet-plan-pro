@@ -906,21 +906,19 @@ export default function PreFinalModule({ project }: Props) {
                   </div>
                 </div>
                 {/* Single consolidated table for all types */}
-                <table className="est-table text-xs" style={{ minWidth: 750, tableLayout: 'fixed' }}>
+                <table className="est-table text-xs" style={{ minWidth: 700, tableLayout: 'fixed' }}>
                   <colgroup>
+                    <col style={{ width: '12%' }} />
+                    <col style={{ width: '9%' }} />
+                    <col style={{ width: '14%' }} />
+                    <col style={{ width: '14%' }} />
+                    <col style={{ width: '12%' }} />
                     <col style={{ width: '13%' }} />
-                    <col style={{ width: '11%' }} />
-                    <col style={{ width: '8%' }} />
-                    <col style={{ width: '12%' }} />
-                    <col style={{ width: '12%' }} />
-                    <col style={{ width: '10%' }} />
-                    <col style={{ width: '11%' }} />
-                    <col style={{ width: '12%' }} />
-                    <col style={{ width: '11%' }} />
+                    <col style={{ width: '13%' }} />
+                    <col style={{ width: '13%' }} />
                   </colgroup>
                   <thead>
                     <tr>
-                      <th className="!text-left">Unit Type</th>
                       <th className="!text-left">Category</th>
                       <th className="!text-right">Depth</th>
                       <th className="!text-right">Total Inches</th>
