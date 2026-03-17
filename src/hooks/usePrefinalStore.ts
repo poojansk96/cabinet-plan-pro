@@ -717,6 +717,7 @@ export function usePrefinalStore(projectId: string) {
     addStoneImport,
     deleteStoneRow,
     clearStone,
+    setStoneBacksplashHeight,
     clearAll,
   };
 }

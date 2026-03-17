@@ -156,7 +156,7 @@ export default function PreFinalModule({ project }: Props) {
       length: r.length,
       depth: r.depth,
       splashHeight: r.splashHeight,
-      isIsland: r.isIsland,
+      category: r.category || (r.depth <= 22 ? 'bath' : 'kitchen'),
       room: r.room,
       unitType: targetType,
     }));

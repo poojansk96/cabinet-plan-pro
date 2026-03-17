@@ -6,7 +6,7 @@ export interface StoneExtractedRow {
   length: number;
   depth: number;
   splashHeight: number | null;
-  isIsland: boolean;
+  category: 'kitchen' | 'bath';
   room: string;
   selected: boolean;
   sourceFile?: string;
