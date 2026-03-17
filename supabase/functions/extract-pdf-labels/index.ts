@@ -121,6 +121,15 @@ const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RAN
 // Relaxed: accept any 1-8 letter prefix followed by a digit (catches manufacturer-specific SKUs like HAV, HALC)
 const SKU_PREFIX_RE = /^[A-Z]{1,8}\d/i;
 const NO_DIGIT_OK = /^(BP|SCRIBE|UC)$/i;
+
+// Strict check: known standard cabinet prefixes + manufacturer H-prefixed variants (HC*, HW*, HS*)
+const KNOWN_PREFIX_RE = /^(B|DB|SB|CB|EB|LS|LSB|W|WDC|UB|WC|OH|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HALC|HAL|SA|SV|APPRON|UREP|REP)\d/i;
+const MANUFACTURER_PREFIX_RE = /^H[A-Z]{1,6}\d/i;
+
+function hasKnownCabinetPrefix(sku: string): boolean {
+  const upper = sku.toUpperCase().trim();
+  return KNOWN_PREFIX_RE.test(upper) || MANUFACTURER_PREFIX_RE.test(upper) || NO_DIGIT_OK.test(upper);
+}
 const STRONG_STRIP_SKU_RE = /^(?:UC|BP|SCRIBE|APPRON|UREP|REP|[A-Z]{2,8}\d[A-Z0-9\-\/]{2,})$/i;
 const SPLIT_SUFFIX_RE = /(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)$/i;
 
