@@ -344,7 +344,7 @@ const EXTRACT_SCHEMA = {
       },
     },
   },
-  required: ["items"],
+  required: ["unitTypeName", "items"],
 };
 
 // ── Main Handler ──
