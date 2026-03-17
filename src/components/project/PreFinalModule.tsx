@@ -921,13 +921,19 @@ export default function PreFinalModule({ project }: Props) {
                             <span className="text-[10px] text-muted-foreground">"</span>
                           </div>
                         </div>
-                        <table className="est-table text-xs">
+                        <table className="est-table text-xs" style={{ minWidth: 500, tableLayout: 'fixed' }}>
+                          <colgroup>
+                            <col style={{ width: '20%' }} />
+                            <col style={{ width: '30%' }} />
+                            <col style={{ width: '25%' }} />
+                            <col style={{ width: '25%' }} />
+                          </colgroup>
                           <thead>
                             <tr>
-                              <th>Depth</th>
-                              <th className="text-right">Total Inches</th>
-                              <th className="text-right">Splash"</th>
-                              <th className="text-right">SQFT</th>
+                              <th className="!text-left">Depth</th>
+                              <th className="!text-right">Total Inches</th>
+                              <th className="!text-right">Splash"</th>
+                              <th className="!text-right">SQFT</th>
                             </tr>
                           </thead>
                           <tbody>
