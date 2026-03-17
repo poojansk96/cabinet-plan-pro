@@ -250,6 +250,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                   length: ct.length,
                   depth: ct.depth,
                   splashHeight: ct.splashHeight ?? null,
+                  sidesplashCount: Number(ct.sidesplashCount) || 0,
                   category: ct.category || (ct.depth <= 22 ? 'bath' : 'kitchen'),
                   room: ct.room || 'Kitchen',
                   selected: true,
