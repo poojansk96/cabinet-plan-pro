@@ -664,7 +664,17 @@ export function usePrefinalStore(projectId: string) {
     });
   }, [projectId]);
 
-  const clearStone = useCallback(() => {
+  const setStoneBacksplashHeight = useCallback((unitType: string, category: 'kitchen' | 'bath', height: number) => {
+    setData(prev => {
+      const existing = prev.stoneBacksplashHeight[unitType] || { kitchen: 0, bath: 0 };
+      const stoneBacksplashHeight = { ...prev.stoneBacksplashHeight, [unitType]: { ...existing, [category]: height } };
+      const next = { ...prev, stoneBacksplashHeight };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
+
     commit({ ...data, stoneRows: [], stoneUnitTypes: [], stoneBacksplashHeight: {} });
   }, [commit, data]);
 
