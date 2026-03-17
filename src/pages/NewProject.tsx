@@ -64,6 +64,7 @@ export default function NewProject() {
   const [specs, setSpecs] = useState({
     projectSuper: '',
     customer: '',
+    takeoffPerson: '',
     doorStyle: '',
     doorStyleCustom: '',
     doorStyleStyle: '',
