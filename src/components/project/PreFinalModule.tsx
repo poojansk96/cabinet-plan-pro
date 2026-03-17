@@ -884,7 +884,7 @@ export default function PreFinalModule({ project }: Props) {
                       onChange={e => {
                         const val = Number(e.target.value) || 0;
                         setCommonSplash(prev => ({ ...prev, kitchen: val }));
-                        stoneUnitTypes.forEach(t => store.setStoneBacksplashHeight(t, 'kitchen', val));
+                        store.setAllStoneBacksplashHeight('kitchen', val, stoneUnitTypes);
                       }}
                       placeholder="0"
                     />
