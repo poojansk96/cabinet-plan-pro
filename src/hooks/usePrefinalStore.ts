@@ -676,6 +676,19 @@ export function usePrefinalStore(projectId: string) {
     });
   }, [projectId]);
 
+  const setAllStoneBacksplashHeight = useCallback((category: 'kitchen' | 'bath', height: number, unitTypes: string[]) => {
+    setData(prev => {
+      const updated = { ...prev.stoneBacksplashHeight };
+      unitTypes.forEach(ut => {
+        const existing = updated[ut] || { kitchen: 0, bath: 0 };
+        updated[ut] = { ...existing, [category]: height };
+      });
+      const next = { ...prev, stoneBacksplashHeight: updated };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
   const clearStone = useCallback(() => {
     commit({ ...data, stoneRows: [], stoneUnitTypes: [], stoneBacksplashHeight: {} });
   }, [commit, data]);
@@ -720,6 +733,7 @@ export function usePrefinalStore(projectId: string) {
     deleteStoneRow,
     clearStone,
     setStoneBacksplashHeight,
+    setAllStoneBacksplashHeight,
     clearAll,
   };
 }
