@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, forwardRef } from 'react';
 import { X, Upload, Loader2, Check, Trash2, Sparkles } from 'lucide-react';
 
 export interface StoneExtractedRow {
@@ -181,7 +181,7 @@ const QUOTES = [
   "Calculating surface areas...",
 ];
 
-export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson }: Props) {
+const StonePDFImportDialog = forwardRef<HTMLDivElement, Props>(function StonePDFImportDialog({ onImport, onClose, prefinalPerson }, _ref) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<StoneExtractedRow[]>([]);
   const [error, setError] = useState('');
@@ -546,4 +546,6 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
       </div>
     </div>
   );
-}
+});
+
+export default StonePDFImportDialog;
