@@ -56,7 +56,19 @@ export default function PreFinalModule({ project }: Props) {
   // ── Stone SQFT state ──────────────────────────────────────────────────
   const [showStoneImport, setShowStoneImport] = useState(false);
   const [stoneImportedCount, setStoneImportedCount] = useState<number | null>(null);
-  const [commonSplash, setCommonSplash] = useState<{ kitchen: number; bath: number }>({ kitchen: 0, bath: 0 });
+  const [commonSplash, setCommonSplash] = useState<{ kitchen: number; bath: number }>(() => {
+    // Initialize from store: find the most common splash height across all types
+    const bsMap = store.stoneBacksplashHeight || {};
+    const types = Object.keys(bsMap);
+    if (types.length === 0) return { kitchen: 0, bath: 0 };
+    const kitchenVals = types.map(t => bsMap[t]?.kitchen || 0);
+    const bathVals = types.map(t => bsMap[t]?.bath || 0);
+    // Use the max value as the common default (most likely what user set)
+    return {
+      kitchen: Math.max(0, ...kitchenVals),
+      bath: Math.max(0, ...bathVals),
+    };
+  });
 
   // ── Unit import handler ───────────────────────────────────────────────────
   const handleUnitImport = (rows: { unitNumber: string; unitType: string; bldg: string }[], typeOrder?: string[]) => {
