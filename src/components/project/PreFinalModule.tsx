@@ -988,14 +988,15 @@ export default function PreFinalModule({ project }: Props) {
                           </thead>
                           <tbody>
                             {groups.map((g, idx) => {
+                              const isIsland = g.depth >= 30;
                               const rowTopSqft = Math.ceil((g.totalLength * g.depth) / 144);
-                              const rowSplashSqft = splashH > 0 ? Math.ceil((g.totalLength * splashH) / 144) : 0;
+                              const rowSplashSqft = (!isIsland && splashH > 0) ? Math.ceil((g.totalLength * splashH) / 144) : 0;
                               return (
                                 <tr key={idx}>
                                   <td className="font-mono">{g.depth}"</td>
                                   <td className="text-right font-mono">{g.totalLength}</td>
-                                  <td className="text-right font-mono">{splashH > 0 ? g.totalLength : '—'}</td>
-                                  <td className="text-right font-mono">{splashH || '—'}</td>
+                                  <td className="text-right font-mono italic">{isIsland ? 'Island' : (splashH > 0 ? g.totalLength : '—')}</td>
+                                  <td className="text-right font-mono">{isIsland ? '—' : (splashH || '—')}</td>
                                   <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{rowTopSqft}</td>
                                   <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{rowSplashSqft || '—'}</td>
                                   <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{rowTopSqft + rowSplashSqft}</td>
