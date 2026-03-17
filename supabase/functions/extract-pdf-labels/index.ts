@@ -121,6 +121,15 @@ const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RAN
 // Relaxed: accept any 1-8 letter prefix followed by a digit (catches manufacturer-specific SKUs like HAV, HALC)
 const SKU_PREFIX_RE = /^[A-Z]{1,8}\d/i;
 const NO_DIGIT_OK = /^(BP|SCRIBE|UC)$/i;
+
+// Strict check: known standard cabinet prefixes + manufacturer H-prefixed variants (HC*, HW*, HS*)
+const KNOWN_PREFIX_RE = /^(B|DB|SB|CB|EB|LS|LSB|W|WDC|UB|WC|OH|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HALC|HAL|SA|SV|APPRON|UREP|REP)\d/i;
+const MANUFACTURER_PREFIX_RE = /^H[A-Z]{1,6}\d/i;
+
+function hasKnownCabinetPrefix(sku: string): boolean {
+  const upper = sku.toUpperCase().trim();
+  return KNOWN_PREFIX_RE.test(upper) || MANUFACTURER_PREFIX_RE.test(upper) || NO_DIGIT_OK.test(upper);
+}
 const STRONG_STRIP_SKU_RE = /^(?:UC|BP|SCRIBE|APPRON|UREP|REP|[A-Z]{2,8}\d[A-Z0-9\-\/]{2,})$/i;
 const SPLIT_SUFFIX_RE = /(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)$/i;
 
@@ -234,9 +243,9 @@ function trySplitConcatenatedSku(rawSku: string, knownTextSkus: string[] = []): 
   for (let i = 2; i < sku.length - 2; i++) {
     const left = sku.slice(0, i);
     const right = sku.slice(i);
-    const leftValid = isValidSku(left) || NO_DIGIT_OK.test(left);
-    const rightValid = isValidSku(right) || NO_DIGIT_OK.test(right);
-    if (leftValid && rightValid) return [left, right];
+      const leftValid = hasKnownCabinetPrefix(left);
+      const rightValid = hasKnownCabinetPrefix(right);
+      if (leftValid && rightValid) return [left, right];
   }
 
   return null;
@@ -606,7 +615,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
         // Filter callout / sheet references containing "/"
         if (upper.includes('/') && !(/^(BLW|BRW)\d/i.test(upper))) return false;
         // Must match a known cabinet prefix
-        if (!SKU_PREFIX_RE.test(upper) && !NO_DIGIT_OK.test(upper)) return false;
+        if (!hasKnownCabinetPrefix(upper)) return false;
         return true;
       })
       .map((c: any) => {
@@ -668,7 +677,17 @@ If no cabinet SKUs are found, return {"items":[]}`;
       return { ...item, quantity: nextQty };
     });
 
-    // ── Merge truncated SKUs into suffixed variants ──
+    // Cap non-accessory SKU quantities using text layer counts (prevents AI overcounting from strips)
+    items = items.map((item) => {
+      if (ACCESSORY_FLOOR_RE.test(item.sku)) return item; // Don't cap accessories
+      const textCount = textLayerSkuCounts[item.sku] ?? 0;
+      if (textCount > 0 && item.quantity > textCount) {
+        console.log(`Text-layer qty cap: ${item.sku} ${item.quantity} → ${textCount}`);
+        return { ...item, quantity: textCount };
+      }
+      return item;
+    });
+
     // When a label is partially hidden (e.g., "W1230-L" cut off → "W1230"), the AI may
     // return both "W1230" (truncated) and "W1230-R" or "W1230-L" as separate entries.
     // If a bare SKU exists alongside a suffixed variant (same base + "-X" suffix) in the
