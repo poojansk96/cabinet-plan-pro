@@ -27,7 +27,7 @@ serve(async (req) => {
     const prompt = `You are an expert millwork estimator analyzing a countertop / stone plan from 2020 shop drawings.
 
 TASK:
-1. First, look at the TITLE BLOCK (usually bottom-right or top of the page). Extract the **unit type name** exactly as written. Examples: "1.1B-AS", "TYPE A", "2BR-MIRROR", "A2", "STUDIO", "1.1A", "TOWNHOUSE". This is the plan/unit type identifier, NOT the room name. If you see "TYPE 1.1B - AS" the unitType is "1.1B-AS". If you see "PLAN A2 MIRROR" the unitType is "A2-MIRROR". If no type is visible, set unitType to null.
+1. First, look at the TITLE BLOCK (usually bottom-right or top of the page). Extract the **unit type name EXACTLY and COMPLETELY as written** — preserve every word, parenthetical, suffix, and variant. Examples: "TYPE 1.1A (ADA)-AS", "TYPE A", "2BR-MIRROR", "A2 (ADA)", "STUDIO", "1.1A", "TOWNHOUSE-REV". Do NOT shorten, abbreviate, or remove any part of the name. If the title says "TYPE 1.1A (ADA) - AS" the unitType is "TYPE 1.1A (ADA)-AS". If it says "PLAN A2 MIRROR" the unitType is "PLAN A2 MIRROR". Include parenthetical suffixes like (ADA), (REV), (MIRROR), (SPLIT) etc. If no type is visible, set unitType to null.
 
 2. Then extract every countertop section visible. For each section extract:
    a. **label** — a short descriptive name based on its location (e.g. "Perimeter Left", "Island", "Vanity", "L-Section"). If the drawing has text labels, use those.
@@ -124,13 +124,17 @@ Return ONLY valid JSON — no markdown fences, no explanation:
       console.error("JSON parse failed, raw:", content.slice(0, 500));
     }
 
-    // Clean up the unit type — preserve ALL names from the drawing as-is
+    // Clean up the unit type — preserve the FULL name from the drawing
     let unitType: string | null = null;
     if (parsed.unitType && typeof parsed.unitType === "string") {
       let ut = parsed.unitType.trim().toUpperCase();
-      // Remove "TYPE " prefix if present
-      ut = ut.replace(/^TYPE\s+/, "");
-      if (ut.length > 0 && ut.length <= 30) {
+      // Only remove leading "TYPE " prefix to keep names consistent with unit detection
+      ut = ut.replace(/^TYPE\s+/i, "");
+      // Also remove leading "PLAN " prefix
+      ut = ut.replace(/^PLAN\s+/i, "");
+      // Normalize whitespace around hyphens but preserve everything else (parentheses, suffixes, etc.)
+      ut = ut.replace(/\s*-\s*/g, "-");
+      if (ut.length > 0 && ut.length <= 60) {
         unitType = ut;
       }
     }
