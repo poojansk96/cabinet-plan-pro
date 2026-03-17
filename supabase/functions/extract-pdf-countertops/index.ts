@@ -124,13 +124,17 @@ Return ONLY valid JSON — no markdown fences, no explanation:
       console.error("JSON parse failed, raw:", content.slice(0, 500));
     }
 
-    // Clean up the unit type — preserve ALL names from the drawing as-is
+    // Clean up the unit type — preserve the FULL name from the drawing
     let unitType: string | null = null;
     if (parsed.unitType && typeof parsed.unitType === "string") {
       let ut = parsed.unitType.trim().toUpperCase();
-      // Remove "TYPE " prefix if present
-      ut = ut.replace(/^TYPE\s+/, "");
-      if (ut.length > 0 && ut.length <= 30) {
+      // Only remove leading "TYPE " prefix to keep names consistent with unit detection
+      ut = ut.replace(/^TYPE\s+/i, "");
+      // Also remove leading "PLAN " prefix
+      ut = ut.replace(/^PLAN\s+/i, "");
+      // Normalize whitespace around hyphens but preserve everything else (parentheses, suffixes, etc.)
+      ut = ut.replace(/\s*-\s*/g, "-");
+      if (ut.length > 0 && ut.length <= 60) {
         unitType = ut;
       }
     }
