@@ -56,6 +56,7 @@ export default function PreFinalModule({ project }: Props) {
   // ── Stone SQFT state ──────────────────────────────────────────────────
   const [showStoneImport, setShowStoneImport] = useState(false);
   const [stoneImportedCount, setStoneImportedCount] = useState<number | null>(null);
+  const [commonSplash, setCommonSplash] = useState<{ kitchen: number; bath: number }>({ kitchen: 0, bath: 0 });
 
   // ── Unit import handler ───────────────────────────────────────────────────
   const handleUnitImport = (rows: { unitNumber: string; unitType: string; bldg: string }[], typeOrder?: string[]) => {
