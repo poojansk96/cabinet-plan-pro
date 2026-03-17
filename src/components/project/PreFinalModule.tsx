@@ -900,7 +900,19 @@ export default function PreFinalModule({ project }: Props) {
                       onChange={e => {
                         const val = Number(e.target.value) || 0;
                         setCommonSplash(prev => ({ ...prev, kitchen: val }));
+                      }}
+                      onBlur={e => {
+                        const val = Number(e.target.value) || 0;
+                        setCommonSplash(prev => ({ ...prev, kitchen: val }));
                         store.setAllStoneBacksplashHeight('kitchen', val, stoneUnitTypes);
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          const val = Number((e.target as HTMLInputElement).value) || 0;
+                          setCommonSplash(prev => ({ ...prev, kitchen: val }));
+                          store.setAllStoneBacksplashHeight('kitchen', val, stoneUnitTypes);
+                          (e.target as HTMLInputElement).blur();
+                        }
                       }}
                       placeholder="0"
                     />
@@ -915,7 +927,19 @@ export default function PreFinalModule({ project }: Props) {
                       onChange={e => {
                         const val = Number(e.target.value) || 0;
                         setCommonSplash(prev => ({ ...prev, bath: val }));
+                      }}
+                      onBlur={e => {
+                        const val = Number(e.target.value) || 0;
+                        setCommonSplash(prev => ({ ...prev, bath: val }));
                         store.setAllStoneBacksplashHeight('bath', val, stoneUnitTypes);
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          const val = Number((e.target as HTMLInputElement).value) || 0;
+                          setCommonSplash(prev => ({ ...prev, bath: val }));
+                          store.setAllStoneBacksplashHeight('bath', val, stoneUnitTypes);
+                          (e.target as HTMLInputElement).blur();
+                        }
                       }}
                       placeholder="0"
                     />
