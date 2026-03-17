@@ -949,9 +949,65 @@ export default function PreFinalModule({ project }: Props) {
                   );
                 })}
 
-                {/* Grand totals: Kitchen + Bath */}
+                {/* Type-wise Kitchen & Bath SQFT breakdown */}
                 <div className="px-4 py-4 border-t border-border">
-                  <div className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Total SQFT (× Unit Count)</div>
+                  <div className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">SQFT Breakdown by Type (× Unit Count)</div>
+                  <table className="est-table text-xs w-full mb-4">
+                    <thead>
+                      <tr>
+                        <th>Unit Type</th>
+                        <th className="text-center">Units</th>
+                        <th className="text-right">Kitchen SQFT</th>
+                        <th className="text-right">Bath SQFT</th>
+                        <th className="text-right">Total SQFT</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        let grandKitchen = 0;
+                        let grandBath = 0;
+                        const rows = stoneUnitTypes.map(type => {
+                          const typeRows = store.stoneRows.filter(r => r.unitType === type);
+                          const unitCount = store.unitNumbers.filter(u => u.assignments[type]).length || 1;
+                          const bsH = store.stoneBacksplashHeight[type] || { kitchen: 0, bath: 0 };
+                          let typeKitchen = 0;
+                          let typeBath = 0;
+                          typeRows.forEach(r => {
+                            const splash = r.category === 'kitchen' ? bsH.kitchen : bsH.bath;
+                            const sqft = Math.ceil((r.length * (r.depth + splash)) / 144);
+                            if (r.category === 'kitchen') typeKitchen += sqft;
+                            else typeBath += sqft;
+                          });
+                          const kitTotal = typeKitchen * unitCount;
+                          const bathTotal = typeBath * unitCount;
+                          grandKitchen += kitTotal;
+                          grandBath += bathTotal;
+                          return { type, unitCount, kitTotal, bathTotal };
+                        });
+                        return (
+                          <>
+                            {rows.map(r => (
+                              <tr key={r.type}>
+                                <td className="font-semibold">{r.type}</td>
+                                <td className="text-center font-mono">{r.unitCount}</td>
+                                <td className="text-right font-mono">{r.kitTotal || '—'}</td>
+                                <td className="text-right font-mono">{r.bathTotal || '—'}</td>
+                                <td className="text-right font-mono font-bold">{r.kitTotal + r.bathTotal}</td>
+                              </tr>
+                            ))}
+                            <tr className="font-bold border-t-2 border-border">
+                              <td>Grand Total</td>
+                              <td></td>
+                              <td className="text-right font-mono" style={{ color: 'hsl(var(--primary))' }}>{grandKitchen}</td>
+                              <td className="text-right font-mono" style={{ color: 'hsl(var(--primary))' }}>{grandBath}</td>
+                              <td className="text-right font-mono text-base" style={{ color: 'hsl(var(--primary))' }}>{grandKitchen + grandBath}</td>
+                            </tr>
+                          </>
+                        );
+                      })()}
+                    </tbody>
+                  </table>
+
                   <div className="grid grid-cols-2 gap-4">
                     {(() => {
                       let grandKitchen = 0;
