@@ -69,6 +69,86 @@ async function renderPageToBase64(page: any, scale = 3): Promise<string> {
   return b64;
 }
 
+async function extractPageText(page: any): Promise<string> {
+  const content = await page.getTextContent();
+  return content.items
+    .filter((item: any) => 'str' in item)
+    .map((item: any) => String(item.str || ''))
+    .join(' ');
+}
+
+function cleanDetectedType(raw: string): string {
+  return String(raw || '')
+    .toUpperCase()
+    .replace(/[\u2010-\u2015]/g, '-')
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/^UNIT\s+TYPE\s*[:\-]?\s*/, '')
+    .replace(/^TYPE\s*[:\-]?\s*/, '')
+    .replace(/^(?:FLOOR\s+PLAN|PLAN|LAYOUT|MODEL)\s*[:\-]?\s*/, '')
+    .replace(/\b(?:FLOOR\s*PLAN|PLAN|PLANS|ELEVATIONS?|SHEETS?|DRAWINGS?|DETAILS?|COUNTERTOPS?|TOPS?|STONE|CABINETS?|SHOP)\b.*$/i, '')
+    .replace(/\s*-\s*/g, '-')
+    .replace(/^([A-Z0-9.\/]+)\s+(AS|MIRROR|ADA|REV|ALT|OPTION)$/i, '$1-$2')
+    .replace(/[^A-Z0-9.\-/ ]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isLikelyTypeName(value: string, allowShort = false): boolean {
+  const cleaned = cleanDetectedType(value);
+  if (!cleaned) return false;
+  if (/^(KITCHEN|BATH|VANITY|COUNTERTOP|STONE|SHOP|DRAWING|PLAN)$/i.test(cleaned)) return false;
+  if (/[A-Z]/.test(cleaned) && /\d/.test(cleaned)) return true;
+  if (/\b(?:STUDIO|PENTHOUSE|TOWNHOUSE|CONDO|LOFT|DUPLEX|TRIPLEX)\b/i.test(cleaned)) return true;
+  return allowShort && /^[A-Z][A-Z0-9.\-/]{0,5}$/.test(cleaned);
+}
+
+function detectTypeFromText(text: string): string | null {
+  const normalized = String(text || '')
+    .toUpperCase()
+    .replace(/[\u2010-\u2015]/g, '-')
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!normalized) return null;
+
+  const patterns = [
+    /\bUNIT\s+TYPE\s*[:\-]?\s*([A-Z0-9][A-Z0-9.\-/]*(?:\s+(?:AS|MIRROR|ADA|REV|ALT|OPTION|[A-Z0-9][A-Z0-9.\-/]*)){0,2})\b/g,
+    /\bTYPE\s*[:\-]?\s*([A-Z0-9][A-Z0-9.\-/]*(?:\s+(?:AS|MIRROR|ADA|REV|ALT|OPTION|[A-Z0-9][A-Z0-9.\-/]*)){0,2})\b/g,
+    /\b(?:FLOOR\s+PLAN|PLAN|LAYOUT|MODEL)\s*[:\-]?\s*([A-Z0-9][A-Z0-9.\-/]*(?:\s+(?:AS|MIRROR|ADA|REV|ALT|OPTION|[A-Z0-9][A-Z0-9.\-/]*)){0,2})\b/g,
+  ];
+
+  for (const pattern of patterns) {
+    pattern.lastIndex = 0;
+    const match = pattern.exec(normalized);
+    if (!match) continue;
+    const candidate = cleanDetectedType(match[1]);
+    if (isLikelyTypeName(candidate, true)) return candidate;
+  }
+
+  return null;
+}
+
+function detectTypeFromFilename(fileName: string): string | null {
+  const normalized = String(fileName || '')
+    .replace(/\.[^.]+$/, ' ')
+    .toUpperCase()
+    .replace(/[\u2010-\u2015]/g, '-')
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const hinted = detectTypeFromText(normalized);
+  if (hinted) return hinted;
+
+  const codeMatch = normalized.match(/\b([A-Z]*\d+(?:\.\d+[A-Z]*)?(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION|[A-Z0-9]+))+|[A-Z]\d+[A-Z0-9.\-/]*)\b/);
+  if (!codeMatch) return null;
+
+  const candidate = cleanDetectedType(codeMatch[1]);
+  return isLikelyTypeName(candidate) ? candidate : null;
+}
+
 function calcSqft(row: StoneExtractedRow): number {
   const effectiveDepth = row.depth + (row.splashHeight ?? 0);
   return Math.ceil((row.length * effectiveDepth) / 144);
