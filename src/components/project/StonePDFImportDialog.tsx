@@ -211,21 +211,18 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
       setTotalPages(pagesTotal);
       setDetectedType(null);
 
+      let lastFileType: string | null = null;
+
       for (const file of files) {
         const buf = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
         const fileFallbackType = detectTypeFromFilename(file.name);
+        let fileType: string | null = null;
 
         for (let p = 1; p <= pdf.numPages; p++) {
           setStatusMsg(`Processing ${file.name} — page ${p}/${pdf.numPages}`);
           const page = await pdf.getPage(p);
-          const pageText = await extractPageText(page);
-          const detectedUnitType = detectTypeFromText(pageText) || fileFallbackType || null;
           const pageImage = await renderPageToBase64(page);
-
-          if (!detectedType && detectedUnitType) {
-            setDetectedType(detectedUnitType);
-          }
 
           try {
             const resp = await fetch(`${SUPABASE_URL}/functions/v1/extract-pdf-countertops`, {
@@ -242,6 +239,16 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
 
             if (resp.ok) {
               const data = await resp.json();
+              // Use AI-detected unit type from the drawing's title block
+              const aiType = data.unitType ? String(data.unitType).trim() : null;
+              const pageType = aiType || fileType || fileFallbackType || null;
+              // Remember first detected type for subsequent pages in same file
+              if (aiType && !fileType) fileType = aiType;
+              if (pageType && !lastFileType) {
+                lastFileType = pageType;
+                setDetectedType(pageType);
+              }
+
               for (const ct of (data.countertops ?? [])) {
                 allRows.push({
                   label: ct.label,
@@ -252,7 +259,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                   room: ct.room || 'Kitchen',
                   selected: true,
                   sourceFile: file.name,
-                  detectedUnitType: detectedUnitType || undefined,
+                  detectedUnitType: pageType || undefined,
                 });
               }
             }
