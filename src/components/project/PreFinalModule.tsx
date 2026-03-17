@@ -1068,10 +1068,12 @@ export default function PreFinalModule({ project }: Props) {
                           let typeKitchen = 0;
                           let typeBath = 0;
                           typeRows.forEach(r => {
-                            const splash = r.category === 'kitchen' ? bsH.kitchen : bsH.bath;
-                            const sqft = Math.ceil((r.length * (r.depth + splash)) / 144);
-                            if (r.category === 'kitchen') typeKitchen += sqft;
-                            else typeBath += sqft;
+                            const isIsland = r.depth >= 30;
+                            const splash = isIsland ? 0 : (r.category === 'kitchen' ? bsH.kitchen : bsH.bath);
+                            const topSqft = Math.ceil((r.length * r.depth) / 144);
+                            const splashSqft = splash > 0 ? Math.ceil((r.length * splash) / 144) : 0;
+                            if (r.category === 'kitchen') typeKitchen += topSqft + splashSqft;
+                            else typeBath += topSqft + splashSqft;
                           });
                           const kitTotal = typeKitchen * unitCount;
                           const bathTotal = typeBath * unitCount;
