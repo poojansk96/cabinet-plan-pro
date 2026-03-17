@@ -137,32 +137,34 @@ function normalizeLabel(label: string): string {
 
 // Merge multiple pass results: match by label+length+depth, take MIN backsplashLength
 function mergePassResults(passes: RawCountertop[][]): RawCountertop[] {
-  if (passes.length === 0) return [];
-  if (passes.length === 1) return passes[0] || [];
+  // Use full-page (first pass) as base
+  const base = passes[0] || [];
+  if (passes.length <= 1) return base;
 
-  // Aggregate ALL items from ALL passes into a single Map
-  const merged = new Map<string, RawCountertop>();
+  // Build map from normalized key -> all backsplashLength values seen
+  const backsplashMap = new Map<string, number[]>();
 
   for (const pass of passes) {
     for (const ct of pass) {
-      const key = `${normalizeLabel(ct.label)}|${ct.length}|${ct.depth}|${ct.room}`;
-      const existing = merged.get(key);
-      if (existing) {
-        // Keep lowest backsplashLength (if > 0), highest sidesplashCount
-        const backsplashValues = [existing.backsplashLength, ct.backsplashLength].filter(v => v > 0);
-        const minBacksplash = backsplashValues.length > 0 ? Math.min(...backsplashValues) : 0;
-        const maxSidesplash = Math.max(existing.sidesplashCount, ct.sidesplashCount);
-        if (minBacksplash !== existing.backsplashLength || maxSidesplash !== existing.sidesplashCount) {
-          console.log(`Stone merge: "${ct.label}" backsplash ${existing.backsplashLength} -> ${minBacksplash}, sidesplash ${existing.sidesplashCount} -> ${maxSidesplash}`);
-        }
-        merged.set(key, { ...existing, backsplashLength: minBacksplash, sidesplashCount: maxSidesplash });
-      } else {
-        merged.set(key, { ...ct });
-      }
+      const key = `${normalizeLabel(ct.label)}|${ct.length}|${ct.depth}`;
+      if (!backsplashMap.has(key)) backsplashMap.set(key, []);
+      backsplashMap.get(key)!.push(ct.backsplashLength);
     }
   }
 
-  return Array.from(merged.values());
+  // Apply MIN backsplashLength to base results
+  return base.map(ct => {
+    const key = `${normalizeLabel(ct.label)}|${ct.length}|${ct.depth}`;
+    const allValues = backsplashMap.get(key);
+    if (allValues && allValues.length > 1) {
+      const minBacksplash = Math.min(...allValues);
+      if (minBacksplash < ct.backsplashLength) {
+        console.log(`Stone merge: "${ct.label}" backsplash ${ct.backsplashLength} -> ${minBacksplash} (MIN of ${allValues.join(',')})`);
+        return { ...ct, backsplashLength: minBacksplash };
+      }
+    }
+    return ct;
+  });
 }
 
 // extractPageText removed — AI now returns unitType directly
@@ -263,12 +265,8 @@ function detectTypeFromFilename(fileName: string): string | null {
 }
 
 function calcSqft(row: StoneExtractedRow): number {
-  const deckSqIn = row.length * row.depth;
-  const splashHeight = row.splashHeight ?? 0;
-  const backLength = row.backsplashLength > 0 ? row.backsplashLength : row.length;
-  const sideSplashLength = row.sidesplashCount * row.depth;
-  const splashSqIn = (backLength + sideSplashLength) * splashHeight;
-  return Math.ceil((deckSqIn + splashSqIn) / 144);
+  const effectiveDepth = row.depth + (row.splashHeight ?? 0);
+  return Math.ceil((row.length * effectiveDepth) / 144);
 }
 
 const QUOTES = [
@@ -620,9 +618,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                         <th>Room</th>
                         <th className="text-right">Length"</th>
                         <th className="text-right">Depth"</th>
-                        <th className="text-right">Splash H"</th>
-                        <th className="text-right">Back L"</th>
-                        <th className="text-right">Side Qty</th>
+                        <th className="text-right">Backsplash"</th>
                         <th className="text-center">Category</th>
                         <th className="text-right">SQFT</th>
                         <th></th>
@@ -638,8 +634,6 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                           <td className="text-right"><input type="number" className="est-input w-16 text-right text-xs" value={row.length} min={1} onChange={e => updateRow(idx, { length: +e.target.value })} /></td>
                           <td className="text-right"><input type="number" className="est-input w-16 text-right text-xs" value={row.depth} min={1} step={0.5} onChange={e => updateRow(idx, { depth: +e.target.value })} /></td>
                           <td className="text-right"><input type="number" className="est-input w-14 text-right text-xs" value={row.splashHeight ?? ''} min={0} step={0.5} onChange={e => updateRow(idx, { splashHeight: e.target.value ? +e.target.value : null })} placeholder="—" /></td>
-                          <td className="text-right"><input type="number" className="est-input w-16 text-right text-xs" value={row.backsplashLength} min={0} step={0.5} onChange={e => updateRow(idx, { backsplashLength: +e.target.value })} /></td>
-                          <td className="text-right"><input type="number" className="est-input w-12 text-right text-xs" value={row.sidesplashCount} min={0} max={2} onChange={e => updateRow(idx, { sidesplashCount: Math.min(2, Math.max(0, +e.target.value)) })} /></td>
                           <td className="text-center">
                             <select className="est-input text-xs w-20" value={row.category} onChange={e => updateRow(idx, { category: e.target.value as 'kitchen' | 'bath' })}>
                               <option value="kitchen">Kitchen</option>
@@ -653,7 +647,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                     </tbody>
                     <tfoot>
                       <tr className="font-bold border-t border-border">
-                        <td colSpan={10} className="text-right">Total SQFT:</td>
+                        <td colSpan={8} className="text-right">Total SQFT:</td>
                         <td className="text-right" style={{ color: 'hsl(var(--primary))' }}>{totalSqft}</td>
                         <td></td>
                       </tr>
