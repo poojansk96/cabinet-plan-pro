@@ -71,6 +71,102 @@ async function renderPageToBase64(page: any, scale = 3): Promise<string> {
   return b64;
 }
 
+// Render a horizontal strip of a page (yStart/yEnd as fractions 0-1, with overlap)
+async function renderStripToBase64(page: any, yStartFrac: number, yEndFrac: number, scale = 3): Promise<string> {
+  const fullVp = page.getViewport({ scale });
+  const yStart = Math.floor(fullVp.height * yStartFrac);
+  const yEnd = Math.ceil(fullVp.height * yEndFrac);
+  const stripHeight = yEnd - yStart;
+
+  let canvas: any;
+  let ctx: any;
+  if (typeof OffscreenCanvas !== 'undefined') {
+    canvas = new OffscreenCanvas(fullVp.width, stripHeight);
+    ctx = canvas.getContext('2d');
+  } else {
+    canvas = document.createElement('canvas');
+    canvas.width = fullVp.width;
+    canvas.height = stripHeight;
+    ctx = canvas.getContext('2d');
+  }
+
+  // Translate canvas so the strip region aligns to (0,0)
+  ctx.translate(0, -yStart);
+  await page.render({ canvasContext: ctx, viewport: fullVp }).promise;
+
+  let blob: Blob;
+  if (canvas instanceof OffscreenCanvas) {
+    blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.85 });
+  } else {
+    blob = await new Promise<Blob>((res) => canvas.toBlob((b: Blob) => res(b), 'image/jpeg', 0.85));
+  }
+  const buf = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+
+  let b64 = btoa(binary);
+  if (b64.length > 3_500_000 && scale > 1.5) {
+    return renderStripToBase64(page, yStartFrac, yEndFrac, scale - 0.5);
+  }
+  return b64;
+}
+
+// 3 overlapping horizontal strips (15% overlap)
+const STRIP_REGIONS = [
+  { yStart: 0, yEnd: 0.40 },      // top 40%
+  { yStart: 0.30, yEnd: 0.70 },   // middle 40% (overlaps top & bottom)
+  { yStart: 0.60, yEnd: 1.0 },    // bottom 40%
+];
+
+interface RawCountertop {
+  label: string;
+  length: number;
+  depth: number;
+  splashHeight: number | null;
+  sidesplashCount: number;
+  backsplashLength: number;
+  category: 'kitchen' | 'bath';
+  room: string;
+}
+
+// Normalize label for matching across passes
+function normalizeLabel(label: string): string {
+  return String(label || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+// Merge multiple pass results: match by label+length+depth, take MIN backsplashLength
+function mergePassResults(passes: RawCountertop[][]): RawCountertop[] {
+  // Use full-page (first pass) as base
+  const base = passes[0] || [];
+  if (passes.length <= 1) return base;
+
+  // Build map from normalized key -> all backsplashLength values seen
+  const backsplashMap = new Map<string, number[]>();
+
+  for (const pass of passes) {
+    for (const ct of pass) {
+      const key = `${normalizeLabel(ct.label)}|${ct.length}|${ct.depth}`;
+      if (!backsplashMap.has(key)) backsplashMap.set(key, []);
+      backsplashMap.get(key)!.push(ct.backsplashLength);
+    }
+  }
+
+  // Apply MIN backsplashLength to base results
+  return base.map(ct => {
+    const key = `${normalizeLabel(ct.label)}|${ct.length}|${ct.depth}`;
+    const allValues = backsplashMap.get(key);
+    if (allValues && allValues.length > 1) {
+      const minBacksplash = Math.min(...allValues);
+      if (minBacksplash < ct.backsplashLength) {
+        console.log(`Stone merge: "${ct.label}" backsplash ${ct.backsplashLength} -> ${minBacksplash} (MIN of ${allValues.join(',')})`);
+        return { ...ct, backsplashLength: minBacksplash };
+      }
+    }
+    return ct;
+  });
+}
+
 // extractPageText removed — AI now returns unitType directly
 
 function normalizeTypeIdentity(raw: string): string {
