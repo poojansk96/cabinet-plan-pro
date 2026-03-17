@@ -1114,10 +1114,12 @@ export default function PreFinalModule({ project }: Props) {
                         const unitCount = store.unitNumbers.filter(u => u.assignments[type]).length || 1;
                         const bsH = store.stoneBacksplashHeight[type] || { kitchen: 0, bath: 0 };
                         typeRows.forEach(r => {
-                          const splash = r.category === 'kitchen' ? bsH.kitchen : bsH.bath;
-                          const sqft = Math.ceil((r.length * (r.depth + splash)) / 144);
-                          if (r.category === 'kitchen') grandKitchen += sqft * unitCount;
-                          else grandBath += sqft * unitCount;
+                          const isIsland = r.depth >= 30;
+                          const splash = isIsland ? 0 : (r.category === 'kitchen' ? bsH.kitchen : bsH.bath);
+                          const topSqft = Math.ceil((r.length * r.depth) / 144);
+                          const splashSqft = splash > 0 ? Math.ceil((r.length * splash) / 144) : 0;
+                          if (r.category === 'kitchen') grandKitchen += (topSqft + splashSqft) * unitCount;
+                          else grandBath += (topSqft + splashSqft) * unitCount;
                         });
                       });
                       return (
