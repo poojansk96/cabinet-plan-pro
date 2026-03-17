@@ -243,9 +243,9 @@ function trySplitConcatenatedSku(rawSku: string, knownTextSkus: string[] = []): 
   for (let i = 2; i < sku.length - 2; i++) {
     const left = sku.slice(0, i);
     const right = sku.slice(i);
-    const leftValid = isValidSku(left) || NO_DIGIT_OK.test(left);
-    const rightValid = isValidSku(right) || NO_DIGIT_OK.test(right);
-    if (leftValid && rightValid) return [left, right];
+      const leftValid = hasKnownCabinetPrefix(left);
+      const rightValid = hasKnownCabinetPrefix(right);
+      if (leftValid && rightValid) return [left, right];
   }
 
   return null;
