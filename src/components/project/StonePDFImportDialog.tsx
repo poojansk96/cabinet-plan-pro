@@ -214,12 +214,18 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
       for (const file of files) {
         const buf = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-        const detectedUnitType = detectedTypesByFile.get(file.name) || null;
+        const fileFallbackType = detectTypeFromFilename(file.name);
 
         for (let p = 1; p <= pdf.numPages; p++) {
           setStatusMsg(`Processing ${file.name} — page ${p}/${pdf.numPages}`);
           const page = await pdf.getPage(p);
+          const pageText = await extractPageText(page);
+          const detectedUnitType = detectTypeFromText(pageText) || fileFallbackType || null;
           const pageImage = await renderPageToBase64(page);
+
+          if (!detectedType && detectedUnitType) {
+            setDetectedType(detectedUnitType);
+          }
 
           try {
             const resp = await fetch(`${SUPABASE_URL}/functions/v1/extract-pdf-countertops`, {
