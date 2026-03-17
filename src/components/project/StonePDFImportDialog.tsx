@@ -638,6 +638,8 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                           <td className="text-right"><input type="number" className="est-input w-16 text-right text-xs" value={row.length} min={1} onChange={e => updateRow(idx, { length: +e.target.value })} /></td>
                           <td className="text-right"><input type="number" className="est-input w-16 text-right text-xs" value={row.depth} min={1} step={0.5} onChange={e => updateRow(idx, { depth: +e.target.value })} /></td>
                           <td className="text-right"><input type="number" className="est-input w-14 text-right text-xs" value={row.splashHeight ?? ''} min={0} step={0.5} onChange={e => updateRow(idx, { splashHeight: e.target.value ? +e.target.value : null })} placeholder="—" /></td>
+                          <td className="text-right"><input type="number" className="est-input w-16 text-right text-xs" value={row.backsplashLength} min={0} step={0.5} onChange={e => updateRow(idx, { backsplashLength: +e.target.value })} /></td>
+                          <td className="text-right"><input type="number" className="est-input w-12 text-right text-xs" value={row.sidesplashCount} min={0} max={2} onChange={e => updateRow(idx, { sidesplashCount: Math.min(2, Math.max(0, +e.target.value)) })} /></td>
                           <td className="text-center">
                             <select className="est-input text-xs w-20" value={row.category} onChange={e => updateRow(idx, { category: e.target.value as 'kitchen' | 'bath' })}>
                               <option value="kitchen">Kitchen</option>
