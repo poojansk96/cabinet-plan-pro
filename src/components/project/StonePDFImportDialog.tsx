@@ -69,13 +69,7 @@ async function renderPageToBase64(page: any, scale = 3): Promise<string> {
   return b64;
 }
 
-async function extractPageText(page: any): Promise<string> {
-  const content = await page.getTextContent();
-  return content.items
-    .filter((item: any) => 'str' in item)
-    .map((item: any) => String(item.str || ''))
-    .join(' ');
-}
+// extractPageText removed — AI now returns unitType directly
 
 function cleanDetectedType(raw: string): string {
   return String(raw || '')
@@ -211,21 +205,18 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
       setTotalPages(pagesTotal);
       setDetectedType(null);
 
+      let lastFileType: string | null = null;
+
       for (const file of files) {
         const buf = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
         const fileFallbackType = detectTypeFromFilename(file.name);
+        let fileType: string | null = null;
 
         for (let p = 1; p <= pdf.numPages; p++) {
           setStatusMsg(`Processing ${file.name} — page ${p}/${pdf.numPages}`);
           const page = await pdf.getPage(p);
-          const pageText = await extractPageText(page);
-          const detectedUnitType = detectTypeFromText(pageText) || fileFallbackType || null;
           const pageImage = await renderPageToBase64(page);
-
-          if (!detectedType && detectedUnitType) {
-            setDetectedType(detectedUnitType);
-          }
 
           try {
             const resp = await fetch(`${SUPABASE_URL}/functions/v1/extract-pdf-countertops`, {
@@ -242,6 +233,16 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
 
             if (resp.ok) {
               const data = await resp.json();
+              // Use AI-detected unit type from the drawing's title block
+              const aiType = data.unitType ? String(data.unitType).trim() : null;
+              const pageType = aiType || fileType || fileFallbackType || null;
+              // Remember first detected type for subsequent pages in same file
+              if (aiType && !fileType) fileType = aiType;
+              if (pageType && !lastFileType) {
+                lastFileType = pageType;
+                setDetectedType(pageType);
+              }
+
               for (const ct of (data.countertops ?? [])) {
                 allRows.push({
                   label: ct.label,
@@ -252,7 +253,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                   room: ct.room || 'Kitchen',
                   selected: true,
                   sourceFile: file.name,
-                  detectedUnitType: detectedUnitType || undefined,
+                  detectedUnitType: pageType || undefined,
                 });
               }
             }
@@ -422,6 +423,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                     <thead>
                       <tr>
                         <th className="w-8"></th>
+                        <th>Type</th>
                         <th>Label</th>
                         <th>Room</th>
                         <th className="text-right">Length"</th>
@@ -436,6 +438,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                       {rows.map((row, idx) => (
                         <tr key={idx} className={!row.selected ? 'opacity-50' : ''}>
                           <td><input type="checkbox" checked={row.selected} onChange={e => updateRow(idx, { selected: e.target.checked })} /></td>
+                          <td><input className="est-input w-20 text-xs font-semibold" value={row.detectedUnitType || ''} onChange={e => updateRow(idx, { detectedUnitType: e.target.value || undefined })} placeholder="—" /></td>
                           <td><input className="est-input w-full text-xs" value={row.label} onChange={e => updateRow(idx, { label: e.target.value })} /></td>
                           <td><input className="est-input w-20 text-xs" value={row.room} onChange={e => updateRow(idx, { room: e.target.value })} /></td>
                           <td className="text-right"><input type="number" className="est-input w-16 text-right text-xs" value={row.length} min={1} onChange={e => updateRow(idx, { length: +e.target.value })} /></td>
@@ -454,7 +457,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                     </tbody>
                     <tfoot>
                       <tr className="font-bold border-t border-border">
-                        <td colSpan={7} className="text-right">Total SQFT:</td>
+                        <td colSpan={8} className="text-right">Total SQFT:</td>
                         <td className="text-right" style={{ color: 'hsl(var(--primary))' }}>{totalSqft}</td>
                         <td></td>
                       </tr>
