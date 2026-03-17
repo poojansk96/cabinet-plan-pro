@@ -202,25 +202,14 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
       let allRows: StoneExtractedRow[] = [...rows];
       let pagesDone = 0;
       let pagesTotal = 0;
-      const detectedTypesByFile = new Map<string, string>();
 
       for (const file of files) {
         const buf = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
         pagesTotal += pdf.numPages;
-
-        const extraction = await extractUnitsFromPDF(file);
-        const rankedTypes = extraction.detectedUnits
-          .map(unit => unit.detectedType?.trim())
-          .filter((value): value is string => Boolean(value))
-          .map(value => value.replace(/\s+/g, ' ').trim());
-        const primaryType = rankedTypes[0];
-        if (primaryType) detectedTypesByFile.set(file.name, primaryType);
       }
       setTotalPages(pagesTotal);
-
-      const firstDetectedType = detectedTypesByFile.get(files[0]?.name || '');
-      setDetectedType(firstDetectedType || null);
+      setDetectedType(null);
 
       for (const file of files) {
         const buf = await file.arrayBuffer();
