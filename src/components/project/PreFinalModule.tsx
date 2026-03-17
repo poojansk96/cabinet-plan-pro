@@ -908,30 +908,26 @@ export default function PreFinalModule({ project }: Props) {
                   </div>
                 </div>
                 {/* Single consolidated table for all types */}
-                <table className="est-table text-xs" style={{ minWidth: 800, tableLayout: 'fixed' }}>
+                <table className="est-table text-xs" style={{ minWidth: 650, tableLayout: 'fixed' }}>
                   <colgroup>
+                    <col style={{ width: '12%' }} />
                     <col style={{ width: '10%' }} />
-                    <col style={{ width: '8%' }} />
-                    <col style={{ width: '11%' }} />
+                    <col style={{ width: '14%' }} />
+                    <col style={{ width: '16%' }} />
                     <col style={{ width: '10%' }} />
-                    <col style={{ width: '10%' }} />
-                    <col style={{ width: '9%' }} />
-                    <col style={{ width: '11%' }} />
-                    <col style={{ width: '10%' }} />
-                    <col style={{ width: '10%' }} />
-                    <col style={{ width: '11%' }} />
+                    <col style={{ width: '13%' }} />
+                    <col style={{ width: '13%' }} />
+                    <col style={{ width: '12%' }} />
                   </colgroup>
                   <thead>
                     <tr>
                       <th className="!text-left">Category</th>
                       <th className="!text-right">Depth</th>
-                      <th className="!text-right">Total Inches</th>
-                      <th className="!text-right">BS Inches</th>
-                      <th className="!text-right">SS Inches</th>
+                      <th className="!text-right">Top Inches</th>
+                      <th className="!text-right">BS & SS Inches</th>
                       <th className="!text-right">Splash Ht</th>
                       <th className="!text-right">Top SQFT</th>
-                      <th className="!text-right">BS SQFT</th>
-                      <th className="!text-right">SS SQFT</th>
+                      <th className="!text-right">BS & SS SQFT</th>
                       <th className="!text-right">Total SQFT</th>
                     </tr>
                   </thead>
@@ -943,17 +939,19 @@ export default function PreFinalModule({ project }: Props) {
 
                       const groupByCategory = (cat: 'kitchen' | 'bath') => {
                         const catRows = typeRows.filter(r => r.category === cat);
-                        const depthMap = new Map<number, { totalLength: number; totalBsLength: number; ssInches: number }>();
+                        const depthMap = new Map<number, { totalLength: number; combinedSplashInches: number }>();
                         catRows.forEach(r => {
-                          const ex = depthMap.get(r.depth) || { totalLength: 0, totalBsLength: 0, ssInches: 0 };
+                          const ex = depthMap.get(r.depth) || { totalLength: 0, combinedSplashInches: 0 };
                           ex.totalLength += r.length;
-                          ex.totalBsLength += (r.backsplashLength || r.length);
-                          ex.ssInches += (r.sidesplashCount || 0) * r.depth;
+                          // Combined: backsplash length (which already includes wall runs) + sidesplash inches
+                          const bsLen = r.backsplashLength || r.length;
+                          const ssLen = (r.sidesplashCount || 0) * r.depth;
+                          ex.combinedSplashInches += bsLen + ssLen;
                           depthMap.set(r.depth, ex);
                         });
                         return Array.from(depthMap.entries())
                           .sort((a, b) => b[0] - a[0])
-                          .map(([depth, d]) => ({ depth, totalLength: d.totalLength, totalBsLength: d.totalBsLength, ssInches: d.ssInches }));
+                          .map(([depth, d]) => ({ depth, totalLength: d.totalLength, combinedSplashInches: d.combinedSplashInches }));
                       };
 
                       const kitchenGroups = groupByCategory('kitchen');
@@ -961,47 +959,41 @@ export default function PreFinalModule({ project }: Props) {
 
                       const renderCatRows = (
                         catLabel: string,
-                        groups: { depth: number; totalLength: number; totalBsLength: number; ssInches: number }[],
+                        groups: { depth: number; totalLength: number; combinedSplashInches: number }[],
                         category: 'kitchen' | 'bath',
                         splashH: number
                       ) => {
                         if (groups.length === 0) return [];
                         const rows: React.ReactNode[] = [];
                         let catTopTotal = 0;
-                        let catBsTotal = 0;
-                        let catSsTotal = 0;
+                        let catSplashTotal = 0;
 
                         groups.forEach((g, idx) => {
                           const isIsland = g.depth >= 30;
                           const rowTopSqft = Math.ceil((g.totalLength * g.depth) / 144);
-                          const rowBsSqft = (!isIsland && splashH > 0) ? Math.ceil((g.totalBsLength * splashH) / 144) : 0;
-                          const rowSsSqft = (g.ssInches > 0 && splashH > 0) ? Math.ceil((g.ssInches * splashH) / 144) : 0;
+                          const rowSplashSqft = (!isIsland && splashH > 0) ? Math.ceil((g.combinedSplashInches * splashH) / 144) : 0;
                           catTopTotal += rowTopSqft;
-                          catBsTotal += rowBsSqft;
-                          catSsTotal += rowSsSqft;
+                          catSplashTotal += rowSplashSqft;
                           rows.push(
                             <tr key={`${unitType}-${category}-${idx}`}>
                               <td>{idx === 0 ? catLabel : ''}</td>
                               <td className="text-right font-mono">{g.depth}"</td>
                               <td className="text-right font-mono">{g.totalLength}</td>
-                              <td className="text-right font-mono italic">{isIsland ? 'Island' : (splashH > 0 ? g.totalBsLength : '—')}</td>
-                              <td className="text-right font-mono">{g.ssInches > 0 ? g.ssInches : '—'}</td>
+                              <td className="text-right font-mono italic">{isIsland ? 'Island' : (splashH > 0 ? g.combinedSplashInches : '—')}</td>
                               <td className="text-right font-mono">{isIsland ? '—' : (splashH || '—')}</td>
                               <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{rowTopSqft}</td>
-                              <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{rowBsSqft || '—'}</td>
-                              <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{rowSsSqft || '—'}</td>
-                              <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{rowTopSqft + rowBsSqft + rowSsSqft}</td>
+                              <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{rowSplashSqft || '—'}</td>
+                              <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{rowTopSqft + rowSplashSqft}</td>
                             </tr>
                           );
                         });
 
                         rows.push(
                           <tr key={`${unitType}-${category}-sub`} className="border-t" style={{ borderColor: 'hsl(var(--table-border))' }}>
-                            <td colSpan={6} className="text-right font-bold text-[10px]">{catLabel} SQFT:</td>
+                            <td colSpan={5} className="text-right font-bold text-[10px]">{catLabel} SQFT:</td>
                             <td className="text-right font-bold text-[10px]" style={{ color: 'hsl(var(--primary))' }}>{catTopTotal}</td>
-                            <td className="text-right font-bold text-[10px]" style={{ color: 'hsl(var(--primary))' }}>{catBsTotal || '—'}</td>
-                            <td className="text-right font-bold text-[10px]" style={{ color: 'hsl(var(--primary))' }}>{catSsTotal || '—'}</td>
-                            <td className="text-right font-bold text-[10px]" style={{ color: 'hsl(var(--primary))' }}>{catTopTotal + catBsTotal + catSsTotal}</td>
+                            <td className="text-right font-bold text-[10px]" style={{ color: 'hsl(var(--primary))' }}>{catSplashTotal || '—'}</td>
+                            <td className="text-right font-bold text-[10px]" style={{ color: 'hsl(var(--primary))' }}>{catTopTotal + catSplashTotal}</td>
                           </tr>
                         );
                         return rows;
