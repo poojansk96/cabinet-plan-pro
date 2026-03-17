@@ -111,43 +111,28 @@ Return ONLY valid JSON — no markdown fences, no explanation:
     const content: string = aiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
     console.log("AI countertop raw:", content.slice(0, 800));
 
-    let parsed: { countertops: any[]; unitType?: string | null } = { countertops: [], unitType: null };
-    try {
-      let cleaned = content.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
-      // Find the last valid JSON object
-      const jsonStart = cleaned.lastIndexOf('{"unitType"');
-      const fallbackStart = cleaned.lastIndexOf('{"countertops"');
-      const start = jsonStart >= 0 ? jsonStart : fallbackStart;
-      if (start > 0) cleaned = cleaned.slice(start);
-      parsed = JSON.parse(cleaned);
-    } catch {
-      console.error("JSON parse failed, raw:", content.slice(0, 500));
-    }
-
-    // Preserve the full unit type exactly as detected from the drawing
-    let unitType: string | null = null;
-    if (parsed.unitType && typeof parsed.unitType === "string") {
-      let ut = parsed.unitType.trim().toUpperCase();
-      ut = ut
+    const normalizeUnitType = (value: unknown): string | null => {
+      if (typeof value !== "string") return null;
+      const ut = value
+        .trim()
+        .toUpperCase()
         .replace(/[\u2010-\u2015]/g, "-")
         .replace(/\s*-\s*/g, "-")
         .replace(/\(\s+/g, "(")
         .replace(/\s+\)/g, ")")
         .replace(/\s+/g, " ")
         .trim();
-      if (ut.length > 0 && ut.length <= 80) unitType = ut;
-    }
+      return ut.length > 0 && ut.length <= 80 ? ut : null;
+    };
 
-    const countertops = (parsed.countertops ?? []).map((ct: any) => {
+    const mapCountertops = (items: any[] = []) => items.map((ct: any) => {
       const depth = Math.round((Number(ct.depth) || 25.5) * 2) / 2;
-      // Fallback classification: depth <= 22 → bath, else kitchen
       let category: string = String(ct.category || "").toLowerCase();
       if (category !== "kitchen" && category !== "bath") {
         category = depth <= 22 ? "bath" : "kitchen";
       }
       const length = Math.round((Number(ct.length) || 96) * 2) / 2;
       const hasBacksplash = Boolean(ct.hasBacksplash);
-      // backsplashLength: use AI-detected value, fallback to top length if hasBacksplash
       let backsplashLength = Math.round((Number(ct.backsplashLength) || 0) * 2) / 2;
       if (hasBacksplash && backsplashLength === 0) backsplashLength = length;
       return {
@@ -161,6 +146,38 @@ Return ONLY valid JSON — no markdown fences, no explanation:
         room: String(ct.room || "Kitchen").trim(),
       };
     });
+
+    let parsed: { countertops: any[]; unitType?: string | null } = { countertops: [], unitType: null };
+    try {
+      let cleaned = content.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
+      const jsonStart = cleaned.lastIndexOf('{"unitType"');
+      const fallbackStart = cleaned.lastIndexOf('{"countertops"');
+      const start = jsonStart >= 0 ? jsonStart : fallbackStart;
+      if (start > 0) cleaned = cleaned.slice(start);
+      parsed = JSON.parse(cleaned);
+    } catch {
+      console.error("JSON parse failed, raw:", content.slice(0, 500));
+      const recoveredUnitType = normalizeUnitType(content.match(/"unitType"\s*:\s*"([^"]+)"/i)?.[1] ?? null);
+      const recoveredRows: any[] = [];
+      const rowPattern = /\{\s*"label"\s*:\s*"([^"]+)"[\s\S]*?"length"\s*:\s*([\d.]+)[\s\S]*?"depth"\s*:\s*([\d.]+)[\s\S]*?"category"\s*:\s*"(kitchen|bath)"[\s\S]*?"hasBacksplash"\s*:\s*(true|false)[\s\S]*?"backsplashLength"\s*:\s*([\d.]+)[\s\S]*?"sidesplashCount"\s*:\s*(\d+)[\s\S]*?"room"\s*:\s*"([^"]+)"[\s\S]*?\}/gi;
+      let rowMatch: RegExpExecArray | null;
+      while ((rowMatch = rowPattern.exec(content)) !== null) {
+        recoveredRows.push({
+          label: rowMatch[1],
+          length: Number(rowMatch[2]),
+          depth: Number(rowMatch[3]),
+          category: rowMatch[4],
+          hasBacksplash: rowMatch[5] === "true",
+          backsplashLength: Number(rowMatch[6]),
+          sidesplashCount: Number(rowMatch[7]),
+          room: rowMatch[8],
+        });
+      }
+      parsed = { unitType: recoveredUnitType, countertops: recoveredRows };
+    }
+
+    const unitType = normalizeUnitType(parsed.unitType);
+    const countertops = mapCountertops(parsed.countertops ?? []);
 
     return new Response(JSON.stringify({ countertops, unitType }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

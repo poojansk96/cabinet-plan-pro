@@ -154,14 +154,17 @@ export default function PreFinalModule({ project }: Props) {
     setTimeout(() => setCabinetImportedCount(null), 4000);
   };
   // ── Stone import handler ────────────────────────────────────────────────
-  const handleStoneImport = (rows: StoneExtractedRow[]) => {
+  const handleStoneImport = (rows: StoneExtractedRow[], detectedUnitType?: string) => {
     const selectedRows = rows.filter(r => r.selected !== false);
+    const importFallbackType = detectedUnitType?.trim() ? normalizeDetectedStoneType(detectedUnitType) : null;
     const rowsByType = new Map<string, PrefinalStoneRow[]>();
     const orderedTypes: string[] = [];
 
     for (const row of selectedRows) {
       const rawType = row.detectedUnitType?.trim();
-      const targetType = rawType ? normalizeDetectedStoneType(rawType) : 'Unassigned';
+      const targetType = rawType
+        ? normalizeDetectedStoneType(rawType)
+        : (importFallbackType || 'Unassigned');
       if (!rowsByType.has(targetType)) {
         rowsByType.set(targetType, []);
         orderedTypes.push(targetType);
@@ -304,7 +307,7 @@ export default function PreFinalModule({ project }: Props) {
       {/* Stone Import Dialog */}
       {showStoneImport && (
         <StonePDFImportDialog
-          onImport={(rows) => handleStoneImport(rows)}
+          onImport={(rows, detectedUnitType) => handleStoneImport(rows, detectedUnitType)}
           onClose={() => setShowStoneImport(false)}
           prefinalPerson={project.specs?.takeoffPerson}
         />
