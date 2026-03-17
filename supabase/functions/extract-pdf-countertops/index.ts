@@ -139,6 +139,12 @@ Return ONLY valid JSON — no markdown fences, no explanation:
       const hasBacksplash = Boolean(ct.hasBacksplash);
       let backsplashLength = Math.round((Number(ct.backsplashLength) || 0) * 2) / 2;
       if (hasBacksplash && backsplashLength === 0) backsplashLength = length;
+      // Sanity cap: backsplashLength should not exceed length + 2*depth for any single section
+      const maxReasonableBacksplash = length + 2 * depth;
+      if (backsplashLength > maxReasonableBacksplash) {
+        console.warn(`Capping backsplashLength from ${backsplashLength} to ${maxReasonableBacksplash} for "${ct.label}"`);
+        backsplashLength = maxReasonableBacksplash;
+      }
       return {
         label: String(ct.label || "Section").trim(),
         length,
