@@ -1119,7 +1119,7 @@ export default function PreFinalModule({ project }: Props) {
                             const isIsland = r.depth >= 30;
                             const splash = isIsland ? 0 : (r.category === 'kitchen' ? bsH.kitchen : bsH.bath);
                             const topSqft = Math.ceil((r.length * r.depth) / 144);
-                            const combinedInches = (r.backsplashLength || r.length) + ((r.sidesplashCount || 0) * r.depth);
+                            const combinedInches = (Number.isFinite(Number(r.backsplashLength)) ? Number(r.backsplashLength) : 0) + ((r.sidesplashCount || 0) * r.depth);
                             const splashSqft = splash > 0 ? Math.ceil((combinedInches * splash) / 144) : 0;
                             if (r.category === 'kitchen') typeKitchen += topSqft + splashSqft;
                             else typeBath += topSqft + splashSqft;
