@@ -1127,11 +1127,10 @@ export default function PreFinalModule({ project }: Props) {
                           const isIsland = r.depth >= 30;
                           const splash = isIsland ? 0 : (r.category === 'kitchen' ? bsH.kitchen : bsH.bath);
                           const topSqft = Math.ceil((r.length * r.depth) / 144);
-                          const bsLength = r.backsplashLength || r.length;
-                          const bsSqft = splash > 0 ? Math.ceil((bsLength * splash) / 144) : 0;
-                          const ssSqft = ((r.sidesplashCount || 0) > 0 && splash > 0) ? Math.ceil(((r.sidesplashCount || 0) * r.depth * splash) / 144) : 0;
-                          if (r.category === 'kitchen') grandKitchen += (topSqft + bsSqft + ssSqft) * unitCount;
-                          else grandBath += (topSqft + bsSqft + ssSqft) * unitCount;
+                          const combinedInches = (r.backsplashLength || r.length) + ((r.sidesplashCount || 0) * r.depth);
+                          const splashSqft = splash > 0 ? Math.ceil((combinedInches * splash) / 144) : 0;
+                          if (r.category === 'kitchen') grandKitchen += (topSqft + splashSqft) * unitCount;
+                          else grandBath += (topSqft + splashSqft) * unitCount;
                         });
                       });
                       return (
