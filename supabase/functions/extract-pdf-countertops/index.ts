@@ -124,19 +124,18 @@ Return ONLY valid JSON — no markdown fences, no explanation:
       console.error("JSON parse failed, raw:", content.slice(0, 500));
     }
 
-    // Clean up the unit type — preserve the FULL name from the drawing
+    // Preserve the full unit type exactly as detected from the drawing
     let unitType: string | null = null;
     if (parsed.unitType && typeof parsed.unitType === "string") {
       let ut = parsed.unitType.trim().toUpperCase();
-      // Only remove leading "TYPE " prefix to keep names consistent with unit detection
-      ut = ut.replace(/^TYPE\s+/i, "");
-      // Also remove leading "PLAN " prefix
-      ut = ut.replace(/^PLAN\s+/i, "");
-      // Normalize whitespace around hyphens but preserve everything else (parentheses, suffixes, etc.)
-      ut = ut.replace(/\s*-\s*/g, "-");
-      if (ut.length > 0 && ut.length <= 60) {
-        unitType = ut;
-      }
+      ut = ut
+        .replace(/[\u2010-\u2015]/g, "-")
+        .replace(/\s*-\s*/g, "-")
+        .replace(/\(\s+/g, "(")
+        .replace(/\s+\)/g, ")")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (ut.length > 0 && ut.length <= 80) unitType = ut;
     }
 
     const countertops = (parsed.countertops ?? []).map((ct: any) => {

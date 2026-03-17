@@ -237,10 +237,24 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
         const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
         const fileFallbackType = detectTypeFromFilename(file.name);
         let fileType: string | null = null;
+        const fileRowStartIndex = allRows.length;
 
         for (let p = 1; p <= pdf.numPages; p++) {
           setStatusMsg(`Processing ${file.name} — page ${p}/${pdf.numPages}`);
           const page = await pdf.getPage(p);
+
+          let pageText = '';
+          try {
+            const textContent = await page.getTextContent();
+            pageText = textContent.items
+              .map((item: any) => item.str)
+              .filter((s: string) => s.trim().length > 0)
+              .join(' ');
+          } catch (err) {
+            console.warn(`Failed to read text layer on page ${p}:`, err);
+          }
+
+          const textType = detectTypeFromText(pageText);
           const pageImage = await renderPageToBase64(page);
 
           try {
@@ -258,14 +272,24 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
 
             if (resp.ok) {
               const data = await resp.json();
-              // Use AI-detected unit type from the drawing's title block
-              const aiType = data.unitType ? String(data.unitType).trim() : null;
-              const pageType = aiType || fileType || fileFallbackType || null;
-              // Remember first detected type for subsequent pages in same file
-              if (aiType && !fileType) fileType = aiType;
-              if (pageType && !lastFileType) {
-                lastFileType = pageType;
-                setDetectedType(pageType);
+              const aiType = data.unitType ? cleanDetectedType(String(data.unitType).trim()) : null;
+              const resolvedPageType = aiType || textType || fileType || fileFallbackType || null;
+
+              if (resolvedPageType && !fileType) {
+                fileType = resolvedPageType;
+              }
+
+              if (fileType) {
+                for (let i = fileRowStartIndex; i < allRows.length; i++) {
+                  if (allRows[i].sourceFile === file.name && !allRows[i].detectedUnitType) {
+                    allRows[i] = { ...allRows[i], detectedUnitType: fileType };
+                  }
+                }
+              }
+
+              if (resolvedPageType && !lastFileType) {
+                lastFileType = resolvedPageType;
+                setDetectedType(resolvedPageType);
               }
 
               for (const ct of (data.countertops ?? [])) {
@@ -281,7 +305,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                   room: ct.room || 'Kitchen',
                   selected: true,
                   sourceFile: file.name,
-                  detectedUnitType: pageType || undefined,
+                  detectedUnitType: resolvedPageType || fileType || undefined,
                 });
               }
             }
@@ -291,6 +315,14 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
 
           pagesDone++;
           setProgress(Math.round((pagesDone / pagesTotal) * 100));
+        }
+
+        if (fileType) {
+          for (let i = fileRowStartIndex; i < allRows.length; i++) {
+            if (allRows[i].sourceFile === file.name && !allRows[i].detectedUnitType) {
+              allRows[i] = { ...allRows[i], detectedUnitType: fileType };
+            }
+          }
         }
       }
 
