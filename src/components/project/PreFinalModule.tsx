@@ -927,7 +927,7 @@ export default function PreFinalModule({ project }: Props) {
                   const calcTopSqft = (groups: { depth: number; totalLength: number }[]) =>
                     groups.reduce((sum, g) => sum + Math.ceil((g.totalLength * g.depth) / 144), 0);
                   const calcSplashSqft = (groups: { depth: number; totalLength: number }[], splashH: number) =>
-                    splashH > 0 ? groups.reduce((sum, g) => sum + Math.ceil((g.totalLength * splashH) / 144), 0) : 0;
+                    splashH > 0 ? groups.filter(g => g.depth < 30).reduce((sum, g) => sum + Math.ceil((g.totalLength * splashH) / 144), 0) : 0;
 
                   const kitchenTopSqft = calcTopSqft(kitchenGroups);
                   const kitchenSplashSqft = calcSplashSqft(kitchenGroups, bsH.kitchen);
