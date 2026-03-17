@@ -220,7 +220,7 @@ function loadData(projectId: string): PrefinalData {
         bidCostPerType: parsed.bidCostPerType || {},
         additionalCostPerType: parsed.additionalCostPerType || {},
         stoneBacksplashHeight: {},
-        stoneUnitTypes: parsed.stoneUnitTypes || [],
+        stoneBacksplashHeight: parsed.stoneBacksplashHeight || {},
       };
     }
     // Normalize + deduplicate unit types preserving first-seen order
