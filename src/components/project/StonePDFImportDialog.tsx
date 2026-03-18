@@ -268,40 +268,66 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
 
           const textType = detectTypeFromText(pageText);
 
-          // Call edge function
+          // Call both extraction functions in parallel
           setStatusMsg(`Processing ${file.name} — page ${p}/${pdf.numPages}`);
           const pageImage = await renderPageToBase64(page);
           let result: { countertops: RawCountertop[]; unitType: string | null } = { countertops: [], unitType: null };
-          try {
-            const resp = await fetch(`${SUPABASE_URL}/functions/v1/extract-pdf-countertops`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${SUPABASE_KEY}`,
-              },
-              body: JSON.stringify({ pageImage }),
-            });
+          let bsssGroups: { category: string; totalInches: number; dimensions: number[] }[] = [];
 
-            if (resp.status === 429) { setError('Rate limit reached. Please wait and try again.'); }
-            else if (resp.status === 402) { setError('AI credits exhausted.'); }
-            else if (resp.ok) {
-              const data = await resp.json();
+          try {
+            const [mainResp, bsResp] = await Promise.all([
+              fetch(`${SUPABASE_URL}/functions/v1/extract-pdf-countertops`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_KEY}` },
+                body: JSON.stringify({ pageImage }),
+              }),
+              fetch(`${SUPABASE_URL}/functions/v1/extract-pdf-backsplash`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_KEY}` },
+                body: JSON.stringify({ pageImage }),
+              }),
+            ]);
+
+            // Process main extraction
+            if (mainResp.status === 429) { setError('Rate limit reached. Please wait and try again.'); }
+            else if (mainResp.status === 402) { setError('AI credits exhausted.'); }
+            else if (mainResp.ok) {
+              const data = await mainResp.json();
               const aiType = data.unitType ? cleanDetectedType(String(data.unitType).trim()) : null;
               const cts: RawCountertop[] = (data.countertops ?? []).map((ct: any) => ({
                 label: String(ct.label || 'Section').trim(),
                 length: ct.length,
                 depth: ct.depth,
                 splashHeight: ct.splashHeight ?? null,
-                sidesplashCount: Number(ct.sidesplashCount) || 0,
-                backsplashLength: Number.isFinite(Number(ct.backsplashLength)) ? Number(ct.backsplashLength) : 0,
+                sidesplashCount: 0, // BS&SS comes from separate extraction
+                backsplashLength: 0, // BS&SS comes from separate extraction
                 category: ct.category || (ct.depth <= 22 ? 'bath' : 'kitchen'),
                 room: String(ct.room || 'Kitchen').trim(),
               }));
               result = { countertops: cts, unitType: aiType };
             }
+
+            // Process BS&SS extraction
+            if (bsResp.ok) {
+              const bsData = await bsResp.json();
+              bsssGroups = bsData.groups ?? [];
+              console.log(`BS&SS page ${p}:`, bsssGroups);
+            }
           } catch (err) {
             console.error(`Error on page ${p}:`, err);
           }
+
+          // Merge BS&SS totals into countertop rows:
+          // For each category, put total double-line inches as backsplashLength on the first row
+          for (const group of bsssGroups) {
+            const cat = group.category?.toLowerCase();
+            if (!cat || group.totalInches <= 0) continue;
+            const firstRow = result.countertops.find(ct => ct.category === cat);
+            if (firstRow) {
+              firstRow.backsplashLength = group.totalInches;
+            }
+          }
+
           pagesDone++;
           setProgress(Math.round((pagesDone / pagesTotal) * 100));
 
