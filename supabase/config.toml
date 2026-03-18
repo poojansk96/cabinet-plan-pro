@@ -15,4 +15,7 @@ verify_jwt = false
 [functions.extract-pdf-cabinets]
 verify_jwt = false
 
+[functions.extract-pdf-backsplash]
+verify_jwt = false
+
 
