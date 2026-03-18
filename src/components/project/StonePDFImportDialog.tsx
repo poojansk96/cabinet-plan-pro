@@ -135,38 +135,33 @@ function normalizeLabel(label: string): string {
   return String(label || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
-// Merge multiple pass results: passes[0] is source of truth for count;
-// strips only refine splash data (MIN backsplashLength, MAX sidesplashCount)
+// Merge multiple pass results: match by label+length+depth, take MIN backsplashLength
 function mergePassResults(passes: RawCountertop[][]): RawCountertop[] {
+  // Use full-page (first pass) as base
   const base = passes[0] || [];
   if (passes.length <= 1) return base;
 
-  const splashDataMap = new Map<string, { back: number, side: number }>();
+  // Build map from normalized key -> all backsplashLength values seen
+  const backsplashMap = new Map<string, number[]>();
 
   for (const pass of passes) {
     for (const ct of pass) {
       const key = `${normalizeLabel(ct.label)}|${ct.length}|${ct.depth}`;
-      if (!splashDataMap.has(key)) {
-        splashDataMap.set(key, { back: ct.backsplashLength, side: ct.sidesplashCount });
-      } else {
-        const existing = splashDataMap.get(key)!;
-        if (ct.backsplashLength > 0 && ct.backsplashLength < existing.back) {
-          existing.back = ct.backsplashLength;
-        }
-        existing.side = Math.max(existing.side, ct.sidesplashCount);
-      }
+      if (!backsplashMap.has(key)) backsplashMap.set(key, []);
+      backsplashMap.get(key)!.push(ct.backsplashLength);
     }
   }
 
+  // Apply MIN backsplashLength to base results
   return base.map(ct => {
     const key = `${normalizeLabel(ct.label)}|${ct.length}|${ct.depth}`;
-    const bestSplash = splashDataMap.get(key);
-    if (bestSplash) {
-      return { 
-        ...ct, 
-        backsplashLength: bestSplash.back,
-        sidesplashCount: Math.max(ct.sidesplashCount, bestSplash.side)
-      };
+    const allValues = backsplashMap.get(key);
+    if (allValues && allValues.length > 1) {
+      const minBacksplash = Math.min(...allValues);
+      if (minBacksplash < ct.backsplashLength) {
+        console.log(`Stone merge: "${ct.label}" backsplash ${ct.backsplashLength} -> ${minBacksplash} (MIN of ${allValues.join(',')})`);
+        return { ...ct, backsplashLength: minBacksplash };
+      }
     }
     return ct;
   });
@@ -270,14 +265,8 @@ function detectTypeFromFilename(fileName: string): string | null {
 }
 
 function calcSqft(row: StoneExtractedRow): number {
-  const deckSqIn = row.length * row.depth;
-  let splashSqIn = 0;
-  if (row.splashHeight && row.splashHeight > 0) {
-    const sideSplashLength = (row.sidesplashCount || 0) * row.depth;
-    const backLength = row.backsplashLength || 0; 
-    splashSqIn = (backLength + sideSplashLength) * row.splashHeight;
-  }
-  return Math.ceil((deckSqIn + splashSqIn) / 144);
+  const effectiveDepth = row.depth + (row.splashHeight ?? 0);
+  return Math.ceil((row.length * effectiveDepth) / 144);
 }
 
 const QUOTES = [
@@ -630,8 +619,6 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                         <th className="text-right">Length"</th>
                         <th className="text-right">Depth"</th>
                         <th className="text-right">Backsplash"</th>
-                        <th className="text-right" title="Backsplash Length">Back L"</th>
-                        <th className="text-center" title="Sidesplash Count">Side Qty</th>
                         <th className="text-center">Category</th>
                         <th className="text-right">SQFT</th>
                         <th></th>
@@ -647,8 +634,6 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                           <td className="text-right"><input type="number" className="est-input w-16 text-right text-xs" value={row.length} min={1} onChange={e => updateRow(idx, { length: +e.target.value })} /></td>
                           <td className="text-right"><input type="number" className="est-input w-16 text-right text-xs" value={row.depth} min={1} step={0.5} onChange={e => updateRow(idx, { depth: +e.target.value })} /></td>
                           <td className="text-right"><input type="number" className="est-input w-14 text-right text-xs" value={row.splashHeight ?? ''} min={0} step={0.5} onChange={e => updateRow(idx, { splashHeight: e.target.value ? +e.target.value : null })} placeholder="—" /></td>
-                          <td className="text-right"><input type="number" className="est-input w-16 text-right text-xs" value={row.backsplashLength} min={0} onChange={e => updateRow(idx, { backsplashLength: +e.target.value })} /></td>
-                          <td className="text-center"><input type="number" className="est-input w-12 text-center text-xs" value={row.sidesplashCount} min={0} max={2} onChange={e => updateRow(idx, { sidesplashCount: +e.target.value })} /></td>
                           <td className="text-center">
                             <select className="est-input text-xs w-20" value={row.category} onChange={e => updateRow(idx, { category: e.target.value as 'kitchen' | 'bath' })}>
                               <option value="kitchen">Kitchen</option>
@@ -662,7 +647,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                     </tbody>
                     <tfoot>
                       <tr className="font-bold border-t border-border">
-                        <td colSpan={10} className="text-right">Total SQFT:</td>
+                        <td colSpan={8} className="text-right">Total SQFT:</td>
                         <td className="text-right" style={{ color: 'hsl(var(--primary))' }}>{totalSqft}</td>
                         <td></td>
                       </tr>
