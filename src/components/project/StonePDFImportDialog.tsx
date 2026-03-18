@@ -135,35 +135,44 @@ function normalizeLabel(label: string): string {
   return String(label || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
-// Merge multiple pass results: match by label+length+depth, take MIN backsplashLength
+// Merge multiple pass results: match by label+length+depth, take MIN backsplashLength and MIN sidesplashCount
 function mergePassResults(passes: RawCountertop[][]): RawCountertop[] {
-  // Use full-page (first pass) as base
   const base = passes[0] || [];
   if (passes.length <= 1) return base;
 
-  // Build map from normalized key -> all backsplashLength values seen
   const backsplashMap = new Map<string, number[]>();
+  const sidesplashMap = new Map<string, number[]>();
 
   for (const pass of passes) {
     for (const ct of pass) {
       const key = `${normalizeLabel(ct.label)}|${ct.length}|${ct.depth}`;
       if (!backsplashMap.has(key)) backsplashMap.set(key, []);
-      backsplashMap.get(key)!.push(ct.backsplashLength);
+      if (!sidesplashMap.has(key)) sidesplashMap.set(key, []);
+      backsplashMap.get(key)!.push(Number(ct.backsplashLength) || 0);
+      sidesplashMap.get(key)!.push(Math.max(0, Math.min(2, Number(ct.sidesplashCount) || 0)));
     }
   }
 
-  // Apply MIN backsplashLength to base results
   return base.map(ct => {
     const key = `${normalizeLabel(ct.label)}|${ct.length}|${ct.depth}`;
-    const allValues = backsplashMap.get(key);
-    if (allValues && allValues.length > 1) {
-      const minBacksplash = Math.min(...allValues);
-      if (minBacksplash < ct.backsplashLength) {
-        console.log(`Stone merge: "${ct.label}" backsplash ${ct.backsplashLength} -> ${minBacksplash} (MIN of ${allValues.join(',')})`);
-        return { ...ct, backsplashLength: minBacksplash };
-      }
+    const backsplashValues = backsplashMap.get(key) || [];
+    const sidesplashValues = sidesplashMap.get(key) || [];
+    const minBacksplash = backsplashValues.length ? Math.min(...backsplashValues) : ct.backsplashLength;
+    const minSidesplash = sidesplashValues.length ? Math.min(...sidesplashValues) : Math.max(0, Math.min(2, Number(ct.sidesplashCount) || 0));
+
+    const next = {
+      ...ct,
+      backsplashLength: minBacksplash,
+      sidesplashCount: minSidesplash,
+    };
+
+    if (minBacksplash < ct.backsplashLength || minSidesplash < (Number(ct.sidesplashCount) || 0)) {
+      console.log(
+        `Stone merge: "${ct.label}" backsplash ${ct.backsplashLength} -> ${minBacksplash}, sidesplash ${Number(ct.sidesplashCount) || 0} -> ${minSidesplash}`
+      );
     }
-    return ct;
+
+    return next;
   });
 }
 
