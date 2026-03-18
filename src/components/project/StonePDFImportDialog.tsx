@@ -38,7 +38,7 @@ const PERSONAL_QUOTES = [
 
 type Step = 'upload' | 'processing' | 'review';
 
-async function renderPageToBase64(page: any, scale = 3): Promise<string> {
+async function renderPageToBase64(page: any, scale = 2.5): Promise<string> {
   const vp = page.getViewport({ scale });
   let canvas: any;
   let ctx: any;
@@ -72,7 +72,7 @@ async function renderPageToBase64(page: any, scale = 3): Promise<string> {
 }
 
 // Render a horizontal strip of a page (yStart/yEnd as fractions 0-1, with overlap)
-async function renderStripToBase64(page: any, yStartFrac: number, yEndFrac: number, scale = 3): Promise<string> {
+async function renderStripToBase64(page: any, yStartFrac: number, yEndFrac: number, scale = 2.5): Promise<string> {
   const fullVp = page.getViewport({ scale });
   const yStart = Math.floor(fullVp.height * yStartFrac);
   const yEnd = Math.ceil(fullVp.height * yEndFrac);
