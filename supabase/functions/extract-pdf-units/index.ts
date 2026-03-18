@@ -192,7 +192,7 @@ serve(async (req) => {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 contents: [{ role: "user", parts: geminiParts }],
-                generationConfig: { temperature: 0.1 },
+                generationConfig: { temperature: 0.1, maxOutputTokens: 65536 },
               }),
             }
           );
