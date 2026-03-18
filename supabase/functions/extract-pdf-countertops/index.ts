@@ -56,7 +56,7 @@ RULES:
 - Standard depths: perimeter kitchen = 25.5\", island = 36\", bar = 12-18\", vanity/bath = 22\"
 - BACKSPLASH DETECTION: A double line at the back wall edge means backsplash is present. If you do NOT see a double line on an edge, that edge has NO backsplash — do not count it
 - BACKSPLASH LENGTH vs TOP LENGTH: These are DIFFERENT. Top length uses front-edge (deducted at corners). Backsplash length uses the FULL WALL DIMENSION (no deduction). Never copy top length into backsplashLength for a return leg
-- SIDESPLASH: A double line at the short side/end of the countertop at a wall. Each sidesplash adds depth-inches to the splash total. Look carefully at every open end of every section
+- SIDESPLASH: ONLY count a sidesplash where you can clearly see a distinct double line at the short side/end of the countertop. Do NOT assume or infer sidesplashes — visually confirm each one. When in doubt, use 0. A countertop can have 0, 1, or 2 sidesplashes but most commonly has 0 or 1
 - The unitType is the PLAN/UNIT TYPE identifier from the title block — NOT a room name like "Kitchen" or "Bath"
 
 Return ONLY valid JSON — no markdown fences, no explanation:
