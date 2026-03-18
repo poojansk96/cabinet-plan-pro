@@ -251,23 +251,38 @@ export default function PreFinalModule({ project }: Props) {
 
   const getEffectiveSidesplashCount = (row: PrefinalStoneRow, siblingRows: PrefinalStoneRow[]): number => {
     const rawCount = Math.max(0, Math.min(2, Number(row.sidesplashCount) || 0));
+    const backsplashLength = Number.isFinite(Number(row.backsplashLength)) ? Number(row.backsplashLength) : 0;
+    const length = Number.isFinite(Number(row.length)) ? Number(row.length) : 0;
+    const depth = Number.isFinite(Number(row.depth)) ? Number(row.depth) : 0;
+    const extraBacksplash = backsplashLength - length;
+    const isGeometricReturnLeg = extraBacksplash > 0.5 && Math.abs(extraBacksplash - depth) <= 1;
+    const isWrappedSingleRow = extraBacksplash > 0.5;
+
     const wrapGroup = getWrappedStoneGroup(row, siblingRows);
-    if (wrapGroup.length <= 1) return rawCount;
+    if (wrapGroup.length > 1) {
+      const totalRawCount = wrapGroup.reduce((sum, item) => sum + Math.max(0, Math.min(2, Number(item.sidesplashCount) || 0)), 0);
+      if (totalRawCount <= 1) return rawCount;
 
-    const totalRawCount = wrapGroup.reduce((sum, item) => sum + Math.max(0, Math.min(2, Number(item.sidesplashCount) || 0)), 0);
-    if (totalRawCount <= 1) return rawCount;
+      const primaryRow = [...wrapGroup].sort((a, b) => {
+        const aMain = /\bMAIN\b/.test(normalizeStoneLabelKey(a.label)) ? 1 : 0;
+        const bMain = /\bMAIN\b/.test(normalizeStoneLabelKey(b.label)) ? 1 : 0;
+        if (aMain !== bMain) return bMain - aMain;
+        const aScore = Math.max(Number(a.backsplashLength) || 0, Number(a.length) || 0);
+        const bScore = Math.max(Number(b.backsplashLength) || 0, Number(b.length) || 0);
+        return bScore - aScore;
+      })[0];
 
-    const primaryRow = [...wrapGroup].sort((a, b) => {
-      const aMain = /\bMAIN\b/.test(normalizeStoneLabelKey(a.label)) ? 1 : 0;
-      const bMain = /\bMAIN\b/.test(normalizeStoneLabelKey(b.label)) ? 1 : 0;
-      if (aMain !== bMain) return bMain - aMain;
-      const aScore = Math.max(Number(a.backsplashLength) || 0, Number(a.length) || 0);
-      const bScore = Math.max(Number(b.backsplashLength) || 0, Number(b.length) || 0);
-      return bScore - aScore;
-    })[0];
+      const primaryCount = Math.max(...wrapGroup.map(item => Math.max(0, Math.min(2, Number(item.sidesplashCount) || 0))));
+      return row === primaryRow ? primaryCount : 0;
+    }
 
-    const primaryCount = Math.max(...wrapGroup.map(item => Math.max(0, Math.min(2, Number(item.sidesplashCount) || 0))));
-    return row === primaryRow ? primaryCount : 0;
+    // Guard against the exact overcount case from wrapped runs:
+    // - return legs often come through with backsplashLength ≈ length + depth, which should add 0 sidesplashes
+    // - combined L/U rows can still report 2 sidesplashes even though only one visible end should count
+    if (isGeometricReturnLeg) return 0;
+    if (isWrappedSingleRow) return Math.min(rawCount, 1);
+
+    return rawCount;
   };
 
   const getCombinedSplashInches = (row: PrefinalStoneRow, siblingRows: PrefinalStoneRow[]): number => {
