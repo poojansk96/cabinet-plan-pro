@@ -135,33 +135,38 @@ function normalizeLabel(label: string): string {
   return String(label || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
-// Merge multiple pass results: match by label+length+depth, take MIN backsplashLength
+// Merge multiple pass results: passes[0] is source of truth for count;
+// strips only refine splash data (MIN backsplashLength, MAX sidesplashCount)
 function mergePassResults(passes: RawCountertop[][]): RawCountertop[] {
-  // Use full-page (first pass) as base
   const base = passes[0] || [];
   if (passes.length <= 1) return base;
 
-  // Build map from normalized key -> all backsplashLength values seen
-  const backsplashMap = new Map<string, number[]>();
+  const splashDataMap = new Map<string, { back: number, side: number }>();
 
   for (const pass of passes) {
     for (const ct of pass) {
       const key = `${normalizeLabel(ct.label)}|${ct.length}|${ct.depth}`;
-      if (!backsplashMap.has(key)) backsplashMap.set(key, []);
-      backsplashMap.get(key)!.push(ct.backsplashLength);
+      if (!splashDataMap.has(key)) {
+        splashDataMap.set(key, { back: ct.backsplashLength, side: ct.sidesplashCount });
+      } else {
+        const existing = splashDataMap.get(key)!;
+        if (ct.backsplashLength > 0 && ct.backsplashLength < existing.back) {
+          existing.back = ct.backsplashLength;
+        }
+        existing.side = Math.max(existing.side, ct.sidesplashCount);
+      }
     }
   }
 
-  // Apply MIN backsplashLength to base results
   return base.map(ct => {
     const key = `${normalizeLabel(ct.label)}|${ct.length}|${ct.depth}`;
-    const allValues = backsplashMap.get(key);
-    if (allValues && allValues.length > 1) {
-      const minBacksplash = Math.min(...allValues);
-      if (minBacksplash < ct.backsplashLength) {
-        console.log(`Stone merge: "${ct.label}" backsplash ${ct.backsplashLength} -> ${minBacksplash} (MIN of ${allValues.join(',')})`);
-        return { ...ct, backsplashLength: minBacksplash };
-      }
+    const bestSplash = splashDataMap.get(key);
+    if (bestSplash) {
+      return { 
+        ...ct, 
+        backsplashLength: bestSplash.back,
+        sidesplashCount: Math.max(ct.sidesplashCount, bestSplash.side)
+      };
     }
     return ct;
   });
