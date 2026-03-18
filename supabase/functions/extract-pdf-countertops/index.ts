@@ -39,7 +39,7 @@ TASK:
       - Otherwise → "kitchen"
     e. **hasBacksplash** — true ONLY if you see a visible double line along the back edge of the countertop (indicating a backsplash), or if the drawing explicitly annotates a backsplash. If you do NOT see a double line, set to false.
     f. **backsplashLength** — IMPORTANT: backsplashLength uses WALL DIMENSIONS, NOT front-edge dimensions. The depth deduction rule for "length" does NOT apply here. For each edge where you see a double backsplash line, use the FULL WALL DIMENSION as labeled in the drawing. Example: An L-shaped counter has a main run of 129" and a return wall of 39". If backsplash runs along both walls, backsplashLength = 129 + 39 = 168 (NOT 129 + 13.5). The return's backsplash covers the full 39" wall, even though its top surface front edge is only 13.5". Do NOT add depth at corner junctions. If no double line is visible, set to 0.
-    g. **sidesplashCount** — A sidesplash is a short double-line return at the OPEN END of the countertop where it terminates at a wall. Look at each end of every countertop section: if the end meets a wall and you see a small double line perpendicular to the backsplash, that is a sidesplash. Count each one (0, 1, or 2). A standalone piece against a wall with backsplash typically has 1 or 2 sidesplashes at its ends. Islands have 0.
+    g. **sidesplashCount** — A sidesplash is a short double-line return at the OPEN END of the countertop where it terminates at a wall. STRICT RULE: Only count a sidesplash if you can CLEARLY SEE a distinct double line (two parallel lines close together) at that specific end of the countertop. Do NOT assume sidesplashes exist — you must visually confirm each one. If an end of the countertop is open (no wall, or connects to another section/appliance), it has NO sidesplash. If an end meets a wall but you do NOT see the characteristic double line there, it has NO sidesplash. Count 0, 1, or 2 based ONLY on what you visually see. Default to 0 when uncertain. Islands always have 0.
     h. **room** — the room this countertop is in (Kitchen, Bath, Laundry, Bar, Pantry, etc.)
 
 RULES:
@@ -56,7 +56,7 @@ RULES:
 - Standard depths: perimeter kitchen = 25.5\", island = 36\", bar = 12-18\", vanity/bath = 22\"
 - BACKSPLASH DETECTION: A double line at the back wall edge means backsplash is present. If you do NOT see a double line on an edge, that edge has NO backsplash — do not count it
 - BACKSPLASH LENGTH vs TOP LENGTH: These are DIFFERENT. Top length uses front-edge (deducted at corners). Backsplash length uses the FULL WALL DIMENSION (no deduction). Never copy top length into backsplashLength for a return leg
-- SIDESPLASH: A double line at the short side/end of the countertop at a wall. Each sidesplash adds depth-inches to the splash total. Look carefully at every open end of every section
+- SIDESPLASH: ONLY count a sidesplash where you can clearly see a distinct double line at the short side/end of the countertop. Do NOT assume or infer sidesplashes — visually confirm each one. When in doubt, use 0. A countertop can have 0, 1, or 2 sidesplashes but most commonly has 0 or 1
 - The unitType is the PLAN/UNIT TYPE identifier from the title block — NOT a room name like "Kitchen" or "Bath"
 
 Return ONLY valid JSON — no markdown fences, no explanation:
