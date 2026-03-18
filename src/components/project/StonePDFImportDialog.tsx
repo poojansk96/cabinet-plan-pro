@@ -71,9 +71,16 @@ async function renderPageToBase64(page: any, scale = 2.5): Promise<string> {
   return b64;
 }
 
-
-
-
+interface RawCountertop {
+  label: string;
+  length: number;
+  depth: number;
+  splashHeight: number | null;
+  sidesplashCount: number;
+  backsplashLength: number;
+  category: 'kitchen' | 'bath';
+  room: string;
+}
 
 
 
