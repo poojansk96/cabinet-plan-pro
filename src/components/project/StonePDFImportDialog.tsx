@@ -228,13 +228,10 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
       let pagesDone = 0;
       let pagesTotal = 0;
 
-      // 4 passes per page: 1 full + 3 strips
-      const PASSES_PER_PAGE = 4;
-
       for (const file of files) {
         const buf = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-        pagesTotal += pdf.numPages * PASSES_PER_PAGE;
+        pagesTotal += pdf.numPages;
       }
       setTotalPages(pagesTotal);
       setDetectedType(null);
@@ -264,21 +261,23 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
 
           const textType = detectTypeFromText(pageText);
 
-          // Helper to call edge function and parse result
-          const callExtract = async (imageB64: string): Promise<{ countertops: RawCountertop[]; unitType: string | null }> => {
+          // Call edge function
+          setStatusMsg(`Processing ${file.name} — page ${p}/${pdf.numPages}`);
+          const pageImage = await renderPageToBase64(page);
+          let result: { countertops: RawCountertop[]; unitType: string | null } = { countertops: [], unitType: null };
+          try {
             const resp = await fetch(`${SUPABASE_URL}/functions/v1/extract-pdf-countertops`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${SUPABASE_KEY}`,
               },
-              body: JSON.stringify({ pageImage: imageB64 }),
+              body: JSON.stringify({ pageImage }),
             });
 
-            if (resp.status === 429) { setError('Rate limit reached. Please wait and try again.'); return { countertops: [], unitType: null }; }
-            if (resp.status === 402) { setError('AI credits exhausted.'); return { countertops: [], unitType: null }; }
-
-            if (resp.ok) {
+            if (resp.status === 429) { setError('Rate limit reached. Please wait and try again.'); }
+            else if (resp.status === 402) { setError('AI credits exhausted.'); }
+            else if (resp.ok) {
               const data = await resp.json();
               const aiType = data.unitType ? cleanDetectedType(String(data.unitType).trim()) : null;
               const cts: RawCountertop[] = (data.countertops ?? []).map((ct: any) => ({
@@ -291,44 +290,16 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                 category: ct.category || (ct.depth <= 22 ? 'bath' : 'kitchen'),
                 room: String(ct.room || 'Kitchen').trim(),
               }));
-              return { countertops: cts, unitType: aiType };
+              result = { countertops: cts, unitType: aiType };
             }
-            return { countertops: [], unitType: null };
-          };
-
-          // Pass 1: Full page
-          setStatusMsg(`Processing ${file.name} — page ${p}/${pdf.numPages} (full scan)`);
-          const pageImage = await renderPageToBase64(page);
-          let fullResult: { countertops: RawCountertop[]; unitType: string | null } = { countertops: [], unitType: null };
-          try {
-            fullResult = await callExtract(pageImage);
           } catch (err) {
-            console.error(`Error on full pass page ${p}:`, err);
+            console.error(`Error on page ${p}:`, err);
           }
           pagesDone++;
           setProgress(Math.round((pagesDone / pagesTotal) * 100));
 
-          // Passes 2-4: 3 horizontal strips
-          const allPasses: RawCountertop[][] = [fullResult.countertops];
-          for (let s = 0; s < STRIP_REGIONS.length; s++) {
-            setStatusMsg(`Processing ${file.name} — page ${p}/${pdf.numPages} (strip ${s + 1}/3)`);
-            try {
-              const stripImage = await renderStripToBase64(page, STRIP_REGIONS[s].yStart, STRIP_REGIONS[s].yEnd);
-              const stripResult = await callExtract(stripImage);
-              allPasses.push(stripResult.countertops);
-            } catch (err) {
-              console.error(`Error on strip ${s + 1} page ${p}:`, err);
-              allPasses.push([]);
-            }
-            pagesDone++;
-            setProgress(Math.round((pagesDone / pagesTotal) * 100));
-          }
-
-          // Merge passes: take MIN backsplashLength per section
-          const merged = mergePassResults(allPasses);
-
           // Resolve type
-          const resolvedPageType = fullResult.unitType || textType || fileType || fileFallbackType || null;
+          const resolvedPageType = result.unitType || textType || fileType || fileFallbackType || null;
 
           if (resolvedPageType && !fileType) {
             fileType = resolvedPageType;
@@ -347,7 +318,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
             setDetectedType(resolvedPageType);
           }
 
-          for (const ct of merged) {
+          for (const ct of result.countertops) {
             allRows.push({
               ...ct,
               selected: true,
