@@ -323,7 +323,7 @@ serve(async (req) => {
                   { inlineData: { mimeType: "image/jpeg", data: pageImage } },
                   { text: SYSTEM_PROMPT },
                 ]}],
-              generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
+              generationConfig: { temperature: 0.1, maxOutputTokens: 65536 },
               }),
             }
           );
