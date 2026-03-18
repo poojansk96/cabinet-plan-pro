@@ -14,7 +14,7 @@ async function callGemini(
   pageImage: string,
   prompt: string,
   temperature = 0.1,
-  maxTokens = 8192,
+  maxTokens = 65536,
   responseSchema?: any,
 ): Promise<any> {
   // Model fallback: try primary model 3 times, then fallback to gemini-2.5-flash 3 times

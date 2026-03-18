@@ -76,7 +76,7 @@ Return ONLY valid JSON — no markdown fences, no explanation:
                 { inlineData: { mimeType: "image/jpeg", data: pageImage } },
                 { text: prompt },
               ]}],
-              generationConfig: { temperature: 0.2, maxOutputTokens: 8192 },
+              generationConfig: { temperature: 0.2, maxOutputTokens: 65536 },
             }),
           }
         );
