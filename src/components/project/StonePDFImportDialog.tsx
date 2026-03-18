@@ -265,8 +265,14 @@ function detectTypeFromFilename(fileName: string): string | null {
 }
 
 function calcSqft(row: StoneExtractedRow): number {
-  const effectiveDepth = row.depth + (row.splashHeight ?? 0);
-  return Math.ceil((row.length * effectiveDepth) / 144);
+  const deckSqIn = row.length * row.depth;
+  let splashSqIn = 0;
+  if (row.splashHeight && row.splashHeight > 0) {
+    const sideSplashLength = (row.sidesplashCount || 0) * row.depth;
+    const backLength = row.backsplashLength || 0; 
+    splashSqIn = (backLength + sideSplashLength) * row.splashHeight;
+  }
+  return Math.ceil((deckSqIn + splashSqIn) / 144);
 }
 
 const QUOTES = [
