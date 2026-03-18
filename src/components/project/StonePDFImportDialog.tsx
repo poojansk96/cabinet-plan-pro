@@ -662,7 +662,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                     </tbody>
                     <tfoot>
                       <tr className="font-bold border-t border-border">
-                        <td colSpan={8} className="text-right">Total SQFT:</td>
+                        <td colSpan={10} className="text-right">Total SQFT:</td>
                         <td className="text-right" style={{ color: 'hsl(var(--primary))' }}>{totalSqft}</td>
                         <td></td>
                       </tr>
