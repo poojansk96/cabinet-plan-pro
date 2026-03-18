@@ -14,7 +14,7 @@ async function callGemini(
   pageImage: string,
   prompt: string,
   temperature = 0.1,
-  maxTokens = 8192,
+  maxTokens = 65536,
   responseSchema?: any,
 ): Promise<any> {
   // Model fallback: try primary model 3 times, then fallback to gemini-2.5-flash 3 times
@@ -559,7 +559,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
 
     let extracted: any = { items: [] };
     try {
-      extracted = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", pageImage, extractPrompt, 0.2, 16384, EXTRACT_SCHEMA);
+      extracted = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", pageImage, extractPrompt, 0.2, 65536, EXTRACT_SCHEMA);
     } catch (e: any) {
       if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
