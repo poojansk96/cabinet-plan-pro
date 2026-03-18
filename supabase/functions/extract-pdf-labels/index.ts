@@ -688,6 +688,31 @@ If no cabinet SKUs are found, return {"items":[]}`;
       return item;
     });
 
+    // Filter out AI-hallucinated SKUs not corroborated by the text layer.
+    // Dimension annotations (e.g. 28", 80¾") are often misread as cabinet SKUs (W2812, W8012).
+    // If the text layer has meaningful content but doesn't contain a SKU (even with prefix matching),
+    // remove it — unless it matches a strong accessory/special pattern.
+    if (textLayerSkuSet.size > 0) {
+      const beforeTextFilter = items.length;
+      items = items.filter((item) => {
+        // Direct match
+        if (textLayerSkuSet.has(item.sku)) return true;
+        // Prefix/suffix tolerant match
+        for (const tlSku of textLayerSkuSet) {
+          if (item.sku.startsWith(tlSku) || tlSku.startsWith(item.sku)) return true;
+        }
+        // Keep strong accessory patterns that OCR commonly misses (tiny labels)
+        if (STRONG_STRIP_SKU_RE.test(item.sku)) return true;
+        // Keep accessory-classified items (fillers, toe kicks, etc.)
+        if (ACCESSORY_FLOOR_RE.test(item.sku)) return true;
+        console.log(`Text-layer cross-validation removed hallucinated SKU: ${item.sku}`);
+        return false;
+      });
+      if (beforeTextFilter !== items.length) {
+        console.log(`Text-layer cross-validation removed ${beforeTextFilter - items.length} unsupported SKU(s)`);
+      }
+    }
+
     // When a label is partially hidden (e.g., "W1230-L" cut off → "W1230"), the AI may
     // return both "W1230" (truncated) and "W1230-R" or "W1230-L" as separate entries.
     // If a bare SKU exists alongside a suffixed variant (same base + "-X" suffix) in the
