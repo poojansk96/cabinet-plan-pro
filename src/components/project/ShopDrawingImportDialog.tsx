@@ -69,10 +69,7 @@ async function renderPageToBase64(page: any): Promise<string> {
 }
 
 async function renderPageToCanvasData(page: any): Promise<{ canvas: OffscreenCanvas | HTMLCanvasElement; width: number; height: number }> {
-  const MAX_PX = 4096;
-  const baseViewport = page.getViewport({ scale: 1 });
-  const longSide = Math.max(baseViewport.width, baseViewport.height);
-  const scale = Math.min(4, MAX_PX / longSide);
+  const scale = 1.5;
   const viewport = page.getViewport({ scale });
   const w = Math.ceil(viewport.width);
   const h = Math.ceil(viewport.height);
