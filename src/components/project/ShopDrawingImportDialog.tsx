@@ -69,10 +69,7 @@ async function renderPageToBase64(page: any): Promise<string> {
 }
 
 async function renderPageToCanvasData(page: any): Promise<{ canvas: OffscreenCanvas | HTMLCanvasElement; width: number; height: number }> {
-  const MAX_PX = 4096;
-  const baseViewport = page.getViewport({ scale: 1 });
-  const longSide = Math.max(baseViewport.width, baseViewport.height);
-  const scale = Math.min(4, MAX_PX / longSide);
+  const scale = 1.5;
   const viewport = page.getViewport({ scale });
   const w = Math.ceil(viewport.width);
   const h = Math.ceil(viewport.height);
@@ -615,10 +612,8 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
           onStepDone?.(); // Count each strip (pass or fail) for progress
         }
 
-        // Breather between batches to avoid overwhelming the API with cold-starts
-        if (batchStart + PARALLEL_BATCH < strips.length) {
-          await new Promise(r => setTimeout(r, 2000));
-        }
+        // Breather after each batch to avoid overwhelming the API
+        await new Promise(r => setTimeout(r, 2000));
       }
 
       // ── Merge all passes: MAX qty per SKU+room ──
