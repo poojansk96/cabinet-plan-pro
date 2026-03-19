@@ -47,10 +47,8 @@ const QUOTES = [
   "Behind every great build is a great plan.",
 ];
 
-async function renderPageToBase64(page: any, maxPx = 4096, quality = 0.95): Promise<string> {
+async function renderPageToBase64(page: any, scale = 1.5, quality = 0.95): Promise<string> {
   const baseViewport = page.getViewport({ scale: 1 });
-  const longSide = Math.max(baseViewport.width, baseViewport.height);
-  const scale = Math.min(5, maxPx / longSide);
   const viewport = page.getViewport({ scale });
   if (typeof OffscreenCanvas !== 'undefined') {
     const canvas = new OffscreenCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
