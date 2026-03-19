@@ -558,7 +558,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         };
       }
 
-      // ── PASSES 2-7: 6 overlapping strips for detail recovery (3 at a time) ──
+      // ── PASSES 2-7: 6 overlapping strips for detail recovery (strictly sequential) ──
       onStatus(`Detail scanning "${file.name}" page ${p}/${pdf.numPages}…`);
       const strips = await renderPageStrips(canvas, canvasW, canvasH);
       const allPassItems = [fullItems];
@@ -569,51 +569,50 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         isCommonArea,
       };
 
-      const PARALLEL_BATCH = 3;
-      for (let batchStart = 0; batchStart < strips.length; batchStart += PARALLEL_BATCH) {
-        const batch = strips.slice(batchStart, batchStart + PARALLEL_BATCH);
-        onStatus(`Detail scan ${batchStart + 1}-${batchStart + batch.length}/6 on "${file.name}" page ${p}/${pdf.numPages}…`);
+      if (strips.length > 0) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
 
-        const batchResults = await Promise.allSettled(
-          batch.map(async (stripImage, idx) => {
-            const s = batchStart + idx;
-            const stripResponse = await fetchWithRetry(JSON.stringify({
-              pageImage: stripImage,
-              unitType,
-              pageText,
-              speedMode,
-              classificationOverride,
-              isStrip: true,
-            }));
-            if (stripResponse.ok) {
-              const stripData = await stripResponse.json();
-              if (stripData.error) {
-                console.warn(`Strip ${s + 1} error:`, stripData.error);
-                return null;
-              }
-              if (stripData.items?.length > 0) {
-                console.log(`Page ${p} strip ${s + 1}: found ${stripData.items.length} items`);
-                return stripData.items;
-              }
-            }
-            return null;
-          })
-        );
+      for (const [stripIndex, stripImage] of strips.entries()) {
+        onStatus(`Detail scan ${stripIndex + 1}/${strips.length} on "${file.name}" page ${p}/${pdf.numPages}…`);
 
-        for (const result of batchResults) {
-          if (result.status === 'fulfilled' && result.value) {
-            allPassItems.push(result.value);
-          } else if (result.status === 'rejected') {
-            const err = result.reason;
-            if (err?.message === 'rate_limit') throw err;
-            if (err?.message === 'credits') throw err;
-            console.warn(`Strip batch failed:`, err?.message);
+        try {
+          const stripResponse = await fetchWithRetry(JSON.stringify({
+            pageImage: stripImage,
+            unitType,
+            pageText,
+            speedMode,
+            classificationOverride,
+            isStrip: true,
+          }));
+
+          if (!stripResponse.ok) {
+            const status = stripResponse.status;
+            if (status === 429) throw new Error('rate_limit');
+            if (status === 402) throw new Error('credits');
+            throw new Error(`failed (${status})`);
           }
-          onStepDone?.(); // Count each strip (pass or fail) for progress
+
+          const stripData = await stripResponse.json();
+          if (stripData.error === 'rate_limit') throw new Error('rate_limit');
+          if (stripData.error === 'credits') throw new Error('credits');
+          if (stripData.error) {
+            console.warn(`Strip ${stripIndex + 1} error:`, stripData.error);
+          } else if (stripData.items?.length > 0) {
+            console.log(`Page ${p} strip ${stripIndex + 1}: found ${stripData.items.length} items`);
+            allPassItems.push(stripData.items);
+          }
+        } catch (err: any) {
+          if (err?.message === 'rate_limit') throw err;
+          if (err?.message === 'credits') throw err;
+          console.warn(`Strip ${stripIndex + 1} failed:`, err?.message);
         }
 
-        // Breather after each batch to avoid overwhelming the API
-        await new Promise(r => setTimeout(r, 2000));
+        onStepDone?.();
+
+        if (stripIndex < strips.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
       }
 
       // ── Merge all passes: MAX qty per SKU+room ──
@@ -628,48 +627,46 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       };
     };
 
-    const CONCURRENCY = 1; // Sequential to avoid Gemini API rate limits (multi-pass = multiple calls per page)
-    for (let i = 0; i < pageTasks.length; i += CONCURRENCY) {
-      const batch = pageTasks.slice(i, i + CONCURRENCY);
-      const results = await Promise.allSettled(batch.map(t => processOnePage(t.p)));
+    for (const [pageIndex, task] of pageTasks.entries()) {
+      const { p } = task;
 
-      for (let j = 0; j < results.length; j++) {
-        const result = results[j];
-        const { p } = batch[j];
+      try {
+        const data = await processOnePage(p);
+        const resolvedPageType = String(data.unitTypeName || '').trim();
+        const pageItems = Array.isArray(data.items) ? data.items : [];
+        const hasCabinetRows = pageItems.length > 0;
+        const isCommonAreaPage = Boolean((data as any).isCommonArea);
 
-        if (result.status === 'fulfilled') {
-          const data = result.value;
-          const resolvedPageType = String(data.unitTypeName || '').trim();
-          const pageItems = Array.isArray(data.items) ? data.items : [];
-          const hasCabinetRows = pageItems.length > 0;
-          const isCommonAreaPage = Boolean((data as any).isCommonArea);
+        // Track every resolved page type, even if this page produced zero cabinet rows.
+        // This keeps the cabinet matrix column visible instead of dropping the whole type.
+        const shouldTrackType = Boolean(resolvedPageType) || isCommonAreaPage || hasCabinetRows;
+        const typesForOrder = resolvedPageType ? [resolvedPageType] : [];
 
-          // Track every resolved page type, even if this page produced zero cabinet rows.
-          // This keeps the cabinet matrix column visible instead of dropping the whole type.
-          const shouldTrackType = Boolean(resolvedPageType) || isCommonAreaPage || hasCabinetRows;
-          const typesForOrder = resolvedPageType ? [resolvedPageType] : [];
-
-          for (const t of typesForOrder) {
-            if (!detectedType) detectedType = t;
-            if (!pageTypeOrder.includes(t)) pageTypeOrder.push(t);
-          }
-
-          const pageRows = pageItems.map((c: any) => ({
-            sku: c.sku,
-            type: c.type,
-            room: c.room,
-            quantity: c.quantity,
-            selected: true,
-            sourceFile: file.name,
-            detectedUnitType: shouldTrackType ? (resolvedPageType || undefined) : undefined,
-          }));
-          allRows.push(...pageRows);
-        } else {
-          console.warn(`Page ${p} of "${file.name}" failed:`, result.reason?.message);
-          if (result.reason?.message === 'rate_limit') throw new Error('rate_limit');
-          if (result.reason?.message === 'credits') throw new Error('credits');
+        for (const t of typesForOrder) {
+          if (!detectedType) detectedType = t;
+          if (!pageTypeOrder.includes(t)) pageTypeOrder.push(t);
         }
-        onPageDone?.();
+
+        const pageRows = pageItems.map((c: any) => ({
+          sku: c.sku,
+          type: c.type,
+          room: c.room,
+          quantity: c.quantity,
+          selected: true,
+          sourceFile: file.name,
+          detectedUnitType: shouldTrackType ? (resolvedPageType || undefined) : undefined,
+        }));
+        allRows.push(...pageRows);
+      } catch (err: any) {
+        console.warn(`Page ${p} of "${file.name}" failed:`, err?.message);
+        if (err?.message === 'rate_limit') throw new Error('rate_limit');
+        if (err?.message === 'credits') throw new Error('credits');
+      }
+
+      onPageDone?.();
+
+      if (pageIndex < pageTasks.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
     return { rows: allRows, detectedType, typeOrder: pageTypeOrder };
