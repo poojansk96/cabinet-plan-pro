@@ -614,7 +614,6 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
 
         // Breather after each batch to avoid overwhelming the API
         await new Promise(r => setTimeout(r, 2000));
-        }
       }
 
       // ── Merge all passes: MAX qty per SKU+room ──
