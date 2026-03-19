@@ -80,13 +80,7 @@ async function renderPageToBase64(page: any): Promise<string> {
   const baseViewport = page.getViewport({ scale: 1 });
   const longSide = Math.max(baseViewport.width, baseViewport.height);
 
-  // Try progressively lower resolutions until the payload fits
-  const targetScales = [
-    Math.min(7, 6144 / longSide),  // highest: 6144px long side
-    Math.min(5, 5120 / longSide),  // fallback: 5120px
-    Math.min(4, 4096 / longSide),  // fallback: 4096px (previous default)
-    Math.min(3, 3072 / longSide),  // safety fallback
-  ];
+  const scale = 1.5;
 
   for (const scale of targetScales) {
     const viewport = page.getViewport({ scale });
