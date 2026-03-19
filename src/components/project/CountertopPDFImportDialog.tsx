@@ -20,7 +20,7 @@ interface Props {
 
 type Step = 'upload' | 'processing' | 'review';
 
-async function renderPageToBase64(page: any, scale = 1.5): Promise<string> {
+async function renderPageToBase64(page: any, scale = 3): Promise<string> {
   const vp = page.getViewport({ scale });
   let canvas: any;
   let ctx: any;

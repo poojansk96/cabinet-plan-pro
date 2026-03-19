@@ -33,7 +33,7 @@ const COMMON_SCALES = [
   { label: 'Custom ratio…',    factor: -1 },
 ];
 
-async function renderPageToBase64(page: any, scale = 1.5): Promise<string> {
+async function renderPageToBase64(page: any, scale = 2): Promise<string> {
   const viewport = page.getViewport({ scale });
   const canvas = document.createElement('canvas');
   canvas.width = viewport.width;

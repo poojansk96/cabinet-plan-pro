@@ -76,8 +76,35 @@ function isStructuredBuildingLabel(buildingKey: string): boolean {
 }
 
 async function renderPageToBase64(page: any): Promise<string> {
-  const scale = 1.5;
-  const viewport = page.getViewport({ scale });
+  const MAX_PAYLOAD_BYTES = 3.5 * 1024 * 1024; // 3.5 MB edge function limit
+  const baseViewport = page.getViewport({ scale: 1 });
+  const longSide = Math.max(baseViewport.width, baseViewport.height);
+
+  // Try progressively lower resolutions until the payload fits
+  const targetScales = [
+    Math.min(7, 6144 / longSide),  // highest: 6144px long side
+    Math.min(5, 5120 / longSide),  // fallback: 5120px
+    Math.min(4, 4096 / longSide),  // fallback: 4096px (previous default)
+    Math.min(3, 3072 / longSide),  // safety fallback
+  ];
+
+  for (const scale of targetScales) {
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext('2d')!;
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    const base64 = canvas.toDataURL('image/jpeg', 0.95).split(',')[1];
+    const byteSize = base64.length * 0.75; // approximate decoded size
+    if (byteSize <= MAX_PAYLOAD_BYTES) {
+      return base64;
+    }
+    console.warn(`Scale ${scale.toFixed(2)} produced ${(byteSize / 1024 / 1024).toFixed(1)}MB, trying lower resolution...`);
+  }
+
+  // Final fallback at minimum quality
+  const viewport = page.getViewport({ scale: targetScales[targetScales.length - 1] });
   const canvas = document.createElement('canvas');
   canvas.width = viewport.width;
   canvas.height = viewport.height;
