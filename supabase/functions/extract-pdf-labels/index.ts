@@ -644,6 +644,37 @@ If no cabinet SKUs are found, return {"items":[]}`;
       return { ...item, quantity: nextQty };
     });
 
+    // Cap non-accessory quantities using text-layer occurrence counts.
+    // The text layer is a reliable upper bound for plan-view labels.
+    items = items.map((item) => {
+      if (ACCESSORY_FLOOR_RE.test(item.sku)) return item; // accessories handled above
+      // Check exact SKU count and also base SKU (without -L/-R suffix) count
+      const exactCount = textLayerSkuCounts[item.sku] ?? 0;
+      const baseSku = item.sku.replace(/-[A-Z]+$/i, '');
+      const baseCount = baseSku !== item.sku ? (textLayerSkuCounts[baseSku] ?? 0) : 0;
+      const textCount = Math.max(exactCount, baseCount);
+      if (textCount > 0 && item.quantity > textCount) {
+        console.log(`Non-accessory qty cap: ${item.sku} ${item.quantity} → ${textCount} (text layer)`);
+        return { ...item, quantity: textCount };
+      }
+      return item;
+    });
+
+    // Filter out SKUs that don't match any known cabinet prefix pattern
+    // and are not confirmed by the text layer (prevents fabricated SKUs like PSX23H)
+    items = items.filter((item) => {
+      if (SKU_PATTERN.test(item.sku)) { SKU_PATTERN.lastIndex = 0; return true; }
+      SKU_PATTERN.lastIndex = 0;
+      if (NO_DIGIT_OK.test(item.sku)) return true;
+      if (textLayerSkuSet.has(item.sku)) return true;
+      // Check prefix match in text layer
+      for (const tlSku of textLayerSkuSet) {
+        if (item.sku.startsWith(tlSku) || tlSku.startsWith(item.sku)) return true;
+      }
+      console.log(`Filtered unknown-prefix SKU not in text layer: ${item.sku}`);
+      return false;
+    });
+
     // ── Merge truncated SKUs into suffixed variants ──
     // When a label is partially hidden (e.g., "W1230-L" cut off → "W1230"), the AI may
     // return both "W1230" (truncated) and "W1230-R" or "W1230-L" as separate entries.
