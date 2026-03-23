@@ -69,10 +69,7 @@ async function renderPageToBase64(page: any): Promise<string> {
 }
 
 async function renderPageToCanvasData(page: any): Promise<{ canvas: OffscreenCanvas | HTMLCanvasElement; width: number; height: number }> {
-  const MAX_PX = 4096;
-  const baseViewport = page.getViewport({ scale: 1 });
-  const longSide = Math.max(baseViewport.width, baseViewport.height);
-  const scale = Math.min(4, MAX_PX / longSide);
+  const scale = 2;
   const viewport = page.getViewport({ scale });
   const w = Math.ceil(viewport.width);
   const h = Math.ceil(viewport.height);
@@ -94,7 +91,7 @@ async function renderPageToCanvasData(page: any): Promise<{ canvas: OffscreenCan
 
 async function canvasToBase64Full(canvas: OffscreenCanvas | HTMLCanvasElement): Promise<string> {
   if (canvas instanceof OffscreenCanvas) {
-    const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.7 });
+    const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.92 });
     const buf = await blob.arrayBuffer();
     const bytes = new Uint8Array(buf);
     let binary = '';
@@ -112,7 +109,7 @@ async function canvasCropToBase64(
     const crop = new OffscreenCanvas(sw, sh);
     const ctx = crop.getContext('2d')!;
     ctx.drawImage(sourceCanvas as any, sx, sy, sw, sh, 0, 0, sw, sh);
-    const blob = await crop.convertToBlob({ type: 'image/jpeg', quality: 0.7 });
+    const blob = await crop.convertToBlob({ type: 'image/jpeg', quality: 0.92 });
     const buf = await blob.arrayBuffer();
     const bytes = new Uint8Array(buf);
     let binary = '';
