@@ -109,7 +109,7 @@ async function canvasCropToBase64(
     const crop = new OffscreenCanvas(sw, sh);
     const ctx = crop.getContext('2d')!;
     ctx.drawImage(sourceCanvas as any, sx, sy, sw, sh, 0, 0, sw, sh);
-    const blob = await crop.convertToBlob({ type: 'image/jpeg', quality: 0.92 });
+    const blob = await crop.convertToBlob({ type: 'image/jpeg', quality: 0.7 });
     const buf = await blob.arrayBuffer();
     const bytes = new Uint8Array(buf);
     let binary = '';
@@ -121,7 +121,7 @@ async function canvasCropToBase64(
   crop.height = sh;
   const ctx = crop.getContext('2d')!;
   ctx.drawImage(sourceCanvas as HTMLCanvasElement, sx, sy, sw, sh, 0, 0, sw, sh);
-  return crop.toDataURL('image/jpeg', 0.92).split(',')[1];
+  return crop.toDataURL('image/jpeg', 0.7).split(',')[1];
 }
 
 async function renderPageStrips(
