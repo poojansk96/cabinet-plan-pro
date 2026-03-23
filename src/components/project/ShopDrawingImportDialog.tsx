@@ -572,39 +572,54 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         isCommonArea,
       };
 
-      const STRIP_REQUEST_DELAY_MS = 2000;
-      for (let s = 0; s < strips.length; s++) {
-        onStatus(`Detail scan ${s + 1}/6 on "${file.name}" page ${p}/${pdf.numPages}…`);
+      const STRIP_BATCH_SIZE = 2;
+      const STRIP_BATCH_DELAY_MS = 2000;
+      for (let batchStart = 0; batchStart < strips.length; batchStart += STRIP_BATCH_SIZE) {
+        const batch = strips.slice(batchStart, batchStart + STRIP_BATCH_SIZE);
+        const batchIndices = batch.map((_, i) => batchStart + i);
 
-        if (s > 0) {
-          await new Promise(r => setTimeout(r, STRIP_REQUEST_DELAY_MS));
+        if (batchStart > 0) {
+          await new Promise(r => setTimeout(r, STRIP_BATCH_DELAY_MS));
         }
 
-        try {
-          const stripResponse = await fetchWithRetry(JSON.stringify({
-            pageImage: strips[s],
-            unitType,
-            pageText,
-            speedMode,
-            classificationOverride,
-            isStrip: true,
-          }));
+        onStatus(`Detail scan ${batchStart + 1}-${batchStart + batch.length}/6 on "${file.name}" page ${p}/${pdf.numPages}…`);
 
-          if (stripResponse.ok) {
-            const stripData = await stripResponse.json();
-            if (stripData.error) {
-              console.warn(`Strip ${s + 1} error:`, stripData.error);
-            } else if (stripData.items?.length > 0) {
-              console.log(`Page ${p} strip ${s + 1}: found ${stripData.items.length} items`);
-              allPassItems.push(stripData.items);
-            }
+        const batchResults = await Promise.allSettled(
+          batch.map((strip, i) =>
+            fetchWithRetry(JSON.stringify({
+              pageImage: strip,
+              unitType,
+              pageText,
+              speedMode,
+              classificationOverride,
+              isStrip: true,
+            })).then(async (res) => {
+              if (res.ok) {
+                const data = await res.json();
+                if (data.error) {
+                  console.warn(`Strip ${batchIndices[i] + 1} error:`, data.error);
+                  return null;
+                }
+                if (data.items?.length > 0) {
+                  console.log(`Page ${p} strip ${batchIndices[i] + 1}: found ${data.items.length} items`);
+                  return data.items;
+                }
+              }
+              return null;
+            })
+          )
+        );
+
+        for (const result of batchResults) {
+          if (result.status === 'fulfilled' && result.value) {
+            allPassItems.push(result.value);
+          } else if (result.status === 'rejected') {
+            const err = result.reason;
+            if (err?.message === 'rate_limit') throw err;
+            if (err?.message === 'credits') throw err;
+            console.warn(`Strip batch failed:`, err?.message);
           }
-        } catch (err: any) {
-          if (err?.message === 'rate_limit') throw err;
-          if (err?.message === 'credits') throw err;
-          console.warn(`Strip ${s + 1} failed:`, err?.message);
-        } finally {
-          onStepDone?.(); // Count each strip (pass or fail) for progress
+          onStepDone?.();
         }
       }
 
