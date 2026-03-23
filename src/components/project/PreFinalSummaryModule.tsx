@@ -704,37 +704,43 @@ export default function PreFinalSummaryModule({ project }: Props) {
     // ── Sheet 4: Costing ────────────────────────────────────────────
     const wsCosting = wb.addWorksheet('Costing');
 
-    // Column indices (1-based) — KTOP/VTOP formula lives in the QUARTZ GRP1 column itself
+    // Column indices (1-based) — col 1 is blank pad
     const cc = {
-      type: 1, qty: 2, cabsCost: 3,
-      pullsQty: 4, pullsCost: 5,
-      ktopSqft: 6, ktopCost: 7,
-      kBackSplash: 8, kSinkCutout: 9, kFaucetHoles: 10, kRangeCutout: 11,
-      vtopSqft: 12, vtopCost: 13,
-      vBackSplash: 14, vSinkCutout: 15, vFaucetHoles: 16,
-      stickQty: 17, stickCost: 18,
-      dwQty: 19, dwCost: 20,
-      laborCost: 21,
-      costPerUnit: 22, costExt: 23,
-      spacer: 24,
-      cabsRetail: 25, pullsRetail: 26, ktopRetail: 27, vtopRetail: 28,
-      stickRetail: 29, dwRetail: 30, laborRetail: 31,
-      retailPerUnit: 32, retailExt: 33,
-      spacer2: 34,
-      cabsTotalCost: 35, cabsTotalRetail: 36,
-      pullsTotalCost: 37, pullsTotalRetail: 38,
-      ktopTotalCost: 39, ktopTotalRetail: 40,
-      vtopTotalCost: 41, vtopTotalRetail: 42,
-      stickTotalCost: 43, stickTotalRetail: 44,
-      dwTotalCost: 45, dwTotalRetail: 46,
-      laborTotalCost: 47, laborTotalRetail: 48,
-      material: 49, labor: 50, tax: 51,
-      retailPerUnit2: 52, retailExt2: 53,
+      blank: 1, type: 2, qty: 3, cabsCost: 4,
+      pullsQty: 5, pullsCost: 6,
+      ktopSqft: 7, ktopCost: 8,
+      kBackSplash: 9, kSinkCutout: 10, kFaucetHoles: 11, kRangeCutout: 12,
+      vtopSqft: 13, vtopCost: 14,
+      vBackSplash: 15, vSinkCutout: 16, vFaucetHoles: 17,
+      stickQty: 18, stickCost: 19,
+      dwQty: 20, dwCost: 21,
+      laborCost: 22, deliveryCost: 23, ldCost: 24,
+      costPerUnit: 25, costExt: 26,
+      spacer: 27,
+      cabsRetail: 28, pullsRetail: 29, ktopRetail: 30, vtopRetail: 31,
+      stickRetail: 32, dwRetail: 33, laborRetail: 34, deliveryRetail: 35, ldRetail: 36,
+      retailPerUnit: 37, retailExt: 38,
+      spacer2: 39,
+      cabsTotalCost: 40, cabsTotalRetail: 41,
+      pullsTotalCost: 42, pullsTotalRetail: 43,
+      ktopTotalCost: 44, ktopTotalRetail: 45,
+      vtopTotalCost: 46, vtopTotalRetail: 47,
+      stickTotalCost: 48, stickTotalRetail: 49,
+      dwTotalCost: 50, dwTotalRetail: 51,
+      laborTotalCost: 52, laborTotalRetail: 53,
+      deliveryTotalCost: 54, deliveryTotalRetail: 55,
+      ldTotalCost: 56, ldTotalRetail: 57,
+      material: 58, labor: 59, tax: 60,
+      retailPerUnit2: 61, retailExt2: 62,
+      spacer3: 63,
+      sumLabel: 64, sumRetail: 65, sumMargin: 66,
+      spacer4: 67, sumCost: 68,
     };
 
     const SAFFRON = 'FFFFF2CC';
 
     wsCosting.columns = [
+      { width: 3 },   // blank col A
       { width: 30 }, { width: 8 }, { width: 14 },
       { width: 10 }, { width: 12 },
       { width: 10 }, { width: 14 },
@@ -743,13 +749,13 @@ export default function PreFinalSummaryModule({ project }: Props) {
       { width: 14 }, { width: 14 }, { width: 12 },
       { width: 10 }, { width: 12 },
       { width: 10 }, { width: 12 },
-      { width: 12 },
-      { width: 14 }, { width: 14 },
-      { width: 3 },
-      { width: 12 }, { width: 12 }, { width: 14 }, { width: 14 },
       { width: 12 }, { width: 12 }, { width: 12 },
       { width: 14 }, { width: 14 },
       { width: 3 },
+      { width: 12 }, { width: 12 }, { width: 14 }, { width: 14 },
+      { width: 12 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 12 },
+      { width: 14 }, { width: 14 },
+      { width: 3 },
       { width: 14 }, { width: 14 },
       { width: 14 }, { width: 14 },
       { width: 14 }, { width: 14 },
@@ -757,8 +763,12 @@ export default function PreFinalSummaryModule({ project }: Props) {
       { width: 14 }, { width: 14 },
       { width: 14 }, { width: 14 },
       { width: 14 }, { width: 14 },
-      { width: 14 },
       { width: 14 }, { width: 14 },
+      { width: 14 }, { width: 14 },
+      { width: 14 }, { width: 14 }, { width: 14 },
+      { width: 3 },
+      { width: 28 }, { width: 16 }, { width: 10 },
+      { width: 3 }, { width: 16 },
     ];
 
     // Row 1: Section titles
@@ -795,6 +805,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
       [cc.dwQty]: 'DW\nBRACKETS\nQTY',
       [cc.dwCost]: 'DW\nBRACKETS\nCOST',
       [cc.laborCost]: 'LABOR\nCOST',
+      [cc.deliveryCost]: 'DELIVERY\nCOST',
+      [cc.ldCost]: 'LOAD &\nDISTRIBUTION\nCOST',
       [cc.costPerUnit]: 'COST\nPER UNIT',
       [cc.costExt]: 'COST\nEXT',
       [cc.cabsRetail]: 'CABS\nRETAIL',
@@ -804,6 +816,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
       [cc.stickRetail]: '2X3X8\nRETAIL',
       [cc.dwRetail]: 'DW BRACKETS\nRETAIL',
       [cc.laborRetail]: 'LABOR\nRETAIL',
+      [cc.deliveryRetail]: 'DELIVERY\nRETAIL',
+      [cc.ldRetail]: 'LOAD &\nDISTRIBUTION\nRETAIL',
       [cc.retailPerUnit]: 'RETAIL\nPER UNIT',
       [cc.retailExt]: 'RETAIL\nEXT',
       [cc.cabsTotalCost]: 'CABS\nTOTAL COST',
@@ -820,6 +834,10 @@ export default function PreFinalSummaryModule({ project }: Props) {
       [cc.dwTotalRetail]: 'DW BRACKETS\nTOTAL RETAIL',
       [cc.laborTotalCost]: 'LABOR\nTOTAL COST',
       [cc.laborTotalRetail]: 'LABOR\nTOTAL RETAIL',
+      [cc.deliveryTotalCost]: 'DELIVERY\nTOTAL COST',
+      [cc.deliveryTotalRetail]: 'DELIVERY\nTOTAL RETAIL',
+      [cc.ldTotalCost]: 'LOAD & DIST\nTOTAL COST',
+      [cc.ldTotalRetail]: 'LOAD & DIST\nTOTAL RETAIL',
       [cc.material]: 'MATERIAL',
       [cc.labor]: 'LABOR',
       [cc.tax]: 'TAX',
@@ -841,12 +859,12 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
     // Row 3: Saffron rate/multiplier row (user-editable rates)
     const costRateRow = wsCosting.addRow([]);
-    const saffronCostCols = [cc.pullsCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost];
-    const saffronRetailCols = [cc.cabsRetail, cc.pullsRetail, cc.ktopRetail, cc.vtopRetail, cc.stickRetail, cc.dwRetail, cc.laborRetail];
+    const saffronCostCols = [cc.pullsCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.deliveryCost, cc.ldCost];
+    const saffronRetailCols = [cc.cabsRetail, cc.pullsRetail, cc.ktopRetail, cc.vtopRetail, cc.stickRetail, cc.dwRetail, cc.laborRetail, cc.deliveryRetail, cc.ldRetail];
     const saffronTotalCols = [cc.tax]; // tax multiplier
     [...saffronCostCols, ...saffronRetailCols, ...saffronTotalCols].forEach(col => {
       const cell = costRateRow.getCell(col);
-      cell.value = 0;
+      cell.value = (col === cc.deliveryCost || col === cc.ldCost) ? 100 : 0;
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: SAFFRON } };
       cell.font = { bold: true };
       cell.alignment = { horizontal: 'center' };
@@ -856,21 +874,18 @@ export default function PreFinalSummaryModule({ project }: Props) {
     const costRateRowNum = costRateRow.number;
     const costDataStart = costRateRowNum + 1;
 
-    const pullsSumRangeForType = (typeIndex: number) => {
-      const col = colPullsFirstType + typeIndex;
-      return `${excelCol(col)}${dataRangeStartRow}:${excelCol(col)}${dataRangeEndRow}`;
-    };
-
     // Data rows per unit type
     cabTypes.forEach((t, i) => {
       const row = wsCosting.addRow([]);
       const r = row.number;
       row.getCell(cc.type).value = t;
+      row.getCell(cc.type).border = allBorders;
+      row.getCell(cc.qty).border = allBorders;
 
       // QTY
       setFormula(row.getCell(cc.qty), `'Cabinet Count'!${ref(colTotalCabFirstType + i, unitCountRow.number)}`, 0);
 
-      // CABS COST per unit = total cabs for type × total cost per cab
+      // CABS COST per unit
       setFormula(row.getCell(cc.cabsCost), safeMul(
         `'Cabinet Count'!${ref(colCabFirstType + i, cabTotRow.number)}`,
         `'Cabinet Count'!${ref(colPricingFirstType + i, totalCostRow.number)}`
@@ -880,30 +895,36 @@ export default function PreFinalSummaryModule({ project }: Props) {
       // PULLS QTY
       setFormula(row.getCell(cc.pullsQty), `'Cabinet Count'!${ref(colPullsFirstType + i, cabTotRow.number)}`, 0);
 
-      // PULLS COST = QTY × rate (saffron in same col)
+      // PULLS COST = QTY × rate
       setFormula(row.getCell(cc.pullsCost), safeMul(ref(cc.pullsQty, r), `$${excelCol(cc.pullsCost)}$${costRateRowNum}`), 0);
       row.getCell(cc.pullsCost).numFmt = '$#,##0.00';
 
-      // KTOP COST = SQFT × rate (saffron in same QUARTZ GRP1 KTOP COST col)
+      // KTOP COST
       setFormula(row.getCell(cc.ktopCost), safeMul(ref(cc.ktopSqft, r), `$${excelCol(cc.ktopCost)}$${costRateRowNum}`), 0);
       row.getCell(cc.ktopCost).numFmt = '$#,##0.00';
 
-      // VTOP COST = SQFT × rate (saffron in same QUARTZ GRP1 VTOP COST col)
+      // VTOP COST
       setFormula(row.getCell(cc.vtopCost), safeMul(ref(cc.vtopSqft, r), `$${excelCol(cc.vtopCost)}$${costRateRowNum}`), 0);
       row.getCell(cc.vtopCost).numFmt = '$#,##0.00';
 
-      // 2X3X8 STICK COST = QTY × rate
+      // 2X3X8 STICK COST
       setFormula(row.getCell(cc.stickCost), safeMul(ref(cc.stickQty, r), `$${excelCol(cc.stickCost)}$${costRateRowNum}`), 0);
       row.getCell(cc.stickCost).numFmt = '$#,##0.00';
 
-      // DW BRACKETS COST = QTY × rate
+      // DW BRACKETS COST
       setFormula(row.getCell(cc.dwCost), safeMul(ref(cc.dwQty, r), `$${excelCol(cc.dwCost)}$${costRateRowNum}`), 0);
       row.getCell(cc.dwCost).numFmt = '$#,##0.00';
 
-      // LABOR COST = blank (user enters)
+      // DELIVERY COST = saffron $100 via formula
+      setFormula(row.getCell(cc.deliveryCost), `$${excelCol(cc.deliveryCost)}$${costRateRowNum}`, 100);
+      row.getCell(cc.deliveryCost).numFmt = '$#,##0.00';
+
+      // LOAD & DISTRIBUTION COST = saffron $100 via formula
+      setFormula(row.getCell(cc.ldCost), `$${excelCol(cc.ldCost)}$${costRateRowNum}`, 100);
+      row.getCell(cc.ldCost).numFmt = '$#,##0.00';
 
       // COST PER UNIT = sum of all cost columns
-      const costCols = [cc.cabsCost, cc.pullsCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.laborCost];
+      const costCols = [cc.cabsCost, cc.pullsCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.laborCost, cc.deliveryCost, cc.ldCost];
       setFormula(row.getCell(cc.costPerUnit), `IFERROR(${costCols.map(c => `N(${ref(c, r)})`).join('+')},0)`, 0);
       row.getCell(cc.costPerUnit).numFmt = '$#,##0.00';
 
@@ -920,6 +941,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
         { retail: cc.stickRetail, cost: cc.stickCost },
         { retail: cc.dwRetail, cost: cc.dwCost },
         { retail: cc.laborRetail, cost: cc.laborCost },
+        { retail: cc.deliveryRetail, cost: cc.deliveryCost },
+        { retail: cc.ldRetail, cost: cc.ldCost },
       ];
       retailMap.forEach(({ retail, cost }) => {
         setFormula(row.getCell(retail), safeMul(ref(cost, r), `$${excelCol(retail)}$${costRateRowNum}`), 0);
@@ -943,6 +966,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
         { totalCost: cc.stickTotalCost, totalRetail: cc.stickTotalRetail, cost: cc.stickCost, retail: cc.stickRetail },
         { totalCost: cc.dwTotalCost, totalRetail: cc.dwTotalRetail, cost: cc.dwCost, retail: cc.dwRetail },
         { totalCost: cc.laborTotalCost, totalRetail: cc.laborTotalRetail, cost: cc.laborCost, retail: cc.laborRetail },
+        { totalCost: cc.deliveryTotalCost, totalRetail: cc.deliveryTotalRetail, cost: cc.deliveryCost, retail: cc.deliveryRetail },
+        { totalCost: cc.ldTotalCost, totalRetail: cc.ldTotalRetail, cost: cc.ldCost, retail: cc.ldRetail },
       ];
       totalPairs.forEach(({ totalCost, totalRetail, cost, retail }) => {
         setFormula(row.getCell(totalCost), safeMul(ref(cost, r), ref(cc.qty, r)), 0);
@@ -951,7 +976,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
         row.getCell(totalRetail).numFmt = '$#,##0.00';
       });
 
-      // MATERIAL = sum of all total retail EXCEPT labor total retail
+      // MATERIAL = sum of all total retail EXCEPT labor, delivery, L&D
       const matRetailCols = [cc.cabsTotalRetail, cc.pullsTotalRetail, cc.ktopTotalRetail, cc.vtopTotalRetail, cc.stickTotalRetail, cc.dwTotalRetail];
       setFormula(row.getCell(cc.material), `IFERROR(${matRetailCols.map(c => `N(${ref(c, r)})`).join('+')},0)`, 0);
       row.getCell(cc.material).numFmt = '$#,##0.00';
@@ -985,30 +1010,38 @@ export default function PreFinalSummaryModule({ project }: Props) {
     wsCosting.addRow([]);
     const costTotRow2 = wsCosting.addRow([]);
     costTotRow2.getCell(cc.type).value = 'TOTAL';
+    costTotRow2.getCell(cc.type).border = allBorders;
+    costTotRow2.getCell(cc.qty).border = allBorders;
 
     const summedCols = [
       cc.qty, cc.cabsCost, cc.pullsQty, cc.pullsCost,
       cc.ktopSqft, cc.ktopCost, cc.kBackSplash, cc.kSinkCutout, cc.kFaucetHoles, cc.kRangeCutout,
       cc.vtopSqft, cc.vtopCost, cc.vBackSplash, cc.vSinkCutout, cc.vFaucetHoles,
       cc.stickQty, cc.stickCost, cc.dwQty, cc.dwCost, cc.laborCost,
+      cc.deliveryCost, cc.ldCost,
       cc.costPerUnit, cc.costExt,
       cc.cabsRetail, cc.pullsRetail, cc.ktopRetail, cc.vtopRetail, cc.stickRetail, cc.dwRetail, cc.laborRetail,
+      cc.deliveryRetail, cc.ldRetail,
       cc.retailPerUnit, cc.retailExt,
       cc.cabsTotalCost, cc.cabsTotalRetail, cc.pullsTotalCost, cc.pullsTotalRetail,
       cc.ktopTotalCost, cc.ktopTotalRetail, cc.vtopTotalCost, cc.vtopTotalRetail,
       cc.stickTotalCost, cc.stickTotalRetail, cc.dwTotalCost, cc.dwTotalRetail,
       cc.laborTotalCost, cc.laborTotalRetail,
+      cc.deliveryTotalCost, cc.deliveryTotalRetail, cc.ldTotalCost, cc.ldTotalRetail,
       cc.material, cc.labor, cc.tax, cc.retailPerUnit2, cc.retailExt2,
     ];
     const dollarCols = new Set([
       cc.cabsCost, cc.pullsCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.laborCost,
+      cc.deliveryCost, cc.ldCost,
       cc.costPerUnit, cc.costExt,
       cc.cabsRetail, cc.pullsRetail, cc.ktopRetail, cc.vtopRetail, cc.stickRetail, cc.dwRetail, cc.laborRetail,
+      cc.deliveryRetail, cc.ldRetail,
       cc.retailPerUnit, cc.retailExt,
       cc.cabsTotalCost, cc.cabsTotalRetail, cc.pullsTotalCost, cc.pullsTotalRetail,
       cc.ktopTotalCost, cc.ktopTotalRetail, cc.vtopTotalCost, cc.vtopTotalRetail,
       cc.stickTotalCost, cc.stickTotalRetail, cc.dwTotalCost, cc.dwTotalRetail,
       cc.laborTotalCost, cc.laborTotalRetail,
+      cc.deliveryTotalCost, cc.deliveryTotalRetail, cc.ldTotalCost, cc.ldTotalRetail,
       cc.material, cc.labor, cc.tax, cc.retailPerUnit2, cc.retailExt2,
     ]);
 
@@ -1022,6 +1055,111 @@ export default function PreFinalSummaryModule({ project }: Props) {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
       cell.alignment = { horizontal: 'center' };
     });
+
+    // ── Summary table (to the right of retailExt) ──────────────────
+    // Position summary at header row level
+    const sumHeaderRowNum = costHeaderRow2.number;
+    const sumStartRow = sumHeaderRowNum;
+
+    // Summary headers
+    const sumHdrRow = wsCosting.getRow(sumStartRow);
+    sumHdrRow.getCell(cc.sumLabel).value = '';
+    sumHdrRow.getCell(cc.sumRetail).value = 'RETAIL';
+    sumHdrRow.getCell(cc.sumRetail).font = { bold: true, size: 9 };
+    sumHdrRow.getCell(cc.sumRetail).alignment = { horizontal: 'center' };
+    sumHdrRow.getCell(cc.sumRetail).border = allBorders;
+    sumHdrRow.getCell(cc.sumMargin).value = 'Margin';
+    sumHdrRow.getCell(cc.sumMargin).font = { bold: true, size: 9 };
+    sumHdrRow.getCell(cc.sumMargin).alignment = { horizontal: 'center' };
+    sumHdrRow.getCell(cc.sumMargin).border = allBorders;
+    sumHdrRow.getCell(cc.sumCost).value = 'COST';
+    sumHdrRow.getCell(cc.sumCost).font = { bold: true, size: 9 };
+    sumHdrRow.getCell(cc.sumCost).alignment = { horizontal: 'center' };
+    sumHdrRow.getCell(cc.sumCost).border = allBorders;
+
+    // Summary data rows (placed after saffron rate row)
+    const summaryItems = [
+      { label: 'CABS TOTAL RETAIL', retailCol: cc.cabsTotalRetail, costCol: cc.cabsTotalCost, showMargin: true },
+      { label: 'PULLS TOTAL RETAIL', retailCol: cc.pullsTotalRetail, costCol: cc.pullsTotalCost, showMargin: true },
+      { label: 'QUARTZ GRP1 KTOP TOTAL RETAIL', retailCol: cc.ktopTotalRetail, costCol: cc.ktopTotalCost, showMargin: true },
+      { label: 'QUARTZ GRP1 VTOP TOTAL RETAIL', retailCol: cc.vtopTotalRetail, costCol: cc.vtopTotalCost, showMargin: true },
+      { label: 'LABOR TOTAL RETAIL', retailCol: cc.laborTotalRetail, costCol: cc.laborTotalCost, showMargin: true },
+      { label: 'Delivery charges', retailCol: cc.deliveryTotalRetail, costCol: cc.deliveryTotalCost, showMargin: false },
+      { label: 'Load & Distubution charges', retailCol: cc.ldTotalRetail, costCol: cc.ldTotalCost, showMargin: false },
+    ];
+
+    const totRowNum = costTotRow2.number;
+    const sumDataStartRow = costRateRowNum + 1; // row after saffron = first data row area
+    // We place summary items starting right after the header row in the summary columns
+    const sumItemStartRow = sumStartRow + 1; // row after summary header
+
+    summaryItems.forEach((item, idx) => {
+      const targetRow = sumItemStartRow + idx;
+      let rowObj = wsCosting.getRow(targetRow);
+
+      rowObj.getCell(cc.sumLabel).value = item.label;
+      rowObj.getCell(cc.sumLabel).font = { size: 8 };
+      rowObj.getCell(cc.sumLabel).border = allBorders;
+
+      // Retail = SUM of that total retail column across data rows
+      const retailRef = `${excelCol(item.retailCol)}${totRowNum}`;
+      setFormula(rowObj.getCell(cc.sumRetail), `N(${retailRef})`, 0);
+      rowObj.getCell(cc.sumRetail).numFmt = '$#,##0.00';
+      rowObj.getCell(cc.sumRetail).alignment = { horizontal: 'center' };
+      rowObj.getCell(cc.sumRetail).border = allBorders;
+
+      // Margin = 1 - (cost / retail)
+      if (item.showMargin) {
+        const costRef = `${excelCol(item.costCol)}${totRowNum}`;
+        const retRef = ref(cc.sumRetail, targetRow);
+        setFormula(rowObj.getCell(cc.sumMargin), `IFERROR(1-(N(${costRef})/N(${retRef})),0)`, 0);
+        rowObj.getCell(cc.sumMargin).numFmt = '0.00%';
+      }
+      rowObj.getCell(cc.sumMargin).alignment = { horizontal: 'center' };
+      rowObj.getCell(cc.sumMargin).border = allBorders;
+
+      // Cost = total cost column total
+      const costRef2 = `${excelCol(item.costCol)}${totRowNum}`;
+      setFormula(rowObj.getCell(cc.sumCost), `N(${costRef2})`, 0);
+      rowObj.getCell(cc.sumCost).numFmt = '$#,##0.00';
+      rowObj.getCell(cc.sumCost).alignment = { horizontal: 'center' };
+      rowObj.getCell(cc.sumCost).border = allBorders;
+    });
+
+    // TOTAL row for summary
+    const sumTotalRowNum = sumItemStartRow + summaryItems.length;
+    const sumTotRow = wsCosting.getRow(sumTotalRowNum);
+    sumTotRow.getCell(cc.sumLabel).value = 'TOTAL';
+    sumTotRow.getCell(cc.sumLabel).font = { bold: true, size: 9 };
+    sumTotRow.getCell(cc.sumLabel).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+    sumTotRow.getCell(cc.sumLabel).border = allBorders;
+
+    // Total Retail = SUM of summary retail cells
+    setFormula(sumTotRow.getCell(cc.sumRetail),
+      safeSum(ref(cc.sumRetail, sumItemStartRow), ref(cc.sumRetail, sumItemStartRow + summaryItems.length - 1)), 0);
+    sumTotRow.getCell(cc.sumRetail).numFmt = '$#,##0.00';
+    sumTotRow.getCell(cc.sumRetail).font = { bold: true };
+    sumTotRow.getCell(cc.sumRetail).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+    sumTotRow.getCell(cc.sumRetail).alignment = { horizontal: 'center' };
+    sumTotRow.getCell(cc.sumRetail).border = allBorders;
+
+    // Total Cost = SUM of summary cost cells
+    setFormula(sumTotRow.getCell(cc.sumCost),
+      safeSum(ref(cc.sumCost, sumItemStartRow), ref(cc.sumCost, sumItemStartRow + summaryItems.length - 1)), 0);
+    sumTotRow.getCell(cc.sumCost).numFmt = '$#,##0.00';
+    sumTotRow.getCell(cc.sumCost).font = { bold: true };
+    sumTotRow.getCell(cc.sumCost).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+    sumTotRow.getCell(cc.sumCost).alignment = { horizontal: 'center' };
+    sumTotRow.getCell(cc.sumCost).border = allBorders;
+
+    // Total Margin = 1 - (total cost / total retail)
+    setFormula(sumTotRow.getCell(cc.sumMargin),
+      `IFERROR(1-(N(${ref(cc.sumCost, sumTotalRowNum)})/N(${ref(cc.sumRetail, sumTotalRowNum)})),0)`, 0);
+    sumTotRow.getCell(cc.sumMargin).numFmt = '0.00%';
+    sumTotRow.getCell(cc.sumMargin).font = { bold: true };
+    sumTotRow.getCell(cc.sumMargin).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+    sumTotRow.getCell(cc.sumMargin).alignment = { horizontal: 'center' };
+    sumTotRow.getCell(cc.sumMargin).border = allBorders;
 
     // ── Sheet 5: Schedule of Values ─────────────────────────────────
     // Flat format: BLDG | FLOOR | Unit# | ADA | UNIT TYPE NAME | MATERIAL | LABOR | TAX | Total
