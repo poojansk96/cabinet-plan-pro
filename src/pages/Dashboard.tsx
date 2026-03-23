@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, Plus, Trash2, MapPin, ArrowRight, ChevronDown, ChevronRight, Search, Upload, AlertCircle, Clock } from 'lucide-react';
+import { Building2, Plus, Trash2, MapPin, ArrowRight, ChevronDown, ChevronRight, Search, Upload, AlertCircle, Clock, Pencil, HelpCircle, FileSpreadsheet } from 'lucide-react';
 import { useProjectStore } from '@/hooks/useProjectStore';
 import { calcProjectSummary } from '@/lib/calculations';
 import type { Project } from '@/types/project';
@@ -34,10 +34,11 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(days / 30)}mo ago`;
 }
 
-function ProjectCard({ project, onDelete }: { project: Project; onDelete: (id: string) => void }) {
+function ProjectCard({ project, onDelete, onRename }: { project: Project; onDelete: (id: string) => void; onRename: (id: string) => void }) {
   const summary = calcProjectSummary(project);
   const status = getProjectStatus(project);
   const progress = getProjectProgress(project);
+  const isEmpty = summary.totalUnits === 0 && summary.totalCabinets === 0 && summary.totalCountertopSqft === 0;
 
   return (
     <div className="est-card hover:shadow-md transition-shadow">
@@ -56,7 +57,16 @@ function ProjectCard({ project, onDelete }: { project: Project; onDelete: (id: s
                 {status.label}
               </span>
             </div>
-            <h3 className="font-semibold text-sm text-foreground truncate">{project.name}</h3>
+            <div className="flex items-center gap-1.5">
+              <h3 className="font-semibold text-sm text-foreground truncate">{project.name}</h3>
+              <button
+                onClick={(e) => { e.preventDefault(); onRename(project.id); }}
+                className="text-muted-foreground hover:text-primary transition-colors p-0.5 flex-shrink-0 focus-visible:ring-2 focus-visible:ring-ring rounded"
+                aria-label={`Rename project ${project.name}`}
+              >
+                <Pencil size={11} />
+              </button>
+            </div>
             {project.address && (
               <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
                 <MapPin size={10} />
@@ -90,20 +100,33 @@ function ProjectCard({ project, onDelete }: { project: Project; onDelete: (id: s
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-1.5 mb-3">
-          <div className="text-center py-1.5 rounded bg-secondary">
-            <div className="text-sm font-bold text-primary">{summary.totalUnits}</div>
-            <div className="text-[10px] text-muted-foreground">Units</div>
+        {/* Conditional: show stats or empty-state CTA */}
+        {isEmpty ? (
+          <div className="flex items-center justify-center py-4 mb-3">
+            <Link
+              to={`/project/${project.id}`}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md text-xs font-semibold text-primary-foreground bg-primary hover:bg-primary/90 transition-colors shadow-sm"
+            >
+              <Plus size={14} />
+              Start Measuring
+            </Link>
           </div>
-          <div className="text-center py-1.5 rounded bg-secondary">
-            <div className="text-sm font-bold text-primary">{summary.totalCabinets}</div>
-            <div className="text-[10px] text-muted-foreground">Cabinets</div>
+        ) : (
+          <div className="grid grid-cols-3 gap-1.5 mb-3">
+            <div className="text-center py-1.5 rounded bg-secondary">
+              <div className="text-sm font-bold text-primary">{summary.totalUnits}</div>
+              <div className="text-[10px] text-muted-foreground">Units</div>
+            </div>
+            <div className="text-center py-1.5 rounded bg-secondary">
+              <div className="text-sm font-bold text-primary">{summary.totalCabinets}</div>
+              <div className="text-[10px] text-muted-foreground">Cabinets</div>
+            </div>
+            <div className="text-center py-1.5 rounded bg-secondary">
+              <div className="text-sm font-bold text-primary">{summary.totalCountertopSqft}</div>
+              <div className="text-[10px] text-muted-foreground">CT Sqft</div>
+            </div>
           </div>
-          <div className="text-center py-1.5 rounded bg-secondary">
-            <div className="text-sm font-bold text-primary">{summary.totalCountertopSqft}</div>
-            <div className="text-[10px] text-muted-foreground">CT Sqft</div>
-          </div>
-        </div>
+        )}
 
         {/* Microcopy line */}
         <p className="text-[10px] text-muted-foreground/70 mb-2.5 flex items-center gap-1">
@@ -115,9 +138,9 @@ function ProjectCard({ project, onDelete }: { project: Project; onDelete: (id: s
         <div className="flex items-center gap-2">
           <Link
             to={`/project/${project.id}`}
-            className="flex-1 inline-flex items-center justify-center gap-1 py-2 rounded-md text-xs font-semibold text-primary-foreground bg-primary hover:bg-primary/90 transition-colors focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex-1 inline-flex items-center justify-center gap-1 py-2 rounded-md text-xs font-semibold border-2 border-primary text-primary bg-transparent hover:bg-primary/5 transition-colors focus-visible:ring-2 focus-visible:ring-ring"
           >
-            Open <ArrowRight size={11} />
+            Continue Estimating <ArrowRight size={11} />
           </Link>
           <Link
             to={`/project/${project.id}`}
@@ -132,8 +155,77 @@ function ProjectCard({ project, onDelete }: { project: Project; onDelete: (id: s
   );
 }
 
+/* Getting Started stepper for when all metrics are zero */
+function GettingStartedStepper() {
+  const steps = [
+    { num: 1, title: 'Upload your first floor plan', icon: '📄' },
+    { num: 2, title: 'Let AI detect units & types', icon: '🤖' },
+    { num: 3, title: 'Import cabinets & countertops', icon: '⚙️' },
+    { num: 4, title: 'Export your takeoff report', icon: '📊' },
+  ];
+
+  return (
+    <div className="est-card p-4 mb-4">
+      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Getting Started</h3>
+      <div className="flex items-start gap-2 overflow-x-auto">
+        {steps.map((step, i) => (
+          <div key={step.num} className="flex items-center gap-2 flex-1 min-w-[140px]">
+            <div className="flex flex-col items-center text-center flex-1">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg mb-1.5" style={{ background: 'hsl(var(--primary) / 0.1)' }}>
+                {step.icon}
+              </div>
+              <span className="text-[10px] font-semibold text-primary">Step {step.num}</span>
+              <span className="text-[10px] text-muted-foreground leading-tight mt-0.5">{step.title}</span>
+            </div>
+            {i < steps.length - 1 && (
+              <ArrowRight size={14} className="text-muted-foreground/40 flex-shrink-0 mt-3" />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* Pro-Tips / Sample Template card */
+function ProTipsCard() {
+  return (
+    <div className="est-card p-5 mt-6 border-l-4" style={{ borderLeftColor: 'hsl(var(--primary))', background: 'hsl(var(--primary) / 0.03)' }}>
+      <div className="flex items-start gap-4">
+        <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style={{ background: 'hsl(var(--primary) / 0.1)' }}>
+          <FileSpreadsheet size={24} className="text-primary" />
+        </div>
+        <div className="flex-1">
+          <h4 className="font-semibold text-sm text-foreground mb-1">📋 Pro Tip: What a finished estimate looks like</h4>
+          <p className="text-xs text-muted-foreground leading-relaxed mb-2">
+            A completed project includes units detected from floor plans, cabinet SKUs extracted from shop drawings, and countertop sqft calculated — all exported into a ready-to-bid Excel report with costing, pulls, and summary sheets.
+          </p>
+          <div className="flex gap-3">
+            <div className="text-center px-3 py-1.5 rounded bg-secondary">
+              <div className="text-xs font-bold text-primary">12</div>
+              <div className="text-[9px] text-muted-foreground">Units</div>
+            </div>
+            <div className="text-center px-3 py-1.5 rounded bg-secondary">
+              <div className="text-xs font-bold text-primary">86</div>
+              <div className="text-[9px] text-muted-foreground">Cabinets</div>
+            </div>
+            <div className="text-center px-3 py-1.5 rounded bg-secondary">
+              <div className="text-xs font-bold text-primary">340</div>
+              <div className="text-[9px] text-muted-foreground">CT Sqft</div>
+            </div>
+            <div className="text-center px-3 py-1.5 rounded" style={{ background: 'hsl(142, 70%, 95%)' }}>
+              <div className="text-xs font-bold" style={{ color: 'hsl(142, 70%, 35%)' }}>100%</div>
+              <div className="text-[9px] text-muted-foreground">Complete</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
-  const { projects, deleteProject } = useProjectStore();
+  const { projects, deleteProject, updateProject } = useProjectStore();
   const [introOpen, setIntroOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -142,6 +234,15 @@ export default function Dashboard() {
   const handleDelete = (id: string) => {
     if (window.confirm('Delete this project? This cannot be undone.')) {
       deleteProject(id);
+    }
+  };
+
+  const handleRename = (id: string) => {
+    const project = projects.find(p => p.id === id);
+    if (!project) return;
+    const newName = window.prompt('Rename project:', project.name);
+    if (newName && newName.trim() && newName.trim() !== project.name) {
+      updateProject(id, { name: newName.trim() });
     }
   };
 
@@ -175,6 +276,14 @@ export default function Dashboard() {
     }
     return filtered;
   }, [projects, searchQuery, statusFilter]);
+
+  // Check if all aggregate metrics are zero
+  const allMetricsZero = useMemo(() => {
+    const totalUnits = projects.reduce((s, p) => s + p.units.length, 0);
+    const totalCabinets = projects.reduce((s, p) => s + calcProjectSummary(p).totalCabinets, 0);
+    const totalCtSqft = projects.reduce((s, p) => s + calcProjectSummary(p).totalCountertopSqft, 0);
+    return totalUnits === 0 && totalCabinets === 0 && totalCtSqft === 0;
+  }, [projects]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -212,32 +321,38 @@ export default function Dashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6 flex-1 w-full">
-        {/* Stats bar */}
+        {/* Stats bar OR Getting Started stepper */}
         {projects.length > 0 && (
-          <div className="grid grid-cols-4 gap-4 mb-6">
-            <div className="stat-card">
-              <div className="stat-value">{projects.length}</div>
-              <div className="stat-label">Total Projects</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-value">
-                {projects.reduce((s, p) => s + p.units.length, 0)}
+          <>
+            {allMetricsZero ? (
+              <GettingStartedStepper />
+            ) : (
+              <div className="grid grid-cols-4 gap-4 mb-4">
+                <div className="stat-card py-2">
+                  <div className="stat-value text-base">{projects.length}</div>
+                  <div className="stat-label">Total Projects</div>
+                </div>
+                <div className="stat-card py-2">
+                  <div className="stat-value text-base">
+                    {projects.reduce((s, p) => s + p.units.length, 0)}
+                  </div>
+                  <div className="stat-label">Total Units</div>
+                </div>
+                <div className="stat-card py-2">
+                  <div className="stat-value text-base">
+                    {projects.reduce((s, p) => s + calcProjectSummary(p).totalCabinets, 0)}
+                  </div>
+                  <div className="stat-label">Total Cabinets</div>
+                </div>
+                <div className="stat-card py-2">
+                  <div className="stat-value text-base">
+                    {projects.reduce((s, p) => s + calcProjectSummary(p).totalCountertopSqft, 0).toFixed(0)}
+                  </div>
+                  <div className="stat-label">Total CT Sqft</div>
+                </div>
               </div>
-              <div className="stat-label">Total Units</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-value">
-                {projects.reduce((s, p) => s + calcProjectSummary(p).totalCabinets, 0)}
-              </div>
-              <div className="stat-label">Total Cabinets</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-value">
-                {projects.reduce((s, p) => s + calcProjectSummary(p).totalCountertopSqft, 0).toFixed(0)}
-              </div>
-              <div className="stat-label">Total CT Sqft</div>
-            </div>
-          </div>
+            )}
+          </>
         )}
 
         {/* Projects Grid */}
@@ -315,8 +430,6 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-
-            {/* Example Output Section — hidden for now, will add back later */}
 
             {/* Repeated primary CTA */}
             <div className="text-center mb-10">
@@ -457,7 +570,7 @@ export default function Dashboard() {
         ) : (
           <>
             {/* Welcome line + resume action */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
               <div>
                 <h2 className="font-semibold text-foreground text-lg">Your Projects</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -477,23 +590,29 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Needs Attention Panel */}
+            {/* Needs Attention Panel — dynamic per-project message */}
             {needsAttention.length > 0 && (
-              <div className="est-card p-3.5 mb-5 border-l-4" style={{ borderLeftColor: 'hsl(35, 92%, 50%)' }}>
+              <div className="est-card p-3.5 mb-4 border-l-4" style={{ borderLeftColor: 'hsl(35, 92%, 50%)' }}>
                 <div className="flex items-center gap-2 mb-2">
                   <AlertCircle size={14} className="text-amber-600" />
-                  <span className="text-xs font-semibold text-foreground">Projects needing attention ({needsAttention.length})</span>
+                  <span className="text-xs font-semibold text-foreground">
+                    {needsAttention.length === 1
+                      ? `${needsAttention[0].name} is ${getProjectProgress(needsAttention[0])}% complete. Continue estimating to finish your quote.`
+                      : `${needsAttention.length} projects need attention. Continue estimating to finish your quotes.`
+                    }
+                  </span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {needsAttention.slice(0, 5).map(p => {
                     const st = getProjectStatus(p);
+                    const prog = getProjectProgress(p);
                     return (
                       <Link key={p.id} to={`/project/${p.id}`}
                         className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium border border-border hover:bg-secondary transition-colors"
                       >
                         <span className={`w-1.5 h-1.5 rounded-full ${st.label === 'Draft' ? 'bg-muted-foreground' : 'bg-amber-500'}`} />
                         {p.name}
-                        <span className="text-muted-foreground">· {st.label}</span>
+                        <span className="text-muted-foreground">· {prog}%</span>
                       </Link>
                     );
                   })}
@@ -504,22 +623,22 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Search + Filters */}
-            <div className="flex flex-col sm:flex-row gap-3 mb-4">
+            {/* Search + Filters — single compact row */}
+            <div className="flex items-center gap-2 mb-4">
               <div className="relative flex-1">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Search projects by name, address, or type…"
-                  className="w-full h-9 pl-9 pr-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                  placeholder="Search projects…"
+                  className="w-full h-8 pl-9 pr-3 text-xs border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
                 />
               </div>
               <select
                 value={statusFilter}
                 onChange={e => setStatusFilter(e.target.value)}
-                className="h-9 px-3 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
+                className="h-8 px-2 text-xs border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card"
               >
                 <option value="all">All Status</option>
                 <option value="Draft">Draft</option>
@@ -537,13 +656,27 @@ export default function Dashboard() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredProjects.map(p => (
-                  <ProjectCard key={p.id} project={p} onDelete={handleDelete} />
+                  <ProjectCard key={p.id} project={p} onDelete={handleDelete} onRename={handleRename} />
                 ))}
               </div>
             )}
+
+            {/* Pro-Tips card below project list */}
+            <ProTipsCard />
           </>
         )}
       </main>
+
+      {/* Floating Help Button */}
+      <button
+        className="fixed bottom-6 right-6 w-12 h-12 rounded-full shadow-lg flex items-center justify-center text-primary-foreground z-50 hover:scale-110 transition-transform"
+        style={{ background: 'hsl(var(--primary))' }}
+        onClick={() => window.open('mailto:poojansk96@gmail.com', '_blank')}
+        aria-label="Help & Support"
+      >
+        <HelpCircle size={22} />
+      </button>
+
       <footer className="text-center py-3 border-t">
         <span style={{ fontSize: '10px' }} className="text-muted-foreground">© {new Date().getFullYear()} Poojan K. All rights reserved.</span>
       </footer>
