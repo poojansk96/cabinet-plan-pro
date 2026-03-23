@@ -17,8 +17,8 @@ async function callGemini(
   maxTokens = 8192,
   responseSchema?: any,
 ): Promise<any> {
-  // Model fallback: try primary model 3 times, then fallback to gemini-2.5-pro 3 times
-  const MODELS = [model, "gemini-2.5-pro"];
+  // Model fallback: try primary model 3 times, then fallback to gemini-2.5-flash 3 times
+  const MODELS = [model, "gemini-2.5-flash"];
   const MAX_RETRIES = 3;
   let response: Response | null = null;
 
@@ -540,7 +540,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
 
     let extracted: any = { items: [] };
     try {
-      extracted = await callGemini(GEMINI_API_KEY, "gemini-2.5-pro", pageImage, extractPrompt, 0.2, 8192, EXTRACT_SCHEMA);
+      extracted = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", pageImage, extractPrompt, 0.2, 8192, EXTRACT_SCHEMA);
     } catch (e: any) {
       if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
