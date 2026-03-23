@@ -116,7 +116,7 @@ async function callGemini(
 
 // ── SKU Helpers ──
 
-const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|WDC|UB|WC|OH|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HALC|HAL|SA|SV|APPRON|UREP|REP)\d[\w\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
+const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|WDC|UB|WC|OH|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HALC|HAL|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCDB|HCLS|HCBM|HCB|HC|HWSB|HW|HSS|HS)\d[\w\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
 const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
 // Relaxed: accept any 1-8 letter prefix followed by a digit (catches manufacturer-specific SKUs like HAV, HALC)
 const SKU_PREFIX_RE = /^[A-Z]{1,8}\d/i;
@@ -184,8 +184,11 @@ function countSkusFromText(pageText: string): Record<string, number> {
 function classifySku(sku: string): string {
   if (/^(BLW|BRW)/i.test(sku)) return "Wall";
   if (/^(W|WDC|UB|WC|OH)\d/i.test(sku)) return "Wall";
+  // HC/HW/HS manufacturer prefixes: classify by the inner prefix after H
+  if (/^HW/i.test(sku)) return "Wall";   // HWSB = H + Wall variant
+  if (/^HCW\d/i.test(sku)) return "Wall";
   if (/^(T|UT|TC|PT|PTC|UC)(\d|$)/i.test(sku)) return "Tall";
-  if (/^(HALC)\d/i.test(sku)) return "Tall";
+  if (/^(HALC|HCUC)\d/i.test(sku)) return "Tall";
   if (/^(V|VB|VD|VDC)\d/i.test(sku)) return "Vanity";
   if (/^(HAV)\d/i.test(sku)) return "Vanity";
   if (/^(FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|TF|APPRON|UREP|REP)\d/i.test(sku)) return "Accessory";
@@ -224,21 +227,8 @@ function trySplitConcatenatedSku(rawSku: string, knownTextSkus: string[] = []): 
   const exactSegments = segmentWithKnown(0);
   if (exactSegments && exactSegments.length >= 2) return exactSegments;
 
-  // Don't split SKUs that contain dimension patterns like 15X84, 30X24, etc.
-  // These are single SKUs with width×height notation (e.g., UC15X84, W3315X24B)
-  if (/\d+X\d+/i.test(sku)) return null;
-
-  const possibleBoundaryCount = (sku.match(/[A-Z]{1,8}\d/g) || []).length;
-  if (possibleBoundaryCount < 2) return null;
-
-  for (let i = 2; i < sku.length - 2; i++) {
-    const left = sku.slice(0, i);
-    const right = sku.slice(i);
-    const leftValid = isValidSku(left) || NO_DIGIT_OK.test(left);
-    const rightValid = isValidSku(right) || NO_DIGIT_OK.test(right);
-    if (leftValid && rightValid) return [left, right];
-  }
-
+  // No fallback heuristic splitting — only split when both parts are confirmed
+  // in the text layer. This prevents false splits of compound SKUs like HWSB30PSX23H.
   return null;
 }
 
@@ -657,39 +647,58 @@ If no cabinet SKUs are found, return {"items":[]}`;
       return { ...item, quantity: nextQty };
     });
 
+    // Cap non-accessory quantities using text-layer occurrence counts.
+    // The text layer is a reliable upper bound for plan-view labels.
+    items = items.map((item) => {
+      if (ACCESSORY_FLOOR_RE.test(item.sku)) return item; // accessories handled above
+      // Check exact SKU count and also base SKU (without -L/-R suffix) count
+      const exactCount = textLayerSkuCounts[item.sku] ?? 0;
+      const baseSku = item.sku.replace(/-[A-Z]+$/i, '');
+      const baseCount = baseSku !== item.sku ? (textLayerSkuCounts[baseSku] ?? 0) : 0;
+      const textCount = Math.max(exactCount, baseCount);
+      if (textCount > 0 && item.quantity > textCount) {
+        console.log(`Non-accessory qty cap: ${item.sku} ${item.quantity} → ${textCount} (text layer)`);
+        return { ...item, quantity: textCount };
+      }
+      return item;
+    });
+
+    // Filter out SKUs that don't match any known cabinet prefix pattern
+    // and are not confirmed by the text layer (prevents fabricated SKUs like PSX23H)
+    items = items.filter((item) => {
+      if (SKU_PATTERN.test(item.sku)) { SKU_PATTERN.lastIndex = 0; return true; }
+      SKU_PATTERN.lastIndex = 0;
+      if (NO_DIGIT_OK.test(item.sku)) return true;
+      if (textLayerSkuSet.has(item.sku)) return true;
+      // Check prefix match in text layer
+      for (const tlSku of textLayerSkuSet) {
+        if (item.sku.startsWith(tlSku) || tlSku.startsWith(item.sku)) return true;
+      }
+      console.log(`Filtered unknown-prefix SKU not in text layer: ${item.sku}`);
+      return false;
+    });
+
     // ── Merge truncated SKUs into suffixed variants ──
     // When a label is partially hidden (e.g., "W1230-L" cut off → "W1230"), the AI may
     // return both "W1230" (truncated) and "W1230-R" or "W1230-L" as separate entries.
-    // If a bare SKU exists alongside a suffixed variant (same base + "-X" suffix) in the
-    // same room, absorb the bare SKU's quantity into the suffixed one to prevent duplicates.
-    const itemsByRoom = new Map<string, typeof items>();
-    for (const item of items) {
-      const arr = itemsByRoom.get(item.room) || [];
-      arr.push(item);
-      itemsByRoom.set(item.room, arr);
+    // Absorb bare SKU into suffixed variant(s) across ALL rooms to prevent duplicates.
+    const suffixed = items.filter(i => /-[A-Z]+$/i.test(i.sku));
+    const bare = items.filter(i => !/-[A-Z]+$/i.test(i.sku));
+    const absorbedBare = new Set<number>();
+    for (let bi = 0; bi < bare.length; bi++) {
+      const bareSku = bare[bi].sku;
+      const bareQty = bare[bi].quantity;
+      const variants = suffixed.filter(s => s.sku.startsWith(bareSku + '-'));
+      if (variants.length > 0 && bareQty <= 1) {
+        absorbedBare.add(bi);
+        console.log(`Merged truncated SKU "${bareSku}" (qty ${bareQty}) into suffixed variant(s) [${variants.map(v=>v.sku).join(',')}]`);
+      }
     }
     const mergedItems: typeof items = [];
-    for (const [room, roomItems] of itemsByRoom) {
-      const suffixed = roomItems.filter(i => /-[A-Z]+$/i.test(i.sku));
-      const bare = roomItems.filter(i => !/-[A-Z]+$/i.test(i.sku));
-      const absorbedBare = new Set<number>();
-      for (let bi = 0; bi < bare.length; bi++) {
-        const bareSku = bare[bi].sku;
-        const bareQty = bare[bi].quantity;
-        // Find suffixed variants that start with this bare SKU + "-"
-        const variants = suffixed.filter(s => s.sku.startsWith(bareSku + '-'));
-        // Only absorb if bare qty is 1 (truncation artifact). If qty > 1, the AI
-        // is confident about multiple instances, so keep the bare SKU as-is.
-        if (variants.length > 0 && bareQty <= 1) {
-          absorbedBare.add(bi);
-          console.log(`Merged truncated SKU "${bareSku}" (qty ${bareQty}) into suffixed variant(s) [${variants.map(v=>v.sku).join(',')}] in room ${room}`);
-        }
-      }
-      for (let bi = 0; bi < bare.length; bi++) {
-        if (!absorbedBare.has(bi)) mergedItems.push(bare[bi]);
-      }
-      mergedItems.push(...suffixed);
+    for (let bi = 0; bi < bare.length; bi++) {
+      if (!absorbedBare.has(bi)) mergedItems.push(bare[bi]);
     }
+    mergedItems.push(...suffixed);
     items = mergedItems;
 
     // ── Deduplicate ──
