@@ -6,13 +6,10 @@ export interface StoneExtractedRow {
   length: number;
   depth: number;
   splashHeight: number | null;
-  sidesplashCount: number;
-  backsplashLength: number;
-  category: 'kitchen' | 'bath';
+  isIsland: boolean;
   room: string;
   selected: boolean;
   sourceFile?: string;
-  detectedUnitType?: string;
 }
 
 interface Props {
@@ -38,7 +35,7 @@ const PERSONAL_QUOTES = [
 
 type Step = 'upload' | 'processing' | 'review';
 
-async function renderPageToBase64(page: any, scale = 1.5): Promise<string> {
+async function renderPageToBase64(page: any, scale = 3): Promise<string> {
   const vp = page.getViewport({ scale });
   let canvas: any;
   let ctx: any;
@@ -69,116 +66,6 @@ async function renderPageToBase64(page: any, scale = 1.5): Promise<string> {
     return renderPageToBase64(page, scale - 0.5);
   }
   return b64;
-}
-
-interface RawCountertop {
-  label: string;
-  length: number;
-  depth: number;
-  splashHeight: number | null;
-  sidesplashCount: number;
-  backsplashLength: number;
-  category: 'kitchen' | 'bath';
-  room: string;
-}
-
-
-
-// extractPageText removed — AI now returns unitType directly
-
-function normalizeTypeIdentity(raw: string): string {
-  return String(raw || '')
-    .toUpperCase()
-    .replace(/[\u2010-\u2015]/g, '-')
-    .replace(/_/g, ' ')
-    .replace(/^UNIT\s+TYPE\s*[:\-]?\s*/, '')
-    .replace(/^TYPE\s+/, '')
-    .replace(/^PLAN\s+/, '')
-    .replace(/\s*-\s*/g, '-')
-    .replace(/[\s()]/g, '')
-    .replace(/[^A-Z0-9.\-/]/g, '')
-    .trim();
-}
-
-function cleanDetectedType(raw: string): string {
-  return String(raw || '')
-    .toUpperCase()
-    .replace(/[\u2010-\u2015]/g, '-')
-    .replace(/_/g, ' ')
-    .replace(/\s*-\s*/g, '-')
-    .replace(/\(\s+/g, '(')
-    .replace(/\s+\)/g, ')')
-    .replace(/\s+/g, ' ')
-    .replace(/[^A-Z0-9().\-/ ]/g, '')
-    .replace(/\b(FLOOR PLAN|FLOOR|ELEVATIONS?|SHEETS?|DRAWINGS?|DETAILS?|COUNTERTOPS?|TOPS?|STONE|CABINETS?|SHOP)\b.*$/i, '')
-    .trim();
-}
-
-function isLikelyTypeName(value: string, allowShort = false): boolean {
-  const cleaned = cleanDetectedType(value);
-  const identity = normalizeTypeIdentity(cleaned);
-  if (!identity) return false;
-  if (/^(KITCHEN|BATH|VANITY|COUNTERTOP|STONE|SHOP|DRAWING|PLAN)$/i.test(identity)) return false;
-  if (/[A-Z]/.test(identity) && /\d/.test(identity)) return true;
-  if (/\b(?:STUDIO|PENTHOUSE|TOWNHOUSE|CONDO|LOFT|DUPLEX|TRIPLEX)\b/i.test(cleaned)) return true;
-  return allowShort && /^[A-Z][A-Z0-9().\-/ ]{0,30}$/.test(cleaned);
-}
-
-function detectTypeFromText(text: string): string | null {
-  const normalized = String(text || '')
-    .toUpperCase()
-    .replace(/[\u2010-\u2015]/g, '-')
-    .replace(/_/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  if (!normalized) return null;
-
-  const hits: string[] = [];
-  const seen = new Set<string>();
-  const push = (candidate: string) => {
-    const clean = cleanDetectedType(candidate);
-    const key = normalizeTypeIdentity(clean);
-    if (!key || seen.has(key) || !isLikelyTypeName(clean, true)) return;
-    seen.add(key);
-    hits.push(clean);
-  };
-
-  const patterns = [
-    /\bUNIT\s+TYPE\s*[:\-]?\s*(TYPE\s+[A-Z0-9][A-Z0-9.\-/]*(?:\s*\([A-Z0-9.\-/ ]+\))?(?:\s*-\s*[A-Z0-9.\-/]+)?(?:\s+(?:AS|MIRROR|ADA|REV|ALT|OPTION))?)/g,
-    /\bUNIT\s+TYPE\s*[:\-]?\s*([A-Z0-9][A-Z0-9.\-/]*(?:\s*\([A-Z0-9.\-/ ]+\))?(?:\s*-\s*[A-Z0-9.\-/]+)?(?:\s+(?:AS|MIRROR|ADA|REV|ALT|OPTION))?)/g,
-    /\b(TYPE\s+[A-Z0-9][A-Z0-9.\-/]*(?:\s*\([A-Z0-9.\-/ ]+\))?(?:\s*-\s*[A-Z0-9.\-/]+)?(?:\s+(?:AS|MIRROR|ADA|REV|ALT|OPTION))?)/g,
-    /\b(PLAN\s+[A-Z0-9][A-Z0-9.\-/]*(?:\s*\([A-Z0-9.\-/ ]+\))?(?:\s*-\s*[A-Z0-9.\-/]+)?(?:\s+(?:AS|MIRROR|ADA|REV|ALT|OPTION))?)/g,
-  ];
-
-  for (const pattern of patterns) {
-    pattern.lastIndex = 0;
-    let match: RegExpExecArray | null;
-    while ((match = pattern.exec(normalized)) !== null) {
-      push(match[1] || match[0]);
-    }
-  }
-
-  return hits[0] ?? null;
-}
-
-function detectTypeFromFilename(fileName: string): string | null {
-  const normalized = String(fileName || '')
-    .replace(/\.[^.]+$/, ' ')
-    .toUpperCase()
-    .replace(/[\u2010-\u2015]/g, '-')
-    .replace(/_/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  const hinted = detectTypeFromText(normalized);
-  if (hinted) return hinted;
-
-  const codeMatch = normalized.match(/\b(TYPE\s+)?([A-Z]*\d+(?:\.\d+[A-Z]*)?(?:\s*\([A-Z0-9.\-/ ]+\))?(?:\s*-\s*(?:AS|MIRROR|ADA|REV|ALT|OPTION|[A-Z0-9]+))*)\b/);
-  if (!codeMatch) return null;
-
-  const candidate = cleanDetectedType(`${codeMatch[1] || ''}${codeMatch[2] || ''}`);
-  return isLikelyTypeName(candidate) ? candidate : null;
 }
 
 function calcSqft(row: StoneExtractedRow): number {
@@ -241,132 +128,56 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
         pagesTotal += pdf.numPages;
       }
       setTotalPages(pagesTotal);
-      setDetectedType(null);
 
-      let lastFileType: string | null = null;
+      // Try to detect unit type from filename (e.g. "Type A countertops.pdf")
+      const typeMatch = files[0]?.name.match(/type\s*[-_]?\s*([A-Za-z0-9]+)/i);
+      if (typeMatch) {
+        setDetectedType('TYPE ' + typeMatch[1].toUpperCase());
+      }
 
       for (const file of files) {
         const buf = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-        const fileFallbackType = detectTypeFromFilename(file.name);
-        let fileType: string | null = null;
-        const fileRowStartIndex = allRows.length;
 
         for (let p = 1; p <= pdf.numPages; p++) {
-          const page = await pdf.getPage(p);
-
-          let pageText = '';
-          try {
-            const textContent = await page.getTextContent();
-            pageText = textContent.items
-              .map((item: any) => item.str)
-              .filter((s: string) => s.trim().length > 0)
-              .join(' ');
-          } catch (err) {
-            console.warn(`Failed to read text layer on page ${p}:`, err);
-          }
-
-          const textType = detectTypeFromText(pageText);
-
-          // Call both extraction functions in parallel
           setStatusMsg(`Processing ${file.name} — page ${p}/${pdf.numPages}`);
+          const page = await pdf.getPage(p);
           const pageImage = await renderPageToBase64(page);
-          let result: { countertops: RawCountertop[]; unitType: string | null } = { countertops: [], unitType: null };
-          let bsssGroups: { category: string; totalInches: number; dimensions: number[] }[] = [];
 
           try {
-            const [mainResp, bsResp] = await Promise.all([
-              fetch(`${SUPABASE_URL}/functions/v1/extract-pdf-countertops`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_KEY}` },
-                body: JSON.stringify({ pageImage }),
-              }),
-              fetch(`${SUPABASE_URL}/functions/v1/extract-pdf-backsplash`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_KEY}` },
-                body: JSON.stringify({ pageImage }),
-              }),
-            ]);
+            const resp = await fetch(`${SUPABASE_URL}/functions/v1/extract-pdf-countertops`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+              },
+              body: JSON.stringify({ pageImage }),
+            });
 
-            // Process main extraction
-            if (mainResp.status === 429) { setError('Rate limit reached. Please wait and try again.'); }
-            else if (mainResp.status === 402) { setError('AI credits exhausted.'); }
-            else if (mainResp.ok) {
-              const data = await mainResp.json();
-              const aiType = data.unitType ? cleanDetectedType(String(data.unitType).trim()) : null;
-              const cts: RawCountertop[] = (data.countertops ?? []).map((ct: any) => ({
-                label: String(ct.label || 'Section').trim(),
-                length: ct.length,
-                depth: ct.depth,
-                splashHeight: ct.splashHeight ?? null,
-                sidesplashCount: 0, // BS&SS comes from separate extraction
-                backsplashLength: 0, // BS&SS comes from separate extraction
-                category: ct.category || (ct.depth <= 22 ? 'bath' : 'kitchen'),
-                room: String(ct.room || 'Kitchen').trim(),
-              }));
-              result = { countertops: cts, unitType: aiType };
-            }
+            if (resp.status === 429) { setError('Rate limit reached. Please wait and try again.'); break; }
+            if (resp.status === 402) { setError('AI credits exhausted.'); break; }
 
-            // Process BS&SS extraction
-            if (bsResp.ok) {
-              const bsData = await bsResp.json();
-              bsssGroups = bsData.groups ?? [];
-              console.log(`BS&SS page ${p}:`, bsssGroups);
+            if (resp.ok) {
+              const data = await resp.json();
+              for (const ct of (data.countertops ?? [])) {
+                allRows.push({
+                  label: ct.label,
+                  length: ct.length,
+                  depth: ct.depth,
+                  splashHeight: ct.splashHeight,
+                  isIsland: ct.isIsland,
+                  room: ct.room || 'Kitchen',
+                  selected: true,
+                  sourceFile: file.name,
+                });
+              }
             }
           } catch (err) {
-            console.error(`Error on page ${p}:`, err);
-          }
-
-          // Merge BS&SS totals into countertop rows:
-          // For each category, put total double-line inches as backsplashLength on the first row
-          for (const group of bsssGroups) {
-            const cat = group.category?.toLowerCase();
-            if (!cat || group.totalInches <= 0) continue;
-            const firstRow = result.countertops.find(ct => ct.category === cat);
-            if (firstRow) {
-              firstRow.backsplashLength = group.totalInches;
-            }
+            console.error(`Error processing page ${p}:`, err);
           }
 
           pagesDone++;
           setProgress(Math.round((pagesDone / pagesTotal) * 100));
-
-          // Resolve type
-          const resolvedPageType = result.unitType || textType || fileType || fileFallbackType || null;
-
-          if (resolvedPageType && !fileType) {
-            fileType = resolvedPageType;
-          }
-
-          if (fileType) {
-            for (let i = fileRowStartIndex; i < allRows.length; i++) {
-              if (allRows[i].sourceFile === file.name && !allRows[i].detectedUnitType) {
-                allRows[i] = { ...allRows[i], detectedUnitType: fileType };
-              }
-            }
-          }
-
-          if (resolvedPageType && !lastFileType) {
-            lastFileType = resolvedPageType;
-            setDetectedType(resolvedPageType);
-          }
-
-          for (const ct of result.countertops) {
-            allRows.push({
-              ...ct,
-              selected: true,
-              sourceFile: file.name,
-              detectedUnitType: resolvedPageType || fileType || undefined,
-            });
-          }
-        }
-
-        if (fileType) {
-          for (let i = fileRowStartIndex; i < allRows.length; i++) {
-            if (allRows[i].sourceFile === file.name && !allRows[i].detectedUnitType) {
-              allRows[i] = { ...allRows[i], detectedUnitType: fileType };
-            }
-          }
         }
       }
 
@@ -527,13 +338,12 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                     <thead>
                       <tr>
                         <th className="w-8"></th>
-                        <th>Type</th>
                         <th>Label</th>
                         <th>Room</th>
                         <th className="text-right">Length"</th>
                         <th className="text-right">Depth"</th>
                         <th className="text-right">Backsplash"</th>
-                        <th className="text-center">Category</th>
+                        <th className="text-center">Island</th>
                         <th className="text-right">SQFT</th>
                         <th></th>
                       </tr>
@@ -542,18 +352,12 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                       {rows.map((row, idx) => (
                         <tr key={idx} className={!row.selected ? 'opacity-50' : ''}>
                           <td><input type="checkbox" checked={row.selected} onChange={e => updateRow(idx, { selected: e.target.checked })} /></td>
-                          <td><input className="est-input w-20 text-xs font-semibold" value={row.detectedUnitType || ''} onChange={e => updateRow(idx, { detectedUnitType: e.target.value || undefined })} placeholder="—" /></td>
                           <td><input className="est-input w-full text-xs" value={row.label} onChange={e => updateRow(idx, { label: e.target.value })} /></td>
                           <td><input className="est-input w-20 text-xs" value={row.room} onChange={e => updateRow(idx, { room: e.target.value })} /></td>
                           <td className="text-right"><input type="number" className="est-input w-16 text-right text-xs" value={row.length} min={1} onChange={e => updateRow(idx, { length: +e.target.value })} /></td>
                           <td className="text-right"><input type="number" className="est-input w-16 text-right text-xs" value={row.depth} min={1} step={0.5} onChange={e => updateRow(idx, { depth: +e.target.value })} /></td>
                           <td className="text-right"><input type="number" className="est-input w-14 text-right text-xs" value={row.splashHeight ?? ''} min={0} step={0.5} onChange={e => updateRow(idx, { splashHeight: e.target.value ? +e.target.value : null })} placeholder="—" /></td>
-                          <td className="text-center">
-                            <select className="est-input text-xs w-20" value={row.category} onChange={e => updateRow(idx, { category: e.target.value as 'kitchen' | 'bath' })}>
-                              <option value="kitchen">Kitchen</option>
-                              <option value="bath">Bath</option>
-                            </select>
-                          </td>
+                          <td className="text-center">{row.isIsland ? '✓' : '—'}</td>
                           <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{calcSqft(row)}</td>
                           <td><button onClick={() => deleteRow(idx)} className="p-1 hover:text-destructive text-muted-foreground"><Trash2 size={12} /></button></td>
                         </tr>
@@ -561,7 +365,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                     </tbody>
                     <tfoot>
                       <tr className="font-bold border-t border-border">
-                        <td colSpan={8} className="text-right">Total SQFT:</td>
+                        <td colSpan={7} className="text-right">Total SQFT:</td>
                         <td className="text-right" style={{ color: 'hsl(var(--primary))' }}>{totalSqft}</td>
                         <td></td>
                       </tr>

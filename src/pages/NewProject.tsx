@@ -64,7 +64,6 @@ export default function NewProject() {
   const [specs, setSpecs] = useState({
     projectSuper: '',
     customer: '',
-    takeoffPerson: '',
     doorStyle: '',
     doorStyleCustom: '',
     doorStyleStyle: '',
@@ -286,11 +285,10 @@ export default function NewProject() {
                 <h3 className="text-sm font-semibold text-foreground mb-4">Specifications <span className="text-[10px] font-normal text-muted-foreground normal-case">(All optional — you can change later)</span></h3>
               </div>
 
-              {/* Row 1: Project Super + Customer + Takeoff Person */}
-              <div className="grid grid-cols-3 gap-4">
+              {/* Row 1: Project Super + Customer */}
+              <div className="grid grid-cols-2 gap-4">
                 {specTextField('Project Super', 'projectSuper', 'Supervisor name')}
                 {specTextField('Customer', 'customer', 'Customer / client name')}
-                {specTextField('Takeoff Person', 'takeoffPerson', 'Your name')}
               </div>
 
               {/* Door Style */}

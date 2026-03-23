@@ -17,12 +17,10 @@ export interface PrefinalCabinetRow {
 
 export interface PrefinalStoneRow {
   label: string;
-  length: number;       // inches (top)
+  length: number;       // inches
   depth: number;        // inches
   splashHeight: number | null;
-  sidesplashCount: number;
-  backsplashLength: number; // total linear inches where backsplash runs (can be > length)
-  category: 'kitchen' | 'bath';
+  isIsland: boolean;
   room: string;
   unitType: string;
 }
@@ -37,7 +35,6 @@ interface PrefinalData {
   additionalCostPerType: Record<string, number>;
   stoneRows: PrefinalStoneRow[];
   stoneUnitTypes: string[];
-  stoneBacksplashHeight: Record<string, { kitchen: number; bath: number }>;
 }
 
 function sanitizeUnitNumber(value: string): string {
@@ -209,7 +206,7 @@ function dedupeSameTypeSameUnit(unitNumbers: PrefinalUnitNumber[]): PrefinalUnit
 function loadData(projectId: string): PrefinalData {
   try {
     const raw = localStorage.getItem(`prefinal_${projectId}`);
-    if (!raw) return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [], stoneBacksplashHeight: {} };
+    if (!raw) return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [] };
     const parsed = JSON.parse(raw);
     // Migration: old format had unitRows
     if (parsed.unitRows && !parsed.unitTypes) {
@@ -223,7 +220,6 @@ function loadData(projectId: string): PrefinalData {
         additionalCostPerType: parsed.additionalCostPerType || {},
         stoneRows: parsed.stoneRows || [],
         stoneUnitTypes: parsed.stoneUnitTypes || [],
-        stoneBacksplashHeight: parsed.stoneBacksplashHeight || {},
       };
     }
     // Normalize + deduplicate unit types preserving first-seen order
@@ -265,15 +261,6 @@ function loadData(projectId: string): PrefinalData {
 
     const unitNumbers = dedupeSameTypeSameUnit(dedupeUnitNumbers(rawUnitNumbers));
 
-    // Migrate old stoneRows: convert isIsland to category
-    const rawStoneRows = (parsed.stoneRows || []).map((r: any) => {
-      const { isIsland, ...rest } = r;
-      return {
-        ...rest,
-        category: r.category || (r.depth <= 22 ? 'bath' : 'kitchen'),
-      };
-    });
-
     return {
       unitTypes: dedupedUnitTypes,
       unitNumbers,
@@ -282,12 +269,11 @@ function loadData(projectId: string): PrefinalData {
       handleQtyPerSku: parsed.handleQtyPerSku || {},
       bidCostPerType: parsed.bidCostPerType || {},
       additionalCostPerType: parsed.additionalCostPerType || {},
-      stoneRows: rawStoneRows,
+      stoneRows: parsed.stoneRows || [],
       stoneUnitTypes: parsed.stoneUnitTypes || [],
-      stoneBacksplashHeight: parsed.stoneBacksplashHeight || {},
     };
   } catch {
-    return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [], stoneBacksplashHeight: {} };
+    return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [] };
   }
 }
 
@@ -644,10 +630,9 @@ export function usePrefinalStore(projectId: string) {
 
   const addStoneImport = useCallback((rows: PrefinalStoneRow[], unitType: string) => {
     setData(prev => {
-      const canonicalType = resolveExistingTypeName(unitType, [...prev.stoneUnitTypes, ...prev.unitTypes]);
       // Replace all rows for this unitType
-      const existingOther = prev.stoneRows.filter(r => resolveExistingTypeName(r.unitType, [...prev.stoneUnitTypes, ...prev.unitTypes]) !== canonicalType);
-      const stoneRows = [...existingOther, ...rows.map(r => ({ ...r, unitType: canonicalType }))];
+      const existingOther = prev.stoneRows.filter(r => r.unitType !== unitType);
+      const stoneRows = [...existingOther, ...rows.map(r => ({ ...r, unitType }))];
       const next = { ...prev, stoneRows };
       saveData(projectId, next);
       return next;
@@ -667,35 +652,12 @@ export function usePrefinalStore(projectId: string) {
     });
   }, [projectId]);
 
-  const setStoneBacksplashHeight = useCallback((unitType: string, category: 'kitchen' | 'bath', height: number) => {
-    setData(prev => {
-      const existing = prev.stoneBacksplashHeight[unitType] || { kitchen: 0, bath: 0 };
-      const stoneBacksplashHeight = { ...prev.stoneBacksplashHeight, [unitType]: { ...existing, [category]: height } };
-      const next = { ...prev, stoneBacksplashHeight };
-      saveData(projectId, next);
-      return next;
-    });
-  }, [projectId]);
-
-  const setAllStoneBacksplashHeight = useCallback((category: 'kitchen' | 'bath', height: number, unitTypes: string[]) => {
-    setData(prev => {
-      const updated = { ...prev.stoneBacksplashHeight };
-      unitTypes.forEach(ut => {
-        const existing = updated[ut] || { kitchen: 0, bath: 0 };
-        updated[ut] = { ...existing, [category]: height };
-      });
-      const next = { ...prev, stoneBacksplashHeight: updated };
-      saveData(projectId, next);
-      return next;
-    });
-  }, [projectId]);
-
   const clearStone = useCallback(() => {
-    commit({ ...data, stoneRows: [], stoneUnitTypes: [], stoneBacksplashHeight: {} });
+    commit({ ...data, stoneRows: [], stoneUnitTypes: [] });
   }, [commit, data]);
 
   const clearAll = useCallback(() => {
-    commit({ unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [], stoneBacksplashHeight: {} });
+    commit({ unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [] });
   }, [commit]);
 
   return {
@@ -708,7 +670,6 @@ export function usePrefinalStore(projectId: string) {
     additionalCostPerType: data.additionalCostPerType,
     stoneRows: data.stoneRows,
     stoneUnitTypes: data.stoneUnitTypes,
-    stoneBacksplashHeight: data.stoneBacksplashHeight,
     addUnitTypes,
     deleteUnitType,
     renameUnitType,
@@ -733,8 +694,6 @@ export function usePrefinalStore(projectId: string) {
     addStoneImport,
     deleteStoneRow,
     clearStone,
-    setStoneBacksplashHeight,
-    setAllStoneBacksplashHeight,
     clearAll,
   };
 }

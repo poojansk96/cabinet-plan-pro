@@ -14,11 +14,11 @@ async function callGemini(
   pageImage: string,
   prompt: string,
   temperature = 0.1,
-  maxTokens = 65536,
+  maxTokens = 8192,
   responseSchema?: any,
 ): Promise<any> {
-  // Model fallback: try primary model 3 times, then fallback to gemini-2.5-flash 3 times
-  const MODELS = [model, "gemini-2.5-flash"];
+  // Model fallback: try primary model 3 times, then fallback to gemini-2.5-pro 3 times
+  const MODELS = [model, "gemini-2.5-pro"];
   const MAX_RETRIES = 3;
   let response: Response | null = null;
 
@@ -62,7 +62,7 @@ async function callGemini(
       if (response.status === 503 || response.status === 500) {
         console.warn(`AI unavailable (${response.status}) [${currentModel}], attempt ${attempt + 1}/${MAX_RETRIES}`);
         response = null;
-        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 5000 * Math.pow(2, attempt))); continue; }
+        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
         console.log(`${currentModel} failed after ${MAX_RETRIES} retries, trying fallback...`);
         break; // Try next model
       }
@@ -121,15 +121,6 @@ const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RAN
 // Relaxed: accept any 1-8 letter prefix followed by a digit (catches manufacturer-specific SKUs like HAV, HALC)
 const SKU_PREFIX_RE = /^[A-Z]{1,8}\d/i;
 const NO_DIGIT_OK = /^(BP|SCRIBE|UC)$/i;
-
-// Strict check: known standard cabinet prefixes + manufacturer H-prefixed variants (HC*, HW*, HS*)
-const KNOWN_PREFIX_RE = /^(B|DB|SB|CB|EB|LS|LSB|W|WDC|UB|WC|OH|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HALC|HAL|SA|SV|APPRON|UREP|REP)\d/i;
-const MANUFACTURER_PREFIX_RE = /^H[A-Z]{1,6}\d/i;
-
-function hasKnownCabinetPrefix(sku: string): boolean {
-  const upper = sku.toUpperCase().trim();
-  return KNOWN_PREFIX_RE.test(upper) || MANUFACTURER_PREFIX_RE.test(upper) || NO_DIGIT_OK.test(upper);
-}
 const STRONG_STRIP_SKU_RE = /^(?:UC|BP|SCRIBE|APPRON|UREP|REP|[A-Z]{2,8}\d[A-Z0-9\-\/]{2,})$/i;
 const SPLIT_SUFFIX_RE = /(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)$/i;
 
@@ -243,9 +234,9 @@ function trySplitConcatenatedSku(rawSku: string, knownTextSkus: string[] = []): 
   for (let i = 2; i < sku.length - 2; i++) {
     const left = sku.slice(0, i);
     const right = sku.slice(i);
-      const leftValid = hasKnownCabinetPrefix(left);
-      const rightValid = hasKnownCabinetPrefix(right);
-      if (leftValid && rightValid) return [left, right];
+    const leftValid = isValidSku(left) || NO_DIGIT_OK.test(left);
+    const rightValid = isValidSku(right) || NO_DIGIT_OK.test(right);
+    if (leftValid && rightValid) return [left, right];
   }
 
   return null;
@@ -353,7 +344,7 @@ const EXTRACT_SCHEMA = {
       },
     },
   },
-  required: ["unitTypeName", "items"],
+  required: ["items"],
 };
 
 // ── Main Handler ──
@@ -451,7 +442,7 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
 
       let classification: any = { pageType: "plan_view", unitTypeName: null, isCommonArea: false };
       try {
-        classification = await callGemini(GEMINI_API_KEY, "gemini-2.5-pro", pageImage, classifyPrompt, 0.1, 2048, CLASSIFY_SCHEMA);
+        classification = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", pageImage, classifyPrompt, 0.1, 1024, CLASSIFY_SCHEMA);
       } catch (e: any) {
         if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -559,7 +550,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
 
     let extracted: any = { items: [] };
     try {
-      extracted = await callGemini(GEMINI_API_KEY, "gemini-2.5-pro", pageImage, extractPrompt, 0.2, 65536, EXTRACT_SCHEMA);
+      extracted = await callGemini(GEMINI_API_KEY, "gemini-2.5-pro", pageImage, extractPrompt, 0.2, 8192, EXTRACT_SCHEMA);
     } catch (e: any) {
       if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -568,19 +559,8 @@ If no cabinet SKUs are found, return {"items":[]}`;
 
     const rawItems = extracted.items ?? [];
     // When skipClassify, the extraction also returns unitTypeName
-    if (skipClassify && !isStrip) {
-      const extractedType = extracted.unitTypeName ?? null;
-      if (extractedType) {
-        detectedUnitType = extractedType;
-      }
-      // If extraction lost unitTypeName due to truncation but we have text hints, try to recover
-      if (!detectedUnitType && pageText) {
-        const typeMatch = (pageText || '').match(/\b(?:(\d+BR)\s+)?(TYPE\s+[A-Z0-9]+(?:\s*[-–]\s*(?:AS|ADA|MIRROR|ALT))?)\b/i);
-        if (typeMatch) {
-          detectedUnitType = ((typeMatch[1] || '') + ' ' + (typeMatch[2] || '')).trim().toUpperCase();
-          console.log(`Recovered unitTypeName from text layer: ${detectedUnitType}`);
-        }
-      }
+    if (skipClassify && !isStrip && extracted.unitTypeName) {
+      detectedUnitType = extracted.unitTypeName;
     }
     let finalItems = splitMergedSkus(rawItems, textLayerSkus);
     console.log(`Step 2: ${rawItems.length} raw → ${finalItems.length} after split`);
@@ -615,7 +595,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
         // Filter callout / sheet references containing "/"
         if (upper.includes('/') && !(/^(BLW|BRW)\d/i.test(upper))) return false;
         // Must match a known cabinet prefix
-        if (!hasKnownCabinetPrefix(upper)) return false;
+        if (!SKU_PREFIX_RE.test(upper) && !NO_DIGIT_OK.test(upper)) return false;
         return true;
       })
       .map((c: any) => {
@@ -677,42 +657,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
       return { ...item, quantity: nextQty };
     });
 
-    // Cap non-accessory SKU quantities using text layer counts (prevents AI overcounting from strips)
-    items = items.map((item) => {
-      if (ACCESSORY_FLOOR_RE.test(item.sku)) return item; // Don't cap accessories
-      const textCount = textLayerSkuCounts[item.sku] ?? 0;
-      if (textCount > 0 && item.quantity > textCount) {
-        console.log(`Text-layer qty cap: ${item.sku} ${item.quantity} → ${textCount}`);
-        return { ...item, quantity: textCount };
-      }
-      return item;
-    });
-
-    // Filter out AI-hallucinated SKUs not corroborated by the text layer.
-    // Dimension annotations (e.g. 28", 80¾") are often misread as cabinet SKUs (W2812, W8012).
-    // If the text layer has meaningful content but doesn't contain a SKU (even with prefix matching),
-    // remove it — unless it matches a strong accessory/special pattern.
-    if (textLayerSkuSet.size > 0) {
-      const beforeTextFilter = items.length;
-      items = items.filter((item) => {
-        // Direct match
-        if (textLayerSkuSet.has(item.sku)) return true;
-        // Prefix/suffix tolerant match
-        for (const tlSku of textLayerSkuSet) {
-          if (item.sku.startsWith(tlSku) || tlSku.startsWith(item.sku)) return true;
-        }
-        // Keep strong accessory patterns that OCR commonly misses (tiny labels)
-        if (STRONG_STRIP_SKU_RE.test(item.sku)) return true;
-        // Keep accessory-classified items (fillers, toe kicks, etc.)
-        if (ACCESSORY_FLOOR_RE.test(item.sku)) return true;
-        console.log(`Text-layer cross-validation removed hallucinated SKU: ${item.sku}`);
-        return false;
-      });
-      if (beforeTextFilter !== items.length) {
-        console.log(`Text-layer cross-validation removed ${beforeTextFilter - items.length} unsupported SKU(s)`);
-      }
-    }
-
+    // ── Merge truncated SKUs into suffixed variants ──
     // When a label is partially hidden (e.g., "W1230-L" cut off → "W1230"), the AI may
     // return both "W1230" (truncated) and "W1230-R" or "W1230-L" as separate entries.
     // If a bare SKU exists alongside a suffixed variant (same base + "-X" suffix) in the

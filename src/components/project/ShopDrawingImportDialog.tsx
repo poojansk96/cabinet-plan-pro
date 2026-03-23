@@ -69,7 +69,10 @@ async function renderPageToBase64(page: any): Promise<string> {
 }
 
 async function renderPageToCanvasData(page: any): Promise<{ canvas: OffscreenCanvas | HTMLCanvasElement; width: number; height: number }> {
-  const scale = 2;
+  const MAX_PX = 4096;
+  const baseViewport = page.getViewport({ scale: 1 });
+  const longSide = Math.max(baseViewport.width, baseViewport.height);
+  const scale = Math.min(4, MAX_PX / longSide);
   const viewport = page.getViewport({ scale });
   const w = Math.ceil(viewport.width);
   const h = Math.ceil(viewport.height);
@@ -91,7 +94,7 @@ async function renderPageToCanvasData(page: any): Promise<{ canvas: OffscreenCan
 
 async function canvasToBase64Full(canvas: OffscreenCanvas | HTMLCanvasElement): Promise<string> {
   if (canvas instanceof OffscreenCanvas) {
-    const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.92 });
+    const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.7 });
     const buf = await blob.arrayBuffer();
     const bytes = new Uint8Array(buf);
     let binary = '';
@@ -121,16 +124,16 @@ async function canvasCropToBase64(
   crop.height = sh;
   const ctx = crop.getContext('2d')!;
   ctx.drawImage(sourceCanvas as HTMLCanvasElement, sx, sy, sw, sh, 0, 0, sw, sh);
-  return crop.toDataURL('image/jpeg', 0.7).split(',')[1];
+  return crop.toDataURL('image/jpeg', 0.92).split(',')[1];
 }
 
 async function renderPageStrips(
   canvas: OffscreenCanvas | HTMLCanvasElement,
   w: number, h: number
 ): Promise<string[]> {
-  // 2 cols × 2 rows with ~30% overlap for good coverage with less load
+  // 2 cols × 3 rows with ~30% overlap for comprehensive coverage
   const colRanges: [number, number][] = [[0, 0.65], [0.35, 1.0]];
-  const rowRanges: [number, number][] = [[0, 0.6], [0.4, 1.0]];
+  const rowRanges: [number, number][] = [[0, 0.47], [0.27, 0.73], [0.53, 1.0]];
   const strips: string[] = [];
   for (const [ry, rye] of rowRanges) {
     for (const [rx, rxe] of colRanges) {
@@ -236,33 +239,6 @@ function mergeExtractionPasses(passes: any[][]): any[] {
 
       map.set(key, { ...candidate.item, quantity: Math.max(Number(candidate.item.quantity) || 1, candidate.maxQty) });
     }
-  }
-
-  // ── Absorb bare SKUs into suffixed variants across passes ──
-  // E.g., Pass 1 returns HCOC3082D, Pass 3 returns HCOC3082D-H → keep only HCOC3082D-H
-  const allItems = Array.from(map.values());
-  const roomGroups = new Map<string, typeof allItems>();
-  for (const item of allItems) {
-    const room = String(item.room || 'Kitchen');
-    const arr = roomGroups.get(room) || [];
-    arr.push(item);
-    roomGroups.set(room, arr);
-  }
-  const absorbedKeys = new Set<string>();
-  for (const [, roomItems] of roomGroups) {
-    const suffixed = roomItems.filter(i => /-[A-Z]+$/i.test(normalizeSkuLabel(i.sku)));
-    const bare = roomItems.filter(i => !/-[A-Z]+$/i.test(normalizeSkuLabel(i.sku)));
-    for (const b of bare) {
-      const bSku = normalizeSkuLabel(b.sku);
-      const variants = suffixed.filter(s => normalizeSkuLabel(s.sku).startsWith(bSku + '-'));
-      if (variants.length > 0 && (b.quantity || 1) <= 1) {
-        absorbedKeys.add(keyOf(b));
-        console.log(`Cross-pass merge: absorbed bare "${bSku}" into suffixed variant(s) [${variants.map(v => v.sku).join(',')}]`);
-      }
-    }
-  }
-  if (absorbedKeys.size > 0) {
-    for (const key of absorbedKeys) map.delete(key);
   }
 
   return Array.from(map.values());
@@ -549,8 +525,8 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       // Skip strips for title pages and non-extraction pages (residential elevations)
       const shouldDoStrips = !pageType.includes('title');
       if (!shouldDoStrips) {
-        // Mark remaining 4 strip steps as done
-        for (let s = 0; s < 4; s++) onStepDone?.();
+        // Mark remaining 6 strip steps as done
+        for (let s = 0; s < 6; s++) onStepDone?.();
         return {
           ...fullData,
           unitTypeName: resolvedType.primary,
@@ -558,7 +534,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         };
       }
 
-      // ── PASSES 2-5: 4 overlapping strips for detail recovery (2 at a time) ──
+      // ── PASSES 2-7: 6 overlapping strips for detail recovery (3 at a time) ──
       onStatus(`Detail scanning "${file.name}" page ${p}/${pdf.numPages}…`);
       const strips = await renderPageStrips(canvas, canvasW, canvasH);
       const allPassItems = [fullItems];
@@ -569,42 +545,35 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         isCommonArea,
       };
 
-      const STRIP_BATCH_SIZE = 2;
-      const STRIP_BATCH_DELAY_MS = 2000;
-      for (let batchStart = 0; batchStart < strips.length; batchStart += STRIP_BATCH_SIZE) {
-        const batch = strips.slice(batchStart, batchStart + STRIP_BATCH_SIZE);
-        const batchIndices = batch.map((_, i) => batchStart + i);
-
-        if (batchStart > 0) {
-          await new Promise(r => setTimeout(r, STRIP_BATCH_DELAY_MS));
-        }
-
-        onStatus(`Detail scan ${batchStart + 1}-${batchStart + batch.length}/4 on "${file.name}" page ${p}/${pdf.numPages}…`);
+      const PARALLEL_BATCH = 3;
+      for (let batchStart = 0; batchStart < strips.length; batchStart += PARALLEL_BATCH) {
+        const batch = strips.slice(batchStart, batchStart + PARALLEL_BATCH);
+        onStatus(`Detail scan ${batchStart + 1}-${batchStart + batch.length}/6 on "${file.name}" page ${p}/${pdf.numPages}…`);
 
         const batchResults = await Promise.allSettled(
-          batch.map((strip, i) =>
-            fetchWithRetry(JSON.stringify({
-              pageImage: strip,
+          batch.map(async (stripImage, idx) => {
+            const s = batchStart + idx;
+            const stripResponse = await fetchWithRetry(JSON.stringify({
+              pageImage: stripImage,
               unitType,
               pageText,
               speedMode,
               classificationOverride,
               isStrip: true,
-            })).then(async (res) => {
-              if (res.ok) {
-                const data = await res.json();
-                if (data.error) {
-                  console.warn(`Strip ${batchIndices[i] + 1} error:`, data.error);
-                  return null;
-                }
-                if (data.items?.length > 0) {
-                  console.log(`Page ${p} strip ${batchIndices[i] + 1}: found ${data.items.length} items`);
-                  return data.items;
-                }
+            }));
+            if (stripResponse.ok) {
+              const stripData = await stripResponse.json();
+              if (stripData.error) {
+                console.warn(`Strip ${s + 1} error:`, stripData.error);
+                return null;
               }
-              return null;
-            })
-          )
+              if (stripData.items?.length > 0) {
+                console.log(`Page ${p} strip ${s + 1}: found ${stripData.items.length} items`);
+                return stripData.items;
+              }
+            }
+            return null;
+          })
         );
 
         for (const result of batchResults) {
@@ -616,7 +585,12 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
             if (err?.message === 'credits') throw err;
             console.warn(`Strip batch failed:`, err?.message);
           }
-          onStepDone?.();
+          onStepDone?.(); // Count each strip (pass or fail) for progress
+        }
+
+        // Breather between batches to avoid overwhelming the API with cold-starts
+        if (batchStart + PARALLEL_BATCH < strips.length) {
+          await new Promise(r => setTimeout(r, 2000));
         }
       }
 
@@ -761,8 +735,8 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         totalPagesCount += pdf.numPages;
       }
       setTotalPages(totalPagesCount);
-      // 5 AI steps per page (1 full + 4 strips)
-      const totalStepsCount = totalPagesCount * 5;
+      // 7 AI steps per page (1 full + 6 strips)
+      const totalStepsCount = totalPagesCount * 7;
       setTotalSteps(totalStepsCount);
       setProgress(10);
 

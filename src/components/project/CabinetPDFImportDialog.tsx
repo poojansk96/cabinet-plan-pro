@@ -33,20 +33,14 @@ const COMMON_SCALES = [
   { label: 'Custom ratio…',    factor: -1 },
 ];
 
-async function renderPageToBase64(page: any, scale = 1.5): Promise<string> {
+async function renderPageToBase64(page: any, scale = 2): Promise<string> {
   const viewport = page.getViewport({ scale });
   const canvas = document.createElement('canvas');
   canvas.width = viewport.width;
   canvas.height = viewport.height;
   const ctx = canvas.getContext('2d')!;
   await page.render({ canvasContext: ctx, viewport }).promise;
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-  let b64 = dataUrl.split(',')[1];
-  // Payload guard: downscale if > 3.5 MB
-  if (b64.length > 3_500_000 && scale > 1.0) {
-    return renderPageToBase64(page, scale - 0.3);
-  }
-  return b64;
+  return canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
 }
 
 export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: Props) {
