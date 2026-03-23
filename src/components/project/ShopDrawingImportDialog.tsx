@@ -128,9 +128,9 @@ async function renderPageStrips(
   canvas: OffscreenCanvas | HTMLCanvasElement,
   w: number, h: number
 ): Promise<string[]> {
-  // 2 cols × 3 rows with ~30% overlap for comprehensive coverage
+  // 2 cols × 2 rows with ~30% overlap for good coverage with less load
   const colRanges: [number, number][] = [[0, 0.65], [0.35, 1.0]];
-  const rowRanges: [number, number][] = [[0, 0.47], [0.27, 0.73], [0.53, 1.0]];
+  const rowRanges: [number, number][] = [[0, 0.6], [0.4, 1.0]];
   const strips: string[] = [];
   for (const [ry, rye] of rowRanges) {
     for (const [rx, rxe] of colRanges) {
@@ -549,8 +549,8 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       // Skip strips for title pages and non-extraction pages (residential elevations)
       const shouldDoStrips = !pageType.includes('title');
       if (!shouldDoStrips) {
-        // Mark remaining 6 strip steps as done
-        for (let s = 0; s < 6; s++) onStepDone?.();
+        // Mark remaining 4 strip steps as done
+        for (let s = 0; s < 4; s++) onStepDone?.();
         return {
           ...fullData,
           unitTypeName: resolvedType.primary,
@@ -558,7 +558,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         };
       }
 
-      // ── PASSES 2-7: 6 overlapping strips for detail recovery (3 at a time) ──
+      // ── PASSES 2-5: 4 overlapping strips for detail recovery (2 at a time) ──
       onStatus(`Detail scanning "${file.name}" page ${p}/${pdf.numPages}…`);
       const strips = await renderPageStrips(canvas, canvasW, canvasH);
       const allPassItems = [fullItems];
@@ -579,7 +579,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
           await new Promise(r => setTimeout(r, STRIP_BATCH_DELAY_MS));
         }
 
-        onStatus(`Detail scan ${batchStart + 1}-${batchStart + batch.length}/6 on "${file.name}" page ${p}/${pdf.numPages}…`);
+        onStatus(`Detail scan ${batchStart + 1}-${batchStart + batch.length}/4 on "${file.name}" page ${p}/${pdf.numPages}…`);
 
         const batchResults = await Promise.allSettled(
           batch.map((strip, i) =>
@@ -761,8 +761,8 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         totalPagesCount += pdf.numPages;
       }
       setTotalPages(totalPagesCount);
-      // 7 AI steps per page (1 full + 6 strips)
-      const totalStepsCount = totalPagesCount * 7;
+      // 5 AI steps per page (1 full + 4 strips)
+      const totalStepsCount = totalPagesCount * 5;
       setTotalSteps(totalStepsCount);
       setProgress(10);
 
