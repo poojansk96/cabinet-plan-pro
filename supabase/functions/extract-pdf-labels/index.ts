@@ -224,21 +224,8 @@ function trySplitConcatenatedSku(rawSku: string, knownTextSkus: string[] = []): 
   const exactSegments = segmentWithKnown(0);
   if (exactSegments && exactSegments.length >= 2) return exactSegments;
 
-  // Don't split SKUs that contain dimension patterns like 15X84, 30X24, etc.
-  // These are single SKUs with width×height notation (e.g., UC15X84, W3315X24B)
-  if (/\d+X\d+/i.test(sku)) return null;
-
-  const possibleBoundaryCount = (sku.match(/[A-Z]{1,8}\d/g) || []).length;
-  if (possibleBoundaryCount < 2) return null;
-
-  for (let i = 2; i < sku.length - 2; i++) {
-    const left = sku.slice(0, i);
-    const right = sku.slice(i);
-    const leftValid = isValidSku(left) || NO_DIGIT_OK.test(left);
-    const rightValid = isValidSku(right) || NO_DIGIT_OK.test(right);
-    if (leftValid && rightValid) return [left, right];
-  }
-
+  // No fallback heuristic splitting — only split when both parts are confirmed
+  // in the text layer. This prevents false splits of compound SKUs like HWSB30PSX23H.
   return null;
 }
 
