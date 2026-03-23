@@ -62,7 +62,7 @@ async function callGemini(
       if (response.status === 503 || response.status === 500) {
         console.warn(`AI unavailable (${response.status}) [${currentModel}], attempt ${attempt + 1}/${MAX_RETRIES}`);
         response = null;
-        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
+        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 5000 * Math.pow(2, attempt))); continue; }
         console.log(`${currentModel} failed after ${MAX_RETRIES} retries, trying fallback...`);
         break; // Try next model
       }
