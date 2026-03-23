@@ -572,7 +572,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         isCommonArea,
       };
 
-      const STRIP_BATCH_SIZE = 2;
+      const STRIP_BATCH_SIZE = 3;
       const STRIP_BATCH_DELAY_MS = 2000;
       for (let batchStart = 0; batchStart < strips.length; batchStart += STRIP_BATCH_SIZE) {
         const batch = strips.slice(batchStart, batchStart + STRIP_BATCH_SIZE);
