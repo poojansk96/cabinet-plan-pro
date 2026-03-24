@@ -128,10 +128,8 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
       }
       setTotalPages(pagesTotal);
 
-      const typeMatch = files[0]?.name.match(/type\s*[-_]?\s*([A-Za-z0-9]+)/i);
-      if (typeMatch) {
-        setDetectedType('TYPE ' + typeMatch[1].toUpperCase());
-      }
+      // Track detected types in order
+      const detectedTypesOrder: string[] = [];
 
       for (const file of files) {
         const buf = await file.arrayBuffer();
