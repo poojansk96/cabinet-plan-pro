@@ -937,10 +937,19 @@ export default function PreFinalModule({ project }: Props) {
                         <div className="px-4 py-1.5 text-xs font-bold text-white" style={{ background: headerColor }}>
                           {label} — {unitType}
                         </div>
-                        <table className="est-table text-xs">
+                        <table className="est-table text-xs" style={{ tableLayout: 'fixed' }}>
+                          <colgroup>
+                            <col style={{ width: '14%' }} />
+                            <col style={{ width: '14%' }} />
+                            <col style={{ width: '14%' }} />
+                            <col style={{ width: '14%' }} />
+                            <col style={{ width: '14%' }} />
+                            <col style={{ width: '14%' }} />
+                            <col style={{ width: '16%' }} />
+                          </colgroup>
                           <thead>
                             <tr>
-                              <th>Depth"</th>
+                              <th className="text-left">Depth"</th>
                               <th className="text-right">Top Inches</th>
                               <th className="text-right">BS Inches</th>
                               <th className="text-right">BS Height"</th>
@@ -967,8 +976,8 @@ export default function PreFinalModule({ project }: Props) {
                             })}
                           </tbody>
                           <tfoot>
-                            <tr className="font-bold border-t border-border">
-                              <td>Total</td>
+                            <tr className="border-t-2 border-border">
+                              <td className="text-left">Total</td>
                               <td className="text-right">{groups.reduce((s, g) => s + g.totalLength, 0)}</td>
                               <td className="text-right">{groups.reduce((s, g) => s + g.totalBsLength, 0)}</td>
                               <td className="text-right">{bsHeight}</td>
