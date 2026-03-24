@@ -386,8 +386,28 @@ serve(async (req) => {
         return normalized;
       }
 
-      // If the plan text explicitly has only the SPLIT variant for this base, preserve that exact label.
-      return textLayerSplitByBase.get(base) ?? normalized;
+      const splitVariant = textLayerSplitByBase.get(base);
+      if (splitVariant) return splitVariant;
+      if (textLayerSkuSet.has(normalized)) return normalized;
+
+      const fuzzyTextMatch = textLayerSkus
+        .map((sku) => normalizeSkuLabel(sku))
+        .filter(Boolean)
+        .filter((candidate) => {
+          const longer = candidate.length >= normalized.length ? candidate : normalized;
+          const shorter = candidate.length >= normalized.length ? normalized : candidate;
+          if (!longer.startsWith(shorter)) return false;
+          const tail = longer.slice(shorter.length);
+          return tail.length > 0 && tail.length <= 2 && /^[A-Z0-9]+$/i.test(tail);
+        })
+        .sort((a, b) => b.length - a.length)[0];
+
+      if (fuzzyTextMatch) {
+        console.log(`Canonicalized near-match SKU: "${normalized}" → "${fuzzyTextMatch}"`);
+        return fuzzyTextMatch;
+      }
+
+      return normalized;
     };
 
     if (textLayerSkus.length > 0) {
