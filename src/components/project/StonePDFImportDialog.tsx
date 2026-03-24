@@ -366,6 +366,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                       {rows.map((row, idx) => (
                         <tr key={idx} className={!row.selected ? 'opacity-50' : ''}>
                           <td><input type="checkbox" checked={row.selected} onChange={e => updateRow(idx, { selected: e.target.checked })} /></td>
+                          <td><input className="est-input w-full text-xs" value={row.unitType || ''} onChange={e => updateRow(idx, { unitType: e.target.value })} placeholder="Type" /></td>
                           <td><input className="est-input w-full text-xs" value={row.label} onChange={e => updateRow(idx, { label: e.target.value })} /></td>
                           <td>
                             <select
