@@ -881,15 +881,17 @@ export default function PreFinalModule({ project }: Props) {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                {/* Backsplash Height Controls */}
+                {/* Global Backsplash Height Defaults */}
                 <div className="px-4 py-3 border-b border-border flex items-center gap-6 flex-wrap" style={{ background: 'hsl(var(--primary) / 0.04)' }}>
-                  <span className="text-xs font-semibold text-foreground">Backsplash Height:</span>
+                  <span className="text-xs font-semibold text-foreground">Default Backsplash Height:</span>
                   <label className="flex items-center gap-2 text-xs">
                     <span className="text-muted-foreground">Kitchen:</span>
                     <select
                       className="est-input text-xs w-16"
                       value={store.kitchenBacksplashHeight}
-                      onChange={e => store.setKitchenBacksplashHeight(Number(e.target.value))}
+                      onChange={e => {
+                        store.setKitchenBacksplashHeight(Number(e.target.value));
+                      }}
                     >
                       {[0, 2, 3, 4, 5, 6, 8, 10, 12, 18].map(h => (
                         <option key={h} value={h}>{h}"</option>
@@ -901,45 +903,52 @@ export default function PreFinalModule({ project }: Props) {
                     <select
                       className="est-input text-xs w-16"
                       value={store.bathBacksplashHeight}
-                      onChange={e => store.setBathBacksplashHeight(Number(e.target.value))}
+                      onChange={e => {
+                        store.setBathBacksplashHeight(Number(e.target.value));
+                      }}
                     >
                       {[0, 2, 3, 4, 5, 6, 8, 10, 12, 18].map(h => (
                         <option key={h} value={h}>{h}"</option>
                       ))}
                     </select>
                   </label>
+                  <span className="text-[10px] text-muted-foreground italic">Override per type below ↓</span>
                 </div>
 
                 {/* Compact type-wise stone SQFT table */}
                 <table className="est-table text-xs w-full" style={{ tableLayout: 'fixed' }}>
                   <colgroup>
-                    <col style={{ width: '16%' }} />
-                    <col style={{ width: '7%' }} />
+                    <col style={{ width: '14%' }} />
+                    <col style={{ width: '6%' }} />
+                    <col style={{ width: '6%' }} />
+                    <col style={{ width: '6%' }} />
+                    <col style={{ width: '8%' }} />
+                    <col style={{ width: '8%' }} />
+                    <col style={{ width: '8%' }} />
                     <col style={{ width: '9%' }} />
+                    <col style={{ width: '8%' }} />
+                    <col style={{ width: '8%' }} />
+                    <col style={{ width: '8%' }} />
                     <col style={{ width: '9%' }} />
-                    <col style={{ width: '9%' }} />
-                    <col style={{ width: '10%' }} />
-                    <col style={{ width: '9%' }} />
-                    <col style={{ width: '9%' }} />
-                    <col style={{ width: '9%' }} />
-                    <col style={{ width: '10%' }} />
                   </colgroup>
                   <thead>
                     <tr>
                       <th rowSpan={2} className="text-left" style={{ verticalAlign: 'bottom' }}>Unit Type</th>
                       <th rowSpan={2} className="text-right" style={{ verticalAlign: 'bottom' }}>Units</th>
-                      <th colSpan={4} className="text-center" style={{ borderBottom: '2px solid hsl(213 60% 50%)', color: 'hsl(213 60% 50%)' }}>
+                      <th colSpan={5} className="text-center" style={{ borderBottom: '2px solid hsl(213 60% 50%)', color: 'hsl(213 60% 50%)' }}>
                         🍳 Kitchen
                       </th>
-                      <th colSpan={4} className="text-center" style={{ borderBottom: '2px solid hsl(38 80% 45%)', color: 'hsl(38 80% 45%)' }}>
+                      <th colSpan={5} className="text-center" style={{ borderBottom: '2px solid hsl(38 80% 45%)', color: 'hsl(38 80% 45%)' }}>
                         🚿 Bath
                       </th>
                     </tr>
                     <tr>
+                      <th className="text-right">BS H"</th>
                       <th className="text-right">Top</th>
                       <th className="text-right">BS</th>
                       <th className="text-right">SQFT</th>
                       <th className="text-right font-bold">× Units</th>
+                      <th className="text-right">BS H"</th>
                       <th className="text-right">Top</th>
                       <th className="text-right">BS</th>
                       <th className="text-right">SQFT</th>
@@ -950,9 +959,14 @@ export default function PreFinalModule({ project }: Props) {
                     {(() => {
                       let grandKitchen = 0, grandBath = 0, grandKitchenTotal = 0, grandBathTotal = 0;
 
+                      const bsOptions = [0, 2, 3, 4, 5, 6, 8, 10, 12, 18];
+
                       const typeData = stoneUnitTypes.map(unitType => {
                         const typeRows = store.stoneRows.filter(r => r.unitType === unitType);
                         const unitCount = store.unitNumbers.filter(u => u.assignments[unitType]).length || 1;
+
+                        const kBsH = store.perTypeKitchenBsHeight[unitType] ?? store.kitchenBacksplashHeight;
+                        const bBsH = store.perTypeBathBsHeight[unitType] ?? store.bathBacksplashHeight;
 
                         let kTopSqft = 0, kBsSqft = 0, bTopSqft = 0, bBsSqft = 0;
                         const kGroups = new Map<number, { len: number; bs: number }>();
@@ -968,11 +982,11 @@ export default function PreFinalModule({ project }: Props) {
 
                         for (const [depth, g] of kGroups) {
                           kTopSqft += Math.ceil((g.len * depth) / 144);
-                          kBsSqft += Math.ceil((g.bs * store.kitchenBacksplashHeight) / 144);
+                          kBsSqft += Math.ceil((g.bs * kBsH) / 144);
                         }
                         for (const [depth, g] of bGroups) {
                           bTopSqft += Math.ceil((g.len * depth) / 144);
-                          bBsSqft += Math.ceil((g.bs * store.bathBacksplashHeight) / 144);
+                          bBsSqft += Math.ceil((g.bs * bBsH) / 144);
                         }
 
                         const kTotal = kTopSqft + kBsSqft;
@@ -982,7 +996,7 @@ export default function PreFinalModule({ project }: Props) {
                         grandKitchenTotal += kTotal * unitCount;
                         grandBathTotal += bTotal * unitCount;
 
-                        return { unitType, unitCount, kTopSqft, kBsSqft, kTotal, bTopSqft, bBsSqft, bTotal };
+                        return { unitType, unitCount, kBsH, bBsH, kTopSqft, kBsSqft, kTotal, bTopSqft, bBsSqft, bTotal };
                       });
 
                       return (
@@ -991,10 +1005,32 @@ export default function PreFinalModule({ project }: Props) {
                             <tr key={d.unitType}>
                               <td className="font-bold">{d.unitType}</td>
                               <td className="text-right font-mono">{d.unitCount}</td>
+                              <td className="text-right">
+                                <select
+                                  className="est-input text-[10px] w-12 px-0.5 py-0"
+                                  value={d.kBsH}
+                                  onChange={e => store.setPerTypeKitchenBsHeight(d.unitType, Number(e.target.value))}
+                                >
+                                  {bsOptions.map(h => (
+                                    <option key={h} value={h}>{h}"</option>
+                                  ))}
+                                </select>
+                              </td>
                               <td className="text-right font-mono">{d.kTopSqft || '—'}</td>
                               <td className="text-right font-mono">{d.kBsSqft || '—'}</td>
                               <td className="text-right font-mono" style={{ color: 'hsl(213 60% 50%)' }}>{d.kTotal || '—'}</td>
                               <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{d.kTotal * d.unitCount || '—'}</td>
+                              <td className="text-right">
+                                <select
+                                  className="est-input text-[10px] w-12 px-0.5 py-0"
+                                  value={d.bBsH}
+                                  onChange={e => store.setPerTypeBathBsHeight(d.unitType, Number(e.target.value))}
+                                >
+                                  {bsOptions.map(h => (
+                                    <option key={h} value={h}>{h}"</option>
+                                  ))}
+                                </select>
+                              </td>
                               <td className="text-right font-mono">{d.bTopSqft || '—'}</td>
                               <td className="text-right font-mono">{d.bBsSqft || '—'}</td>
                               <td className="text-right font-mono" style={{ color: 'hsl(38 80% 45%)' }}>{d.bTotal || '—'}</td>
@@ -1006,8 +1042,10 @@ export default function PreFinalModule({ project }: Props) {
                             <td></td>
                             <td></td>
                             <td></td>
+                            <td></td>
                             <td className="text-right" style={{ color: 'hsl(213 60% 50%)' }}>{grandKitchen}</td>
                             <td className="text-right text-sm" style={{ color: 'hsl(var(--primary))' }}>{grandKitchenTotal}</td>
+                            <td></td>
                             <td></td>
                             <td></td>
                             <td className="text-right" style={{ color: 'hsl(38 80% 45%)' }}>{grandBath}</td>
