@@ -14,7 +14,7 @@ export interface StoneExtractedRow {
 }
 
 interface Props {
-  onImport: (rows: StoneExtractedRow[], detectedUnitType?: string) => void;
+  onImport: (rows: StoneExtractedRow[], detectedTypes?: string[]) => void;
   onClose: () => void;
   prefinalPerson?: string;
 }
