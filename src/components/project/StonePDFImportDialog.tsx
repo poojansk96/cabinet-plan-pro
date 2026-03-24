@@ -213,7 +213,13 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
 
   const handleImport = () => {
     const selected = rows.filter(r => r.selected);
-    onImport(selected, detectedType ?? undefined);
+    // Collect unique types in order
+    const typeOrder: string[] = [];
+    for (const r of selected) {
+      const t = r.unitType || '';
+      if (t && !typeOrder.includes(t)) typeOrder.push(t);
+    }
+    onImport(selected, typeOrder.length > 0 ? typeOrder : undefined);
   };
 
   const selectedCount = rows.filter(r => r.selected).length;
