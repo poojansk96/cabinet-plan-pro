@@ -10,10 +10,11 @@ export interface StoneExtractedRow {
   category: 'kitchen' | 'bath';
   selected: boolean;
   sourceFile?: string;
+  unitType?: string;
 }
 
 interface Props {
-  onImport: (rows: StoneExtractedRow[], detectedUnitType?: string) => void;
+  onImport: (rows: StoneExtractedRow[], detectedTypes?: string[]) => void;
   onClose: () => void;
   prefinalPerson?: string;
 }
@@ -127,10 +128,8 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
       }
       setTotalPages(pagesTotal);
 
-      const typeMatch = files[0]?.name.match(/type\s*[-_]?\s*([A-Za-z0-9]+)/i);
-      if (typeMatch) {
-        setDetectedType('TYPE ' + typeMatch[1].toUpperCase());
-      }
+      // Track detected types in order
+      const detectedTypesOrder: string[] = [];
 
       for (const file of files) {
         const buf = await file.arrayBuffer();
@@ -156,6 +155,10 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
 
             if (resp.ok) {
               const data = await resp.json();
+              const pageUnitType = String(data.unitTypeName || '').trim();
+              if (pageUnitType && !detectedTypesOrder.includes(pageUnitType)) {
+                detectedTypesOrder.push(pageUnitType);
+              }
               for (const ct of (data.countertops ?? [])) {
                 allRows.push({
                   label: ct.label,
@@ -166,6 +169,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                   category: ct.category === 'bath' ? 'bath' : 'kitchen',
                   selected: true,
                   sourceFile: file.name,
+                  unitType: pageUnitType || undefined,
                 });
               }
             }
@@ -179,6 +183,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
       }
 
       setRows(allRows);
+      if (detectedTypesOrder.length > 0) setDetectedType(detectedTypesOrder.join(', '));
       setStep('review');
     } catch (err) {
       console.error('PDF processing error:', err);
@@ -208,7 +213,13 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
 
   const handleImport = () => {
     const selected = rows.filter(r => r.selected);
-    onImport(selected, detectedType ?? undefined);
+    // Collect unique types in order
+    const typeOrder: string[] = [];
+    for (const r of selected) {
+      const t = r.unitType || '';
+      if (t && !typeOrder.includes(t)) typeOrder.push(t);
+    }
+    onImport(selected, typeOrder.length > 0 ? typeOrder : undefined);
   };
 
   const selectedCount = rows.filter(r => r.selected).length;
@@ -340,6 +351,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                     <thead>
                       <tr>
                         <th className="w-8"></th>
+                        <th>Type</th>
                         <th>Label</th>
                         <th>Category</th>
                         <th className="text-right">Length"</th>
@@ -354,6 +366,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                       {rows.map((row, idx) => (
                         <tr key={idx} className={!row.selected ? 'opacity-50' : ''}>
                           <td><input type="checkbox" checked={row.selected} onChange={e => updateRow(idx, { selected: e.target.checked })} /></td>
+                          <td><input className="est-input w-full text-xs" value={row.unitType || ''} onChange={e => updateRow(idx, { unitType: e.target.value })} placeholder="Type" /></td>
                           <td><input className="est-input w-full text-xs" value={row.label} onChange={e => updateRow(idx, { label: e.target.value })} /></td>
                           <td>
                             <select
@@ -376,12 +389,12 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                     </tbody>
                     <tfoot>
                       <tr className="font-bold border-t border-border">
-                        <td colSpan={7} className="text-right">Kitchen Top SQFT:</td>
+                        <td colSpan={8} className="text-right">Kitchen Top SQFT:</td>
                         <td className="text-right" style={{ color: 'hsl(var(--primary))' }}>{kitchenTopSqft}</td>
                         <td></td>
                       </tr>
                       <tr className="font-bold">
-                        <td colSpan={7} className="text-right">Bath Top SQFT:</td>
+                        <td colSpan={8} className="text-right">Bath Top SQFT:</td>
                         <td className="text-right" style={{ color: 'hsl(38, 92%, 50%)' }}>{bathTopSqft}</td>
                         <td></td>
                       </tr>
