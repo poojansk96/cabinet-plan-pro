@@ -219,7 +219,9 @@ function mergeExtractionPasses(passes: any[][]): any[] {
 
   const isStrongStripOnlySku = (sku: string): boolean => {
     const upper = String(sku || '').toUpperCase().trim();
-    return /^(UC|BP|SCRIBE)$/.test(upper) || /^[A-Z]{2,8}\d[A-Z0-9\-\/]{2,}$/.test(upper);
+    return /^(UC|BP|SCRIBE)$/.test(upper)
+      || /^(?:DWR|BF|FIL|CM|EP|FP|LR)\d(?:[A-Z0-9\-\/]*)$/.test(upper)
+      || /^[A-Z]{2,8}\d[A-Z0-9\-\/]{2,}$/.test(upper);
   };
 
   for (const [key, candidate] of stripOnly.entries()) {

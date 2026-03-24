@@ -123,7 +123,8 @@ const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RAN
 // Relaxed: accept any 1-8 letter prefix followed by a digit (catches manufacturer-specific SKUs like HAV, HALC)
 const SKU_PREFIX_RE = /^[A-Z]{1,8}\d/i;
 const NO_DIGIT_OK = /^(BP|SCRIBE|UC)$/i;
-const STRONG_STRIP_SKU_RE = /^(?:UC|BP|SCRIBE|APPRON|UREP|REP|[A-Z]{2,8}\d[A-Z0-9\-\/]{2,})$/i;
+const SHORT_ACCESSORY_STRIP_SKU_RE = /^(?:DWR|BF|FIL|CM|EP|FP|LR)\d(?:[A-Z0-9\-\/]*)$/i;
+const STRONG_STRIP_SKU_RE = /^(?:UC|BP|SCRIBE|APPRON|UREP|REP|(?:DWR|BF|FIL|CM|EP|FP|LR)\d(?:[A-Z0-9\-\/]*)|[A-Z]{2,8}\d[A-Z0-9\-\/]{2,})$/i;
 const SPLIT_SUFFIX_RE = /(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)$/i;
 
 function normalizeSkuLabel(value: string): string {
@@ -663,7 +664,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
         }
 
         // OCR text layer can miss tiny labels (UC, TF3X96, narrow fillers).
-        if (STRONG_STRIP_SKU_RE.test(item.sku)) {
+        if (STRONG_STRIP_SKU_RE.test(item.sku) || SHORT_ACCESSORY_STRIP_SKU_RE.test(item.sku)) {
           keptByStrongPattern += 1;
           return true;
         }
