@@ -386,8 +386,28 @@ serve(async (req) => {
         return normalized;
       }
 
-      // If the plan text explicitly has only the SPLIT variant for this base, preserve that exact label.
-      return textLayerSplitByBase.get(base) ?? normalized;
+      const splitVariant = textLayerSplitByBase.get(base);
+      if (splitVariant) return splitVariant;
+      if (textLayerSkuSet.has(normalized)) return normalized;
+
+      const fuzzyTextMatch = textLayerSkus
+        .map((sku) => normalizeSkuLabel(sku))
+        .filter(Boolean)
+        .filter((candidate) => {
+          const longer = candidate.length >= normalized.length ? candidate : normalized;
+          const shorter = candidate.length >= normalized.length ? normalized : candidate;
+          if (!longer.startsWith(shorter)) return false;
+          const tail = longer.slice(shorter.length);
+          return tail.length > 0 && tail.length <= 2 && /^[A-Z0-9]+$/i.test(tail);
+        })
+        .sort((a, b) => b.length - a.length)[0];
+
+      if (fuzzyTextMatch) {
+        console.log(`Canonicalized near-match SKU: "${normalized}" → "${fuzzyTextMatch}"`);
+        return fuzzyTextMatch;
+      }
+
+      return normalized;
     };
 
     if (textLayerSkus.length > 0) {
@@ -764,9 +784,9 @@ If no cabinet SKUs are found, return {"items":[]}`;
 
     // ── Deduplicate ──
     // For most SKUs, duplicate entries are summed (multiple distinct labels on page).
-    // For corner units and HAV vanities, duplicate detections are usually the same physical cabinet,
-    // so keep MAX instead of SUM to avoid overcounting.
-    const isMaxDedupSku = (sku: string) => /^(LS|LSB|HAV)\d+/i.test(sku);
+    // For corner units, HAV vanities, and manufacturer dimension SKUs, duplicate detections are usually
+    // the same physical cabinet repeated across passes, so keep MAX instead of SUM.
+    const isMaxDedupSku = (sku: string) => /^(LS|LSB|HAV)\d+/i.test(sku) || /^(HCUC|HCOC)\d+X?\d*[A-Z0-9]*$/i.test(sku);
     const deduped = new Map<string, { sku: string; type: string; room: string; quantity: number }>();
     for (const item of items) {
       const key = `${item.sku}|${item.room}`;
