@@ -27,14 +27,16 @@ serve(async (req) => {
     const prompt = `You are an expert millwork estimator analyzing a 2020 countertop shop drawing.
 
 TASK:
-Examine this drawing and extract every countertop section visible. For each section extract:
+1. First, find the UNIT TYPE NAME from the drawing's title block. This is the architectural unit/plan type shown in the title block area (usually bottom-right or top of the drawing). Examples: "1.1B-AS", "TYPE A", "2BR-ADA", "BREAKROOM", "MAIL ROOM", "COMMUNITY ROOM", "STUDIO", "1BR MIRROR", etc. Extract the EXACT and COMPLETE name as it appears — do NOT abbreviate or modify it. This is critical for grouping countertops by unit type. If no title block or type name is visible, use "".
 
-1. **label** — a short descriptive name based on its location (e.g. "Perimeter Left", "Perimeter Right", "Island", "Peninsula", "Bar Top", "Vanity", "L-Section", "U-Section"). If the drawing has text labels, use those.
-2. **length** — total linear length in inches. Read dimension labels first. If no label, estimate from the drawing.
-3. **depth** — depth in inches. Read from dimension labels. Standard kitchen countertop depth is 25.5". Vanity/bath tops are typically 22" or 19" deep. Islands are often 36-42".
-4. **backsplashLength** — the linear inches of backsplash shown. Look for DOUBLE LINES drawn along the wall edge of the countertop — these indicate backsplash. The backsplash length is the total linear inches of those double lines. If no double lines or backsplash indication, use 0.
-5. **isIsland** — true if this section is an island or peninsula (not against a wall, typically depth >= 30").
-6. **category** — classify as "kitchen" or "bath". Use these rules:
+2. Then extract every countertop section visible. For each section extract:
+
+a. **label** — a short descriptive name based on its location (e.g. "Perimeter Left", "Perimeter Right", "Island", "Peninsula", "Bar Top", "Vanity", "L-Section", "U-Section"). If the drawing has text labels, use those.
+b. **length** — total linear length in inches. Read dimension labels first. If no label, estimate from the drawing.
+c. **depth** — depth in inches. Read from dimension labels. Standard kitchen countertop depth is 25.5". Vanity/bath tops are typically 22" or 19" deep. Islands are often 36-42".
+d. **backsplashLength** — the linear inches of backsplash shown. Look for DOUBLE LINES drawn along the wall edge of the countertop — these indicate backsplash. The backsplash length is the total linear inches of those double lines. If no double lines or backsplash indication, use 0.
+e. **isIsland** — true if this section is an island or peninsula (not against a wall, typically depth >= 30").
+f. **category** — classify as "kitchen" or "bath". Use these rules:
    - If depth is 22" or less (19", 22", etc.) → "bath"  
    - If the label or room mentions "vanity", "bath", "bathroom", "lav", "powder" → "bath"
    - Everything else → "kitchen"
@@ -44,13 +46,14 @@ RULES:
 - For L-shaped or U-shaped runs, break them into individual straight segments
 - If a countertop wraps around a corner, create separate sections for each leg
 - Do NOT include appliance surfaces (range top, sink cutout dimensions) as separate sections — they are part of the countertop run
-- If the page has no countertop information, return {"countertops":[]}
+- If the page has no countertop information, return {"unitTypeName":"","countertops":[]}
 - Round all dimensions to nearest 0.5 inch
 - IMPORTANT: Look carefully for double lines along walls — these are backsplash indicators. Measure their total length.
 - Standard depths: perimeter = 25.5", island = 36", bar = 12-18", vanity = 22"
+- The unitTypeName field is REQUIRED — always look for it in the title block
 
 Return ONLY valid JSON — no markdown fences, no explanation:
-{"countertops":[{"label":"Perimeter Left","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"}]}`;
+{"unitTypeName":"1.1B-AS","countertops":[{"label":"Perimeter Left","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"}]}`;
 
     let response: Response | null = null;
     const MAX_RETRIES = 3;
@@ -80,13 +83,13 @@ Return ONLY valid JSON — no markdown fences, no explanation:
         console.warn(`AI unavailable (${response.status}), attempt ${attempt + 1}/${MAX_RETRIES}`);
         response = null;
         if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
-        return new Response(JSON.stringify({ error: "AI model temporarily unavailable.", countertops: [] }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ error: "AI model temporarily unavailable.", unitTypeName: "", countertops: [] }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       break;
     }
 
     if (!response) {
-      return new Response(JSON.stringify({ error: "AI model temporarily unavailable.", countertops: [] }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "AI model temporarily unavailable.", unitTypeName: "", countertops: [] }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (!response.ok) {
@@ -98,26 +101,34 @@ Return ONLY valid JSON — no markdown fences, no explanation:
       if (response.status === 402) {
         return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      return new Response(JSON.stringify({ error: `AI error: ${response.status}`, countertops: [] }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: `AI error: ${response.status}`, unitTypeName: "", countertops: [] }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const aiData = await response.json();
     const content: string = aiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
     console.log("AI countertop raw:", content.slice(0, 800));
 
-    let parsed: { countertops: any[] } = { countertops: [] };
+    let parsed: { unitTypeName?: string; countertops: any[] } = { countertops: [] };
     try {
       let cleaned = content.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
-      const jsonStart = cleaned.lastIndexOf('{"countertops"');
-      if (jsonStart > 0) cleaned = cleaned.slice(jsonStart);
+      // Try to find the JSON object
+      const jsonStart = cleaned.indexOf('{"unitTypeName"');
+      if (jsonStart >= 0) {
+        cleaned = cleaned.slice(jsonStart);
+      } else {
+        const altStart = cleaned.indexOf('{"countertops"');
+        if (altStart > 0) cleaned = cleaned.slice(altStart);
+      }
       parsed = JSON.parse(cleaned);
     } catch {
       console.error("JSON parse failed, raw:", content.slice(0, 500));
     }
 
+    const unitTypeName = String(parsed.unitTypeName || "").trim();
+    console.log("Detected unit type name:", unitTypeName);
+
     const countertops = (parsed.countertops ?? []).map((ct: any) => {
       const depth = Math.round((Number(ct.depth) || 25.5) * 2) / 2;
-      // Auto-classify based on depth if category not provided
       let category = String(ct.category || "").toLowerCase().trim();
       if (!category || (category !== "kitchen" && category !== "bath")) {
         const label = String(ct.label || "").toLowerCase();
@@ -138,7 +149,7 @@ Return ONLY valid JSON — no markdown fences, no explanation:
       };
     });
 
-    return new Response(JSON.stringify({ countertops }), {
+    return new Response(JSON.stringify({ unitTypeName, countertops }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
