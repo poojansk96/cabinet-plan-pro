@@ -69,7 +69,7 @@ async function renderPageToBase64(page: any): Promise<string> {
 }
 
 async function renderPageToCanvasData(page: any): Promise<{ canvas: OffscreenCanvas | HTMLCanvasElement; width: number; height: number }> {
-  const MAX_PX = 4096;
+  const MAX_PX = 2500;
   const baseViewport = page.getViewport({ scale: 1 });
   const longSide = Math.max(baseViewport.width, baseViewport.height);
   const scale = Math.min(4, MAX_PX / longSide);
@@ -131,9 +131,9 @@ async function renderPageStrips(
   canvas: OffscreenCanvas | HTMLCanvasElement,
   w: number, h: number
 ): Promise<string[]> {
-  // 2 cols × 2 rows with ~30% overlap for faster processing
+  // 2 cols × 3 rows with ~30% overlap for comprehensive coverage
   const colRanges: [number, number][] = [[0, 0.65], [0.35, 1.0]];
-  const rowRanges: [number, number][] = [[0, 0.60], [0.40, 1.0]];
+  const rowRanges: [number, number][] = [[0, 0.47], [0.27, 0.73], [0.53, 1.0]];
   const strips: string[] = [];
   for (const [ry, rye] of rowRanges) {
     for (const [rx, rxe] of colRanges) {
@@ -219,7 +219,7 @@ function mergeExtractionPasses(passes: any[][]): any[] {
 
   const isStrongStripOnlySku = (sku: string): boolean => {
     const upper = String(sku || '').toUpperCase().trim();
-    return /^(UC|BP|SCRIBE|APPRON\d+X\d+|UREP\d+|REP\d+|DWR\d+|BF\d+|FIL\d+|CM\d+|LR\d+|EP\d+|FP\d+|TK\d*|TKRUN\d*|TF\d+(?:X\d+)?|WF\d+(?:X\d+)?|[A-Z]{2,8}\d[A-Z0-9\-\/]{2,})$/.test(upper);
+    return /^(UC|BP|SCRIBE)$/.test(upper) || /^[A-Z]{2,8}\d[A-Z0-9\-\/]{2,}$/.test(upper);
   };
 
   for (const [key, candidate] of stripOnly.entries()) {
@@ -552,7 +552,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         };
       }
 
-      // ── PASSES 2-5: 4 overlapping strips for detail recovery ──
+      // ── PASSES 2-7: 6 overlapping strips for detail recovery (3 at a time) ──
       onStatus(`Detail scanning "${file.name}" page ${p}/${pdf.numPages}…`);
       const strips = await renderPageStrips(canvas, canvasW, canvasH);
       const allPassItems = [fullItems];

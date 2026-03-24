@@ -593,20 +593,12 @@ export function usePrefinalStore(projectId: string) {
   }, [projectId]);
 
   const clearCabinets = useCallback(() => {
-    setData(prev => {
-      const next = { ...prev, cabinetRows: [], cabinetUnitTypes: [] };
-      saveData(projectId, next);
-      return next;
-    });
-  }, [projectId]);
+    commit({ ...data, cabinetRows: [], cabinetUnitTypes: [] });
+  }, [commit, data]);
 
   const clearUnits = useCallback(() => {
-    setData(prev => {
-      const next = { ...prev, unitTypes: [], unitNumbers: [] };
-      saveData(projectId, next);
-      return next;
-    });
-  }, [projectId]);
+    commit({ ...data, unitTypes: [], unitNumbers: [] });
+  }, [commit, data]);
 
   const setHandleQty = useCallback((sku: string, qty: number) => {
     setData(prev => {
@@ -688,12 +680,8 @@ export function usePrefinalStore(projectId: string) {
   }, [projectId]);
 
   const clearStone = useCallback(() => {
-    setData(prev => {
-      const next = { ...prev, stoneRows: [], stoneUnitTypes: [], kitchenBacksplashHeight: 4, bathBacksplashHeight: 4 };
-      saveData(projectId, next);
-      return next;
-    });
-  }, [projectId]);
+    commit({ ...data, stoneRows: [], stoneUnitTypes: [], kitchenBacksplashHeight: 4, bathBacksplashHeight: 4 });
+  }, [commit, data]);
 
   const setKitchenBacksplashHeight = useCallback((height: number) => {
     setData(prev => {
