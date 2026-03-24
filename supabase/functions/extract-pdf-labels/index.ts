@@ -392,6 +392,38 @@ serve(async (req) => {
       const base = stripSplitSuffix(sku);
       if (base && !textLayerSplitByBase.has(base)) textLayerSplitByBase.set(base, sku);
     }
+    const findNearTextLayerSku = (rawSku: string): string | null => {
+      const normalized = normalizeSkuLabel(rawSku);
+      if (!normalized) return null;
+
+      const candidates = textLayerSkus
+        .map((sku) => normalizeSkuLabel(sku))
+        .filter(Boolean)
+        .map((candidate) => {
+          if (candidate === normalized) return { candidate, tailSize: 0, exact: true };
+
+          const longer = candidate.length >= normalized.length ? candidate : normalized;
+          const shorter = candidate.length >= normalized.length ? normalized : candidate;
+          if (!longer.startsWith(shorter)) return null;
+
+          const tail = longer.slice(shorter.length).replace(/[^A-Z0-9]/gi, '');
+          if (!tail || tail.length > 2) return null;
+
+          return {
+            candidate,
+            tailSize: tail.length,
+            exact: false,
+          };
+        })
+        .filter((entry): entry is { candidate: string; tailSize: number; exact: boolean } => Boolean(entry))
+        .sort((a, b) => {
+          if (a.exact !== b.exact) return a.exact ? -1 : 1;
+          if (a.tailSize !== b.tailSize) return a.tailSize - b.tailSize;
+          return b.candidate.length - a.candidate.length;
+        });
+
+      return candidates[0]?.candidate ?? null;
+    };
     const canonicalizeSkuWithText = (rawSku: string): string => {
       const normalized = normalizeSkuLabel(rawSku);
       if (!normalized) return normalized;
@@ -407,19 +439,9 @@ serve(async (req) => {
       if (splitVariant) return splitVariant;
       if (textLayerSkuSet.has(normalized)) return normalized;
 
-      const fuzzyTextMatch = textLayerSkus
-        .map((sku) => normalizeSkuLabel(sku))
-        .filter(Boolean)
-        .filter((candidate) => {
-          const longer = candidate.length >= normalized.length ? candidate : normalized;
-          const shorter = candidate.length >= normalized.length ? normalized : candidate;
-          if (!longer.startsWith(shorter)) return false;
-          const tail = longer.slice(shorter.length);
-          return tail.length > 0 && tail.length <= 2 && /^[A-Z0-9]+$/i.test(tail);
-        })
-        .sort((a, b) => b.length - a.length)[0];
+      const fuzzyTextMatch = findNearTextLayerSku(normalized);
 
-      if (fuzzyTextMatch) {
+      if (fuzzyTextMatch && fuzzyTextMatch !== normalized) {
         console.log(`Canonicalized near-match SKU: "${normalized}" → "${fuzzyTextMatch}"`);
         return fuzzyTextMatch;
       }
@@ -769,7 +791,12 @@ If no cabinet SKUs are found, return {"items":[]}`;
       const bareQty = bare[bi].quantity;
       // Check if any suffixed variant starts with this bare SKU + separator
       const variants = suffixed.filter(s => getBase(s.sku) === bareSku);
-      if (variants.length > 0 && bareQty <= 1) {
+      const bareConfirmedByText = textLayerSkuSet.has(bareSku);
+      const textConfirmedVariant = variants.find((variant) => textLayerSkuSet.has(variant.sku));
+      if (textConfirmedVariant && !bareConfirmedByText) {
+        absorbedBare.add(bi);
+        console.log(`Absorbed bare SKU "${bareSku}" into text-confirmed variant "${textConfirmedVariant.sku}"`);
+      } else if (variants.length > 0 && bareQty <= 1) {
         absorbedBare.add(bi);
         console.log(`Merged truncated SKU "${bareSku}" (qty ${bareQty}) into suffixed variant(s) [${variants.map(v=>v.sku).join(',')}]`);
       }
@@ -785,7 +812,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
       const inTextLayer = textLayerSkuSet.has(suffixed[si].sku);
       if (inTextLayer) continue;
       const betterVariant = suffixed.find((s, idx) => idx !== si && !absorbedSuffixed.has(idx) && getBase(s.sku) === base && textLayerSkuSet.has(s.sku));
-      if (betterVariant && suffixed[si].quantity <= 1) {
+      if (betterVariant) {
         absorbedSuffixed.add(si);
         console.log(`Absorbed misread variant "${suffixed[si].sku}" into text-confirmed "${betterVariant.sku}"`);
       }
@@ -810,7 +837,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
     // For most SKUs, duplicate entries are summed (multiple distinct labels on page).
     // For corner units, HAV vanities, and manufacturer dimension SKUs, duplicate detections are usually
     // the same physical cabinet repeated across passes, so keep MAX instead of SUM.
-    const isMaxDedupSku = (sku: string) => /^(LS|LSB|HAV)\d+/i.test(sku) || /^(HCUC|HCOC)\d+X?\d*[A-Z0-9]*$/i.test(sku);
+    const isMaxDedupSku = (sku: string) => /^(LS|LSB|HAV)\d+/i.test(sku) || /^(HCUC|HCOC|HCDB)\d+X?\d*[A-Z0-9+\-]*$/i.test(sku);
     const deduped = new Map<string, { sku: string; type: string; room: string; quantity: number }>();
     for (const item of items) {
       const key = `${item.sku}|${item.room}`;
