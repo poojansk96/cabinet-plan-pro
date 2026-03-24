@@ -5,9 +5,9 @@ export interface StoneExtractedRow {
   label: string;
   length: number;
   depth: number;
-  splashHeight: number | null;
+  backsplashLength: number;
   isIsland: boolean;
-  room: string;
+  category: 'kitchen' | 'bath';
   selected: boolean;
   sourceFile?: string;
 }
@@ -60,7 +60,6 @@ async function renderPageToBase64(page: any, scale = 3): Promise<string> {
   let binary = '';
   for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
 
-  // Payload guard: downscale if > 3.5 MB
   let b64 = btoa(binary);
   if (b64.length > 3_500_000 && scale > 1.5) {
     return renderPageToBase64(page, scale - 0.5);
@@ -68,9 +67,8 @@ async function renderPageToBase64(page: any, scale = 3): Promise<string> {
   return b64;
 }
 
-function calcSqft(row: StoneExtractedRow): number {
-  const effectiveDepth = row.depth + (row.splashHeight ?? 0);
-  return Math.ceil((row.length * effectiveDepth) / 144);
+function calcTopSqft(row: StoneExtractedRow): number {
+  return Math.ceil((row.length * row.depth) / 144);
 }
 
 const QUOTES = [
@@ -129,7 +127,6 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
       }
       setTotalPages(pagesTotal);
 
-      // Try to detect unit type from filename (e.g. "Type A countertops.pdf")
       const typeMatch = files[0]?.name.match(/type\s*[-_]?\s*([A-Za-z0-9]+)/i);
       if (typeMatch) {
         setDetectedType('TYPE ' + typeMatch[1].toUpperCase());
@@ -164,9 +161,9 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                   label: ct.label,
                   length: ct.length,
                   depth: ct.depth,
-                  splashHeight: ct.splashHeight,
+                  backsplashLength: ct.backsplashLength ?? 0,
                   isIsland: ct.isIsland,
-                  room: ct.room || 'Kitchen',
+                  category: ct.category === 'bath' ? 'bath' : 'kitchen',
                   selected: true,
                   sourceFile: file.name,
                 });
@@ -215,11 +212,14 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
   };
 
   const selectedCount = rows.filter(r => r.selected).length;
-  const totalSqft = rows.filter(r => r.selected).reduce((s, r) => s + calcSqft(r), 0);
+  const kitchenRows = rows.filter(r => r.selected && r.category === 'kitchen');
+  const bathRows = rows.filter(r => r.selected && r.category === 'bath');
+  const kitchenTopSqft = kitchenRows.reduce((s, r) => s + calcTopSqft(r), 0);
+  const bathTopSqft = bathRows.reduce((s, r) => s + calcTopSqft(r), 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="bg-background rounded-lg shadow-xl w-full max-w-3xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+      <div className="bg-background rounded-lg shadow-xl w-full max-w-4xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <h3 className="font-semibold text-sm">📐 Stone SQFT — Extract from 2020 Shop Drawings</h3>
           <button onClick={onClose} className="p-1 hover:bg-secondary rounded"><X size={16} /></button>
@@ -235,7 +235,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
             >
               <Upload size={40} className="mx-auto mb-3 text-muted-foreground" />
               <p className="text-sm font-medium mb-1">Drop 2020 countertop shop drawings here</p>
-              <p className="text-xs text-muted-foreground">AI will extract dimensions and calculate SQFT</p>
+              <p className="text-xs text-muted-foreground">AI will extract dimensions, classify Kitchen vs Bath, and calculate SQFT</p>
               <input ref={fileInputRef} type="file" accept=".pdf" multiple className="hidden" onChange={handleFileSelect} />
               {error && <p className="text-destructive text-xs mt-3">{error}</p>}
             </div>
@@ -243,7 +243,6 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
 
           {step === 'processing' && (
             <div className="flex flex-col items-center justify-center py-10 gap-6 px-6 animate-fade-in">
-              {/* Animated icon cluster */}
               <div className="relative flex items-center justify-center w-20 h-20">
                 <span className="absolute inset-0 rounded-full opacity-20 animate-[ping_1.8s_cubic-bezier(0,0,0.2,1)_infinite]" style={{ background: 'hsl(var(--primary))' }} />
                 <span className="absolute inset-2 rounded-full opacity-10 animate-[ping_1.8s_cubic-bezier(0,0,0.2,1)_0.4s_infinite]" style={{ background: 'hsl(var(--primary))' }} />
@@ -252,7 +251,6 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                 <Sparkles size={13} className="absolute top-2 right-2 z-20 animate-pulse" style={{ color: 'hsl(var(--primary))' }} />
               </div>
 
-              {/* Status + Quote */}
               <div className="text-center space-y-2 max-w-xs">
                 <p
                   className="text-xs italic text-muted-foreground/80 transition-opacity duration-400 px-2"
@@ -270,7 +268,6 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                 )}
               </div>
 
-              {/* Progress bar */}
               <div className="w-full max-w-sm space-y-2">
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-muted-foreground font-medium">Progress</span>
@@ -316,10 +313,15 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
 
           {step === 'review' && (
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <p className="text-sm font-medium">
                   Found {rows.length} section{rows.length !== 1 ? 's' : ''} — 
-                  <span className="ml-1 font-bold" style={{ color: 'hsl(var(--primary))' }}>{totalSqft} SQFT</span>
+                  <span className="ml-1" style={{ color: 'hsl(var(--primary))' }}>
+                    Kitchen: <strong>{kitchenTopSqft}</strong> sqft
+                  </span>
+                  <span className="ml-2" style={{ color: 'hsl(38, 92%, 50%)' }}>
+                    Bath: <strong>{bathTopSqft}</strong> sqft
+                  </span>
                 </p>
                 <label className="flex items-center gap-1.5 text-xs cursor-pointer">
                   <input type="checkbox" checked={selectedCount === rows.length && rows.length > 0} onChange={e => toggleAll(e.target.checked)} />
@@ -339,12 +341,12 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                       <tr>
                         <th className="w-8"></th>
                         <th>Label</th>
-                        <th>Room</th>
+                        <th>Category</th>
                         <th className="text-right">Length"</th>
                         <th className="text-right">Depth"</th>
-                        <th className="text-right">Backsplash"</th>
+                        <th className="text-right">BS Length"</th>
                         <th className="text-center">Island</th>
-                        <th className="text-right">SQFT</th>
+                        <th className="text-right">Top SQFT</th>
                         <th></th>
                       </tr>
                     </thead>
@@ -353,20 +355,34 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                         <tr key={idx} className={!row.selected ? 'opacity-50' : ''}>
                           <td><input type="checkbox" checked={row.selected} onChange={e => updateRow(idx, { selected: e.target.checked })} /></td>
                           <td><input className="est-input w-full text-xs" value={row.label} onChange={e => updateRow(idx, { label: e.target.value })} /></td>
-                          <td><input className="est-input w-20 text-xs" value={row.room} onChange={e => updateRow(idx, { room: e.target.value })} /></td>
+                          <td>
+                            <select
+                              className="est-input text-xs w-20"
+                              value={row.category}
+                              onChange={e => updateRow(idx, { category: e.target.value as 'kitchen' | 'bath' })}
+                            >
+                              <option value="kitchen">Kitchen</option>
+                              <option value="bath">Bath</option>
+                            </select>
+                          </td>
                           <td className="text-right"><input type="number" className="est-input w-16 text-right text-xs" value={row.length} min={1} onChange={e => updateRow(idx, { length: +e.target.value })} /></td>
                           <td className="text-right"><input type="number" className="est-input w-16 text-right text-xs" value={row.depth} min={1} step={0.5} onChange={e => updateRow(idx, { depth: +e.target.value })} /></td>
-                          <td className="text-right"><input type="number" className="est-input w-14 text-right text-xs" value={row.splashHeight ?? ''} min={0} step={0.5} onChange={e => updateRow(idx, { splashHeight: e.target.value ? +e.target.value : null })} placeholder="—" /></td>
+                          <td className="text-right"><input type="number" className="est-input w-16 text-right text-xs" value={row.backsplashLength} min={0} step={0.5} onChange={e => updateRow(idx, { backsplashLength: +e.target.value })} /></td>
                           <td className="text-center">{row.isIsland ? '✓' : '—'}</td>
-                          <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{calcSqft(row)}</td>
+                          <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{calcTopSqft(row)}</td>
                           <td><button onClick={() => deleteRow(idx)} className="p-1 hover:text-destructive text-muted-foreground"><Trash2 size={12} /></button></td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot>
                       <tr className="font-bold border-t border-border">
-                        <td colSpan={7} className="text-right">Total SQFT:</td>
-                        <td className="text-right" style={{ color: 'hsl(var(--primary))' }}>{totalSqft}</td>
+                        <td colSpan={7} className="text-right">Kitchen Top SQFT:</td>
+                        <td className="text-right" style={{ color: 'hsl(var(--primary))' }}>{kitchenTopSqft}</td>
+                        <td></td>
+                      </tr>
+                      <tr className="font-bold">
+                        <td colSpan={7} className="text-right">Bath Top SQFT:</td>
+                        <td className="text-right" style={{ color: 'hsl(38, 92%, 50%)' }}>{bathTopSqft}</td>
                         <td></td>
                       </tr>
                     </tfoot>
@@ -387,7 +403,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
               style={{ background: 'hsl(var(--primary))' }}
             >
               <Check size={14} />
-              Import {selectedCount} Section{selectedCount !== 1 ? 's' : ''} ({totalSqft} SQFT)
+              Import {selectedCount} Section{selectedCount !== 1 ? 's' : ''} (K:{kitchenTopSqft} + B:{bathTopSqft} SQFT)
             </button>
           </div>
         )}

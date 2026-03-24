@@ -17,12 +17,15 @@ export interface PrefinalCabinetRow {
 
 export interface PrefinalStoneRow {
   label: string;
-  length: number;       // inches
-  depth: number;        // inches
-  splashHeight: number | null;
+  length: number;           // inches
+  depth: number;            // inches
+  backsplashLength: number; // linear inches of backsplash
   isIsland: boolean;
-  room: string;
+  category: 'kitchen' | 'bath';
   unitType: string;
+  // Legacy fields for migration
+  splashHeight?: number | null;
+  room?: string;
 }
 
 interface PrefinalData {
@@ -35,6 +38,8 @@ interface PrefinalData {
   additionalCostPerType: Record<string, number>;
   stoneRows: PrefinalStoneRow[];
   stoneUnitTypes: string[];
+  kitchenBacksplashHeight: number;
+  bathBacksplashHeight: number;
 }
 
 function sanitizeUnitNumber(value: string): string {
@@ -203,10 +208,31 @@ function dedupeSameTypeSameUnit(unitNumbers: PrefinalUnitNumber[]): PrefinalUnit
   return Array.from(new Set(byTypeAndUnit.values()));
 }
 
+/** Migrate old stone rows (had splashHeight/room, no backsplashLength/category) */
+function migrateStoneRow(r: any): PrefinalStoneRow {
+  if (r.category && typeof r.backsplashLength === 'number') return r; // already new format
+  const depth = Number(r.depth) || 25.5;
+  const room = String(r.room || 'Kitchen').toLowerCase();
+  const label = String(r.label || '').toLowerCase();
+  let category: 'kitchen' | 'bath' = 'kitchen';
+  if (depth <= 22 || /vanity|bath|lav|powder/.test(room) || /vanity|bath|lav|powder/.test(label)) {
+    category = 'bath';
+  }
+  return {
+    label: r.label || 'Section',
+    length: r.length || 0,
+    depth,
+    backsplashLength: r.isIsland ? 0 : (r.length || 0), // approximate: non-island tops had backsplash along full length
+    isIsland: Boolean(r.isIsland),
+    category,
+    unitType: r.unitType || 'Unassigned',
+  };
+}
+
 function loadData(projectId: string): PrefinalData {
   try {
     const raw = localStorage.getItem(`prefinal_${projectId}`);
-    if (!raw) return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [] };
+    if (!raw) return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [], kitchenBacksplashHeight: 4, bathBacksplashHeight: 4 };
     const parsed = JSON.parse(raw);
     // Migration: old format had unitRows
     if (parsed.unitRows && !parsed.unitTypes) {
@@ -218,8 +244,10 @@ function loadData(projectId: string): PrefinalData {
         handleQtyPerSku: parsed.handleQtyPerSku || {},
         bidCostPerType: parsed.bidCostPerType || {},
         additionalCostPerType: parsed.additionalCostPerType || {},
-        stoneRows: parsed.stoneRows || [],
+        stoneRows: (parsed.stoneRows || []).map(migrateStoneRow),
         stoneUnitTypes: parsed.stoneUnitTypes || [],
+        kitchenBacksplashHeight: parsed.kitchenBacksplashHeight ?? 4,
+        bathBacksplashHeight: parsed.bathBacksplashHeight ?? 4,
       };
     }
     // Normalize + deduplicate unit types preserving first-seen order
@@ -269,11 +297,13 @@ function loadData(projectId: string): PrefinalData {
       handleQtyPerSku: parsed.handleQtyPerSku || {},
       bidCostPerType: parsed.bidCostPerType || {},
       additionalCostPerType: parsed.additionalCostPerType || {},
-      stoneRows: parsed.stoneRows || [],
+      stoneRows: (parsed.stoneRows || []).map(migrateStoneRow),
       stoneUnitTypes: parsed.stoneUnitTypes || [],
+      kitchenBacksplashHeight: parsed.kitchenBacksplashHeight ?? 4,
+      bathBacksplashHeight: parsed.bathBacksplashHeight ?? 4,
     };
   } catch {
-    return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [] };
+    return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [], kitchenBacksplashHeight: 4, bathBacksplashHeight: 4 };
   }
 }
 
@@ -480,7 +510,6 @@ export function usePrefinalStore(projectId: string) {
       }
 
       if (reorderToMatch) {
-        // Reorder: put input types first (in given order), then any existing types not in input
         const inputKeys = new Set(resolvedInput.map(t => normalizeTypeKeyPart(t)));
         const remaining = prev.cabinetUnitTypes.filter(t => !inputKeys.has(normalizeTypeKeyPart(t)));
         const cabinetUnitTypes = [...resolvedInput, ...remaining];
@@ -493,7 +522,6 @@ export function usePrefinalStore(projectId: string) {
         return next;
       }
 
-      // Default append behavior: only add truly new types
       const existingKeys = new Set(prev.cabinetUnitTypes.map(t => normalizeTypeKeyPart(t)));
       const newTypes = resolvedInput.filter(t => !existingKeys.has(normalizeTypeKeyPart(t)));
       if (!newTypes.length) return prev;
@@ -630,7 +658,6 @@ export function usePrefinalStore(projectId: string) {
 
   const addStoneImport = useCallback((rows: PrefinalStoneRow[], unitType: string) => {
     setData(prev => {
-      // Replace all rows for this unitType
       const existingOther = prev.stoneRows.filter(r => r.unitType !== unitType);
       const stoneRows = [...existingOther, ...rows.map(r => ({ ...r, unitType }))];
       const next = { ...prev, stoneRows };
@@ -653,11 +680,27 @@ export function usePrefinalStore(projectId: string) {
   }, [projectId]);
 
   const clearStone = useCallback(() => {
-    commit({ ...data, stoneRows: [], stoneUnitTypes: [] });
+    commit({ ...data, stoneRows: [], stoneUnitTypes: [], kitchenBacksplashHeight: 4, bathBacksplashHeight: 4 });
   }, [commit, data]);
 
+  const setKitchenBacksplashHeight = useCallback((height: number) => {
+    setData(prev => {
+      const next = { ...prev, kitchenBacksplashHeight: height };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
+  const setBathBacksplashHeight = useCallback((height: number) => {
+    setData(prev => {
+      const next = { ...prev, bathBacksplashHeight: height };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
   const clearAll = useCallback(() => {
-    commit({ unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [] });
+    commit({ unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [], kitchenBacksplashHeight: 4, bathBacksplashHeight: 4 });
   }, [commit]);
 
   return {
@@ -670,6 +713,8 @@ export function usePrefinalStore(projectId: string) {
     additionalCostPerType: data.additionalCostPerType,
     stoneRows: data.stoneRows,
     stoneUnitTypes: data.stoneUnitTypes,
+    kitchenBacksplashHeight: data.kitchenBacksplashHeight,
+    bathBacksplashHeight: data.bathBacksplashHeight,
     addUnitTypes,
     deleteUnitType,
     renameUnitType,
@@ -694,6 +739,8 @@ export function usePrefinalStore(projectId: string) {
     addStoneImport,
     deleteStoneRow,
     clearStone,
+    setKitchenBacksplashHeight,
+    setBathBacksplashHeight,
     clearAll,
   };
 }
