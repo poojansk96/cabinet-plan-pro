@@ -528,7 +528,7 @@ For each cabinet found, provide:
    - "Wall" → W, WDC, UB, WC, OH, BLW, BRW
    - "Tall" → T, UT, TC, PT, PTC, UC, HALC
    - "Vanity" → V, VB, VD, VDC, HAV (HAV = Vanity, NOT Base)
-   - "Accessory" → FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR, TF
+   - "Accessory" → FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR, TF, APPRON
 3. room: From room labels on the plan (Kitchen, Bath, Laundry, Pantry — capitalize first letter only)
 4. quantity: Count EVERY separate label occurrence of this SKU on this page
 
