@@ -69,7 +69,7 @@ async function renderPageToBase64(page: any): Promise<string> {
 }
 
 async function renderPageToCanvasData(page: any): Promise<{ canvas: OffscreenCanvas | HTMLCanvasElement; width: number; height: number }> {
-  const MAX_PX = 2500;
+  const MAX_PX = 3200;
   const baseViewport = page.getViewport({ scale: 1 });
   const longSide = Math.max(baseViewport.width, baseViewport.height);
   const scale = Math.min(4, MAX_PX / longSide);
@@ -160,14 +160,12 @@ function mergeExtractionPasses(passes: any[][]): any[] {
       .replace(/\s+/g, '');
   const keyOf = (item: any) => `${normalizeSkuLabel(item.sku)}|${String(item.room || 'Kitchen')}`;
   const isHavSku = (sku: string) => /^HAV\d/i.test(normalizeSkuLabel(sku));
+  const isRoomFragileManufacturerSku = (sku: string) => /^(?:HAV\d|HC|HS|HW)/i.test(normalizeSkuLabel(sku));
 
-  const findExistingSkuKey = (sku: string): string | undefined => {
+  const findExistingSkuKeys = (sku: string): string[] => {
     const upper = normalizeSkuLabel(sku);
-    if (!upper) return undefined;
-    for (const existingKey of map.keys()) {
-      if (existingKey.startsWith(`${upper}|`)) return existingKey;
-    }
-    return undefined;
+    if (!upper) return [];
+    return Array.from(map.keys()).filter((existingKey) => existingKey.startsWith(`${upper}|`));
   };
 
   // Pass 1 (full page) is the primary source of truth.
@@ -198,10 +196,10 @@ function mergeExtractionPasses(passes: any[][]): any[] {
 
       // HAV vanity labels can be mis-roomed in strip crops. If full pass already has same HAV SKU,
       // update that existing row instead of creating a duplicate row with a different room.
-      if (isHavSku(item.sku)) {
-        const existingSkuKey = findExistingSkuKey(item.sku);
-        if (existingSkuKey) {
-          const existingSkuRow = map.get(existingSkuKey);
+      if (isHavSku(item.sku) || isRoomFragileManufacturerSku(item.sku)) {
+        const existingSkuKeys = findExistingSkuKeys(item.sku);
+        if (existingSkuKeys.length === 1) {
+          const existingSkuRow = map.get(existingSkuKeys[0]);
           if (existingSkuRow) {
             existingSkuRow.quantity = Math.max(existingSkuRow.quantity || 1, qty);
             continue;
@@ -226,12 +224,12 @@ function mergeExtractionPasses(passes: any[][]): any[] {
 
   for (const [key, candidate] of stripOnly.entries()) {
     // Add strip-only SKUs when corroborated by 2 strips OR when a single strip finds a strong SKU pattern.
-    if (candidate.support >= 2 || (candidate.support >= 1 && isStrongStripOnlySku(candidate.item?.sku))) {
+      if (candidate.support >= 2 || (candidate.support >= 1 && isStrongStripOnlySku(candidate.item?.sku))) {
       // Prevent duplicate HAV rows when full pass already found the same SKU under a different room label.
-      if (isHavSku(candidate.item?.sku)) {
-        const existingSkuKey = findExistingSkuKey(candidate.item?.sku);
-        if (existingSkuKey) {
-          const existingSkuRow = map.get(existingSkuKey);
+        if (isHavSku(candidate.item?.sku) || isRoomFragileManufacturerSku(candidate.item?.sku)) {
+          const existingSkuKeys = findExistingSkuKeys(candidate.item?.sku);
+          if (existingSkuKeys.length === 1) {
+            const existingSkuRow = map.get(existingSkuKeys[0]);
           if (existingSkuRow) {
             existingSkuRow.quantity = Math.max(existingSkuRow.quantity || 1, candidate.maxQty);
             continue;
