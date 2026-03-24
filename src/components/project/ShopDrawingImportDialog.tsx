@@ -563,53 +563,44 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         isCommonArea,
       };
 
-      const PARALLEL_BATCH = 3;
-      for (let batchStart = 0; batchStart < strips.length; batchStart += PARALLEL_BATCH) {
-        const batch = strips.slice(batchStart, batchStart + PARALLEL_BATCH);
-        onStatus(`Detail scan ${batchStart + 1}-${batchStart + batch.length}/6 on "${file.name}" page ${p}/${pdf.numPages}…`);
+      // Send all 6 strips in parallel for speed
+      onStatus(`Detail scan 1-${strips.length}/${strips.length} on "${file.name}" page ${p}/${pdf.numPages}…`);
 
-        const batchResults = await Promise.allSettled(
-          batch.map(async (stripImage, idx) => {
-            const s = batchStart + idx;
-            const stripResponse = await fetchWithRetry(JSON.stringify({
-              pageImage: stripImage,
-              unitType,
-              pageText,
-              speedMode,
-              classificationOverride,
-              isStrip: true,
-            }));
-            if (stripResponse.ok) {
-              const stripData = await stripResponse.json();
-              if (stripData.error) {
-                console.warn(`Strip ${s + 1} error:`, stripData.error);
-                return null;
-              }
-              if (stripData.items?.length > 0) {
-                console.log(`Page ${p} strip ${s + 1}: found ${stripData.items.length} items`);
-                return stripData.items;
-              }
+      const allStripResults = await Promise.allSettled(
+        strips.map(async (stripImage, idx) => {
+          const stripResponse = await fetchWithRetry(JSON.stringify({
+            pageImage: stripImage,
+            unitType,
+            pageText,
+            speedMode,
+            classificationOverride,
+            isStrip: true,
+          }));
+          if (stripResponse.ok) {
+            const stripData = await stripResponse.json();
+            if (stripData.error) {
+              console.warn(`Strip ${idx + 1} error:`, stripData.error);
+              return null;
             }
-            return null;
-          })
-        );
-
-        for (const result of batchResults) {
-          if (result.status === 'fulfilled' && result.value) {
-            allPassItems.push(result.value);
-          } else if (result.status === 'rejected') {
-            const err = result.reason;
-            if (err?.message === 'rate_limit') throw err;
-            if (err?.message === 'credits') throw err;
-            console.warn(`Strip batch failed:`, err?.message);
+            if (stripData.items?.length > 0) {
+              console.log(`Page ${p} strip ${idx + 1}: found ${stripData.items.length} items`);
+              return stripData.items;
+            }
           }
-          onStepDone?.(); // Count each strip (pass or fail) for progress
-        }
+          return null;
+        })
+      );
 
-        // Breather between batches to avoid overwhelming the API with cold-starts
-        if (batchStart + PARALLEL_BATCH < strips.length) {
-          await new Promise(r => setTimeout(r, 2000));
+      for (const result of allStripResults) {
+        if (result.status === 'fulfilled' && result.value) {
+          allPassItems.push(result.value);
+        } else if (result.status === 'rejected') {
+          const err = result.reason;
+          if (err?.message === 'rate_limit') throw err;
+          if (err?.message === 'credits') throw err;
+          console.warn(`Strip failed:`, err?.message);
         }
+        onStepDone?.();
       }
 
       // ── Merge all passes: MAX qty per SKU+room ──
