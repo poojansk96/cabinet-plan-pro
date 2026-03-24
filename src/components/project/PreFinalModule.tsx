@@ -148,20 +148,48 @@ export default function PreFinalModule({ project }: Props) {
     setTimeout(() => setCabinetImportedCount(null), 4000);
   };
   // ── Stone import handler ────────────────────────────────────────────────
-  const handleStoneImport = (rows: StoneExtractedRow[], detectedUnitType?: string) => {
-    const targetType = detectedUnitType ? normalizeUnitType(detectedUnitType) : 'Unassigned';
-    store.addStoneUnitTypes([targetType]);
-    const stoneRows: PrefinalStoneRow[] = rows.filter(r => r.selected !== false).map(r => ({
-      label: r.label,
-      length: r.length,
-      depth: r.depth,
-      backsplashLength: r.backsplashLength ?? 0,
-      isIsland: r.isIsland,
-      category: r.category || 'kitchen',
-      unitType: targetType,
-    }));
-    store.addStoneImport(stoneRows, targetType);
-    setStoneImportedCount(stoneRows.length);
+  const handleStoneImport = (rows: StoneExtractedRow[], detectedTypes?: string[]) => {
+    // Group rows by their per-page unitType
+    const rowsByType = new Map<string, StoneExtractedRow[]>();
+    const typeOrder: string[] = [];
+
+    for (const r of rows) {
+      if (r.selected === false) continue;
+      const type = r.unitType ? normalizeUnitType(r.unitType) : 'Unassigned';
+      if (!rowsByType.has(type)) {
+        rowsByType.set(type, []);
+        typeOrder.push(type);
+      }
+      rowsByType.get(type)!.push(r);
+    }
+
+    // If detectedTypes provided, use that ordering, then append any remaining
+    if (detectedTypes && detectedTypes.length > 0) {
+      const normalizedOrder = detectedTypes.map(t => normalizeUnitType(t)).filter((t, i, a) => a.indexOf(t) === i);
+      const remaining = typeOrder.filter(t => !normalizedOrder.includes(t));
+      const finalOrder = [...normalizedOrder, ...remaining];
+      store.addStoneUnitTypes(finalOrder);
+    } else {
+      store.addStoneUnitTypes(typeOrder);
+    }
+
+    // Clear existing stone data and import fresh
+    store.clearStone();
+
+    for (const [unitType, typeRows] of rowsByType) {
+      const stoneRows: PrefinalStoneRow[] = typeRows.map(r => ({
+        label: r.label,
+        length: r.length,
+        depth: r.depth,
+        backsplashLength: r.backsplashLength ?? 0,
+        isIsland: r.isIsland,
+        category: r.category || 'kitchen',
+        unitType,
+      }));
+      store.addStoneImport(stoneRows, unitType);
+    }
+
+    setStoneImportedCount(rows.filter(r => r.selected !== false).length);
     setShowStoneImport(false);
     setTimeout(() => setStoneImportedCount(null), 4000);
   };
