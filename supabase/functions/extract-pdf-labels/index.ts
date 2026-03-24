@@ -720,24 +720,46 @@ If no cabinet SKUs are found, return {"items":[]}`;
     // ── Merge truncated SKUs into suffixed variants ──
     // When a label is partially hidden (e.g., "W1230-L" cut off → "W1230"), the AI may
     // return both "W1230" (truncated) and "W1230-R" or "W1230-L" as separate entries.
+    // Also handles "+" suffixes (e.g., HCDB18 absorbed into HCDB18+CE).
     // Absorb bare SKU into suffixed variant(s) across ALL rooms to prevent duplicates.
-    const suffixed = items.filter(i => /-[A-Z]+$/i.test(i.sku));
-    const bare = items.filter(i => !/-[A-Z]+$/i.test(i.sku));
+    const hasSuffix = (sku: string) => /[-+][A-Z0-9]+$/i.test(sku);
+    const getBase = (sku: string) => sku.replace(/[-+][A-Z0-9]+$/i, '');
+    const suffixed = items.filter(i => hasSuffix(i.sku));
+    const bare = items.filter(i => !hasSuffix(i.sku));
     const absorbedBare = new Set<number>();
     for (let bi = 0; bi < bare.length; bi++) {
       const bareSku = bare[bi].sku;
       const bareQty = bare[bi].quantity;
-      const variants = suffixed.filter(s => s.sku.startsWith(bareSku + '-'));
+      // Check if any suffixed variant starts with this bare SKU + separator
+      const variants = suffixed.filter(s => getBase(s.sku) === bareSku);
       if (variants.length > 0 && bareQty <= 1) {
         absorbedBare.add(bi);
         console.log(`Merged truncated SKU "${bareSku}" (qty ${bareQty}) into suffixed variant(s) [${variants.map(v=>v.sku).join(',')}]`);
+      }
+    }
+    // Also absorb misread suffixed variants into each other when they share the same base
+    // e.g., HCDB18-S (misread) absorbed into HCDB18+CE (correct) if text layer confirms
+    const absorbedSuffixed = new Set<number>();
+    for (let si = 0; si < suffixed.length; si++) {
+      if (absorbedSuffixed.has(si)) continue;
+      const base = getBase(suffixed[si].sku);
+      if (!base) continue;
+      // If this suffixed SKU is NOT in the text layer but another variant with same base IS, absorb it
+      const inTextLayer = textLayerSkuSet.has(suffixed[si].sku);
+      if (inTextLayer) continue;
+      const betterVariant = suffixed.find((s, idx) => idx !== si && !absorbedSuffixed.has(idx) && getBase(s.sku) === base && textLayerSkuSet.has(s.sku));
+      if (betterVariant && suffixed[si].quantity <= 1) {
+        absorbedSuffixed.add(si);
+        console.log(`Absorbed misread variant "${suffixed[si].sku}" into text-confirmed "${betterVariant.sku}"`);
       }
     }
     const mergedItems: typeof items = [];
     for (let bi = 0; bi < bare.length; bi++) {
       if (!absorbedBare.has(bi)) mergedItems.push(bare[bi]);
     }
-    mergedItems.push(...suffixed);
+    for (let si = 0; si < suffixed.length; si++) {
+      if (!absorbedSuffixed.has(si)) mergedItems.push(suffixed[si]);
+    }
     items = mergedItems;
 
     // ── Deduplicate ──
