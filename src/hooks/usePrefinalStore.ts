@@ -682,7 +682,7 @@ export function usePrefinalStore(projectId: string) {
   }, [projectId]);
 
   const clearStone = useCallback(() => {
-    commit({ ...data, stoneRows: [], stoneUnitTypes: [], kitchenBacksplashHeight: 4, bathBacksplashHeight: 4 });
+    commit({ ...data, stoneRows: [], stoneUnitTypes: [], kitchenBacksplashHeight: 4, bathBacksplashHeight: 4, perTypeKitchenBsHeight: {}, perTypeBathBsHeight: {} });
   }, [commit, data]);
 
   const setKitchenBacksplashHeight = useCallback((height: number) => {
@@ -696,6 +696,22 @@ export function usePrefinalStore(projectId: string) {
   const setBathBacksplashHeight = useCallback((height: number) => {
     setData(prev => {
       const next = { ...prev, bathBacksplashHeight: height };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
+  const setPerTypeKitchenBsHeight = useCallback((unitType: string, height: number) => {
+    setData(prev => {
+      const next = { ...prev, perTypeKitchenBsHeight: { ...prev.perTypeKitchenBsHeight, [unitType]: height } };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
+  const setPerTypeBathBsHeight = useCallback((unitType: string, height: number) => {
+    setData(prev => {
+      const next = { ...prev, perTypeBathBsHeight: { ...prev.perTypeBathBsHeight, [unitType]: height } };
       saveData(projectId, next);
       return next;
     });
