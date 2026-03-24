@@ -89,6 +89,22 @@ export default function PreFinalModule({ project }: Props) {
       return exact || '';
     };
 
+    const normalizedImportTypes = (importTypeOrder ?? [])
+      .map(t => normalizeUnitType(t))
+      .filter((t, i, arr) => t && arr.indexOf(t) === i);
+
+    const singleImportType = normalizedImportTypes.length === 1
+      ? (resolveKnownType(normalizedImportTypes[0]) || normalizedImportTypes[0])
+      : '';
+
+    const defaultDetectedType = (() => {
+      const resolvedDetected = resolveKnownType(detectedUnitType || '');
+      if (resolvedDetected) return resolvedDetected;
+      const normalizedDetected = detectedUnitType ? normalizeUnitType(detectedUnitType) : '';
+      if (normalizedDetected) return normalizedDetected;
+      return singleImportType;
+    })();
+
 
     const rowsByType = new Map<string, typeof rows>();
     // Clear all existing cabinet data before importing fresh
@@ -98,7 +114,7 @@ export default function PreFinalModule({ project }: Props) {
     const orderedTypes: string[] = [];
 
     for (const row of rows) {
-      const rawType = (row as any).detectedUnitType || detectedUnitType || '';
+      const rawType = (row as any).detectedUnitType || defaultDetectedType || '';
       const normalizedIncoming = rawType ? normalizeUnitType(rawType) : '';
       const incomingKey = toTypeKey(normalizedIncoming);
       const knownResolved = resolveKnownType(rawType) || resolveKnownType(normalizedIncoming);
@@ -228,7 +244,7 @@ export default function PreFinalModule({ project }: Props) {
   const skuCabType: Record<string, string> = {};
   store.cabinetRows.forEach(r => {
     if (!skuTypeQty[r.sku]) skuTypeQty[r.sku] = {};
-    skuTypeQty[r.sku][r.unitType] = Math.max(skuTypeQty[r.sku][r.unitType] || 0, r.quantity);
+    skuTypeQty[r.sku][r.unitType] = (skuTypeQty[r.sku][r.unitType] || 0) + r.quantity;
     if (!skuCabType[r.sku]) skuCabType[r.sku] = r.type;
   });
 
