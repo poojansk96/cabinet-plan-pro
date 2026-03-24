@@ -40,6 +40,8 @@ interface PrefinalData {
   stoneUnitTypes: string[];
   kitchenBacksplashHeight: number;
   bathBacksplashHeight: number;
+  perTypeKitchenBsHeight: Record<string, number>;
+  perTypeBathBsHeight: Record<string, number>;
 }
 
 function sanitizeUnitNumber(value: string): string {
