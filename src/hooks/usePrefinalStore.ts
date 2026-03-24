@@ -601,8 +601,12 @@ export function usePrefinalStore(projectId: string) {
   }, [projectId]);
 
   const clearUnits = useCallback(() => {
-    commit({ ...data, unitTypes: [], unitNumbers: [] });
-  }, [commit, data]);
+    setData(prev => {
+      const next = { ...prev, unitTypes: [], unitNumbers: [] };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
 
   const setHandleQty = useCallback((sku: string, qty: number) => {
     setData(prev => {
