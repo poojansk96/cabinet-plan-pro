@@ -163,6 +163,9 @@ export default function PreFinalModule({ project }: Props) {
       rowsByType.get(type)!.push(r);
     }
 
+    // Clear existing stone data first, then add types and rows
+    store.clearStone();
+
     // If detectedTypes provided, use that ordering, then append any remaining
     if (detectedTypes && detectedTypes.length > 0) {
       const normalizedOrder = detectedTypes.map(t => normalizeUnitType(t)).filter((t, i, a) => a.indexOf(t) === i);
@@ -172,9 +175,6 @@ export default function PreFinalModule({ project }: Props) {
     } else {
       store.addStoneUnitTypes(typeOrder);
     }
-
-    // Clear existing stone data and import fresh
-    store.clearStone();
 
     for (const [unitType, typeRows] of rowsByType) {
       const stoneRows: PrefinalStoneRow[] = typeRows.map(r => ({
