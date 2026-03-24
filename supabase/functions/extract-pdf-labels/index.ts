@@ -197,9 +197,15 @@ function classifySku(sku: string): string {
   return "Base";
 }
 
+// Dimension-pattern SKU: prefix + digits + X + digits (e.g., UC15X84, TF3X96, HCUC15X8)
+const DIMENSION_SKU_RE = /^[A-Z]{1,8}\d+X\d+/i;
+
 function trySplitConcatenatedSku(rawSku: string, knownTextSkus: string[] = []): string[] | null {
   const sku = normalizeSkuLabel(rawSku);
   if (!sku) return null;
+
+  // Never split dimension-pattern SKUs like UC15X84, TF3X96
+  if (DIMENSION_SKU_RE.test(sku)) return null;
 
   const known = [...new Set(knownTextSkus.map(normalizeSkuLabel).filter(Boolean))]
     .sort((a, b) => b.length - a.length);
