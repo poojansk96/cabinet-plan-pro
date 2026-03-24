@@ -310,6 +310,7 @@ function isCommonAreaType(value: string): boolean {
 }
 
 const COMMON_AREA_LABELS: Array<{ label: string; re: RegExp }> = [
+  { label: 'Kitchenette', re: /\bKITCHENETTE\b/i },
   { label: 'Mail Room', re: /\bMAIL\s*ROOM\b/i },
   { label: 'Break Room', re: /\bBREAK\s*ROOM\b/i },
   { label: 'Business Center', re: /\bBUSINESS\s*CENTER\b/i },
