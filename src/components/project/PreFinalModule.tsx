@@ -155,9 +155,9 @@ export default function PreFinalModule({ project }: Props) {
       label: r.label,
       length: r.length,
       depth: r.depth,
-      splashHeight: r.splashHeight,
+      backsplashLength: r.backsplashLength ?? 0,
       isIsland: r.isIsland,
-      room: r.room,
+      category: r.category || 'kitchen',
       unitType: targetType,
     }));
     store.addStoneImport(stoneRows, targetType);
@@ -177,9 +177,12 @@ export default function PreFinalModule({ project }: Props) {
     });
   })();
 
-  const calcStoneSqft = (row: PrefinalStoneRow): number => {
-    const effectiveDepth = row.depth + (row.splashHeight ?? 0);
-    return Math.ceil((row.length * effectiveDepth) / 144);
+  const calcTopSqft = (row: PrefinalStoneRow): number => {
+    return Math.ceil((row.length * row.depth) / 144);
+  };
+
+  const calcBacksplashSqft = (backsplashInches: number, heightInches: number): number => {
+    return Math.ceil((backsplashInches * heightInches) / 144);
   };
 
 
