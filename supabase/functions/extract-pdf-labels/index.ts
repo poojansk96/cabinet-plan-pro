@@ -799,6 +799,13 @@ If no cabinet SKUs are found, return {"items":[]}`;
     }
     items = mergedItems;
 
+    const getTextOccurrenceCap = (sku: string): number => {
+      const exactCount = textLayerSkuCounts[sku] ?? 0;
+      const baseSku = sku.replace(/[-+][A-Z0-9]+$/i, '');
+      const baseCount = baseSku !== sku ? (textLayerSkuCounts[baseSku] ?? 0) : 0;
+      return Math.max(exactCount, baseCount);
+    };
+
     // ── Deduplicate ──
     // For most SKUs, duplicate entries are summed (multiple distinct labels on page).
     // For corner units, HAV vanities, and manufacturer dimension SKUs, duplicate detections are usually
@@ -809,15 +816,54 @@ If no cabinet SKUs are found, return {"items":[]}`;
       const key = `${item.sku}|${item.room}`;
       const existing = deduped.get(key);
       if (existing) {
-        existing.quantity = isMaxDedupSku(item.sku)
-          ? Math.max(existing.quantity, item.quantity)
-          : existing.quantity + item.quantity;
+        if (isMaxDedupSku(item.sku)) {
+          existing.quantity = Math.max(existing.quantity, item.quantity);
+        } else {
+          const textCap = getTextOccurrenceCap(item.sku);
+          const nextQty = existing.quantity + item.quantity;
+          existing.quantity = textCap > 0 ? Math.min(nextQty, textCap) : nextQty;
+        }
       } else {
         deduped.set(key, { ...item });
       }
     }
 
-    return new Response(JSON.stringify({ items: Array.from(deduped.values()), unitTypeName: detectedUnitType, pageType: rawPageType, isCommonArea }), {
+    const roomPriority = (room: string): number => {
+      const normalized = String(room || '').trim().toLowerCase();
+      if (normalized === 'kitchen') return 0;
+      if (normalized === 'bath') return 1;
+      if (normalized === 'laundry') return 2;
+      if (normalized === 'pantry') return 3;
+      if (normalized === 'other') return 4;
+      return 5;
+    };
+
+    const isRoomFragileSku = (sku: string) => /^(?:HAV\d|HC|HS|HW)/i.test(sku);
+    const collapsed = new Map<string, { sku: string; type: string; room: string; quantity: number }>();
+    for (const item of deduped.values()) {
+      const textCap = getTextOccurrenceCap(item.sku);
+      const collapseBySkuOnly = isRoomFragileSku(item.sku) && textCap > 0 && textCap <= 1;
+      const key = collapseBySkuOnly ? item.sku : `${item.sku}|${item.room}`;
+      const existing = collapsed.get(key);
+      if (!existing) {
+        collapsed.set(key, { ...item });
+        continue;
+      }
+
+      if (collapseBySkuOnly) {
+        const preferred = roomPriority(item.room) < roomPriority(existing.room) ? item : existing;
+        collapsed.set(key, {
+          ...preferred,
+          quantity: Math.max(existing.quantity, item.quantity),
+        });
+      } else {
+        existing.quantity = isMaxDedupSku(item.sku)
+          ? Math.max(existing.quantity, item.quantity)
+          : existing.quantity + item.quantity;
+      }
+    }
+
+    return new Response(JSON.stringify({ items: Array.from(collapsed.values()), unitTypeName: detectedUnitType, pageType: rawPageType, isCommonArea }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
