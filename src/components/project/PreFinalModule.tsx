@@ -910,207 +910,114 @@ export default function PreFinalModule({ project }: Props) {
                   </label>
                 </div>
 
-                {stoneUnitTypes.map(unitType => {
-                  const typeRows = store.stoneRows.filter(r => r.unitType === unitType);
-                  if (typeRows.length === 0) return null;
-                  const unitCount = store.unitNumbers.filter(u => u.assignments[unitType]).length;
+                {/* Compact type-wise stone SQFT table */}
+                <table className="est-table text-xs w-full" style={{ tableLayout: 'fixed' }}>
+                  <colgroup>
+                    <col style={{ width: '16%' }} />
+                    <col style={{ width: '7%' }} />
+                    <col style={{ width: '9%' }} />
+                    <col style={{ width: '9%' }} />
+                    <col style={{ width: '9%' }} />
+                    <col style={{ width: '10%' }} />
+                    <col style={{ width: '9%' }} />
+                    <col style={{ width: '9%' }} />
+                    <col style={{ width: '9%' }} />
+                    <col style={{ width: '10%' }} />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th rowSpan={2} className="text-left" style={{ verticalAlign: 'bottom' }}>Unit Type</th>
+                      <th rowSpan={2} className="text-right" style={{ verticalAlign: 'bottom' }}>Units</th>
+                      <th colSpan={4} className="text-center" style={{ borderBottom: '2px solid hsl(213 60% 50%)', color: 'hsl(213 60% 50%)' }}>
+                        🍳 Kitchen
+                      </th>
+                      <th colSpan={4} className="text-center" style={{ borderBottom: '2px solid hsl(38 80% 45%)', color: 'hsl(38 80% 45%)' }}>
+                        🚿 Bath
+                      </th>
+                    </tr>
+                    <tr>
+                      <th className="text-right">Top</th>
+                      <th className="text-right">BS</th>
+                      <th className="text-right">SQFT</th>
+                      <th className="text-right font-bold">× Units</th>
+                      <th className="text-right">Top</th>
+                      <th className="text-right">BS</th>
+                      <th className="text-right">SQFT</th>
+                      <th className="text-right font-bold">× Units</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      let grandKitchen = 0, grandBath = 0, grandKitchenTotal = 0, grandBathTotal = 0;
 
-                  // Split into kitchen/bath
-                  const kitchenRows = typeRows.filter(r => r.category === 'kitchen');
-                  const bathRows = typeRows.filter(r => r.category === 'bath');
+                      const typeData = stoneUnitTypes.map(unitType => {
+                        const typeRows = store.stoneRows.filter(r => r.unitType === unitType);
+                        const unitCount = store.unitNumbers.filter(u => u.assignments[unitType]).length || 1;
 
-                  // Group by depth within each category
-                  type DepthGroup = { depth: number; totalLength: number; totalBsLength: number; rows: PrefinalStoneRow[] };
-                  const groupByDepth = (rows: PrefinalStoneRow[]): DepthGroup[] => {
-                    const map = new Map<number, DepthGroup>();
-                    for (const r of rows) {
-                      const existing = map.get(r.depth);
-                      if (existing) {
-                        existing.totalLength += r.length;
-                        existing.totalBsLength += r.backsplashLength;
-                        existing.rows.push(r);
-                      } else {
-                        map.set(r.depth, { depth: r.depth, totalLength: r.length, totalBsLength: r.backsplashLength, rows: [r] });
-                      }
-                    }
-                    return Array.from(map.values()).sort((a, b) => b.depth - a.depth);
-                  };
+                        let kTopSqft = 0, kBsSqft = 0, bTopSqft = 0, bBsSqft = 0;
+                        const kGroups = new Map<number, { len: number; bs: number }>();
+                        const bGroups = new Map<number, { len: number; bs: number }>();
 
-                  const kitchenGroups = groupByDepth(kitchenRows);
-                  const bathGroups = groupByDepth(bathRows);
+                        for (const r of typeRows) {
+                          const map = r.category === 'kitchen' ? kGroups : bGroups;
+                          const g = map.get(r.depth) || { len: 0, bs: 0 };
+                          g.len += r.length;
+                          g.bs += r.backsplashLength;
+                          map.set(r.depth, g);
+                        }
 
-                  const calcGroupTopSqft = (g: DepthGroup) => Math.ceil((g.totalLength * g.depth) / 144);
-                  const calcGroupBsSqft = (g: DepthGroup, bsHeight: number) => Math.ceil((g.totalBsLength * bsHeight) / 144);
+                        for (const [depth, g] of kGroups) {
+                          kTopSqft += Math.ceil((g.len * depth) / 144);
+                          kBsSqft += Math.ceil((g.bs * store.kitchenBacksplashHeight) / 144);
+                        }
+                        for (const [depth, g] of bGroups) {
+                          bTopSqft += Math.ceil((g.len * depth) / 144);
+                          bBsSqft += Math.ceil((g.bs * store.bathBacksplashHeight) / 144);
+                        }
 
-                  const kitchenTopSqft = kitchenGroups.reduce((s, g) => s + calcGroupTopSqft(g), 0);
-                  const kitchenBsSqft = kitchenGroups.reduce((s, g) => s + calcGroupBsSqft(g, store.kitchenBacksplashHeight), 0);
-                  const kitchenTotalSqft = kitchenTopSqft + kitchenBsSqft;
+                        const kTotal = kTopSqft + kBsSqft;
+                        const bTotal = bTopSqft + bBsSqft;
+                        grandKitchen += kTotal;
+                        grandBath += bTotal;
+                        grandKitchenTotal += kTotal * unitCount;
+                        grandBathTotal += bTotal * unitCount;
 
-                  const bathTopSqft = bathGroups.reduce((s, g) => s + calcGroupTopSqft(g), 0);
-                  const bathBsSqft = bathGroups.reduce((s, g) => s + calcGroupBsSqft(g, store.bathBacksplashHeight), 0);
-                  const bathTotalSqft = bathTopSqft + bathBsSqft;
+                        return { unitType, unitCount, kTopSqft, kBsSqft, kTotal, bTopSqft, bBsSqft, bTotal };
+                      });
 
-                  const renderCategoryTable = (
-                    label: string,
-                    groups: DepthGroup[],
-                    bsHeight: number,
-                    totalTop: number,
-                    totalBs: number,
-                    totalSqft: number,
-                    headerColor: string,
-                  ) => {
-                    if (groups.length === 0) return null;
-                    return (
-                      <div className="mb-3">
-                        <div className="px-4 py-1.5 text-xs font-bold text-white" style={{ background: headerColor }}>
-                          {label} — {unitType}
-                        </div>
-                        <table className="est-table text-xs" style={{ tableLayout: 'fixed' }}>
-                          <colgroup>
-                            <col style={{ width: '14%' }} />
-                            <col style={{ width: '14%' }} />
-                            <col style={{ width: '14%' }} />
-                            <col style={{ width: '14%' }} />
-                            <col style={{ width: '14%' }} />
-                            <col style={{ width: '14%' }} />
-                            <col style={{ width: '16%' }} />
-                          </colgroup>
-                          <thead>
-                            <tr>
-                              <th className="text-left">Depth"</th>
-                              <th className="text-right">Top Inches</th>
-                              <th className="text-right">BS Inches</th>
-                              <th className="text-right">BS Height"</th>
-                              <th className="text-right">Top SQFT</th>
-                              <th className="text-right">BS SQFT</th>
-                              <th className="text-right">Total SQFT</th>
+                      return (
+                        <>
+                          {typeData.map(d => (
+                            <tr key={d.unitType}>
+                              <td className="font-bold">{d.unitType}</td>
+                              <td className="text-right font-mono">{d.unitCount}</td>
+                              <td className="text-right font-mono">{d.kTopSqft || '—'}</td>
+                              <td className="text-right font-mono">{d.kBsSqft || '—'}</td>
+                              <td className="text-right font-mono" style={{ color: 'hsl(213 60% 50%)' }}>{d.kTotal || '—'}</td>
+                              <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{d.kTotal * d.unitCount || '—'}</td>
+                              <td className="text-right font-mono">{d.bTopSqft || '—'}</td>
+                              <td className="text-right font-mono">{d.bBsSqft || '—'}</td>
+                              <td className="text-right font-mono" style={{ color: 'hsl(38 80% 45%)' }}>{d.bTotal || '—'}</td>
+                              <td className="text-right font-bold" style={{ color: 'hsl(38 80% 45%)' }}>{d.bTotal * d.unitCount || '—'}</td>
                             </tr>
-                          </thead>
-                          <tbody>
-                            {groups.map((g, gi) => {
-                              const topSqft = calcGroupTopSqft(g);
-                              const bsSqft = calcGroupBsSqft(g, bsHeight);
-                              return (
-                                <tr key={gi}>
-                                  <td className="font-medium">{g.depth}"</td>
-                                  <td className="text-right font-mono">{g.totalLength}</td>
-                                  <td className="text-right font-mono">{g.totalBsLength}</td>
-                                  <td className="text-right font-mono">{bsHeight}</td>
-                                  <td className="text-right font-mono">{topSqft}</td>
-                                  <td className="text-right font-mono">{bsSqft}</td>
-                                  <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{topSqft + bsSqft}</td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                          <tfoot>
-                            <tr className="border-t-2 border-border">
-                              <td className="text-left">Total</td>
-                              <td className="text-right">{groups.reduce((s, g) => s + g.totalLength, 0)}</td>
-                              <td className="text-right">{groups.reduce((s, g) => s + g.totalBsLength, 0)}</td>
-                              <td className="text-right">{bsHeight}</td>
-                              <td className="text-right">{totalTop}</td>
-                              <td className="text-right">{totalBs}</td>
-                              <td className="text-right" style={{ color: 'hsl(var(--primary))' }}>{totalSqft}</td>
-                            </tr>
-                          </tfoot>
-                        </table>
-                      </div>
-                    );
-                  };
-
-                  return (
-                    <div key={unitType} className="mb-4">
-                      <div className="px-4 py-2 flex items-center justify-between" style={{ background: 'hsl(213 72% 35%)', color: '#fff' }}>
-                        <span className="text-xs font-bold">{unitType}</span>
-                        <div className="flex items-center gap-4 text-xs">
-                          <span>Kitchen SQFT: <strong>{kitchenTotalSqft}</strong></span>
-                          <span>Bath SQFT: <strong>{bathTotalSqft}</strong></span>
-                          {unitCount > 0 && (
-                            <span>× {unitCount} units = <strong>{(kitchenTotalSqft + bathTotalSqft) * unitCount}</strong></span>
-                          )}
-                        </div>
-                      </div>
-
-                      {renderCategoryTable('🍳 Kitchen Tops', kitchenGroups, store.kitchenBacksplashHeight, kitchenTopSqft, kitchenBsSqft, kitchenTotalSqft, 'hsl(213 60% 50%)')}
-                      {renderCategoryTable('🚿 Bath/Vanity Tops', bathGroups, store.bathBacksplashHeight, bathTopSqft, bathBsSqft, bathTotalSqft, 'hsl(38 80% 45%)')}
-                    </div>
-                  );
-                })}
-
-                {/* Type-wise SQFT Summary */}
-                <div className="px-4 py-4 border-t-2 border-border">
-                  <div className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">SQFT Summary by Type</div>
-                  <table className="est-table text-xs w-full" style={{ tableLayout: 'fixed' }}>
-                    <colgroup>
-                      <col style={{ width: '22%' }} />
-                      <col style={{ width: '10%' }} />
-                      <col style={{ width: '17%' }} />
-                      <col style={{ width: '17%' }} />
-                      <col style={{ width: '17%' }} />
-                      <col style={{ width: '17%' }} />
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        <th className="text-left">Type</th>
-                        <th className="text-right">Units</th>
-                        <th className="text-right">Kitchen SQFT</th>
-                        <th className="text-right">Kitchen × Units</th>
-                        <th className="text-right">Bath SQFT</th>
-                        <th className="text-right">Bath × Units</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(() => {
-                        let grandKitchen = 0, grandBath = 0;
-                        const typeData = stoneUnitTypes.map(type => {
-                          const typeRows = store.stoneRows.filter(r => r.unitType === type);
-                          const unitCount = store.unitNumbers.filter(u => u.assignments[type]).length || 1;
-                          let kSqft = 0, bSqft = 0;
-                          const kGroups = new Map<number, { len: number; bs: number }>();
-                          const bGroups = new Map<number, { len: number; bs: number }>();
-                          for (const r of typeRows) {
-                            const map = r.category === 'kitchen' ? kGroups : bGroups;
-                            const g = map.get(r.depth) || { len: 0, bs: 0 };
-                            g.len += r.length; g.bs += r.backsplashLength;
-                            map.set(r.depth, g);
-                          }
-                          for (const [depth, g] of kGroups) {
-                            kSqft += Math.ceil((g.len * depth) / 144) + Math.ceil((g.bs * store.kitchenBacksplashHeight) / 144);
-                          }
-                          for (const [depth, g] of bGroups) {
-                            bSqft += Math.ceil((g.len * depth) / 144) + Math.ceil((g.bs * store.bathBacksplashHeight) / 144);
-                          }
-                          grandKitchen += kSqft * unitCount;
-                          grandBath += bSqft * unitCount;
-                          return { type, unitCount, kSqft, bSqft };
-                        });
-                        return (
-                          <>
-                            {typeData.map(d => (
-                              <tr key={d.type}>
-                                <td className="font-bold">{d.type}</td>
-                                <td className="text-right font-mono">{d.unitCount}</td>
-                                <td className="text-right font-mono">{d.kSqft}</td>
-                                <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{d.kSqft * d.unitCount}</td>
-                                <td className="text-right font-mono">{d.bSqft}</td>
-                                <td className="text-right font-bold" style={{ color: 'hsl(38 80% 45%)' }}>{d.bSqft * d.unitCount}</td>
-                              </tr>
-                            ))}
-                            <tr className="font-bold border-t-2 border-border">
-                              <td>GRAND TOTAL</td>
-                              <td></td>
-                              <td></td>
-                              <td className="text-right text-base" style={{ color: 'hsl(var(--primary))' }}>{grandKitchen}</td>
-                              <td></td>
-                              <td className="text-right text-base" style={{ color: 'hsl(38 80% 45%)' }}>{grandBath}</td>
-                            </tr>
-                          </>
-                        );
-                      })()}
-                    </tbody>
-                  </table>
-                </div>
+                          ))}
+                          <tr className="font-bold border-t-2 border-border">
+                            <td>GRAND TOTAL</td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td className="text-right" style={{ color: 'hsl(213 60% 50%)' }}>{grandKitchen}</td>
+                            <td className="text-right text-sm" style={{ color: 'hsl(var(--primary))' }}>{grandKitchenTotal}</td>
+                            <td></td>
+                            <td></td>
+                            <td className="text-right" style={{ color: 'hsl(38 80% 45%)' }}>{grandBath}</td>
+                            <td className="text-right text-sm" style={{ color: 'hsl(38 80% 45%)' }}>{grandBathTotal}</td>
+                          </tr>
+                        </>
+                      );
+                    })()}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
