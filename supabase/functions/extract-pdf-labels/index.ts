@@ -522,7 +522,7 @@ Return it as "unitTypeName" in your response. Return null if no unit type is fou
     const extractPrompt = `Extract ALL cabinet SKU labels from this 2020 Design shop drawing plan view.
 ${unitTypeDetectInstructions}
 For each cabinet found, provide:
-1. sku: The SKU label exactly as written (e.g. B24, W3036, DB15, BF3, WF6X30, LS36-L, BLW36/3930-L, B09FH)
+1. sku: The SKU label exactly as written (e.g. B24, W3036, DB15, BF3, WF6X30, LS36-L, BLW36/3930-L, B09FH, APPRON59X21, DWR1). For APPRON labels with dimensions like "APPRON 59X21", combine into one string without spaces: "APPRON59X21".
 2. type: Classify by prefix:
    - "Base" → B, DB, SB, CB, EB, LS, LSB (but NOT BLW/BRW — those are Wall, NOT HAV — those are Vanity)
    - "Wall" → W, WDC, UB, WC, OH, BLW, BRW
