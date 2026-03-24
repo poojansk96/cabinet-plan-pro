@@ -123,7 +123,7 @@ const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RAN
 // Relaxed: accept any 1-8 letter prefix followed by a digit (catches manufacturer-specific SKUs like HAV, HALC)
 const SKU_PREFIX_RE = /^[A-Z]{1,8}\d/i;
 const NO_DIGIT_OK = /^(BP|SCRIBE|UC)$/i;
-const STRONG_STRIP_SKU_RE = /^(?:UC|BP|SCRIBE|APPRON|UREP|REP|[A-Z]{2,8}\d[A-Z0-9\-\/]{2,})$/i;
+const STRONG_STRIP_SKU_RE = /^(?:UC|BP|SCRIBE|APPRON\d+X\d+|UREP\d+|REP\d+|DWR\d+|BF\d+|FIL\d+|CM\d+|LR\d+|EP\d+|FP\d+|TK\d*|TKRUN\d*|TF\d+(?:X\d+)?|WF\d+(?:X\d+)?|[A-Z]{2,8}\d[A-Z0-9\-\/]{2,})$/i;
 const SPLIT_SUFFIX_RE = /(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)$/i;
 
 function normalizeSkuLabel(value: string): string {
@@ -802,7 +802,9 @@ If no cabinet SKUs are found, return {"items":[]}`;
     // For most SKUs, duplicate entries are summed (multiple distinct labels on page).
     // For corner units, HAV vanities, and manufacturer dimension SKUs, duplicate detections are usually
     // the same physical cabinet repeated across passes, so keep MAX instead of SUM.
-    const isMaxDedupSku = (sku: string) => /^(LS|LSB|HAV)\d+/i.test(sku) || /^(HCUC|HCOC)\d+X?\d*[A-Z0-9]*$/i.test(sku);
+    const isMaxDedupSku = (sku: string) =>
+      /^(LS|LSB|HAV)\d+/i.test(sku) ||
+      /^(HCUC|HCOC)\d+(?:X\d+)?[A-Z0-9]*(?:[-+][A-Z0-9]+)?$/i.test(sku);
     const deduped = new Map<string, { sku: string; type: string; room: string; quantity: number }>();
     for (const item of items) {
       const key = `${item.sku}|${item.room}`;
