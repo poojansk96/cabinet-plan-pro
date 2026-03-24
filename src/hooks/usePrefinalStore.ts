@@ -733,6 +733,8 @@ export function usePrefinalStore(projectId: string) {
     stoneUnitTypes: data.stoneUnitTypes,
     kitchenBacksplashHeight: data.kitchenBacksplashHeight,
     bathBacksplashHeight: data.bathBacksplashHeight,
+    perTypeKitchenBsHeight: data.perTypeKitchenBsHeight || {},
+    perTypeBathBsHeight: data.perTypeBathBsHeight || {},
     addUnitTypes,
     deleteUnitType,
     renameUnitType,
@@ -759,6 +761,8 @@ export function usePrefinalStore(projectId: string) {
     clearStone,
     setKitchenBacksplashHeight,
     setBathBacksplashHeight,
+    setPerTypeKitchenBsHeight,
+    setPerTypeBathBsHeight,
     clearAll,
   };
 }
