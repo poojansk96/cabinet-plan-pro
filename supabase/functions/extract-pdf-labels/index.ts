@@ -180,8 +180,15 @@ function countSkusFromText(pageText: string): Record<string, number> {
 
   const matches = pageText.match(SKU_PATTERN) || [];
   const noDigitMatches = pageText.match(/\b(BP|SCRIBE|UC)\b/gi) || [];
+  // Catch APPRON with space before dimensions
+  const appronMatches: string[] = [];
+  let appM2: RegExpExecArray | null;
+  const appRe2 = /\bAPPRON\s+(\d+X\d+)\b/gi;
+  while ((appM2 = appRe2.exec(pageText)) !== null) {
+    appronMatches.push(`APPRON${appM2[1]}`);
+  }
 
-  for (const m of [...matches, ...noDigitMatches]) {
+  for (const m of [...matches, ...noDigitMatches, ...appronMatches]) {
     const upper = normalizeSkuLabel(m);
     if (APPLIANCE_RE.test(upper)) continue;
     if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) continue;
