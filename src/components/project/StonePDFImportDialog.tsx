@@ -183,6 +183,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
       }
 
       setRows(allRows);
+      if (detectedTypesOrder.length > 0) setDetectedType(detectedTypesOrder.join(', '));
       setStep('review');
     } catch (err) {
       console.error('PDF processing error:', err);
