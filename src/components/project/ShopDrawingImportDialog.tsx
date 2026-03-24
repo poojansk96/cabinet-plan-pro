@@ -267,43 +267,41 @@ function normalizeTypeKey(value: string): string {
     .replace(/[^A-Z0-9]/g, '');
 }
 
-function normalizeTypeBase(value: string): string {
-  const text = String(value || '')
-    .toUpperCase()
-    .trim()
-    .replace(/[\u2010-\u2015]/g, '-')
-    .replace(/\s+/g, ' ');
-
-  const standalone = text.match(/\b(STUDIO|\d+\s*BR)-([A-Z0-9]+)/);
-  if (standalone) {
-    return `${standalone[1].replace(/\s+/g, '')}-${standalone[2]}`;
-  }
-
-  const prefixed = text.match(/\b(STUDIO|\d+\s*BR)\s+TYPE\s+([A-Z0-9]+)/);
-  if (prefixed) {
-    return `${prefixed[1].replace(/\s+/g, '')} TYPE ${prefixed[2]}`;
-  }
-
-  const typed = text.match(/\bTYPE\s+([A-Z0-9]+)/);
-  if (typed) {
-    return `TYPE ${typed[1]}`;
-  }
-
-  if (/\bKITCHENETTE\b/.test(text)) return 'KITCHENETTE';
-
-  return text;
-}
-
-function normalizeTypeComparison(value: string): string {
+function normalizeTypeText(value: string): string {
   return String(value || '')
     .toUpperCase()
     .trim()
     .replace(/[\u2010-\u2015]/g, '-')
     .replace(/\s+/g, ' ')
+    .replace(/\s*-\s*/g, '-')
     .replace(/\s*\(\s*/g, ' (')
     .replace(/\s*\)\s*/g, ')')
-    .replace(/\s*-\s*/g, '-')
     .trim();
+}
+
+function normalizeTypeBase(value: string): string {
+  const text = normalizeTypeText(value);
+  if (!text) return '';
+  if (/\bKITCHENETTE\b/.test(text)) return 'KITCHENETTE';
+
+  const canonical = text.replace(/\s+\((AS|MIRROR|ADA|REV|ALT|OPTION)\)$/i, '-$1');
+  const patterns = [
+    /^((?:STUDIO|\d+BR)-[A-Z0-9]+)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
+    /^((?:STUDIO|\d+BR)\s+TYPE\s+[A-Z0-9]+)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
+    /^(TYPE\s+(?:STUDIO|\d+BR)-[A-Z0-9]+)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
+    /^(TYPE\s+[A-Z0-9]+)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = canonical.match(pattern);
+    if (match) return match[1];
+  }
+
+  return canonical;
+}
+
+function normalizeTypeComparison(value: string): string {
+  return normalizeTypeText(value);
 }
 
 function isCommonAreaType(value: string): boolean {
@@ -341,17 +339,14 @@ function extractCommonAreaLabel(pageText: string): string | null {
 }
 
 function extractTypeHintsFromText(pageText: string): string[] {
-  const text = String(pageText || '')
-    .replace(/[\u2010-\u2015]/g, '-')
-    .replace(/\s+/g, ' ')
-    .toUpperCase();
+  const text = normalizeTypeText(pageText);
 
   if (!text) return [];
 
   const out: string[] = [];
   const seen = new Set<string>();
   const push = (label: string) => {
-    const clean = label.trim().replace(/\s+/g, ' ');
+    const clean = normalizeTypeText(label);
     if (!clean) return;
     if (/\b(TYPE\s+PLAN|ELEVATION|SECTION|DETAIL|SHEET|DRAWING|LEGEND)\b/i.test(clean)) return;
     const key = normalizeTypeKey(clean);
@@ -368,33 +363,35 @@ function extractTypeHintsFromText(pageText: string): string[] {
     return brMatch ? brMatch[1].replace(/\s+/g, '') + ' ' : '';
   };
 
-  const combined = /\bTYPE\s+([A-Z0-9]+)\s*(?:-|:)?\s*(AS|MIRROR)\s*(?:\/|&|AND)\s*(AS|MIRROR)\b/g;
+  const typeBase = '([A-Z0-9]+(?:\\s*-\\s*(?!AS\\b|MIRROR\\b|ADA\\b|REV\\b|ALT\\b|OPTION\\b)[A-Z0-9]+)*)';
+  const variantToken = '(AS|MIRROR|ADA|REV|ALT|OPTION)';
+  const combined = new RegExp(`\\bTYPE\\s+${typeBase}\\s*(?:-|:)?\\s*${variantToken}\\s*(?:\\/|&|AND)\\s*${variantToken}\\b`, 'g');
   let match: RegExpExecArray | null;
   while ((match = combined.exec(text)) !== null) {
     const prefix = findBedroomPrefix(text, match.index);
     const base = match[1];
     const left = match[2];
     const right = match[3];
-    push(`${prefix}TYPE ${base} ${left}`);
-    push(`${prefix}TYPE ${base} ${right}`);
+    push(`${prefix}TYPE ${base}-${left}`);
+    push(`${prefix}TYPE ${base}-${right}`);
   }
 
-  const single = /\bTYPE\s+([A-Z0-9]+)\s*(?:-|:)?\s*(AS|MIRROR|ADA|REV|ALT|OPTION)\b/g;
+  const single = new RegExp(`\\bTYPE\\s+${typeBase}\\s*(?:-|:)?\\s*${variantToken}\\b`, 'g');
   while ((match = single.exec(text)) !== null) {
     const prefix = findBedroomPrefix(text, match.index);
     const base = match[1];
     const variant = match[2];
-    push(`${prefix}TYPE ${base} ${variant}`);
+    push(`${prefix}TYPE ${base}-${variant}`);
   }
 
   // Also match full pattern with parenthesized variants like "1BR TYPE A (ADA)"
-  const withParen = /\b(?:(\d+\s*BR|STUDIO)\s+)?TYPE\s+([A-Z0-9]+)\s*\(([A-Z0-9]+)\)/g;
+  const withParen = /\b(?:(\d+\s*BR|STUDIO)\s+)?TYPE\s+([A-Z0-9]+(?:\s*-\s*[A-Z0-9]+)*)\s*\(([A-Z0-9]+)\)/g;
   while ((match = withParen.exec(text)) !== null) {
     const brPrefix = match[1] ? match[1].replace(/\s+/g, '') + ' ' : findBedroomPrefix(text, match.index);
     push(`${brPrefix}TYPE ${match[2]} (${match[3]})`);
   }
 
-  const generic = /\bTYPE\s+([A-Z0-9]+)\b/g;
+  const generic = new RegExp(`\\bTYPE\\s+${typeBase}(?!\\s*(?:-|:)?\\s*(?:AS|MIRROR|ADA|REV|ALT|OPTION)\\b)(?!\\s*\\()`, 'g');
   while ((match = generic.exec(text)) !== null) {
     const prefix = findBedroomPrefix(text, match.index);
     push(`${prefix}TYPE ${match[1]}`);
@@ -404,7 +401,7 @@ function extractTypeHintsFromText(pageText: string): string[] {
   while ((match = standaloneBedroomType.exec(text)) !== null) {
     const bedroom = match[1].replace(/\s+/g, '');
     const code = match[2];
-    const variant = match[3] ? ` ${match[3]}` : '';
+    const variant = match[3] ? `-${match[3]}` : '';
     push(`${bedroom}-${code}${variant}`);
   }
 
