@@ -305,11 +305,12 @@ function normalizeTypeComparison(value: string): string {
 }
 
 function isCommonAreaType(value: string): boolean {
-  return /\b(LAUNDRY|MAIL\s*ROOM|RESTROOM|LOBBY|CLUBHOUSE|FITNESS|LEASING|BUSINESS\s*CENTER|POOL\s*BATH|TRASH|MAINTENANCE|MODEL|STORAGE|GARAGE|CORRIDOR|MECHANICAL|COMMUNITY|BREAK\s*ROOM|OFFICE)\b/i
+  return /\b(KITCHENETTE|LAUNDRY|MAIL\s*ROOM|RESTROOM|LOBBY|CLUBHOUSE|FITNESS|LEASING|BUSINESS\s*CENTER|POOL\s*BATH|TRASH|MAINTENANCE|MODEL|STORAGE|GARAGE|CORRIDOR|MECHANICAL|COMMUNITY|BREAK\s*ROOM|OFFICE)\b/i
     .test(String(value || ''));
 }
 
 const COMMON_AREA_LABELS: Array<{ label: string; re: RegExp }> = [
+  { label: 'Kitchenette', re: /\bKITCHENETTE\b/i },
   { label: 'Mail Room', re: /\bMAIL\s*ROOM\b/i },
   { label: 'Break Room', re: /\bBREAK\s*ROOM\b/i },
   { label: 'Business Center', re: /\bBUSINESS\s*CENTER\b/i },
@@ -349,6 +350,8 @@ function extractTypeHintsFromText(pageText: string): string[] {
     const clean = normalizeTypeText(label);
     if (!clean) return;
     if (/\b(TYPE\s+PLAN|ELEVATION|SECTION|DETAIL|SHEET|DRAWING|LEGEND)\b/i.test(clean)) return;
+    // Reject "UNIT # N" patterns — these are unit numbers, not type names
+    if (/^\s*UNIT\s*#?\s*\d+\s*$/i.test(clean)) return;
     const key = normalizeTypeKey(clean);
     if (!key || seen.has(key)) return;
     seen.add(key);
@@ -397,8 +400,19 @@ function extractTypeHintsFromText(pageText: string): string[] {
     push(`${prefix}TYPE ${match[1]}`);
   }
 
-  const standaloneBedroomType = /\b(STUDIO|\d+\s*BR)\s*-\s*([A-Z0-9]+)(?:\s+(ADA|AS|MIRROR|REV|ALT|OPTION))?\b/g;
+  // Match standalone bedroom-type patterns like "2BR-3-AS", but require the code part
+  // to contain at least one letter to avoid matching partial fragments like "2BR-2" from "2BR-2-AS"
+  const standaloneBedroomType = /\b(STUDIO|\d+\s*BR)\s*-\s*([A-Z][A-Z0-9]*)(?:\s*-\s*(ADA|AS|MIRROR|REV|ALT|OPTION))?\b/g;
   while ((match = standaloneBedroomType.exec(text)) !== null) {
+    const bedroom = match[1].replace(/\s+/g, '');
+    const code = match[2];
+    const variant = match[3] ? `-${match[3]}` : '';
+    push(`${bedroom}-${code}${variant}`);
+  }
+  // Also match numeric-only codes like "0BR-1" but only if they appear as complete standalone types
+  // (not as prefixes of longer types like "0BR-1 ADA" which is handled above)
+  const numericBedroomType = /\b(STUDIO|\d+\s*BR)\s*-\s*(\d+)(?:\s*-\s*(ADA|AS|MIRROR|REV|ALT|OPTION))?\b(?!\s*-\s*[A-Z])/g;
+  while ((match = numericBedroomType.exec(text)) !== null) {
     const bedroom = match[1].replace(/\s+/g, '');
     const code = match[2];
     const variant = match[3] ? `-${match[3]}` : '';
@@ -445,7 +459,9 @@ function resolvePageUnitType(
   pageText: string,
   isCommonAreaPage = false,
 ): { primary: string | null; aliases: string[] } {
-  const ai = stripBedroomPrefix(String(aiType ?? '').trim());
+  let ai = stripBedroomPrefix(String(aiType ?? '').trim());
+  // Filter out "UNIT # N" patterns — these are unit numbers, not type names
+  if (/^\s*UNIT\s*#?\s*\d+\s*$/i.test(ai)) ai = '';
   const textHints = extractTypeHintsFromText(pageText);
 
   if (isCommonAreaPage) {
