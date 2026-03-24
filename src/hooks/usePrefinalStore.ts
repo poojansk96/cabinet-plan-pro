@@ -250,6 +250,8 @@ function loadData(projectId: string): PrefinalData {
         stoneUnitTypes: parsed.stoneUnitTypes || [],
         kitchenBacksplashHeight: parsed.kitchenBacksplashHeight ?? 4,
         bathBacksplashHeight: parsed.bathBacksplashHeight ?? 4,
+        perTypeKitchenBsHeight: parsed.perTypeKitchenBsHeight || {},
+        perTypeBathBsHeight: parsed.perTypeBathBsHeight || {},
       };
     }
     // Normalize + deduplicate unit types preserving first-seen order
