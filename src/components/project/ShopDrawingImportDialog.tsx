@@ -222,14 +222,26 @@ function mergeExtractionPasses(passes: any[][]): any[] {
       || /^[A-Z]{2,8}\d[A-Z0-9\-\/]{2,}$/.test(upper);
   };
 
+  // Short accessory SKUs (DWR1, BF3, FIL3, etc.) are almost never false positives.
+  // Accept them from even a SINGLE strip pass unconditionally.
+  const isShortAccessorySku = (sku: string): boolean => {
+    const upper = String(sku || '').toUpperCase().trim();
+    return /^(?:DWR|BF|WF|FIL|CM|EP|FP|LR|TK|TF|APPRON)\d/i.test(upper);
+  };
+
   for (const [key, candidate] of stripOnly.entries()) {
     // Add strip-only SKUs when corroborated by 2 strips OR when a single strip finds a strong SKU pattern.
-      if (candidate.support >= 2 || (candidate.support >= 1 && isStrongStripOnlySku(candidate.item?.sku))) {
+    const sku = candidate.item?.sku;
+    const accepted = candidate.support >= 2
+      || (candidate.support >= 1 && isStrongStripOnlySku(sku))
+      || (candidate.support >= 1 && isShortAccessorySku(sku));
+
+    if (accepted) {
       // Prevent duplicate HAV rows when full pass already found the same SKU under a different room label.
-        if (isHavSku(candidate.item?.sku) || isRoomFragileManufacturerSku(candidate.item?.sku)) {
-          const existingSkuKeys = findExistingSkuKeys(candidate.item?.sku);
-          if (existingSkuKeys.length === 1) {
-            const existingSkuRow = map.get(existingSkuKeys[0]);
+      if (isHavSku(sku) || isRoomFragileManufacturerSku(sku)) {
+        const existingSkuKeys = findExistingSkuKeys(sku);
+        if (existingSkuKeys.length === 1) {
+          const existingSkuRow = map.get(existingSkuKeys[0]);
           if (existingSkuRow) {
             existingSkuRow.quantity = Math.max(existingSkuRow.quantity || 1, candidate.maxQty);
             continue;
@@ -238,6 +250,9 @@ function mergeExtractionPasses(passes: any[][]): any[] {
       }
 
       map.set(key, { ...candidate.item, quantity: Math.max(Number(candidate.item.quantity) || 1, candidate.maxQty) });
+      console.log(`Strip-only SKU accepted: ${sku} (support=${candidate.support}, qty=${candidate.maxQty})`);
+    } else {
+      console.log(`Strip-only SKU rejected: ${sku} (support=${candidate.support})`);
     }
   }
 
