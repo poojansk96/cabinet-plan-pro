@@ -470,25 +470,31 @@ function resolvePageUnitType(
 
     if (exactTextMatch) {
       const best = chooseMostSpecificType([ai, exactTextMatch, ...sameBaseMatches]) ?? exactTextMatch;
-      return { primary: best, aliases: Array.from(new Set([best, ai, ...sameBaseMatches])) };
+      // Only include variants that share the same base as aliases (e.g., TYPE A-AS and TYPE A-MIRROR)
+      const validAliases = sameBaseMatches.length > 0
+        ? Array.from(new Set([best, ...sameBaseMatches]))
+        : [best];
+      return { primary: best, aliases: validAliases };
     }
 
     if (sameBaseMatches.length > 0) {
       const best = chooseMostSpecificType([ai, ...sameBaseMatches]) ?? ai;
-      return { primary: best, aliases: Array.from(new Set([best, ai, ...sameBaseMatches])) };
+      return { primary: best, aliases: Array.from(new Set([best, ...sameBaseMatches])) };
     }
 
-    if (textHints.length > 0) {
-      const best = chooseMostSpecificType(textHints);
-      if (best) return { primary: best, aliases: Array.from(new Set([best, ai, ...textHints])) };
-    }
-
+    // No text hint matches the AI type — trust the AI, do NOT add unrelated text hints as aliases
     return { primary: ai, aliases: [ai] };
   }
 
+  // No AI type — use best text hint only (not all of them)
   const best = chooseMostSpecificType(textHints);
   if (best) {
-    return { primary: best, aliases: Array.from(new Set([best, ...textHints])) };
+    // Only include hints sharing the same base as aliases
+    const bestBase = normalizeTypeBase(best);
+    const relatedHints = bestBase
+      ? textHints.filter((h) => normalizeTypeBase(h) === bestBase)
+      : [best];
+    return { primary: best, aliases: Array.from(new Set([best, ...relatedHints])) };
   }
 
   return { primary: null, aliases: [] };
