@@ -131,9 +131,9 @@ async function renderPageStrips(
   canvas: OffscreenCanvas | HTMLCanvasElement,
   w: number, h: number
 ): Promise<string[]> {
-  // 2 cols × 3 rows with ~30% overlap for comprehensive coverage
+  // 2 cols × 2 rows with ~30% overlap for faster processing
   const colRanges: [number, number][] = [[0, 0.65], [0.35, 1.0]];
-  const rowRanges: [number, number][] = [[0, 0.47], [0.27, 0.73], [0.53, 1.0]];
+  const rowRanges: [number, number][] = [[0, 0.60], [0.40, 1.0]];
   const strips: string[] = [];
   for (const [ry, rye] of rowRanges) {
     for (const [rx, rxe] of colRanges) {
