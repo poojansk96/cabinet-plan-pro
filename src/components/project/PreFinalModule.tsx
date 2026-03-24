@@ -1013,7 +1013,15 @@ export default function PreFinalModule({ project }: Props) {
                 {/* Type-wise SQFT Summary */}
                 <div className="px-4 py-4 border-t-2 border-border">
                   <div className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">SQFT Summary by Type</div>
-                  <table className="est-table text-xs w-full">
+                  <table className="est-table text-xs w-full" style={{ tableLayout: 'fixed' }}>
+                    <colgroup>
+                      <col style={{ width: '22%' }} />
+                      <col style={{ width: '10%' }} />
+                      <col style={{ width: '17%' }} />
+                      <col style={{ width: '17%' }} />
+                      <col style={{ width: '17%' }} />
+                      <col style={{ width: '17%' }} />
+                    </colgroup>
                     <thead>
                       <tr>
                         <th className="text-left">Type</th>

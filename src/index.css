@@ -131,7 +131,15 @@
   }
 
   .est-table thead th {
-    @apply px-3 py-2 text-left text-xs font-bold uppercase tracking-wide;
+    @apply px-3 py-2 text-xs font-bold uppercase tracking-wide;
+  }
+
+  .est-table tfoot tr {
+    background: hsl(var(--table-header) / 0.3);
+  }
+
+  .est-table tfoot td {
+    @apply px-3 py-2 text-sm font-bold;
   }
 
   .est-table tbody tr:nth-child(even) {
