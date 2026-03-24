@@ -707,14 +707,21 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         if (result.status === 'fulfilled') {
           const data = result.value;
           const resolvedPageType = String(data.unitTypeName || '').trim();
+          const resolvedTypeAliases = Array.isArray((data as any).unitTypeAliases)
+            ? (data as any).unitTypeAliases.map((value: unknown) => normalizeTypeText(String(value || ''))).filter(Boolean)
+            : [];
           const pageItems = Array.isArray(data.items) ? data.items : [];
           const hasCabinetRows = pageItems.length > 0;
           const isCommonAreaPage = Boolean((data as any).isCommonArea);
 
           // Track every resolved page type, even if this page produced zero cabinet rows.
           // This keeps the cabinet matrix column visible instead of dropping the whole type.
-          const shouldTrackType = Boolean(resolvedPageType) || isCommonAreaPage || hasCabinetRows;
-          const typesForOrder = resolvedPageType ? [resolvedPageType] : [];
+          const shouldTrackType = Boolean(resolvedPageType) || resolvedTypeAliases.length > 0 || isCommonAreaPage || hasCabinetRows;
+          const typesForOrder = resolvedTypeAliases.length > 0
+            ? resolvedTypeAliases
+            : resolvedPageType
+              ? [resolvedPageType]
+              : [];
 
           for (const t of typesForOrder) {
             if (!detectedType) detectedType = t;
