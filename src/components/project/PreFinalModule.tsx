@@ -881,15 +881,17 @@ export default function PreFinalModule({ project }: Props) {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                {/* Backsplash Height Controls */}
+                {/* Global Backsplash Height Defaults */}
                 <div className="px-4 py-3 border-b border-border flex items-center gap-6 flex-wrap" style={{ background: 'hsl(var(--primary) / 0.04)' }}>
-                  <span className="text-xs font-semibold text-foreground">Backsplash Height:</span>
+                  <span className="text-xs font-semibold text-foreground">Default Backsplash Height:</span>
                   <label className="flex items-center gap-2 text-xs">
                     <span className="text-muted-foreground">Kitchen:</span>
                     <select
                       className="est-input text-xs w-16"
                       value={store.kitchenBacksplashHeight}
-                      onChange={e => store.setKitchenBacksplashHeight(Number(e.target.value))}
+                      onChange={e => {
+                        store.setKitchenBacksplashHeight(Number(e.target.value));
+                      }}
                     >
                       {[0, 2, 3, 4, 5, 6, 8, 10, 12, 18].map(h => (
                         <option key={h} value={h}>{h}"</option>
@@ -901,13 +903,16 @@ export default function PreFinalModule({ project }: Props) {
                     <select
                       className="est-input text-xs w-16"
                       value={store.bathBacksplashHeight}
-                      onChange={e => store.setBathBacksplashHeight(Number(e.target.value))}
+                      onChange={e => {
+                        store.setBathBacksplashHeight(Number(e.target.value));
+                      }}
                     >
                       {[0, 2, 3, 4, 5, 6, 8, 10, 12, 18].map(h => (
                         <option key={h} value={h}>{h}"</option>
                       ))}
                     </select>
                   </label>
+                  <span className="text-[10px] text-muted-foreground italic">Override per type below ↓</span>
                 </div>
 
                 {/* Compact type-wise stone SQFT table */}
