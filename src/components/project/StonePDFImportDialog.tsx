@@ -351,6 +351,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                     <thead>
                       <tr>
                         <th className="w-8"></th>
+                        <th>Type</th>
                         <th>Label</th>
                         <th>Category</th>
                         <th className="text-right">Length"</th>
