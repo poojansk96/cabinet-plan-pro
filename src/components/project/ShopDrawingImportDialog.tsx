@@ -552,7 +552,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         };
       }
 
-      // ── PASSES 2-7: 6 overlapping strips for detail recovery (3 at a time) ──
+      // ── PASSES 2-5: 4 overlapping strips for detail recovery ──
       onStatus(`Detail scanning "${file.name}" page ${p}/${pdf.numPages}…`);
       const strips = await renderPageStrips(canvas, canvasW, canvasH);
       const allPassItems = [fullItems];
