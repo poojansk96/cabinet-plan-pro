@@ -131,9 +131,9 @@ async function renderPageStrips(
   canvas: OffscreenCanvas | HTMLCanvasElement,
   w: number, h: number
 ): Promise<string[]> {
-  // 2 cols × 3 rows with ~30% overlap for comprehensive coverage
+  // 2 cols × 2 rows with ~30% overlap for faster processing
   const colRanges: [number, number][] = [[0, 0.65], [0.35, 1.0]];
-  const rowRanges: [number, number][] = [[0, 0.47], [0.27, 0.73], [0.53, 1.0]];
+  const rowRanges: [number, number][] = [[0, 0.60], [0.40, 1.0]];
   const strips: string[] = [];
   for (const [ry, rye] of rowRanges) {
     for (const [rx, rxe] of colRanges) {
@@ -552,7 +552,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         };
       }
 
-      // ── PASSES 2-7: 6 overlapping strips for detail recovery (3 at a time) ──
+      // ── PASSES 2-5: 4 overlapping strips for detail recovery ──
       onStatus(`Detail scanning "${file.name}" page ${p}/${pdf.numPages}…`);
       const strips = await renderPageStrips(canvas, canvasW, canvasH);
       const allPassItems = [fullItems];
