@@ -10,6 +10,7 @@ export interface StoneExtractedRow {
   category: 'kitchen' | 'bath';
   selected: boolean;
   sourceFile?: string;
+  unitType?: string;
 }
 
 interface Props {
