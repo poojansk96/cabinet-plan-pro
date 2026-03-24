@@ -305,6 +305,8 @@ function loadData(projectId: string): PrefinalData {
       stoneUnitTypes: parsed.stoneUnitTypes || [],
       kitchenBacksplashHeight: parsed.kitchenBacksplashHeight ?? 4,
       bathBacksplashHeight: parsed.bathBacksplashHeight ?? 4,
+      perTypeKitchenBsHeight: parsed.perTypeKitchenBsHeight || {},
+      perTypeBathBsHeight: parsed.perTypeBathBsHeight || {},
     };
   } catch {
     return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [], kitchenBacksplashHeight: 4, bathBacksplashHeight: 4 };
