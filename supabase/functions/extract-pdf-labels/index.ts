@@ -117,6 +117,8 @@ async function callGemini(
 // ── SKU Helpers ──
 
 const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|WDC|UB|WC|OH|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HALC|HAL|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCDB|HCLS|HCBM|HCB|HC|HWSB|HW|HSS|HS)\d[\w\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
+// Secondary pattern for APPRON with space before dimensions (e.g. "APPRON 59X21")
+const APPRON_DIM_PATTERN = /\bAPPRON\s+(\d+X\d+)\b/gi;
 const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
 // Relaxed: accept any 1-8 letter prefix followed by a digit (catches manufacturer-specific SKUs like HAV, HALC)
 const SKU_PREFIX_RE = /^[A-Z]{1,8}\d/i;
@@ -152,9 +154,16 @@ function extractSkusFromText(pageText: string): string[] {
   if (!pageText) return [];
   const matches = pageText.match(SKU_PATTERN) || [];
   const noDigitMatches = pageText.match(/\b(BP|SCRIBE|UC)\b/gi) || [];
+  // Catch APPRON with space before dimensions (e.g. "APPRON 59X21")
+  const appronMatches: string[] = [];
+  let appM: RegExpExecArray | null;
+  const appRe = /\bAPPRON\s+(\d+X\d+)\b/gi;
+  while ((appM = appRe.exec(pageText)) !== null) {
+    appronMatches.push(`APPRON${appM[1]}`); // normalize to no-space form
+  }
   const skus = new Set<string>();
 
-  for (const m of [...matches, ...noDigitMatches]) {
+  for (const m of [...matches, ...noDigitMatches, ...appronMatches]) {
     const upper = normalizeSkuLabel(m);
     if (APPLIANCE_RE.test(upper)) continue;
     if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) continue;
@@ -171,8 +180,15 @@ function countSkusFromText(pageText: string): Record<string, number> {
 
   const matches = pageText.match(SKU_PATTERN) || [];
   const noDigitMatches = pageText.match(/\b(BP|SCRIBE|UC)\b/gi) || [];
+  // Catch APPRON with space before dimensions
+  const appronMatches: string[] = [];
+  let appM2: RegExpExecArray | null;
+  const appRe2 = /\bAPPRON\s+(\d+X\d+)\b/gi;
+  while ((appM2 = appRe2.exec(pageText)) !== null) {
+    appronMatches.push(`APPRON${appM2[1]}`);
+  }
 
-  for (const m of [...matches, ...noDigitMatches]) {
+  for (const m of [...matches, ...noDigitMatches, ...appronMatches]) {
     const upper = normalizeSkuLabel(m);
     if (APPLIANCE_RE.test(upper)) continue;
     if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) continue;
@@ -506,20 +522,20 @@ Return it as "unitTypeName" in your response. Return null if no unit type is fou
     const extractPrompt = `Extract ALL cabinet SKU labels from this 2020 Design shop drawing plan view.
 ${unitTypeDetectInstructions}
 For each cabinet found, provide:
-1. sku: The SKU label exactly as written (e.g. B24, W3036, DB15, BF3, WF6X30, LS36-L, BLW36/3930-L, B09FH)
+1. sku: The SKU label exactly as written (e.g. B24, W3036, DB15, BF3, WF6X30, LS36-L, BLW36/3930-L, B09FH, APPRON59X21, DWR1). For APPRON labels with dimensions like "APPRON 59X21", combine into one string without spaces: "APPRON59X21".
 2. type: Classify by prefix:
    - "Base" → B, DB, SB, CB, EB, LS, LSB (but NOT BLW/BRW — those are Wall, NOT HAV — those are Vanity)
    - "Wall" → W, WDC, UB, WC, OH, BLW, BRW
    - "Tall" → T, UT, TC, PT, PTC, UC, HALC
    - "Vanity" → V, VB, VD, VDC, HAV (HAV = Vanity, NOT Base)
-   - "Accessory" → FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR, TF
+   - "Accessory" → FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR, TF, APPRON
 3. room: From room labels on the plan (Kitchen, Bath, Laundry, Pantry — capitalize first letter only)
 4. quantity: Count EVERY separate label occurrence of this SKU on this page
 
 COUNTING — CRITICAL:
 - If "DB15" label appears in TWO different spots → quantity 2
 - If "BF3" label appears once → quantity 1. If "BF3" appears in TWO different spots → quantity 2. Do NOT skip small accessories.
-- ACCESSORIES MATTER: BF3, BF6, WF3X30, WF6X30, DWR3, DWR6, FIL3 — count EVERY single one. Scan the ENTIRE drawing including corners, edges, and narrow gaps between cabinets. These labels often appear on BOTH sides of a kitchen run — check LEFT side AND RIGHT side of counter runs.
+- ACCESSORIES MATTER: BF3, BF6, WF3X30, WF6X30, DWR1, DWR3, DWR6, FIL3, APPRON — count EVERY single one. Scan the ENTIRE drawing including corners, edges, and narrow gaps between cabinets. These labels often appear on BOTH sides of a kitchen run — check LEFT side AND RIGHT side of counter runs. DWR labels are often ROTATED VERTICALLY — look for vertically oriented text.
 - BF (Base Filler) labels commonly appear in PAIRS — one on each end of a cabinet run. Scan every end-of-run and corner transition for BF labels.
 - FILLER-HEAD CABINETS: B09FH, B06FH, B12FH — these are VERY NARROW rectangles (6"-12" wide). They appear as thin slivers between larger cabinets or at the end of a run. ACTIVELY LOOK FOR THESE — they are commonly missed.
 - Corner cabinets (LS, LSB) at wall junction = count ONCE even if label appears at junction of two wall runs.
@@ -556,13 +572,13 @@ SKIP THESE — NOT CABINET SKUs:
 - Non-SKU text: unit numbers, elevation titles, dimension text, page numbers
 
 VALID SKU PREFIXES (a label must start with letters followed by a digit):
-B, DB, SB, CB, EB, LS, LSB, W, WDC, UB, WC, OH, BLW, BRW, T, TF, UT, TC, PT, PTC, UC, V, VB, VD, VDC, FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR
+B, DB, SB, CB, EB, LS, LSB, W, WDC, UB, WC, OH, BLW, BRW, T, TF, UT, TC, PT, PTC, UC, V, VB, VD, VDC, FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR, APPRON
 Also accept manufacturer-specific longer prefixes (e.g. HA, HAV, HALC, SA, SV) followed by digits.
 
 VALID NO-DIGIT SKUS:
 UC, SCRIBE, BP
 
-FINAL SWEEP: After your initial scan, go back and specifically look for: B09FH, B06FH, B12FH, BF3, BF6, WF3X30, WF6X30, TF3X96, DWR3, DWR6, CM8, TK, TKRUN, EP, LR, UC, SCRIBE, BP. These appear as very small labels on narrow shapes.
+FINAL SWEEP: After your initial scan, go back and specifically look for: B09FH, B06FH, B12FH, BF3, BF6, WF3X30, WF6X30, TF3X96, DWR1, DWR3, DWR6, CM8, TK, TKRUN, EP, LR, UC, SCRIBE, BP, APPRON (with dimensions like "APPRON 59X21" — report as "APPRON59X21" without the space). These appear as very small labels on narrow shapes. DWR labels are often rotated vertically — scan rotated text carefully.
 ${isStrip ? '\nNOTE: This image shows a CROPPED SECTION of a larger drawing page. Extract all cabinet labels visible in this cropped section.\n' : ''}${textLayerSkus.length > 0 ? `\nTEXT LAYER CROSS-REFERENCE — the PDF text layer detected these SKUs on this page:\n${textLayerSkus.join(', ')}\nMake sure ALL of these appear in your results if they are visible as labels on the drawing. If any are missing from your results, look harder for them.\n` : ''}${unitType ? `\nUnit type context: ${unitType}` : ""}
 If no cabinet SKUs are found, return {"items":[]}`;
 
