@@ -273,8 +273,37 @@ function normalizeTypeBase(value: string): string {
     .trim()
     .replace(/[\u2010-\u2015]/g, '-')
     .replace(/\s+/g, ' ');
-  const match = text.match(/\bTYPE\s+([A-Z0-9]+)/);
-  return match ? match[1] : '';
+
+  const standalone = text.match(/\b(STUDIO|\d+\s*BR)-([A-Z0-9]+)/);
+  if (standalone) {
+    return `${standalone[1].replace(/\s+/g, '')}-${standalone[2]}`;
+  }
+
+  const prefixed = text.match(/\b(STUDIO|\d+\s*BR)\s+TYPE\s+([A-Z0-9]+)/);
+  if (prefixed) {
+    return `${prefixed[1].replace(/\s+/g, '')} TYPE ${prefixed[2]}`;
+  }
+
+  const typed = text.match(/\bTYPE\s+([A-Z0-9]+)/);
+  if (typed) {
+    return `TYPE ${typed[1]}`;
+  }
+
+  if (/\bKITCHENETTE\b/.test(text)) return 'KITCHENETTE';
+
+  return text;
+}
+
+function normalizeTypeComparison(value: string): string {
+  return String(value || '')
+    .toUpperCase()
+    .trim()
+    .replace(/[\u2010-\u2015]/g, '-')
+    .replace(/\s+/g, ' ')
+    .replace(/\s*\(\s*/g, ' (')
+    .replace(/\s*\)\s*/g, ')')
+    .replace(/\s*-\s*/g, '-')
+    .trim();
 }
 
 function isCommonAreaType(value: string): boolean {
@@ -371,12 +400,47 @@ function extractTypeHintsFromText(pageText: string): string[] {
     push(`${prefix}TYPE ${match[1]}`);
   }
 
+  const standaloneBedroomType = /\b(STUDIO|\d+\s*BR)\s*-\s*([A-Z0-9]+)(?:\s+(ADA|AS|MIRROR|REV|ALT|OPTION))?\b/g;
+  while ((match = standaloneBedroomType.exec(text)) !== null) {
+    const bedroom = match[1].replace(/\s+/g, '');
+    const code = match[2];
+    const variant = match[3] ? ` ${match[3]}` : '';
+    push(`${bedroom}-${code}${variant}`);
+  }
+
+  if (/\bKITCHENETTE\b/.test(text)) {
+    push('KITCHENETTE');
+  }
+
   return out;
 }
 
 // Preserve full type name including bedroom prefixes (no longer stripped)
 function stripBedroomPrefix(value: string): string {
   return String(value || '').trim();
+}
+
+function typeSpecificityScore(value: string): number {
+  const normalized = normalizeTypeComparison(value);
+  if (!normalized) return -1;
+
+  let score = normalized.length;
+  if (/\b(ADA|AS|MIRROR|REV|ALT|OPTION)\b/.test(normalized)) score += 40;
+  if (/\(/.test(normalized)) score += 20;
+  if (/\bKITCHENETTE\b/.test(normalized)) score += 20;
+  if (/\b(STUDIO|\d+BR)\b/.test(normalized)) score += 10;
+  return score;
+}
+
+function chooseMostSpecificType(candidates: string[]): string | null {
+  const unique = Array.from(new Set(candidates.map((candidate) => String(candidate || '').trim()).filter(Boolean)));
+  if (unique.length === 0) return null;
+
+  return unique.sort((a, b) => {
+    const scoreDiff = typeSpecificityScore(b) - typeSpecificityScore(a);
+    if (scoreDiff !== 0) return scoreDiff;
+    return normalizeTypeComparison(b).length - normalizeTypeComparison(a).length;
+  })[0];
 }
 
 function resolvePageUnitType(
@@ -403,27 +467,31 @@ function resolvePageUnitType(
     const aiKey = normalizeTypeKey(ai);
     const aiBase = normalizeTypeBase(ai);
     const exactTextMatch = textHints.find((hint) => normalizeTypeKey(hint) === aiKey);
-    const sameBaseMatch = aiBase
-      ? textHints.find((hint) => normalizeTypeBase(hint) === aiBase)
-      : undefined;
+    const sameBaseMatches = aiBase
+      ? textHints.filter((hint) => normalizeTypeBase(hint) === aiBase)
+      : [];
 
-    if (textHints.length > 0 && !exactTextMatch && !sameBaseMatch) {
-      if (textHints.length === 1) return { primary: textHints[0], aliases: [textHints[0]] };
-      const uniqueBases = new Set(textHints.map((hint) => normalizeTypeBase(hint)).filter(Boolean));
-      if (uniqueBases.size === 1) return { primary: textHints[0], aliases: [textHints[0]] };
-      return { primary: null, aliases: [] };
+    if (exactTextMatch) {
+      const best = chooseMostSpecificType([ai, exactTextMatch, ...sameBaseMatches]) ?? exactTextMatch;
+      return { primary: best, aliases: Array.from(new Set([best, ai, ...sameBaseMatches])) };
+    }
+
+    if (sameBaseMatches.length > 0) {
+      const best = chooseMostSpecificType([ai, ...sameBaseMatches]) ?? ai;
+      return { primary: best, aliases: Array.from(new Set([best, ai, ...sameBaseMatches])) };
+    }
+
+    if (textHints.length > 0) {
+      const best = chooseMostSpecificType(textHints);
+      if (best) return { primary: best, aliases: Array.from(new Set([best, ai, ...textHints])) };
     }
 
     return { primary: ai, aliases: [ai] };
   }
 
-  if (textHints.length === 1) {
-    return { primary: textHints[0], aliases: [textHints[0]] };
-  }
-
-  const uniqueBases = new Set(textHints.map((hint) => normalizeTypeBase(hint)).filter(Boolean));
-  if (uniqueBases.size === 1) {
-    return { primary: textHints[0], aliases: [textHints[0]] };
+  const best = chooseMostSpecificType(textHints);
+  if (best) {
+    return { primary: best, aliases: Array.from(new Set([best, ...textHints])) };
   }
 
   return { primary: null, aliases: [] };
