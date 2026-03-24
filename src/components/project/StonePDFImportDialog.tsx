@@ -155,6 +155,10 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
 
             if (resp.ok) {
               const data = await resp.json();
+              const pageUnitType = String(data.unitTypeName || '').trim();
+              if (pageUnitType && !detectedTypesOrder.includes(pageUnitType)) {
+                detectedTypesOrder.push(pageUnitType);
+              }
               for (const ct of (data.countertops ?? [])) {
                 allRows.push({
                   label: ct.label,
@@ -165,6 +169,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                   category: ct.category === 'bath' ? 'bath' : 'kitchen',
                   selected: true,
                   sourceFile: file.name,
+                  unitType: pageUnitType || undefined,
                 });
               }
             }
