@@ -671,6 +671,37 @@ If no cabinet SKUs are found, return {"items":[]}`;
       return item;
     });
 
+    // ── Reassemble split dimension SKUs ──
+    // AI may return "UC15" and "X84" as separate items when the real SKU is "UC15X84".
+    // Merge them back: if item N is a prefix SKU and item N+1 starts with "X" + digits,
+    // combine into one dimension-pattern SKU.
+    {
+      const reassembled: typeof items = [];
+      const consumed = new Set<number>();
+      for (let i = 0; i < items.length; i++) {
+        if (consumed.has(i)) continue;
+        const cur = items[i];
+        // Look for a following "X##" item (bare dimension suffix) in same room
+        if (i + 1 < items.length && !consumed.has(i + 1)) {
+          const next = items[i + 1];
+          if (/^X\d+$/i.test(next.sku) && cur.room === next.room) {
+            const merged = cur.sku + next.sku;
+            console.log(`Reassembled dimension SKU: "${cur.sku}" + "${next.sku}" → "${merged}"`);
+            reassembled.push({ ...cur, sku: merged });
+            consumed.add(i + 1);
+            continue;
+          }
+        }
+        // Also check if current is "X##" and previous wasn't consumed — skip standalone X## entries
+        if (/^X\d+$/i.test(cur.sku)) {
+          console.log(`Filtered standalone dimension suffix: ${cur.sku}`);
+          continue;
+        }
+        reassembled.push(cur);
+      }
+      items = reassembled;
+    }
+
     // Filter out SKUs that don't match any known cabinet prefix pattern
     // and are not confirmed by the text layer (prevents fabricated SKUs like PSX23H)
     items = items.filter((item) => {
