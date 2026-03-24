@@ -154,9 +154,16 @@ function extractSkusFromText(pageText: string): string[] {
   if (!pageText) return [];
   const matches = pageText.match(SKU_PATTERN) || [];
   const noDigitMatches = pageText.match(/\b(BP|SCRIBE|UC)\b/gi) || [];
+  // Catch APPRON with space before dimensions (e.g. "APPRON 59X21")
+  const appronMatches: string[] = [];
+  let appM: RegExpExecArray | null;
+  const appRe = /\bAPPRON\s+(\d+X\d+)\b/gi;
+  while ((appM = appRe.exec(pageText)) !== null) {
+    appronMatches.push(`APPRON${appM[1]}`); // normalize to no-space form
+  }
   const skus = new Set<string>();
 
-  for (const m of [...matches, ...noDigitMatches]) {
+  for (const m of [...matches, ...noDigitMatches, ...appronMatches]) {
     const upper = normalizeSkuLabel(m);
     if (APPLIANCE_RE.test(upper)) continue;
     if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) continue;
