@@ -316,26 +316,44 @@ function extractTypeHintsFromText(pageText: string): string[] {
     out.push(clean);
   };
 
+  // Helper to prepend bedroom prefix if present before TYPE
+  const findBedroomPrefix = (fullText: string, matchIndex: number): string => {
+    // Look backwards from the match for a bedroom prefix like "1BR", "2BR", "3BR", "STUDIO"
+    const before = fullText.substring(Math.max(0, matchIndex - 20), matchIndex).trim();
+    const brMatch = before.match(/\b(\d+\s*BR|STUDIO)\s*$/i);
+    return brMatch ? brMatch[1].replace(/\s+/g, '') + ' ' : '';
+  };
+
   const combined = /\bTYPE\s+([A-Z0-9]+)\s*(?:-|:)?\s*(AS|MIRROR)\s*(?:\/|&|AND)\s*(AS|MIRROR)\b/g;
   let match: RegExpExecArray | null;
   while ((match = combined.exec(text)) !== null) {
+    const prefix = findBedroomPrefix(text, match.index);
     const base = match[1];
     const left = match[2];
     const right = match[3];
-    push(`TYPE ${base} ${left}`);
-    push(`TYPE ${base} ${right}`);
+    push(`${prefix}TYPE ${base} ${left}`);
+    push(`${prefix}TYPE ${base} ${right}`);
   }
 
   const single = /\bTYPE\s+([A-Z0-9]+)\s*(?:-|:)?\s*(AS|MIRROR|ADA|REV|ALT|OPTION)\b/g;
   while ((match = single.exec(text)) !== null) {
+    const prefix = findBedroomPrefix(text, match.index);
     const base = match[1];
     const variant = match[2];
-    push(`TYPE ${base} ${variant}`);
+    push(`${prefix}TYPE ${base} ${variant}`);
+  }
+
+  // Also match full pattern with parenthesized variants like "1BR TYPE A (ADA)"
+  const withParen = /\b(?:(\d+\s*BR|STUDIO)\s+)?TYPE\s+([A-Z0-9]+)\s*\(([A-Z0-9]+)\)/g;
+  while ((match = withParen.exec(text)) !== null) {
+    const brPrefix = match[1] ? match[1].replace(/\s+/g, '') + ' ' : findBedroomPrefix(text, match.index);
+    push(`${brPrefix}TYPE ${match[2]} (${match[3]})`);
   }
 
   const generic = /\bTYPE\s+([A-Z0-9]+)\b/g;
   while ((match = generic.exec(text)) !== null) {
-    push(`TYPE ${match[1]}`);
+    const prefix = findBedroomPrefix(text, match.index);
+    push(`${prefix}TYPE ${match[1]}`);
   }
 
   return out;
