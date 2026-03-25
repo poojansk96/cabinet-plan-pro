@@ -750,16 +750,26 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
             if (!pageTypeOrder.includes(t)) pageTypeOrder.push(t);
           }
 
-          const pageRows = pageItems.map((c: any) => ({
-            sku: c.sku,
-            type: c.type,
-            room: c.room,
-            quantity: c.quantity,
-            selected: true,
-            sourceFile: file.name,
-            detectedUnitType: shouldTrackType ? (resolvedPageType || undefined) : undefined,
-          }));
-          allRows.push(...pageRows);
+          // When a page has multiple variant aliases (e.g., AS + MIRROR on the same drawing),
+          // duplicate cabinet rows for EACH variant so both types get the same cabinets.
+          const variantTypes = resolvedTypeAliases.length > 1
+            ? resolvedTypeAliases
+            : resolvedPageType
+              ? [resolvedPageType]
+              : [undefined];
+
+          for (const variantType of variantTypes) {
+            const pageRows = pageItems.map((c: any) => ({
+              sku: c.sku,
+              type: c.type,
+              room: c.room,
+              quantity: c.quantity,
+              selected: true,
+              sourceFile: file.name,
+              detectedUnitType: shouldTrackType ? (variantType || undefined) : undefined,
+            }));
+            allRows.push(...pageRows);
+          }
         } else {
           console.warn(`Page ${p} of "${file.name}" failed:`, result.reason?.message);
           if (result.reason?.message === 'rate_limit') throw new Error('rate_limit');
