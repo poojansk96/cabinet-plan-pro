@@ -148,6 +148,10 @@ function isValidSku(s: string): boolean {
   if (upper.includes('/') && !(/^(BLW|BRW)\d/i.test(upper))) return false;
   // Reject bare dimension suffixes like "X84", "X96" — these are WxH tails, not real SKUs
   if (/^X\d+$/i.test(upper)) return false;
+  // Reject 2-char single-letter-prefix + single-digit SKUs (e.g. "B1", "W1", "T1", "V1")
+  // These are almost always type codes from title blocks (e.g. "2BR TYPE B1"), not real cabinet SKUs.
+  // Real cabinet SKUs have at least 2 digits after the prefix (B09, B12, W12, etc.) or multi-letter prefixes (BF3, DWR1).
+  if (/^[A-Z]\d$/i.test(upper)) return false;
   return SKU_PREFIX_RE.test(upper);
 }
 
@@ -774,9 +778,12 @@ If no cabinet SKUs are found, return {"items":[]}`;
       const baseSku = item.sku.replace(/-[A-Z]+$/i, '');
       const baseCount = baseSku !== item.sku ? (textLayerSkuCounts[baseSku] ?? 0) : 0;
       const textCount = Math.max(exactCount, baseCount);
-      if (textCount > 0 && item.quantity > textCount) {
-        console.log(`Non-accessory qty cap: ${item.sku} ${item.quantity} → ${textCount} (text layer)`);
-        return { ...item, quantity: textCount };
+      // Allow +1 tolerance: text layer OCR can miss labels that are rotated,
+      // overlapping, or in tight corners — trust the AI vision if it's only 1 more
+      const capValue = textCount > 0 ? textCount + 1 : 0;
+      if (capValue > 0 && item.quantity > capValue) {
+        console.log(`Non-accessory qty cap: ${item.sku} ${item.quantity} → ${capValue} (text layer + tolerance)`);
+        return { ...item, quantity: capValue };
       }
       return item;
     });
