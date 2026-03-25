@@ -635,6 +635,57 @@ If no cabinet SKUs are found, return {"items":[]}`;
       console.log(`Text layer seed: ${finalItems.length} items`);
     }
 
+    // ── GAP FILL: Add text-layer SKUs missed by AI vision ──
+    // This catches individual labels the AI missed (common with MIRROR layouts
+    // where adjacent vertical labels like W1230 next to WDC2430-R get concatenated
+    // or simply overlooked by the vision model).
+    if (!isStrip && finalItems.length > 0 && textLayerSkus.length > 0) {
+      const extractedSkuSet = new Set(finalItems.map((i: any) => normalizeSkuLabel(String(i.sku || ''))));
+      // Also track base SKUs (without -L/-R etc.) to avoid adding W1230 when W1230-L already exists
+      const extractedBases = new Set(finalItems.map((i: any) => normalizeSkuLabel(String(i.sku || '')).replace(/[-+][A-Z0-9]+$/i, '')));
+      // Determine majority room from extracted items for better room assignment
+      const roomCounts: Record<string, number> = {};
+      for (const item of finalItems) {
+        const r = String(item.room || 'Kitchen');
+        roomCounts[r] = (roomCounts[r] ?? 0) + 1;
+      }
+      const majorityRoom = Object.entries(roomCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'Kitchen';
+
+      let gapFilled = 0;
+      for (const tlSku of textLayerSkus) {
+        const normalized = normalizeSkuLabel(tlSku);
+        if (!normalized || !isValidSku(normalized)) continue;
+        if (APPLIANCE_RE.test(normalized)) continue;
+
+        // Skip if already extracted (exact match)
+        if (extractedSkuSet.has(normalized)) continue;
+        // Skip if the bare form is already covered by a suffixed variant (e.g., W1230 covered by W1230-L)
+        const bareForm = normalized.replace(/[-+][A-Z0-9]+$/i, '');
+        if (bareForm !== normalized && extractedSkuSet.has(bareForm)) continue;
+        // Skip if any extracted SKU is a suffix variant of this one
+        if (extractedBases.has(normalized)) continue;
+        // Check prefix overlap (e.g., W1230 vs W12300 or WDC2430 vs WDC2430-R)
+        let covered = false;
+        for (const es of extractedSkuSet) {
+          if (es.startsWith(normalized) || normalized.startsWith(es)) { covered = true; break; }
+        }
+        if (covered) continue;
+
+        // Determine room: use Bath for vanity SKUs, majority room for others
+        const skuType = classifySku(normalized);
+        const room = skuType === 'Vanity' ? 'Bath' : majorityRoom;
+
+        finalItems.push({ sku: normalized, type: skuType, room, quantity: 1 });
+        extractedSkuSet.add(normalized);
+        extractedBases.add(bareForm);
+        gapFilled++;
+        console.log(`Gap-filled missing text-layer SKU: ${normalized} (room=${room})`);
+      }
+      if (gapFilled > 0) {
+        console.log(`Gap-filled ${gapFilled} SKUs from text layer`);
+      }
+    }
+
     console.log(`Final: ${finalItems.length} items`);
 
     // ── Normalize and filter ──
