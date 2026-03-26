@@ -702,6 +702,16 @@ export function usePrefinalStore(projectId: string) {
     });
   }, [projectId]);
 
+  const setSidesplashQty = useCallback((unitType: string, category: string, depth: number, qty: number) => {
+    const key = `${unitType}|${category}|${depth}`;
+    setData(prev => {
+      const sidesplashQtyMap = { ...prev.sidesplashQtyMap, [key]: qty };
+      const next = { ...prev, sidesplashQtyMap };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
   const clearAll = useCallback(() => {
     commit({ unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [], kitchenBacksplashHeight: 4, bathBacksplashHeight: 4, sidesplashQtyMap: {} });
   }, [commit]);
