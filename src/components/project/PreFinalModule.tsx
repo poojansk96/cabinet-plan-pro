@@ -941,14 +941,17 @@ export default function PreFinalModule({ project }: Props) {
 
                   const calcGroupTopSqft = (g: DepthGroup) => Math.ceil((g.totalLength * g.depth) / 144);
                   const calcGroupBsSqft = (g: DepthGroup, bsHeight: number) => Math.ceil((g.totalBsLength * bsHeight) / 144);
+                  const calcGroupSsSqft = (g: DepthGroup, bsHeight: number, ssQty: number) => ssQty > 0 ? Math.ceil((g.depth * bsHeight * ssQty) / 144) : 0;
 
                   const kitchenTopSqft = kitchenGroups.reduce((s, g) => s + calcGroupTopSqft(g), 0);
                   const kitchenBsSqft = kitchenGroups.reduce((s, g) => s + calcGroupBsSqft(g, store.kitchenBacksplashHeight), 0);
-                  const kitchenTotalSqft = kitchenTopSqft + kitchenBsSqft;
+                  const kitchenSsSqft = kitchenGroups.reduce((s, g) => s + calcGroupSsSqft(g, store.kitchenBacksplashHeight, store.sidesplashQtyMap[`${unitType}|kitchen|${g.depth}`] || 0), 0);
+                  const kitchenTotalSqft = kitchenTopSqft + kitchenBsSqft + kitchenSsSqft;
 
                   const bathTopSqft = bathGroups.reduce((s, g) => s + calcGroupTopSqft(g), 0);
                   const bathBsSqft = bathGroups.reduce((s, g) => s + calcGroupBsSqft(g, store.bathBacksplashHeight), 0);
-                  const bathTotalSqft = bathTopSqft + bathBsSqft;
+                  const bathSsSqft = bathGroups.reduce((s, g) => s + calcGroupSsSqft(g, store.bathBacksplashHeight, store.sidesplashQtyMap[`${unitType}|bath|${g.depth}`] || 0), 0);
+                  const bathTotalSqft = bathTopSqft + bathBsSqft + bathSsSqft;
 
                   const renderCategoryTable = (
                     label: string,
@@ -956,8 +959,10 @@ export default function PreFinalModule({ project }: Props) {
                     bsHeight: number,
                     totalTop: number,
                     totalBs: number,
+                    totalSs: number,
                     totalSqft: number,
                     headerColor: string,
+                    category: 'kitchen' | 'bath',
                   ) => {
                     if (groups.length === 0) return null;
                     return (
@@ -967,22 +972,26 @@ export default function PreFinalModule({ project }: Props) {
                         </div>
                         <table className="est-table text-xs" style={{ tableLayout: 'fixed' }}>
                           <colgroup>
-                            <col style={{ width: '14%' }} />
-                            <col style={{ width: '14%' }} />
-                            <col style={{ width: '14%' }} />
-                            <col style={{ width: '14%' }} />
-                            <col style={{ width: '14%' }} />
-                            <col style={{ width: '14%' }} />
-                            <col style={{ width: '16%' }} />
+                            <col style={{ width: '11%' }} />
+                            <col style={{ width: '12%' }} />
+                            <col style={{ width: '12%' }} />
+                            <col style={{ width: '11%' }} />
+                            <col style={{ width: '11%' }} />
+                            <col style={{ width: '12%' }} />
+                            <col style={{ width: '12%' }} />
+                            <col style={{ width: '8%' }} />
+                            <col style={{ width: '11%' }} />
                           </colgroup>
                           <thead>
                             <tr>
                               <th className="text-left">Depth"</th>
                               <th className="text-right">Top Inches</th>
                               <th className="text-right">BS Inches</th>
+                              <th className="text-right">SS Qty</th>
                               <th className="text-right">BS Height"</th>
                               <th className="text-right">Top SQFT</th>
-                              <th className="text-right">BS SQFT</th>
+                              <th className="text-right">BS & SS SQFT</th>
+                              <th className="text-right">SS SQFT</th>
                               <th className="text-right">Total SQFT</th>
                             </tr>
                           </thead>
@@ -990,15 +999,29 @@ export default function PreFinalModule({ project }: Props) {
                             {groups.map((g, gi) => {
                               const topSqft = calcGroupTopSqft(g);
                               const bsSqft = calcGroupBsSqft(g, bsHeight);
+                              const ssKey = `${unitType}|${category}|${g.depth}`;
+                              const ssQty = store.sidesplashQtyMap[ssKey] || 0;
+                              const ssSqft = calcGroupSsSqft(g, bsHeight, ssQty);
                               return (
                                 <tr key={gi}>
                                   <td className="font-medium">{g.depth}"</td>
                                   <td className="text-right font-mono">{g.totalLength}</td>
                                   <td className="text-right font-mono">{g.totalBsLength}</td>
+                                  <td className="text-right">
+                                    <input
+                                      type="number"
+                                      className="est-input w-14 text-right text-xs"
+                                      value={ssQty || ''}
+                                      min={0}
+                                      onChange={e => store.setSidesplashQty(unitType, category, g.depth, +e.target.value || 0)}
+                                      placeholder="0"
+                                    />
+                                  </td>
                                   <td className="text-right font-mono">{bsHeight}</td>
                                   <td className="text-right font-mono">{topSqft}</td>
-                                  <td className="text-right font-mono">{bsSqft}</td>
-                                  <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{topSqft + bsSqft}</td>
+                                  <td className="text-right font-mono">{bsSqft + ssSqft}</td>
+                                  <td className="text-right font-mono text-muted-foreground">{ssSqft > 0 ? ssSqft : '—'}</td>
+                                  <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{topSqft + bsSqft + ssSqft}</td>
                                 </tr>
                               );
                             })}
@@ -1008,9 +1031,11 @@ export default function PreFinalModule({ project }: Props) {
                               <td className="text-left">Total</td>
                               <td className="text-right">{groups.reduce((s, g) => s + g.totalLength, 0)}</td>
                               <td className="text-right">{groups.reduce((s, g) => s + g.totalBsLength, 0)}</td>
+                              <td></td>
                               <td className="text-right">{bsHeight}</td>
                               <td className="text-right">{totalTop}</td>
-                              <td className="text-right">{totalBs}</td>
+                              <td className="text-right">{totalBs + totalSs}</td>
+                              <td className="text-right text-muted-foreground">{totalSs > 0 ? totalSs : '—'}</td>
                               <td className="text-right" style={{ color: 'hsl(var(--primary))' }}>{totalSqft}</td>
                             </tr>
                           </tfoot>
@@ -1032,8 +1057,8 @@ export default function PreFinalModule({ project }: Props) {
                         </div>
                       </div>
 
-                      {renderCategoryTable('🍳 Kitchen Tops', kitchenGroups, store.kitchenBacksplashHeight, kitchenTopSqft, kitchenBsSqft, kitchenTotalSqft, 'hsl(213 60% 50%)')}
-                      {renderCategoryTable('🚿 Bath/Vanity Tops', bathGroups, store.bathBacksplashHeight, bathTopSqft, bathBsSqft, bathTotalSqft, 'hsl(38 80% 45%)')}
+                      {renderCategoryTable('🍳 Kitchen Tops', kitchenGroups, store.kitchenBacksplashHeight, kitchenTopSqft, kitchenBsSqft, kitchenSsSqft, kitchenTotalSqft, 'hsl(213 60% 50%)', 'kitchen')}
+                      {renderCategoryTable('🚿 Bath/Vanity Tops', bathGroups, store.bathBacksplashHeight, bathTopSqft, bathBsSqft, bathSsSqft, bathTotalSqft, 'hsl(38 80% 45%)', 'bath')}
                     </div>
                   );
                 })}
@@ -1076,10 +1101,14 @@ export default function PreFinalModule({ project }: Props) {
                             map.set(r.depth, g);
                           }
                           for (const [depth, g] of kGroups) {
-                            kSqft += Math.ceil((g.len * depth) / 144) + Math.ceil((g.bs * store.kitchenBacksplashHeight) / 144);
+                            const ssQty = store.sidesplashQtyMap[`${type}|kitchen|${depth}`] || 0;
+                            const ssSqft = ssQty > 0 ? Math.ceil((depth * store.kitchenBacksplashHeight * ssQty) / 144) : 0;
+                            kSqft += Math.ceil((g.len * depth) / 144) + Math.ceil((g.bs * store.kitchenBacksplashHeight) / 144) + ssSqft;
                           }
                           for (const [depth, g] of bGroups) {
-                            bSqft += Math.ceil((g.len * depth) / 144) + Math.ceil((g.bs * store.bathBacksplashHeight) / 144);
+                            const ssQty = store.sidesplashQtyMap[`${type}|bath|${depth}`] || 0;
+                            const ssSqft = ssQty > 0 ? Math.ceil((depth * store.bathBacksplashHeight * ssQty) / 144) : 0;
+                            bSqft += Math.ceil((g.len * depth) / 144) + Math.ceil((g.bs * store.bathBacksplashHeight) / 144) + ssSqft;
                           }
                           grandKitchen += kSqft * unitCount;
                           grandBath += bSqft * unitCount;
