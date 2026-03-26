@@ -249,6 +249,7 @@ function loadData(projectId: string): PrefinalData {
         stoneUnitTypes: parsed.stoneUnitTypes || [],
         kitchenBacksplashHeight: parsed.kitchenBacksplashHeight ?? 4,
         bathBacksplashHeight: parsed.bathBacksplashHeight ?? 4,
+        sidesplashQtyMap: parsed.sidesplashQtyMap || {},
       };
     }
     // Normalize + deduplicate unit types preserving first-seen order
