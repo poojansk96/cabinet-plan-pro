@@ -1101,10 +1101,14 @@ export default function PreFinalModule({ project }: Props) {
                             map.set(r.depth, g);
                           }
                           for (const [depth, g] of kGroups) {
-                            kSqft += Math.ceil((g.len * depth) / 144) + Math.ceil((g.bs * store.kitchenBacksplashHeight) / 144);
+                            const ssQty = store.sidesplashQtyMap[`${type}|kitchen|${depth}`] || 0;
+                            const ssSqft = ssQty > 0 ? Math.ceil((depth * store.kitchenBacksplashHeight * ssQty) / 144) : 0;
+                            kSqft += Math.ceil((g.len * depth) / 144) + Math.ceil((g.bs * store.kitchenBacksplashHeight) / 144) + ssSqft;
                           }
                           for (const [depth, g] of bGroups) {
-                            bSqft += Math.ceil((g.len * depth) / 144) + Math.ceil((g.bs * store.bathBacksplashHeight) / 144);
+                            const ssQty = store.sidesplashQtyMap[`${type}|bath|${depth}`] || 0;
+                            const ssSqft = ssQty > 0 ? Math.ceil((depth * store.bathBacksplashHeight * ssQty) / 144) : 0;
+                            bSqft += Math.ceil((g.len * depth) / 144) + Math.ceil((g.bs * store.bathBacksplashHeight) / 144) + ssSqft;
                           }
                           grandKitchen += kSqft * unitCount;
                           grandBath += bSqft * unitCount;
