@@ -906,7 +906,9 @@ If no cabinet SKUs are found, return {"items":[]}`;
         } else {
           const textCap = getTextOccurrenceCap(item.sku);
           const nextQty = existing.quantity + item.quantity;
-          existing.quantity = textCap > 0 ? Math.min(nextQty, textCap) : nextQty;
+          // Apply +1 tolerance (consistent with per-item cap) — OCR can miss rotated/overlapping labels
+          const capValue = textCap > 0 ? textCap + 1 : 0;
+          existing.quantity = capValue > 0 ? Math.min(nextQty, capValue) : nextQty;
         }
       } else {
         deduped.set(key, { ...item });
