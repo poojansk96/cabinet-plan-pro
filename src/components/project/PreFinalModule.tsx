@@ -1057,8 +1057,8 @@ export default function PreFinalModule({ project }: Props) {
                         </div>
                       </div>
 
-                      {renderCategoryTable('🍳 Kitchen Tops', kitchenGroups, store.kitchenBacksplashHeight, kitchenTopSqft, kitchenBsSqft, kitchenTotalSqft, 'hsl(213 60% 50%)')}
-                      {renderCategoryTable('🚿 Bath/Vanity Tops', bathGroups, store.bathBacksplashHeight, bathTopSqft, bathBsSqft, bathTotalSqft, 'hsl(38 80% 45%)')}
+                      {renderCategoryTable('🍳 Kitchen Tops', kitchenGroups, store.kitchenBacksplashHeight, kitchenTopSqft, kitchenBsSqft, kitchenSsSqft, kitchenTotalSqft, 'hsl(213 60% 50%)', 'kitchen')}
+                      {renderCategoryTable('🚿 Bath/Vanity Tops', bathGroups, store.bathBacksplashHeight, bathTopSqft, bathBsSqft, bathSsSqft, bathTotalSqft, 'hsl(38 80% 45%)', 'bath')}
                     </div>
                   );
                 })}
