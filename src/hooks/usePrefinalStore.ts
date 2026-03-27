@@ -743,7 +743,21 @@ export function usePrefinalStore(projectId: string) {
     return category === 'kitchen' ? data.kitchenBacksplashHeight : data.bathBacksplashHeight;
   }, [data.typeBacksplashHeightMap, data.kitchenBacksplashHeight, data.bathBacksplashHeight]);
 
-  const clearAll = useCallback(() => {
+  const setStoneInchesOverride = useCallback((unitType: string, category: string, depth: number, field: 'topInches' | 'bsInches', value: number) => {
+    const key = `${unitType}|${category}|${depth}|${field}`;
+    setData(prev => {
+      const stoneInchesOverrideMap = { ...prev.stoneInchesOverrideMap, [key]: value };
+      const next = { ...prev, stoneInchesOverrideMap };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
+  const getStoneInchesOverride = useCallback((unitType: string, category: string, depth: number, field: 'topInches' | 'bsInches', defaultVal: number): number => {
+    const key = `${unitType}|${category}|${depth}|${field}`;
+    return data.stoneInchesOverrideMap[key] !== undefined ? data.stoneInchesOverrideMap[key] : defaultVal;
+  }, [data.stoneInchesOverrideMap]);
+
     commit({ unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [], kitchenBacksplashHeight: 4, bathBacksplashHeight: 4, sidesplashQtyMap: {}, typeBacksplashHeightMap: {}, stoneInchesOverrideMap: {}, laminateRows: [], laminateUnitTypes: [], laminateManualMap: {} });
   }, [commit]);
 
