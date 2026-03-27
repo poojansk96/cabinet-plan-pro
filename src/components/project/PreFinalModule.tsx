@@ -972,15 +972,14 @@ export default function PreFinalModule({ project }: Props) {
                         </div>
                         <table className="est-table text-xs" style={{ tableLayout: 'fixed' }}>
                           <colgroup>
-                            <col style={{ width: '11%' }} />
+                            <col style={{ width: '12%' }} />
+                            <col style={{ width: '14%' }} />
+                            <col style={{ width: '14%' }} />
                             <col style={{ width: '12%' }} />
                             <col style={{ width: '12%' }} />
-                            <col style={{ width: '11%' }} />
-                            <col style={{ width: '11%' }} />
-                            <col style={{ width: '12%' }} />
-                            <col style={{ width: '12%' }} />
+                            <col style={{ width: '14%' }} />
+                            <col style={{ width: '14%' }} />
                             <col style={{ width: '8%' }} />
-                            <col style={{ width: '11%' }} />
                           </colgroup>
                           <thead>
                             <tr>
@@ -991,7 +990,6 @@ export default function PreFinalModule({ project }: Props) {
                               <th className="text-right">BS Height"</th>
                               <th className="text-right">Top SQFT</th>
                               <th className="text-right">BS & SS SQFT</th>
-                              <th className="text-right">SS SQFT</th>
                               <th className="text-right">Total SQFT</th>
                             </tr>
                           </thead>
