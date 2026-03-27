@@ -52,6 +52,7 @@ RULES:
 - If the page has no countertop information, return {"unitTypeName":"","countertops":[]}
 - Round all dimensions to nearest 0.5 inch
 - IMPORTANT: Look carefully for double lines along walls — these are backsplash indicators. Measure their total length along the back wall only, excluding side returns.
+- CRITICAL DEFAULT RULE: For ANY non-island countertop that is against a wall (isIsland=false), ASSUME backsplash EXISTS along the back wall and set backsplashLength equal to the section's length, UNLESS you can clearly see the drawing indicates NO backsplash for that specific section. Most wall countertops have backsplash — defaulting to 0 is almost always wrong for non-island sections.
 - Standard depths: perimeter = 25.5", island = 36", bar = 12-18", vanity = 22"
 - The unitTypeName field is REQUIRED — always look for it in the title block
 
