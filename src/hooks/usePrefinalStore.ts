@@ -237,7 +237,7 @@ function migrateStoneRow(r: any): PrefinalStoneRow {
 function loadData(projectId: string): PrefinalData {
   try {
     const raw = localStorage.getItem(`prefinal_${projectId}`);
-    if (!raw) return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [], kitchenBacksplashHeight: 4, bathBacksplashHeight: 4, sidesplashQtyMap: {}, typeBacksplashHeightMap: {} };
+    if (!raw) return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [], kitchenBacksplashHeight: 4, bathBacksplashHeight: 4, sidesplashQtyMap: {}, typeBacksplashHeightMap: {}, laminateRows: [], laminateUnitTypes: [], laminateManualMap: {} };
     const parsed = JSON.parse(raw);
     // Migration: old format had unitRows
     if (parsed.unitRows && !parsed.unitTypes) {
@@ -255,6 +255,9 @@ function loadData(projectId: string): PrefinalData {
         bathBacksplashHeight: parsed.bathBacksplashHeight ?? 4,
         sidesplashQtyMap: parsed.sidesplashQtyMap || {},
         typeBacksplashHeightMap: parsed.typeBacksplashHeightMap || {},
+        laminateRows: (parsed.laminateRows || []),
+        laminateUnitTypes: parsed.laminateUnitTypes || [],
+        laminateManualMap: parsed.laminateManualMap || {},
       };
     }
     // Normalize + deduplicate unit types preserving first-seen order
@@ -310,9 +313,12 @@ function loadData(projectId: string): PrefinalData {
       bathBacksplashHeight: parsed.bathBacksplashHeight ?? 4,
       sidesplashQtyMap: parsed.sidesplashQtyMap || {},
       typeBacksplashHeightMap: parsed.typeBacksplashHeightMap || {},
+      laminateRows: (parsed.laminateRows || []),
+      laminateUnitTypes: parsed.laminateUnitTypes || [],
+      laminateManualMap: parsed.laminateManualMap || {},
     };
   } catch {
-    return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [], kitchenBacksplashHeight: 4, bathBacksplashHeight: 4, sidesplashQtyMap: {}, typeBacksplashHeightMap: {} };
+    return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [], kitchenBacksplashHeight: 4, bathBacksplashHeight: 4, sidesplashQtyMap: {}, typeBacksplashHeightMap: {}, laminateRows: [], laminateUnitTypes: [], laminateManualMap: {} };
   }
 }
 
@@ -735,8 +741,51 @@ export function usePrefinalStore(projectId: string) {
   }, [data.typeBacksplashHeightMap, data.kitchenBacksplashHeight, data.bathBacksplashHeight]);
 
   const clearAll = useCallback(() => {
-    commit({ unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [], kitchenBacksplashHeight: 4, bathBacksplashHeight: 4, sidesplashQtyMap: {}, typeBacksplashHeightMap: {} });
+    commit({ unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [], kitchenBacksplashHeight: 4, bathBacksplashHeight: 4, sidesplashQtyMap: {}, typeBacksplashHeightMap: {}, laminateRows: [], laminateUnitTypes: [], laminateManualMap: {} });
   }, [commit]);
+
+  // ── Laminate LFT ──────────────────────────────────────────────────────
+  const addLaminateUnitTypes = useCallback((types: string[]) => {
+    setData(prev => {
+      const normalizeKey = (t: string) => t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '').trim();
+      const existingKeys = new Set(prev.laminateUnitTypes.map(t => normalizeKey(t)));
+      const newTypes = types.filter(t => {
+        const key = normalizeKey(t);
+        if (!key || existingKeys.has(key)) return false;
+        existingKeys.add(key);
+        return true;
+      });
+      if (!newTypes.length) return prev;
+      const laminateUnitTypes = [...prev.laminateUnitTypes, ...newTypes];
+      const next = { ...prev, laminateUnitTypes };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
+  const addLaminateImport = useCallback((rows: PrefinalStoneRow[], unitType: string) => {
+    setData(prev => {
+      const existingOther = prev.laminateRows.filter(r => r.unitType !== unitType);
+      const laminateRows = [...existingOther, ...rows.map(r => ({ ...r, unitType }))];
+      const next = { ...prev, laminateRows };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
+  const clearLaminate = useCallback(() => {
+    commit({ ...data, laminateRows: [], laminateUnitTypes: [], laminateManualMap: {} });
+  }, [commit, data]);
+
+  const setLaminateManual = useCallback((unitType: string, field: string, value: number) => {
+    const key = `${unitType}|${field}`;
+    setData(prev => {
+      const laminateManualMap = { ...prev.laminateManualMap, [key]: value };
+      const next = { ...prev, laminateManualMap };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
 
   return {
     unitTypes: data.unitTypes,
@@ -752,6 +801,9 @@ export function usePrefinalStore(projectId: string) {
     bathBacksplashHeight: data.bathBacksplashHeight,
     sidesplashQtyMap: data.sidesplashQtyMap,
     typeBacksplashHeightMap: data.typeBacksplashHeightMap,
+    laminateRows: data.laminateRows,
+    laminateUnitTypes: data.laminateUnitTypes,
+    laminateManualMap: data.laminateManualMap,
     addUnitTypes,
     deleteUnitType,
     renameUnitType,
@@ -781,6 +833,10 @@ export function usePrefinalStore(projectId: string) {
     setSidesplashQty,
     setTypeBacksplashHeight,
     getTypeBsHeight,
+    addLaminateUnitTypes,
+    addLaminateImport,
+    clearLaminate,
+    setLaminateManual,
     clearAll,
   };
 }
