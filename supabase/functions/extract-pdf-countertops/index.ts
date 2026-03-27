@@ -47,7 +47,7 @@ RULES:
 - For L-shaped or U-shaped runs, break them into individual straight segments
 - If a countertop wraps around a corner, create separate sections for each leg
 - IMPORTANT for **length** (Top Inches): When breaking L/U-shaped runs at a corner, deduct the depth (e.g. 25.5") from one leg to avoid double-counting the corner overlap. This is correct for top surface area.
-- IMPORTANT for **backsplashLength** (BS Inches): Only count the BACK WALL edge where double lines appear. Do NOT include side returns or side depths — those are sidesplashes handled separately. For example, on an L-shaped counter, only the wall-facing edges count as backsplash, not the exposed side edges.
+- IMPORTANT for **backsplashLength** (BS Inches): Only count the BACK WALL edge where double lines appear. Do NOT include side returns or side depths — those are sidesplashes handled separately. CRITICAL: Do NOT deduct the corner depth from backsplash length — the backsplash runs continuously across corners without any gap, so keep the FULL wall length. For example, if two legs meet at a corner and the back walls are 121.5" and 50", the backsplash lengths are 121.5" and 50" respectively (no deduction). Only deduct corners for TOP inches, never for BS inches.
 - Do NOT include appliance surfaces (range top, sink cutout dimensions) as separate sections — they are part of the countertop run
 - If the page has no countertop information, return {"unitTypeName":"","countertops":[]}
 - Round all dimensions to nearest 0.5 inch
