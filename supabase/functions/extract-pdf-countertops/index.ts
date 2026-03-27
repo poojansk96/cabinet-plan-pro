@@ -46,11 +46,11 @@ RULES:
 - For L-shaped or U-shaped runs, break them into individual straight segments
 - If a countertop wraps around a corner, create separate sections for each leg
 - IMPORTANT for **length** (Top Inches): When breaking L/U-shaped runs at a corner, deduct the depth (e.g. 25.5") from one leg to avoid double-counting the corner overlap. This is correct for top surface area.
-- IMPORTANT for **backsplashLength** (BS Inches): Do NOT deduct any depth for corners. Backsplash runs along the wall continuously — measure the FULL linear inches of backsplash double lines as they appear, with NO corner deduction. The backsplash length is simply the total length of all double lines shown.
+- IMPORTANT for **backsplashLength** (BS Inches): Only count the BACK WALL edge where double lines appear. Do NOT include side returns or side depths — those are sidesplashes handled separately. For example, on an L-shaped counter, only the wall-facing edges count as backsplash, not the exposed side edges.
 - Do NOT include appliance surfaces (range top, sink cutout dimensions) as separate sections — they are part of the countertop run
 - If the page has no countertop information, return {"unitTypeName":"","countertops":[]}
 - Round all dimensions to nearest 0.5 inch
-- IMPORTANT: Look carefully for double lines along walls — these are backsplash indicators. Measure their total length.
+- IMPORTANT: Look carefully for double lines along walls — these are backsplash indicators. Measure their total length along the back wall only, excluding side returns.
 - Standard depths: perimeter = 25.5", island = 36", bar = 12-18", vanity = 22"
 - The unitTypeName field is REQUIRED — always look for it in the title block
 
