@@ -52,6 +52,10 @@ export default function PreFinalModule({ project }: Props) {
   const [showStoneImport, setShowStoneImport] = useState(false);
   const [stoneImportedCount, setStoneImportedCount] = useState<number | null>(null);
 
+  // ── Laminate LFT state ──────────────────────────────────────────────────
+  const [showLaminateImport, setShowLaminateImport] = useState(false);
+  const [laminateImportedCount, setLaminateImportedCount] = useState<number | null>(null);
+
   // ── Unit import handler ───────────────────────────────────────────────────
   const handleUnitImport = (rows: { unitNumber: string; unitType: string; bldg: string }[], typeOrder?: string[]) => {
     const normalized = rows.map(r => ({ ...r, unitType: normalizeUnitType(r.unitType) }));
