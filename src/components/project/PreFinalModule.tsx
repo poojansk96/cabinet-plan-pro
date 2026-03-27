@@ -972,15 +972,14 @@ export default function PreFinalModule({ project }: Props) {
                         </div>
                         <table className="est-table text-xs" style={{ tableLayout: 'fixed' }}>
                           <colgroup>
-                            <col style={{ width: '11%' }} />
+                            <col style={{ width: '12%' }} />
+                            <col style={{ width: '14%' }} />
+                            <col style={{ width: '14%' }} />
                             <col style={{ width: '12%' }} />
                             <col style={{ width: '12%' }} />
-                            <col style={{ width: '11%' }} />
-                            <col style={{ width: '11%' }} />
-                            <col style={{ width: '12%' }} />
-                            <col style={{ width: '12%' }} />
+                            <col style={{ width: '14%' }} />
+                            <col style={{ width: '14%' }} />
                             <col style={{ width: '8%' }} />
-                            <col style={{ width: '11%' }} />
                           </colgroup>
                           <thead>
                             <tr>
@@ -991,7 +990,6 @@ export default function PreFinalModule({ project }: Props) {
                               <th className="text-right">BS Height"</th>
                               <th className="text-right">Top SQFT</th>
                               <th className="text-right">BS & SS SQFT</th>
-                              <th className="text-right">SS SQFT</th>
                               <th className="text-right">Total SQFT</th>
                             </tr>
                           </thead>
@@ -1020,7 +1018,7 @@ export default function PreFinalModule({ project }: Props) {
                                   <td className="text-right font-mono">{bsHeight}</td>
                                   <td className="text-right font-mono">{topSqft}</td>
                                   <td className="text-right font-mono">{bsSqft + ssSqft}</td>
-                                  <td className="text-right font-mono text-muted-foreground">{ssSqft > 0 ? ssSqft : '—'}</td>
+                                  
                                   <td className="text-right font-bold" style={{ color: 'hsl(var(--primary))' }}>{topSqft + bsSqft + ssSqft}</td>
                                 </tr>
                               );
@@ -1035,7 +1033,7 @@ export default function PreFinalModule({ project }: Props) {
                               <td className="text-right">{bsHeight}</td>
                               <td className="text-right">{totalTop}</td>
                               <td className="text-right">{totalBs + totalSs}</td>
-                              <td className="text-right text-muted-foreground">{totalSs > 0 ? totalSs : '—'}</td>
+                              
                               <td className="text-right" style={{ color: 'hsl(var(--primary))' }}>{totalSqft}</td>
                             </tr>
                           </tfoot>
