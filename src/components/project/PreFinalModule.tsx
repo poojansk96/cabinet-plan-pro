@@ -1368,10 +1368,7 @@ export default function PreFinalModule({ project }: Props) {
                         const ktopSlab = calcSlabUsage(ktopTotalLft);
                         const bartopSlab = calcSlabUsage(bartopTotalLft);
 
-                        const ktopSlabCost = store.laminateManualMap[`${unitType}|ktopSlabCost`] || 0;
-                        const bartopSlabCost = store.laminateManualMap[`${unitType}|bartopSlabCost`] || 0;
                         const ssQty = store.laminateManualMap[`${unitType}|ssQty`] || 0;
-                        const ssCost = store.laminateManualMap[`${unitType}|ssCost`] || 0;
 
                         return (
                           <div key={unitType} className="mb-4">
