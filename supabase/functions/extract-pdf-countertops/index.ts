@@ -34,10 +34,9 @@ TASK:
 a. **label** — a short descriptive name based on its location (e.g. "Perimeter Left", "Perimeter Right", "Island", "Peninsula", "Bar Top", "Vanity", "L-Section", "U-Section"). If the drawing has text labels, use those.
 b. **length** — total linear length in inches. Read dimension labels first. If no label, estimate from the drawing.
 c. **depth** — depth in inches. Read from dimension labels. Standard kitchen countertop depth is 25.5". Vanity/bath tops are typically 22" or 19" deep. Islands are often 36-42".
-d. **backsplashLength** — the linear inches of backsplash along the BACK WALL ONLY. Look for DOUBLE LINES drawn along the wall edge of the countertop — these indicate backsplash. IMPORTANT: Only count the back wall length as backsplash. Do NOT include the side depth/return edges (e.g. 25.5" side pieces) — those are sidesplashes and are counted separately. For example, if a countertop is 121.5" long and 25.5" deep with backsplash along the back, the backsplashLength is 121.5", NOT 121.5" + 25.5" + 25.5". If no double lines or backsplash indication, use 0.
+d. **backsplashLength** — the linear inches of backsplash shown. Look for DOUBLE LINES drawn along the wall edge of the countertop — these indicate backsplash. The backsplash length is the total linear inches of those double lines. If no double lines or backsplash indication, use 0.
 e. **isIsland** — true if this section is an island or peninsula (not against a wall, typically depth >= 30").
-f. **sidesplashQty** — count the number of EXPOSED SIDE EDGES (sidesplashes) for this countertop section. A sidesplash is a finished edge piece at the end of a countertop run where it terminates against open space (not against a wall). Look for short return pieces at the ends of countertop runs. For L-shaped or U-shaped counters, the inside corner does NOT count as a sidesplash. Typical values: 0 (no exposed ends), 1 (one exposed end), or 2 (both ends exposed). If uncertain, use 0.
-g. **category** — classify as "kitchen" or "bath". Use these rules:
+f. **category** — classify as "kitchen" or "bath". Use these rules:
    - If depth is 22" or less (19", 22", etc.) → "bath"  
    - If the label or room mentions "vanity", "bath", "bathroom", "lav", "powder" → "bath"
    - Everything else → "kitchen"
@@ -47,17 +46,16 @@ RULES:
 - For L-shaped or U-shaped runs, break them into individual straight segments
 - If a countertop wraps around a corner, create separate sections for each leg
 - IMPORTANT for **length** (Top Inches): When breaking L/U-shaped runs at a corner, deduct the depth (e.g. 25.5") from one leg to avoid double-counting the corner overlap. This is correct for top surface area.
-- IMPORTANT for **backsplashLength** (BS Inches): Only count the BACK WALL edge where double lines appear. Do NOT include side returns or side depths — those are sidesplashes handled separately. CRITICAL: Do NOT deduct the corner depth from backsplash length — the backsplash runs continuously across corners without any gap, so keep the FULL wall length. For example, if two legs meet at a corner and the back walls are 121.5" and 50", the backsplash lengths are 121.5" and 50" respectively (no deduction). Only deduct corners for TOP inches, never for BS inches.
+- IMPORTANT for **backsplashLength** (BS Inches): Do NOT deduct any depth for corners. Backsplash runs along the wall continuously — measure the FULL linear inches of backsplash double lines as they appear, with NO corner deduction. The backsplash length is simply the total length of all double lines shown.
 - Do NOT include appliance surfaces (range top, sink cutout dimensions) as separate sections — they are part of the countertop run
 - If the page has no countertop information, return {"unitTypeName":"","countertops":[]}
 - Round all dimensions to nearest 0.5 inch
-- IMPORTANT: Look carefully for double lines along walls — these are backsplash indicators. Measure their total length along the back wall only, excluding side returns.
-- CRITICAL DEFAULT RULE: For ANY non-island countertop that is against a wall (isIsland=false), ASSUME backsplash EXISTS along the back wall and set backsplashLength equal to the section's length, UNLESS you can clearly see the drawing indicates NO backsplash for that specific section. Most wall countertops have backsplash — defaulting to 0 is almost always wrong for non-island sections.
+- IMPORTANT: Look carefully for double lines along walls — these are backsplash indicators. Measure their total length.
 - Standard depths: perimeter = 25.5", island = 36", bar = 12-18", vanity = 22"
 - The unitTypeName field is REQUIRED — always look for it in the title block
 
 Return ONLY valid JSON — no markdown fences, no explanation:
-{"unitTypeName":"1.1B-AS","countertops":[{"label":"Perimeter Left","length":96,"depth":25.5,"backsplashLength":96,"sidesplashQty":1,"isIsland":false,"category":"kitchen"}]}`;
+{"unitTypeName":"1.1B-AS","countertops":[{"label":"Perimeter Left","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"}]}`;
 
     let response: Response | null = null;
     const MAX_RETRIES = 3;
@@ -125,30 +123,7 @@ Return ONLY valid JSON — no markdown fences, no explanation:
       }
       parsed = JSON.parse(cleaned);
     } catch {
-      console.warn("JSON parse failed, attempting truncated recovery...");
-      // Recovery: extract unitTypeName and individual complete countertop objects
-      try {
-        let cleaned = content.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
-        const jsonStart = cleaned.indexOf('{"unitTypeName"');
-        if (jsonStart >= 0) cleaned = cleaned.slice(jsonStart);
-
-        // Extract unitTypeName
-        const typeMatch = cleaned.match(/"unitTypeName"\s*:\s*"([^"]*)"/);
-        const recoveredType = typeMatch ? typeMatch[1] : "";
-
-        // Extract all complete countertop objects using regex
-        const objPattern = /\{\s*"label"\s*:\s*"[^"]*"\s*,\s*"length"\s*:\s*[\d.]+\s*,\s*"depth"\s*:\s*[\d.]+\s*,\s*"backsplashLength"\s*:\s*[\d.]+\s*,\s*"sidesplashQty"\s*:\s*\d+\s*,\s*"isIsland"\s*:\s*(?:true|false)\s*,\s*"category"\s*:\s*"[^"]*"\s*\}/g;
-        const matches = cleaned.match(objPattern);
-        if (matches && matches.length > 0) {
-          const recovered = matches.map((m: string) => JSON.parse(m));
-          parsed = { unitTypeName: recoveredType, countertops: recovered };
-          console.log(`Recovered ${recovered.length} countertops from truncated JSON for type: ${recoveredType}`);
-        } else {
-          console.error("Recovery failed, no complete objects found. Raw:", content.slice(0, 500));
-        }
-      } catch (recErr) {
-        console.error("Recovery also failed:", recErr, "Raw:", content.slice(0, 500));
-      }
+      console.error("JSON parse failed, raw:", content.slice(0, 500));
     }
 
     const unitTypeName = String(parsed.unitTypeName || "").trim();
@@ -171,7 +146,6 @@ Return ONLY valid JSON — no markdown fences, no explanation:
         length: Math.round((Number(ct.length) || 96) * 2) / 2,
         depth,
         backsplashLength: Math.round((Number(ct.backsplashLength) || 0) * 2) / 2,
-        sidesplashQty: Math.max(0, Math.round(Number(ct.sidesplashQty) || 0)),
         isIsland: Boolean(ct.isIsland),
         category,
       };
