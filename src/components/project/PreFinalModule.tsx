@@ -1061,16 +1061,38 @@ export default function PreFinalModule({ project }: Props) {
                           </thead>
                           <tbody>
                             {groups.map((g, gi) => {
-                              const topSqft = calcGroupTopSqft(g);
-                              const bsSqft = calcGroupBsSqft(g, bsHeight);
+                              const topInchesKey = `${unitType}|${category}|${g.depth}|topInches`;
+                              const bsInchesKey = `${unitType}|${category}|${g.depth}|bsInches`;
+                              const effectiveTopInches = store.stoneInchesOverrideMap[topInchesKey] !== undefined ? store.stoneInchesOverrideMap[topInchesKey] : g.totalLength;
+                              const effectiveBsInches = store.stoneInchesOverrideMap[bsInchesKey] !== undefined ? store.stoneInchesOverrideMap[bsInchesKey] : g.totalBsLength;
+                              const topSqft = Math.ceil((effectiveTopInches * g.depth) / 144);
+                              const bsSqft = Math.ceil((effectiveBsInches * bsHeight) / 144);
                               const ssKey = `${unitType}|${category}|${g.depth}`;
                               const ssQty = store.sidesplashQtyMap[ssKey] || 0;
-                              const ssSqft = calcGroupSsSqft(g, bsHeight, ssQty);
+                              const ssSqft = ssQty > 0 ? Math.ceil((g.depth * bsHeight * ssQty) / 144) : 0;
                               return (
                                 <tr key={gi}>
                                   <td className="font-medium">{g.depth}"</td>
-                                  <td className="text-right font-mono">{g.totalLength}</td>
-                                  <td className="text-right font-mono">{g.totalBsLength}</td>
+                                  <td className="text-right">
+                                    <input
+                                      type="number"
+                                      className="est-input w-16 text-right text-xs"
+                                      value={effectiveTopInches || ''}
+                                      min={0}
+                                      onChange={e => store.setStoneInchesOverride(unitType, category, g.depth, 'topInches', +e.target.value || 0)}
+                                      placeholder={String(g.totalLength)}
+                                    />
+                                  </td>
+                                  <td className="text-right">
+                                    <input
+                                      type="number"
+                                      className="est-input w-16 text-right text-xs"
+                                      value={effectiveBsInches || ''}
+                                      min={0}
+                                      onChange={e => store.setStoneInchesOverride(unitType, category, g.depth, 'bsInches', +e.target.value || 0)}
+                                      placeholder={String(g.totalBsLength)}
+                                    />
+                                  </td>
                                   <td className="text-right">
                                     <input
                                       type="number"
