@@ -1243,6 +1243,277 @@ export default function PreFinalModule({ project }: Props) {
           </div>
         </>
       )}
+
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* LAMINATE LFT SUB-TAB                                                */}
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {activeSubTab === 'laminate' && (
+        <>
+          {laminateImportedCount !== null && (
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-white" style={{ background: 'hsl(142 71% 45%)' }}>
+              ✓ Successfully imported {laminateImportedCount} countertop section{laminateImportedCount !== 1 ? 's' : ''}
+            </div>
+          )}
+
+          <div className="est-card overflow-hidden">
+            <div className="est-section-header flex items-center gap-2 flex-wrap">
+              <Layers size={13} className="flex-shrink-0" />
+              P-Laminate KTOP
+
+              <div className="ml-auto flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => setShowLaminateImport(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
+                  style={{ background: 'hsl(142 60% 35%)' }}
+                >
+                  <FileUp size={12} /> Upload 2020 Ctop plans
+                </button>
+                {store.laminateRows.length > 0 && (
+                  <button
+                    onClick={() => { if (confirm('Clear all laminate data?')) store.clearLaminate(); }}
+                    className="flex items-center gap-1 px-2 py-1 rounded text-xs text-muted-foreground hover:text-destructive border border-border hover:border-destructive transition-colors"
+                  >
+                    <RotateCcw size={11} /> Clear
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {store.laminateRows.length === 0 ? (
+              <div className="text-center py-10 text-muted-foreground text-sm">
+                No data yet — import 2020 countertop shop drawings to extract laminate LFT dimensions.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                {(() => {
+                  const lamUnitTypes = (() => {
+                    const seen = new Set<string>();
+                    return store.laminateUnitTypes.filter(t => {
+                      const key = t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '').trim();
+                      if (seen.has(key)) return false;
+                      seen.add(key);
+                      return true;
+                    });
+                  })();
+
+                  // Slab assignment: pick single slab size (8,10,12) that minimizes waste for total LFT
+                  const SLAB_SIZES = [8, 10, 12];
+                  const calcSlabUsage = (totalLft: number): { size: number; qty: number; totalSlabLft: number } => {
+                    if (totalLft <= 0) return { size: 8, qty: 0, totalSlabLft: 0 };
+                    let best = { size: 8, qty: Math.ceil(totalLft / 8), totalSlabLft: Math.ceil(totalLft / 8) * 8 };
+                    for (const size of SLAB_SIZES) {
+                      const qty = Math.ceil(totalLft / size);
+                      const total = qty * size;
+                      if (total < best.totalSlabLft || (total === best.totalSlabLft && size < best.size)) {
+                        best = { size, qty, totalSlabLft: total };
+                      }
+                    }
+                    return best;
+                  };
+
+                  return (
+                    <>
+                      {lamUnitTypes.map(unitType => {
+                        const typeRows = store.laminateRows.filter(r => r.unitType === unitType);
+                        if (typeRows.length === 0) return null;
+                        const unitCount = store.unitNumbers.filter(u => u.assignments[unitType]).length;
+
+                        // Split into KTOP (non-island) and BARTOP (island)
+                        const ktopPieces = typeRows.filter(r => !r.isIsland);
+                        const bartopPieces = typeRows.filter(r => r.isIsland);
+
+                        // Calculate LFT per piece (round up inches/12)
+                        const ktopLfts = ktopPieces.map(r => Math.ceil(r.length / 12));
+                        const bartopLfts = bartopPieces.map(r => Math.ceil(r.length / 12));
+
+                        const ktopTotalLft = ktopLfts.reduce((s, v) => s + v, 0);
+                        const bartopTotalLft = bartopLfts.reduce((s, v) => s + v, 0);
+
+                        const ktopSlab = calcSlabUsage(ktopTotalLft);
+                        const bartopSlab = calcSlabUsage(bartopTotalLft);
+
+                        const ktopSlabCost = store.laminateManualMap[`${unitType}|ktopSlabCost`] || 0;
+                        const bartopSlabCost = store.laminateManualMap[`${unitType}|bartopSlabCost`] || 0;
+                        const ssQty = store.laminateManualMap[`${unitType}|ssQty`] || 0;
+                        const ssCost = store.laminateManualMap[`${unitType}|ssCost`] || 0;
+
+                        return (
+                          <div key={unitType} className="mb-4">
+                            <div className="px-4 py-2 flex items-center justify-between" style={{ background: 'hsl(142 50% 30%)', color: '#fff' }}>
+                              <span className="text-xs font-bold">{unitType}</span>
+                              {unitCount > 0 && (
+                                <span className="text-xs">× {unitCount} units</span>
+                              )}
+                            </div>
+                            <table className="est-table text-xs w-full" style={{ tableLayout: 'fixed' }}>
+                              <colgroup>
+                                <col style={{ width: '11%' }} />
+                                <col style={{ width: '10%' }} />
+                                <col style={{ width: '9%' }} />
+                                <col style={{ width: '10%' }} />
+                                <col style={{ width: '11%' }} />
+                                <col style={{ width: '10%' }} />
+                                <col style={{ width: '9%' }} />
+                                <col style={{ width: '10%' }} />
+                                <col style={{ width: '10%' }} />
+                                <col style={{ width: '10%' }} />
+                              </colgroup>
+                              <thead>
+                                <tr>
+                                  <th className="text-center text-[10px] leading-tight" style={{ background: 'hsl(142 40% 90%)' }}>KTOP LFT<br/>CALC</th>
+                                  <th className="text-center text-[10px] leading-tight" style={{ background: 'hsl(142 40% 90%)' }}>KTOP SLAB<br/>USAGE</th>
+                                  <th className="text-center text-[10px] leading-tight" style={{ background: 'hsl(142 40% 90%)' }}>KTOP SLAB<br/>LFT CALC</th>
+                                  <th className="text-center text-[10px] leading-tight" style={{ background: 'hsl(142 40% 90%)' }}>KTOP SLAB<br/>COST</th>
+                                  <th className="text-center text-[10px] leading-tight" style={{ background: 'hsl(38 70% 90%)' }}>BARTOP<br/>LFT CALC</th>
+                                  <th className="text-center text-[10px] leading-tight" style={{ background: 'hsl(38 70% 90%)' }}>BARTOP SLAB<br/>USAGE</th>
+                                  <th className="text-center text-[10px] leading-tight" style={{ background: 'hsl(38 70% 90%)' }}>BARTOP SLAB<br/>LFT CALC</th>
+                                  <th className="text-center text-[10px] leading-tight" style={{ background: 'hsl(38 70% 90%)' }}>BARTOP SLAB<br/>COST</th>
+                                  <th className="text-center text-[10px] leading-tight" style={{ background: 'hsl(280 30% 90%)' }}>KTOP SS<br/>QTY</th>
+                                  <th className="text-center text-[10px] leading-tight" style={{ background: 'hsl(280 30% 90%)' }}>KTOP SS<br/>COST</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr>
+                                  <td className="text-center font-mono text-xs">
+                                    {ktopLfts.length > 0 ? ktopLfts.join('+') : '—'}
+                                  </td>
+                                  <td className="text-center font-mono text-xs font-bold">
+                                    {ktopSlab.qty > 0 ? `${ktopSlab.size}X${ktopSlab.qty}` : '—'}
+                                  </td>
+                                  <td className="text-center font-mono text-xs">
+                                    {ktopSlab.totalSlabLft || '—'}
+                                  </td>
+                                  <td className="text-center">
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      step={0.01}
+                                      className="est-input w-16 text-xs text-center font-mono"
+                                      value={ktopSlabCost || ''}
+                                      onChange={e => store.setLaminateManual(unitType, 'ktopSlabCost', +e.target.value || 0)}
+                                      placeholder="0.00"
+                                    />
+                                  </td>
+                                  <td className="text-center font-mono text-xs">
+                                    {bartopLfts.length > 0 ? bartopLfts.join('+') : '—'}
+                                  </td>
+                                  <td className="text-center font-mono text-xs font-bold">
+                                    {bartopSlab.qty > 0 ? `${bartopSlab.size}X${bartopSlab.qty}` : '—'}
+                                  </td>
+                                  <td className="text-center font-mono text-xs">
+                                    {bartopSlab.totalSlabLft || '—'}
+                                  </td>
+                                  <td className="text-center">
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      step={0.01}
+                                      className="est-input w-16 text-xs text-center font-mono"
+                                      value={bartopSlabCost || ''}
+                                      onChange={e => store.setLaminateManual(unitType, 'bartopSlabCost', +e.target.value || 0)}
+                                      placeholder="0.00"
+                                    />
+                                  </td>
+                                  <td className="text-center">
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      className="est-input w-14 text-xs text-center font-mono"
+                                      value={ssQty || ''}
+                                      onChange={e => store.setLaminateManual(unitType, 'ssQty', +e.target.value || 0)}
+                                      placeholder="0"
+                                    />
+                                  </td>
+                                  <td className="text-center">
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      step={0.01}
+                                      className="est-input w-16 text-xs text-center font-mono"
+                                      value={ssCost || ''}
+                                      onChange={e => store.setLaminateManual(unitType, 'ssCost', +e.target.value || 0)}
+                                      placeholder="0.00"
+                                    />
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        );
+                      })}
+
+                      {/* Summary */}
+                      <div className="px-4 py-4 border-t-2 border-border">
+                        <div className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Laminate LFT Summary by Type</div>
+                        <table className="est-table text-xs w-full" style={{ tableLayout: 'fixed' }}>
+                          <colgroup>
+                            <col style={{ width: '20%' }} />
+                            <col style={{ width: '10%' }} />
+                            <col style={{ width: '14%' }} />
+                            <col style={{ width: '14%' }} />
+                            <col style={{ width: '14%' }} />
+                            <col style={{ width: '14%' }} />
+                            <col style={{ width: '14%' }} />
+                          </colgroup>
+                          <thead>
+                            <tr>
+                              <th className="text-left">Type</th>
+                              <th className="text-right">Units</th>
+                              <th className="text-right">KTOP Slab Cost</th>
+                              <th className="text-right">BARTOP Slab Cost</th>
+                              <th className="text-right">SS Cost</th>
+                              <th className="text-right">Per Unit Cost</th>
+                              <th className="text-right">Total Cost</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(() => {
+                              let grandTotal = 0;
+                              return (
+                                <>
+                                  {lamUnitTypes.map(type => {
+                                    const unitCount = store.unitNumbers.filter(u => u.assignments[type]).length || 1;
+                                    const kCost = store.laminateManualMap[`${type}|ktopSlabCost`] || 0;
+                                    const bCost = store.laminateManualMap[`${type}|bartopSlabCost`] || 0;
+                                    const sCost = store.laminateManualMap[`${type}|ssCost`] || 0;
+                                    const perUnit = kCost + bCost + sCost;
+                                    const total = perUnit * unitCount;
+                                    grandTotal += total;
+                                    return (
+                                      <tr key={type}>
+                                        <td className="font-bold">{type}</td>
+                                        <td className="text-right font-mono">{unitCount}</td>
+                                        <td className="text-right font-mono">${kCost.toFixed(2)}</td>
+                                        <td className="text-right font-mono">${bCost.toFixed(2)}</td>
+                                        <td className="text-right font-mono">${sCost.toFixed(2)}</td>
+                                        <td className="text-right font-mono font-bold">${perUnit.toFixed(2)}</td>
+                                        <td className="text-right font-bold" style={{ color: 'hsl(142 60% 35%)' }}>${total.toFixed(2)}</td>
+                                      </tr>
+                                    );
+                                  })}
+                                  <tr className="font-bold border-t-2 border-border">
+                                    <td>GRAND TOTAL</td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td className="text-right text-base" style={{ color: 'hsl(142 60% 35%)' }}>${grandTotal.toFixed(2)}</td>
+                                  </tr>
+                                </>
+                              );
+                            })()}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
