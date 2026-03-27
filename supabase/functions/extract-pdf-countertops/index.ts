@@ -34,7 +34,7 @@ TASK:
 a. **label** — a short descriptive name based on its location (e.g. "Perimeter Left", "Perimeter Right", "Island", "Peninsula", "Bar Top", "Vanity", "L-Section", "U-Section"). If the drawing has text labels, use those.
 b. **length** — total linear length in inches. Read dimension labels first. If no label, estimate from the drawing.
 c. **depth** — depth in inches. Read from dimension labels. Standard kitchen countertop depth is 25.5". Vanity/bath tops are typically 22" or 19" deep. Islands are often 36-42".
-d. **backsplashLength** — the linear inches of backsplash shown. Look for DOUBLE LINES drawn along the wall edge of the countertop — these indicate backsplash. The backsplash length is the total linear inches of those double lines. If no double lines or backsplash indication, use 0.
+d. **backsplashLength** — the linear inches of backsplash along the BACK WALL ONLY. Look for DOUBLE LINES drawn along the wall edge of the countertop — these indicate backsplash. IMPORTANT: Only count the back wall length as backsplash. Do NOT include the side depth/return edges (e.g. 25.5" side pieces) — those are sidesplashes and are counted separately. For example, if a countertop is 121.5" long and 25.5" deep with backsplash along the back, the backsplashLength is 121.5", NOT 121.5" + 25.5" + 25.5". If no double lines or backsplash indication, use 0.
 e. **isIsland** — true if this section is an island or peninsula (not against a wall, typically depth >= 30").
 f. **category** — classify as "kitchen" or "bath". Use these rules:
    - If depth is 22" or less (19", 22", etc.) → "bath"  
