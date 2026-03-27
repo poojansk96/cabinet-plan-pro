@@ -365,6 +365,15 @@ export default function PreFinalModule({ project }: Props) {
         />
       )}
 
+      {/* Laminate Import Dialog */}
+      {showLaminateImport && (
+        <StonePDFImportDialog
+          onImport={(rows, detectedTypes) => handleLaminateImport(rows, detectedTypes)}
+          onClose={() => setShowLaminateImport(false)}
+          prefinalPerson={project.specs?.takeoffPerson}
+        />
+      )}
+
       {/* Sub-tab toggle + speed mode */}
       <div className="flex items-center gap-1 flex-wrap">
         <button
