@@ -36,8 +36,9 @@ b. **length** — total linear length in inches. Read dimension labels first. If
 c. **depth** — depth in inches. Read from dimension labels. Standard kitchen countertop depth is 25.5". Vanity/bath tops are typically 22" or 19" deep. Islands are often 36-42".
 d. **backsplashLength** — the linear inches of WALL backsplash ONLY. This is CRITICAL — read carefully:
    - For EVERY countertop section that is against a wall, backsplash runs along the FULL wall edge.
-   - KEY RULE: If a countertop section is against a wall (not an island), the backsplash length should generally EQUAL or be very close to the countertop LENGTH, because backsplash runs the entire length of the countertop along the wall.
+    - KEY RULE: If a countertop section is against a wall (not an island), the backsplash length should generally EQUAL or be very close to the countertop LENGTH, because backsplash runs the entire length of the countertop along the wall.
    - For L-shaped or U-shaped runs broken into segments: each segment's backsplash = that segment's FULL length along the wall. Do NOT deduct depth at corners — backsplash is continuous along walls.
+    - CRITICAL: Do NOT assign one long continuous backsplash run to multiple small sections. Each section only gets the wall length directly behind THAT section.
    - Look for DOUBLE LINES drawn along the WALL edge — these confirm backsplash presence.
    - Do NOT include sidesplash (short perpendicular returns at exposed ends). Sidesplash is tracked separately.
    - Islands and peninsulas typically have backsplashLength = 0 (no wall behind them).
@@ -54,6 +55,9 @@ RULES:
 - If a countertop wraps around a corner, create separate sections for each leg
 - IMPORTANT for **length** (Top Inches): When breaking L/U-shaped runs at a corner, deduct the depth (e.g. 25.5") from one leg to avoid double-counting the corner overlap. This is correct for top surface area.
 - IMPORTANT for **backsplashLength** (BS Inches): Do NOT deduct any depth for corners. Backsplash runs along the wall continuously — measure the FULL linear inches along the wall with NO corner deduction. Each wall-adjacent segment's backsplash = its full length.
+- IMPORTANT SELF-CHECK: After extracting all sections, verify you did NOT double-count the same wall on multiple labels. For each section, backsplashLength must reflect only that section's own wall contact, not adjacent sections too.
+- IMPORTANT SELF-CHECK: For a wall section, backsplashLength should almost never be LESS than that section's top length, and should rarely be MORE than top length + one countertop depth.
+- If unsure between a shorter local wall run and a longer combined wall run, choose the shorter local wall run for that section.
 - Do NOT include appliance surfaces (range top, sink cutout dimensions) as separate sections — they are part of the countertop run
 - If the page has no countertop information, return {"unitTypeName":"","countertops":[]}
 - Round all dimensions to nearest 0.5 inch
@@ -136,24 +140,40 @@ Return ONLY valid JSON — no markdown fences, no explanation:
     const unitTypeName = String(parsed.unitTypeName || "").trim();
     console.log("Detected unit type name:", unitTypeName);
 
+    const roundHalf = (value: number) => Math.round(value * 2) / 2;
+
     const countertops = (parsed.countertops ?? []).map((ct: any) => {
-      const depth = Math.round((Number(ct.depth) || 25.5) * 2) / 2;
+      const length = roundHalf((Number(ct.length) || 96));
+      const depth = roundHalf((Number(ct.depth) || 25.5));
       let category = String(ct.category || "").toLowerCase().trim();
+      const label = String(ct.label || "Section").trim();
+      const normalizedLabel = label.toLowerCase();
+      const isIsland = Boolean(ct.isIsland) || /island|peninsula/.test(normalizedLabel);
+
       if (!category || (category !== "kitchen" && category !== "bath")) {
-        const label = String(ct.label || "").toLowerCase();
-        if (depth <= 22 || /vanity|bath|lav|powder/.test(label)) {
+        if (depth <= 22 || /vanity|bath|lav|powder/.test(normalizedLabel)) {
           category = "bath";
         } else {
           category = "kitchen";
         }
       }
 
+      let backsplashLength = roundHalf(Number(ct.backsplashLength) || 0);
+      if (isIsland) {
+        backsplashLength = 0;
+      } else {
+        const maxReasonableBacksplash = roundHalf(length + depth);
+        if (backsplashLength <= 0) backsplashLength = length;
+        if (backsplashLength < length) backsplashLength = length;
+        if (backsplashLength > maxReasonableBacksplash) backsplashLength = maxReasonableBacksplash;
+      }
+
       return {
-        label: String(ct.label || "Section").trim(),
-        length: Math.round((Number(ct.length) || 96) * 2) / 2,
+        label,
+        length,
         depth,
-        backsplashLength: Math.round((Number(ct.backsplashLength) || 0) * 2) / 2,
-        isIsland: Boolean(ct.isIsland),
+        backsplashLength,
+        isIsland,
         category,
       };
     });
