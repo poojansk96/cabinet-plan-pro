@@ -943,14 +943,17 @@ export default function PreFinalModule({ project }: Props) {
                   const calcGroupBsSqft = (g: DepthGroup, bsHeight: number) => Math.ceil((g.totalBsLength * bsHeight) / 144);
                   const calcGroupSsSqft = (g: DepthGroup, bsHeight: number, ssQty: number) => ssQty > 0 ? Math.ceil((g.depth * bsHeight * ssQty) / 144) : 0;
 
+                  const typeKitchenBsH = store.getTypeBsHeight(unitType, 'kitchen');
+                  const typeBathBsH = store.getTypeBsHeight(unitType, 'bath');
+
                   const kitchenTopSqft = kitchenGroups.reduce((s, g) => s + calcGroupTopSqft(g), 0);
-                  const kitchenBsSqft = kitchenGroups.reduce((s, g) => s + calcGroupBsSqft(g, store.kitchenBacksplashHeight), 0);
-                  const kitchenSsSqft = kitchenGroups.reduce((s, g) => s + calcGroupSsSqft(g, store.kitchenBacksplashHeight, store.sidesplashQtyMap[`${unitType}|kitchen|${g.depth}`] || 0), 0);
+                  const kitchenBsSqft = kitchenGroups.reduce((s, g) => s + calcGroupBsSqft(g, typeKitchenBsH), 0);
+                  const kitchenSsSqft = kitchenGroups.reduce((s, g) => s + calcGroupSsSqft(g, typeKitchenBsH, store.sidesplashQtyMap[`${unitType}|kitchen|${g.depth}`] || 0), 0);
                   const kitchenTotalSqft = kitchenTopSqft + kitchenBsSqft + kitchenSsSqft;
 
                   const bathTopSqft = bathGroups.reduce((s, g) => s + calcGroupTopSqft(g), 0);
-                  const bathBsSqft = bathGroups.reduce((s, g) => s + calcGroupBsSqft(g, store.bathBacksplashHeight), 0);
-                  const bathSsSqft = bathGroups.reduce((s, g) => s + calcGroupSsSqft(g, store.bathBacksplashHeight, store.sidesplashQtyMap[`${unitType}|bath|${g.depth}`] || 0), 0);
+                  const bathBsSqft = bathGroups.reduce((s, g) => s + calcGroupBsSqft(g, typeBathBsH), 0);
+                  const bathSsSqft = bathGroups.reduce((s, g) => s + calcGroupSsSqft(g, typeBathBsH, store.sidesplashQtyMap[`${unitType}|bath|${g.depth}`] || 0), 0);
                   const bathTotalSqft = bathTopSqft + bathBsSqft + bathSsSqft;
 
                   const renderCategoryTable = (
@@ -1054,9 +1057,41 @@ export default function PreFinalModule({ project }: Props) {
                           )}
                         </div>
                       </div>
+                      {/* Per-type BS height overrides */}
+                      <div className="px-4 py-2 border-b border-border flex items-center gap-6 flex-wrap" style={{ background: 'hsl(var(--secondary) / 0.5)' }}>
+                        <span className="text-xs text-muted-foreground font-medium">BS Height for {unitType}:</span>
+                        {kitchenGroups.length > 0 && (
+                          <label className="flex items-center gap-2 text-xs">
+                            <span className="text-muted-foreground">Kitchen:</span>
+                            <select
+                              className="est-input text-xs w-16"
+                              value={typeKitchenBsH}
+                              onChange={e => store.setTypeBacksplashHeight(unitType, 'kitchen', Number(e.target.value))}
+                            >
+                              {[0, 2, 3, 4, 5, 6, 8, 10, 12, 18].map(h => (
+                                <option key={h} value={h}>{h}"</option>
+                              ))}
+                            </select>
+                          </label>
+                        )}
+                        {bathGroups.length > 0 && (
+                          <label className="flex items-center gap-2 text-xs">
+                            <span className="text-muted-foreground">Bath:</span>
+                            <select
+                              className="est-input text-xs w-16"
+                              value={typeBathBsH}
+                              onChange={e => store.setTypeBacksplashHeight(unitType, 'bath', Number(e.target.value))}
+                            >
+                              {[0, 2, 3, 4, 5, 6, 8, 10, 12, 18].map(h => (
+                                <option key={h} value={h}>{h}"</option>
+                              ))}
+                            </select>
+                          </label>
+                        )}
+                      </div>
 
-                      {renderCategoryTable('🍳 Kitchen Tops', kitchenGroups, store.kitchenBacksplashHeight, kitchenTopSqft, kitchenBsSqft, kitchenSsSqft, kitchenTotalSqft, 'hsl(213 60% 50%)', 'kitchen')}
-                      {renderCategoryTable('🚿 Bath/Vanity Tops', bathGroups, store.bathBacksplashHeight, bathTopSqft, bathBsSqft, bathSsSqft, bathTotalSqft, 'hsl(38 80% 45%)', 'bath')}
+                      {renderCategoryTable('🍳 Kitchen Tops', kitchenGroups, typeKitchenBsH, kitchenTopSqft, kitchenBsSqft, kitchenSsSqft, kitchenTotalSqft, 'hsl(213 60% 50%)', 'kitchen')}
+                      {renderCategoryTable('🚿 Bath/Vanity Tops', bathGroups, typeBathBsH, bathTopSqft, bathBsSqft, bathSsSqft, bathTotalSqft, 'hsl(38 80% 45%)', 'bath')}
                     </div>
                   );
                 })}
@@ -1098,15 +1133,17 @@ export default function PreFinalModule({ project }: Props) {
                             g.len += r.length; g.bs += r.backsplashLength;
                             map.set(r.depth, g);
                           }
+                          const typeKBsH = store.getTypeBsHeight(type, 'kitchen');
+                          const typeBBsH = store.getTypeBsHeight(type, 'bath');
                           for (const [depth, g] of kGroups) {
                             const ssQty = store.sidesplashQtyMap[`${type}|kitchen|${depth}`] || 0;
-                            const ssSqft = ssQty > 0 ? Math.ceil((depth * store.kitchenBacksplashHeight * ssQty) / 144) : 0;
-                            kSqft += Math.ceil((g.len * depth) / 144) + Math.ceil((g.bs * store.kitchenBacksplashHeight) / 144) + ssSqft;
+                            const ssSqft = ssQty > 0 ? Math.ceil((depth * typeKBsH * ssQty) / 144) : 0;
+                            kSqft += Math.ceil((g.len * depth) / 144) + Math.ceil((g.bs * typeKBsH) / 144) + ssSqft;
                           }
                           for (const [depth, g] of bGroups) {
                             const ssQty = store.sidesplashQtyMap[`${type}|bath|${depth}`] || 0;
-                            const ssSqft = ssQty > 0 ? Math.ceil((depth * store.bathBacksplashHeight * ssQty) / 144) : 0;
-                            bSqft += Math.ceil((g.len * depth) / 144) + Math.ceil((g.bs * store.bathBacksplashHeight) / 144) + ssSqft;
+                            const ssSqft = ssQty > 0 ? Math.ceil((depth * typeBBsH * ssQty) / 144) : 0;
+                            bSqft += Math.ceil((g.len * depth) / 144) + Math.ceil((g.bs * typeBBsH) / 144) + ssSqft;
                           }
                           grandKitchen += kSqft * unitCount;
                           grandBath += bSqft * unitCount;
