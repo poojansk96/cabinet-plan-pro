@@ -176,17 +176,33 @@ export default function PreFinalModule({ project }: Props) {
       store.addStoneUnitTypes(typeOrder);
     }
 
+    // Accumulate sidesplash quantities per unitType|category|depth from extracted data
+    const ssQtyAccum = new Map<string, number>();
+
     for (const [unitType, typeRows] of rowsByType) {
-      const stoneRows: PrefinalStoneRow[] = typeRows.map(r => ({
-        label: r.label,
-        length: r.length,
-        depth: r.depth,
-        backsplashLength: r.backsplashLength ?? 0,
-        isIsland: r.isIsland,
-        category: r.category || 'kitchen',
-        unitType,
-      }));
+      const stoneRows: PrefinalStoneRow[] = typeRows.map(r => {
+        // Accumulate extracted sidesplash qty by depth group key
+        if (r.sidesplashQty && r.sidesplashQty > 0) {
+          const ssKey = `${unitType}|${r.category || 'kitchen'}|${r.depth}`;
+          ssQtyAccum.set(ssKey, (ssQtyAccum.get(ssKey) || 0) + r.sidesplashQty);
+        }
+        return {
+          label: r.label,
+          length: r.length,
+          depth: r.depth,
+          backsplashLength: r.backsplashLength ?? 0,
+          isIsland: r.isIsland,
+          category: r.category || 'kitchen',
+          unitType,
+        };
+      });
       store.addStoneImport(stoneRows, unitType);
+    }
+
+    // Pre-populate sidesplash qty map from extracted data
+    for (const [ssKey, qty] of ssQtyAccum) {
+      const [unitType, category, depthStr] = ssKey.split('|');
+      store.setSidesplashQty(unitType, category as 'kitchen' | 'bath', Number(depthStr), qty);
     }
 
     setStoneImportedCount(rows.filter(r => r.selected !== false).length);

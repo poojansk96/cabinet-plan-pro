@@ -6,6 +6,7 @@ export interface StoneExtractedRow {
   length: number;
   depth: number;
   backsplashLength: number;
+  sidesplashQty: number;
   isIsland: boolean;
   category: 'kitchen' | 'bath';
   selected: boolean;
@@ -165,6 +166,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                   length: ct.length,
                   depth: ct.depth,
                   backsplashLength: ct.backsplashLength ?? 0,
+                  sidesplashQty: ct.sidesplashQty ?? 0,
                   isIsland: ct.isIsland,
                   category: ct.category === 'bath' ? 'bath' : 'kitchen',
                   selected: true,
