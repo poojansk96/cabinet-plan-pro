@@ -698,16 +698,7 @@ export function usePrefinalStore(projectId: string) {
   }, [projectId]);
 
   const clearStone = useCallback(() => {
-    commit({
-      ...data,
-      stoneRows: [],
-      stoneUnitTypes: [],
-      kitchenBacksplashHeight: 4,
-      bathBacksplashHeight: 4,
-      sidesplashQtyMap: {},
-      typeBacksplashHeightMap: {},
-      stoneInchesOverrideMap: {},
-    });
+    commit({ ...data, stoneRows: [], stoneUnitTypes: [], kitchenBacksplashHeight: 4, bathBacksplashHeight: 4, typeBacksplashHeightMap: {} });
   }, [commit, data]);
 
   const setKitchenBacksplashHeight = useCallback((height: number) => {
