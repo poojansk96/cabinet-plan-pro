@@ -34,7 +34,14 @@ TASK:
 a. **label** — a short descriptive name based on its location (e.g. "Perimeter Left", "Perimeter Right", "Island", "Peninsula", "Bar Top", "Vanity", "L-Section", "U-Section"). If the drawing has text labels, use those.
 b. **length** — total linear length in inches. Read dimension labels first. If no label, estimate from the drawing.
 c. **depth** — depth in inches. Read from dimension labels. Standard kitchen countertop depth is 25.5". Vanity/bath tops are typically 22" or 19" deep. Islands are often 36-42".
-d. **backsplashLength** — the linear inches of WALL backsplash ONLY. Look for DOUBLE LINES drawn along the WALL edge of the countertop — these indicate backsplash. The backsplash length is the total linear inches of those double lines along walls. IMPORTANT: Do NOT include sidesplash (short returns at exposed ends/corners perpendicular to the wall). Sidesplash is tracked separately. Only count the continuous backsplash that runs along the back wall. If a backsplash wraps continuously around a corner along the wall, count that full continuous length. If no double lines or backsplash indication, use 0.
+d. **backsplashLength** — the linear inches of WALL backsplash ONLY. This is CRITICAL — read carefully:
+   - For EVERY countertop section that is against a wall, backsplash runs along the FULL wall edge.
+   - KEY RULE: If a countertop section is against a wall (not an island), the backsplash length should generally EQUAL or be very close to the countertop LENGTH, because backsplash runs the entire length of the countertop along the wall.
+   - For L-shaped or U-shaped runs broken into segments: each segment's backsplash = that segment's FULL length along the wall. Do NOT deduct depth at corners — backsplash is continuous along walls.
+   - Look for DOUBLE LINES drawn along the WALL edge — these confirm backsplash presence.
+   - Do NOT include sidesplash (short perpendicular returns at exposed ends). Sidesplash is tracked separately.
+   - Islands and peninsulas typically have backsplashLength = 0 (no wall behind them).
+   - If a section is clearly against a wall but you're unsure about backsplash markings, default backsplashLength to the section's length.
 e. **isIsland** — true if this section is an island or peninsula (not against a wall, typically depth >= 30").
 f. **category** — classify as "kitchen" or "bath". Use these rules:
    - If depth is 22" or less (19", 22", etc.) → "bath"  
@@ -46,13 +53,13 @@ RULES:
 - For L-shaped or U-shaped runs, break them into individual straight segments
 - If a countertop wraps around a corner, create separate sections for each leg
 - IMPORTANT for **length** (Top Inches): When breaking L/U-shaped runs at a corner, deduct the depth (e.g. 25.5") from one leg to avoid double-counting the corner overlap. This is correct for top surface area.
-- IMPORTANT for **backsplashLength** (BS Inches): Do NOT deduct any depth for corners. Backsplash runs along the wall continuously — measure the FULL linear inches of backsplash double lines as they appear, with NO corner deduction. The backsplash length is simply the total length of all double lines shown.
+- IMPORTANT for **backsplashLength** (BS Inches): Do NOT deduct any depth for corners. Backsplash runs along the wall continuously — measure the FULL linear inches along the wall with NO corner deduction. Each wall-adjacent segment's backsplash = its full length.
 - Do NOT include appliance surfaces (range top, sink cutout dimensions) as separate sections — they are part of the countertop run
 - If the page has no countertop information, return {"unitTypeName":"","countertops":[]}
 - Round all dimensions to nearest 0.5 inch
-- IMPORTANT: Look carefully for double lines along walls — these are backsplash indicators. Measure their total length.
 - Standard depths: perimeter = 25.5", island = 36", bar = 12-18", vanity = 22"
 - The unitTypeName field is REQUIRED — always look for it in the title block
+- IMPORTANT: Scan the ENTIRE page thoroughly. Do not skip any countertop sections, especially smaller segments or sections in corners of the drawing.
 
 Return ONLY valid JSON — no markdown fences, no explanation:
 {"unitTypeName":"1.1B-AS","countertops":[{"label":"Perimeter Left","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"}]}`;
