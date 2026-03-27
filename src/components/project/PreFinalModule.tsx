@@ -943,14 +943,17 @@ export default function PreFinalModule({ project }: Props) {
                   const calcGroupBsSqft = (g: DepthGroup, bsHeight: number) => Math.ceil((g.totalBsLength * bsHeight) / 144);
                   const calcGroupSsSqft = (g: DepthGroup, bsHeight: number, ssQty: number) => ssQty > 0 ? Math.ceil((g.depth * bsHeight * ssQty) / 144) : 0;
 
+                  const typeKitchenBsH = store.getTypeBsHeight(unitType, 'kitchen');
+                  const typeBathBsH = store.getTypeBsHeight(unitType, 'bath');
+
                   const kitchenTopSqft = kitchenGroups.reduce((s, g) => s + calcGroupTopSqft(g), 0);
-                  const kitchenBsSqft = kitchenGroups.reduce((s, g) => s + calcGroupBsSqft(g, store.kitchenBacksplashHeight), 0);
-                  const kitchenSsSqft = kitchenGroups.reduce((s, g) => s + calcGroupSsSqft(g, store.kitchenBacksplashHeight, store.sidesplashQtyMap[`${unitType}|kitchen|${g.depth}`] || 0), 0);
+                  const kitchenBsSqft = kitchenGroups.reduce((s, g) => s + calcGroupBsSqft(g, typeKitchenBsH), 0);
+                  const kitchenSsSqft = kitchenGroups.reduce((s, g) => s + calcGroupSsSqft(g, typeKitchenBsH, store.sidesplashQtyMap[`${unitType}|kitchen|${g.depth}`] || 0), 0);
                   const kitchenTotalSqft = kitchenTopSqft + kitchenBsSqft + kitchenSsSqft;
 
                   const bathTopSqft = bathGroups.reduce((s, g) => s + calcGroupTopSqft(g), 0);
-                  const bathBsSqft = bathGroups.reduce((s, g) => s + calcGroupBsSqft(g, store.bathBacksplashHeight), 0);
-                  const bathSsSqft = bathGroups.reduce((s, g) => s + calcGroupSsSqft(g, store.bathBacksplashHeight, store.sidesplashQtyMap[`${unitType}|bath|${g.depth}`] || 0), 0);
+                  const bathBsSqft = bathGroups.reduce((s, g) => s + calcGroupBsSqft(g, typeBathBsH), 0);
+                  const bathSsSqft = bathGroups.reduce((s, g) => s + calcGroupSsSqft(g, typeBathBsH, store.sidesplashQtyMap[`${unitType}|bath|${g.depth}`] || 0), 0);
                   const bathTotalSqft = bathTopSqft + bathBsSqft + bathSsSqft;
 
                   const renderCategoryTable = (
