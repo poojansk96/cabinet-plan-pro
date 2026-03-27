@@ -36,7 +36,8 @@ b. **length** — total linear length in inches. Read dimension labels first. If
 c. **depth** — depth in inches. Read from dimension labels. Standard kitchen countertop depth is 25.5". Vanity/bath tops are typically 22" or 19" deep. Islands are often 36-42".
 d. **backsplashLength** — the linear inches of backsplash along the BACK WALL ONLY. Look for DOUBLE LINES drawn along the wall edge of the countertop — these indicate backsplash. IMPORTANT: Only count the back wall length as backsplash. Do NOT include the side depth/return edges (e.g. 25.5" side pieces) — those are sidesplashes and are counted separately. For example, if a countertop is 121.5" long and 25.5" deep with backsplash along the back, the backsplashLength is 121.5", NOT 121.5" + 25.5" + 25.5". If no double lines or backsplash indication, use 0.
 e. **isIsland** — true if this section is an island or peninsula (not against a wall, typically depth >= 30").
-f. **category** — classify as "kitchen" or "bath". Use these rules:
+f. **sidesplashQty** — count the number of EXPOSED SIDE EDGES (sidesplashes) for this countertop section. A sidesplash is a finished edge piece at the end of a countertop run where it terminates against open space (not against a wall). Look for short return pieces at the ends of countertop runs. For L-shaped or U-shaped counters, the inside corner does NOT count as a sidesplash. Typical values: 0 (no exposed ends), 1 (one exposed end), or 2 (both ends exposed). If uncertain, use 0.
+g. **category** — classify as "kitchen" or "bath". Use these rules:
    - If depth is 22" or less (19", 22", etc.) → "bath"  
    - If the label or room mentions "vanity", "bath", "bathroom", "lav", "powder" → "bath"
    - Everything else → "kitchen"
@@ -55,7 +56,7 @@ RULES:
 - The unitTypeName field is REQUIRED — always look for it in the title block
 
 Return ONLY valid JSON — no markdown fences, no explanation:
-{"unitTypeName":"1.1B-AS","countertops":[{"label":"Perimeter Left","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"}]}`;
+{"unitTypeName":"1.1B-AS","countertops":[{"label":"Perimeter Left","length":96,"depth":25.5,"backsplashLength":96,"sidesplashQty":1,"isIsland":false,"category":"kitchen"}]}`;
 
     let response: Response | null = null;
     const MAX_RETRIES = 3;
@@ -146,6 +147,7 @@ Return ONLY valid JSON — no markdown fences, no explanation:
         length: Math.round((Number(ct.length) || 96) * 2) / 2,
         depth,
         backsplashLength: Math.round((Number(ct.backsplashLength) || 0) * 2) / 2,
+        sidesplashQty: Math.max(0, Math.round(Number(ct.sidesplashQty) || 0)),
         isIsland: Boolean(ct.isIsland),
         category,
       };
