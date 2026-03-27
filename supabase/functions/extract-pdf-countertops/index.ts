@@ -125,7 +125,30 @@ Return ONLY valid JSON — no markdown fences, no explanation:
       }
       parsed = JSON.parse(cleaned);
     } catch {
-      console.error("JSON parse failed, raw:", content.slice(0, 500));
+      console.warn("JSON parse failed, attempting truncated recovery...");
+      // Recovery: extract unitTypeName and individual complete countertop objects
+      try {
+        let cleaned = content.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
+        const jsonStart = cleaned.indexOf('{"unitTypeName"');
+        if (jsonStart >= 0) cleaned = cleaned.slice(jsonStart);
+
+        // Extract unitTypeName
+        const typeMatch = cleaned.match(/"unitTypeName"\s*:\s*"([^"]*)"/);
+        const recoveredType = typeMatch ? typeMatch[1] : "";
+
+        // Extract all complete countertop objects using regex
+        const objPattern = /\{\s*"label"\s*:\s*"[^"]*"\s*,\s*"length"\s*:\s*[\d.]+\s*,\s*"depth"\s*:\s*[\d.]+\s*,\s*"backsplashLength"\s*:\s*[\d.]+\s*,\s*"sidesplashQty"\s*:\s*\d+\s*,\s*"isIsland"\s*:\s*(?:true|false)\s*,\s*"category"\s*:\s*"[^"]*"\s*\}/g;
+        const matches = cleaned.match(objPattern);
+        if (matches && matches.length > 0) {
+          const recovered = matches.map((m: string) => JSON.parse(m));
+          parsed = { unitTypeName: recoveredType, countertops: recovered };
+          console.log(`Recovered ${recovered.length} countertops from truncated JSON for type: ${recoveredType}`);
+        } else {
+          console.error("Recovery failed, no complete objects found. Raw:", content.slice(0, 500));
+        }
+      } catch (recErr) {
+        console.error("Recovery also failed:", recErr, "Raw:", content.slice(0, 500));
+      }
     }
 
     const unitTypeName = String(parsed.unitTypeName || "").trim();
