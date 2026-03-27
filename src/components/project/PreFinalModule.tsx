@@ -1002,20 +1002,28 @@ export default function PreFinalModule({ project }: Props) {
                   const kitchenGroups = groupByDepth(kitchenRows);
                   const bathGroups = groupByDepth(bathRows);
 
-                  const calcGroupTopSqft = (g: DepthGroup) => Math.ceil((g.totalLength * g.depth) / 144);
-                  const calcGroupBsSqft = (g: DepthGroup, bsHeight: number) => Math.ceil((g.totalBsLength * bsHeight) / 144);
+                  const getEffectiveTopInches = (g: DepthGroup, cat: string) => {
+                    const key = `${unitType}|${cat}|${g.depth}|topInches`;
+                    return store.stoneInchesOverrideMap[key] !== undefined ? store.stoneInchesOverrideMap[key] : g.totalLength;
+                  };
+                  const getEffectiveBsInches = (g: DepthGroup, cat: string) => {
+                    const key = `${unitType}|${cat}|${g.depth}|bsInches`;
+                    return store.stoneInchesOverrideMap[key] !== undefined ? store.stoneInchesOverrideMap[key] : g.totalBsLength;
+                  };
+                  const calcGroupTopSqft = (g: DepthGroup, cat: string) => Math.ceil((getEffectiveTopInches(g, cat) * g.depth) / 144);
+                  const calcGroupBsSqft = (g: DepthGroup, bsHeight: number, cat: string) => Math.ceil((getEffectiveBsInches(g, cat) * bsHeight) / 144);
                   const calcGroupSsSqft = (g: DepthGroup, bsHeight: number, ssQty: number) => ssQty > 0 ? Math.ceil((g.depth * bsHeight * ssQty) / 144) : 0;
 
                   const typeKitchenBsH = store.getTypeBsHeight(unitType, 'kitchen');
                   const typeBathBsH = store.getTypeBsHeight(unitType, 'bath');
 
-                  const kitchenTopSqft = kitchenGroups.reduce((s, g) => s + calcGroupTopSqft(g), 0);
-                  const kitchenBsSqft = kitchenGroups.reduce((s, g) => s + calcGroupBsSqft(g, typeKitchenBsH), 0);
+                  const kitchenTopSqft = kitchenGroups.reduce((s, g) => s + calcGroupTopSqft(g, 'kitchen'), 0);
+                  const kitchenBsSqft = kitchenGroups.reduce((s, g) => s + calcGroupBsSqft(g, typeKitchenBsH, 'kitchen'), 0);
                   const kitchenSsSqft = kitchenGroups.reduce((s, g) => s + calcGroupSsSqft(g, typeKitchenBsH, store.sidesplashQtyMap[`${unitType}|kitchen|${g.depth}`] || 0), 0);
                   const kitchenTotalSqft = kitchenTopSqft + kitchenBsSqft + kitchenSsSqft;
 
-                  const bathTopSqft = bathGroups.reduce((s, g) => s + calcGroupTopSqft(g), 0);
-                  const bathBsSqft = bathGroups.reduce((s, g) => s + calcGroupBsSqft(g, typeBathBsH), 0);
+                  const bathTopSqft = bathGroups.reduce((s, g) => s + calcGroupTopSqft(g, 'bath'), 0);
+                  const bathBsSqft = bathGroups.reduce((s, g) => s + calcGroupBsSqft(g, typeBathBsH, 'bath'), 0);
                   const bathSsSqft = bathGroups.reduce((s, g) => s + calcGroupSsSqft(g, typeBathBsH, store.sidesplashQtyMap[`${unitType}|bath|${g.depth}`] || 0), 0);
                   const bathTotalSqft = bathTopSqft + bathBsSqft + bathSsSqft;
 
