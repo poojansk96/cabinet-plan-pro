@@ -1383,29 +1383,23 @@ export default function PreFinalModule({ project }: Props) {
                             </div>
                             <table className="est-table text-xs w-full" style={{ tableLayout: 'fixed' }}>
                               <colgroup>
-                                <col style={{ width: '11%' }} />
-                                <col style={{ width: '10%' }} />
-                                <col style={{ width: '9%' }} />
-                                <col style={{ width: '10%' }} />
-                                <col style={{ width: '11%' }} />
-                                <col style={{ width: '10%' }} />
-                                <col style={{ width: '9%' }} />
-                                <col style={{ width: '10%' }} />
-                                <col style={{ width: '10%' }} />
-                                <col style={{ width: '10%' }} />
+                                <col style={{ width: '16%' }} />
+                                <col style={{ width: '14%' }} />
+                                <col style={{ width: '14%' }} />
+                                <col style={{ width: '16%' }} />
+                                <col style={{ width: '14%' }} />
+                                <col style={{ width: '14%' }} />
+                                <col style={{ width: '12%' }} />
                               </colgroup>
                               <thead>
                                 <tr>
                                   <th className="text-center text-[10px] leading-tight" style={{ background: 'hsl(142 40% 90%)' }}>KTOP LFT<br/>CALC</th>
                                   <th className="text-center text-[10px] leading-tight" style={{ background: 'hsl(142 40% 90%)' }}>KTOP SLAB<br/>USAGE</th>
                                   <th className="text-center text-[10px] leading-tight" style={{ background: 'hsl(142 40% 90%)' }}>KTOP SLAB<br/>LFT CALC</th>
-                                  <th className="text-center text-[10px] leading-tight" style={{ background: 'hsl(142 40% 90%)' }}>KTOP SLAB<br/>COST</th>
                                   <th className="text-center text-[10px] leading-tight" style={{ background: 'hsl(38 70% 90%)' }}>BARTOP<br/>LFT CALC</th>
                                   <th className="text-center text-[10px] leading-tight" style={{ background: 'hsl(38 70% 90%)' }}>BARTOP SLAB<br/>USAGE</th>
                                   <th className="text-center text-[10px] leading-tight" style={{ background: 'hsl(38 70% 90%)' }}>BARTOP SLAB<br/>LFT CALC</th>
-                                  <th className="text-center text-[10px] leading-tight" style={{ background: 'hsl(38 70% 90%)' }}>BARTOP SLAB<br/>COST</th>
                                   <th className="text-center text-[10px] leading-tight" style={{ background: 'hsl(280 30% 90%)' }}>KTOP SS<br/>QTY</th>
-                                  <th className="text-center text-[10px] leading-tight" style={{ background: 'hsl(280 30% 90%)' }}>KTOP SS<br/>COST</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -1418,17 +1412,6 @@ export default function PreFinalModule({ project }: Props) {
                                   </td>
                                   <td className="text-center font-mono text-xs">
                                     {ktopSlab.totalSlabLft || '—'}
-                                  </td>
-                                  <td className="text-center">
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      step={0.01}
-                                      className="est-input w-16 text-xs text-center font-mono"
-                                      value={ktopSlabCost || ''}
-                                      onChange={e => store.setLaminateManual(unitType, 'ktopSlabCost', +e.target.value || 0)}
-                                      placeholder="0.00"
-                                    />
                                   </td>
                                   <td className="text-center font-mono text-xs">
                                     {bartopLfts.length > 0 ? bartopLfts.join('+') : '—'}
@@ -1443,32 +1426,10 @@ export default function PreFinalModule({ project }: Props) {
                                     <input
                                       type="number"
                                       min={0}
-                                      step={0.01}
-                                      className="est-input w-16 text-xs text-center font-mono"
-                                      value={bartopSlabCost || ''}
-                                      onChange={e => store.setLaminateManual(unitType, 'bartopSlabCost', +e.target.value || 0)}
-                                      placeholder="0.00"
-                                    />
-                                  </td>
-                                  <td className="text-center">
-                                    <input
-                                      type="number"
-                                      min={0}
                                       className="est-input w-14 text-xs text-center font-mono"
                                       value={ssQty || ''}
                                       onChange={e => store.setLaminateManual(unitType, 'ssQty', +e.target.value || 0)}
                                       placeholder="0"
-                                    />
-                                  </td>
-                                  <td className="text-center">
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      step={0.01}
-                                      className="est-input w-16 text-xs text-center font-mono"
-                                      value={ssCost || ''}
-                                      onChange={e => store.setLaminateManual(unitType, 'ssCost', +e.target.value || 0)}
-                                      placeholder="0.00"
                                     />
                                   </td>
                                 </tr>
@@ -1483,62 +1444,40 @@ export default function PreFinalModule({ project }: Props) {
                         <div className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Laminate LFT Summary by Type</div>
                         <table className="est-table text-xs w-full" style={{ tableLayout: 'fixed' }}>
                           <colgroup>
+                            <col style={{ width: '30%' }} />
+                            <col style={{ width: '15%' }} />
                             <col style={{ width: '20%' }} />
-                            <col style={{ width: '10%' }} />
-                            <col style={{ width: '14%' }} />
-                            <col style={{ width: '14%' }} />
-                            <col style={{ width: '14%' }} />
-                            <col style={{ width: '14%' }} />
-                            <col style={{ width: '14%' }} />
+                            <col style={{ width: '20%' }} />
+                            <col style={{ width: '15%' }} />
                           </colgroup>
                           <thead>
                             <tr>
                               <th className="text-left">Type</th>
                               <th className="text-right">Units</th>
-                              <th className="text-right">KTOP Slab Cost</th>
-                              <th className="text-right">BARTOP Slab Cost</th>
-                              <th className="text-right">SS Cost</th>
-                              <th className="text-right">Per Unit Cost</th>
-                              <th className="text-right">Total Cost</th>
+                              <th className="text-right">KTOP Slab Usage</th>
+                              <th className="text-right">BARTOP Slab Usage</th>
+                              <th className="text-right">SS QTY</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {(() => {
-                              let grandTotal = 0;
+                            {lamUnitTypes.map(type => {
+                              const unitCount = store.unitNumbers.filter(u => u.assignments[type]).length || 1;
+                              const typeRows = store.laminateRows.filter(r => r.unitType === type);
+                              const ktopLft = typeRows.filter(r => !r.isIsland).reduce((s, r) => s + Math.ceil(r.length / 12), 0);
+                              const bartopLft = typeRows.filter(r => r.isIsland).reduce((s, r) => s + Math.ceil(r.length / 12), 0);
+                              const kSlab = calcSlabUsage(ktopLft);
+                              const bSlab = calcSlabUsage(bartopLft);
+                              const ssQty = store.laminateManualMap[`${type}|ssQty`] || 0;
                               return (
-                                <>
-                                  {lamUnitTypes.map(type => {
-                                    const unitCount = store.unitNumbers.filter(u => u.assignments[type]).length || 1;
-                                    const kCost = store.laminateManualMap[`${type}|ktopSlabCost`] || 0;
-                                    const bCost = store.laminateManualMap[`${type}|bartopSlabCost`] || 0;
-                                    const sCost = store.laminateManualMap[`${type}|ssCost`] || 0;
-                                    const perUnit = kCost + bCost + sCost;
-                                    const total = perUnit * unitCount;
-                                    grandTotal += total;
-                                    return (
-                                      <tr key={type}>
-                                        <td className="font-bold">{type}</td>
-                                        <td className="text-right font-mono">{unitCount}</td>
-                                        <td className="text-right font-mono">${kCost.toFixed(2)}</td>
-                                        <td className="text-right font-mono">${bCost.toFixed(2)}</td>
-                                        <td className="text-right font-mono">${sCost.toFixed(2)}</td>
-                                        <td className="text-right font-mono font-bold">${perUnit.toFixed(2)}</td>
-                                        <td className="text-right font-bold" style={{ color: 'hsl(142 60% 35%)' }}>${total.toFixed(2)}</td>
-                                      </tr>
-                                    );
-                                  })}
-                                  <tr className="font-bold border-t-2 border-border">
-                                    <td>GRAND TOTAL</td>
-                                    <td></td>
-                                    <td></td>
-                                    <td></td>
-                                    <td></td>
-                                    <td></td>
-                                    <td className="text-right text-base" style={{ color: 'hsl(142 60% 35%)' }}>${grandTotal.toFixed(2)}</td>
-                                  </tr>
-                                </>
+                                <tr key={type}>
+                                  <td className="font-bold">{type}</td>
+                                  <td className="text-right font-mono">{unitCount}</td>
+                                  <td className="text-right font-mono">{kSlab.qty > 0 ? `${kSlab.size}'×${kSlab.qty}` : '—'}</td>
+                                  <td className="text-right font-mono">{bSlab.qty > 0 ? `${bSlab.size}'×${bSlab.qty}` : '—'}</td>
+                                  <td className="text-right font-mono">{ssQty || '—'}</td>
+                                </tr>
                               );
-                            })()}
+                            })}
                           </tbody>
                         </table>
                       </div>
