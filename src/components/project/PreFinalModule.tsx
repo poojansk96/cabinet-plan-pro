@@ -1106,8 +1106,14 @@ export default function PreFinalModule({ project }: Props) {
                         )}
                       </div>
 
-                      {renderCategoryTable('🍳 Kitchen Tops', kitchenGroups, typeKitchenBsH, kitchenTopSqft, kitchenBsSqft, kitchenSsSqft, kitchenTotalSqft, 'hsl(213 60% 50%)', 'kitchen')}
-                      {renderCategoryTable('🚿 Bath/Vanity Tops', bathGroups, typeBathBsH, bathTopSqft, bathBsSqft, bathSsSqft, bathTotalSqft, 'hsl(38 80% 45%)', 'bath')}
+                      <div className="flex gap-3 flex-wrap">
+                        <div className="flex-1 min-w-[320px]">
+                          {renderCategoryTable('🍳 Kitchen Tops', kitchenGroups, typeKitchenBsH, kitchenTopSqft, kitchenBsSqft, kitchenSsSqft, kitchenTotalSqft, 'hsl(213 60% 50%)', 'kitchen')}
+                        </div>
+                        <div className="flex-1 min-w-[320px]">
+                          {renderCategoryTable('🚿 Bath/Vanity Tops', bathGroups, typeBathBsH, bathTopSqft, bathBsSqft, bathSsSqft, bathTotalSqft, 'hsl(38 80% 45%)', 'bath')}
+                        </div>
+                      </div>
                     </div>
                   );
                 })}
