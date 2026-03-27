@@ -34,7 +34,7 @@ TASK:
 a. **label** — a short descriptive name based on its location (e.g. "Perimeter Left", "Perimeter Right", "Island", "Peninsula", "Bar Top", "Vanity", "L-Section", "U-Section"). If the drawing has text labels, use those.
 b. **length** — total linear length in inches. Read dimension labels first. If no label, estimate from the drawing.
 c. **depth** — depth in inches. Read from dimension labels. Standard kitchen countertop depth is 25.5". Vanity/bath tops are typically 22" or 19" deep. Islands are often 36-42".
-d. **backsplashLength** — the linear inches of backsplash shown. Look for DOUBLE LINES drawn along the wall edge of the countertop — these indicate backsplash. The backsplash length is the total linear inches of those double lines. If no double lines or backsplash indication, use 0.
+d. **backsplashLength** — the linear inches of backsplash along the BACK WALL ONLY. Look for DOUBLE LINES drawn along the wall edge of the countertop — these indicate backsplash. IMPORTANT: Only count the back wall length as backsplash. Do NOT include the side depth/return edges (e.g. 25.5" side pieces) — those are sidesplashes and are counted separately. For example, if a countertop is 121.5" long and 25.5" deep with backsplash along the back, the backsplashLength is 121.5", NOT 121.5" + 25.5" + 25.5". If no double lines or backsplash indication, use 0.
 e. **isIsland** — true if this section is an island or peninsula (not against a wall, typically depth >= 30").
 f. **category** — classify as "kitchen" or "bath". Use these rules:
    - If depth is 22" or less (19", 22", etc.) → "bath"  
@@ -46,11 +46,11 @@ RULES:
 - For L-shaped or U-shaped runs, break them into individual straight segments
 - If a countertop wraps around a corner, create separate sections for each leg
 - IMPORTANT for **length** (Top Inches): When breaking L/U-shaped runs at a corner, deduct the depth (e.g. 25.5") from one leg to avoid double-counting the corner overlap. This is correct for top surface area.
-- IMPORTANT for **backsplashLength** (BS Inches): Do NOT deduct any depth for corners. Backsplash runs along the wall continuously — measure the FULL linear inches of backsplash double lines as they appear, with NO corner deduction. The backsplash length is simply the total length of all double lines shown.
+- IMPORTANT for **backsplashLength** (BS Inches): Only count the BACK WALL edge where double lines appear. Do NOT include side returns or side depths — those are sidesplashes handled separately. For example, on an L-shaped counter, only the wall-facing edges count as backsplash, not the exposed side edges.
 - Do NOT include appliance surfaces (range top, sink cutout dimensions) as separate sections — they are part of the countertop run
 - If the page has no countertop information, return {"unitTypeName":"","countertops":[]}
 - Round all dimensions to nearest 0.5 inch
-- IMPORTANT: Look carefully for double lines along walls — these are backsplash indicators. Measure their total length.
+- IMPORTANT: Look carefully for double lines along walls — these are backsplash indicators. Measure their total length along the back wall only, excluding side returns.
 - Standard depths: perimeter = 25.5", island = 36", bar = 12-18", vanity = 22"
 - The unitTypeName field is REQUIRED — always look for it in the title block
 
