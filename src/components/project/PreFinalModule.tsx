@@ -1057,9 +1057,41 @@ export default function PreFinalModule({ project }: Props) {
                           )}
                         </div>
                       </div>
+                      {/* Per-type BS height overrides */}
+                      <div className="px-4 py-2 border-b border-border flex items-center gap-6 flex-wrap" style={{ background: 'hsl(var(--secondary) / 0.5)' }}>
+                        <span className="text-xs text-muted-foreground font-medium">BS Height for {unitType}:</span>
+                        {kitchenGroups.length > 0 && (
+                          <label className="flex items-center gap-2 text-xs">
+                            <span className="text-muted-foreground">Kitchen:</span>
+                            <select
+                              className="est-input text-xs w-16"
+                              value={typeKitchenBsH}
+                              onChange={e => store.setTypeBacksplashHeight(unitType, 'kitchen', Number(e.target.value))}
+                            >
+                              {[0, 2, 3, 4, 5, 6, 8, 10, 12, 18].map(h => (
+                                <option key={h} value={h}>{h}"</option>
+                              ))}
+                            </select>
+                          </label>
+                        )}
+                        {bathGroups.length > 0 && (
+                          <label className="flex items-center gap-2 text-xs">
+                            <span className="text-muted-foreground">Bath:</span>
+                            <select
+                              className="est-input text-xs w-16"
+                              value={typeBathBsH}
+                              onChange={e => store.setTypeBacksplashHeight(unitType, 'bath', Number(e.target.value))}
+                            >
+                              {[0, 2, 3, 4, 5, 6, 8, 10, 12, 18].map(h => (
+                                <option key={h} value={h}>{h}"</option>
+                              ))}
+                            </select>
+                          </label>
+                        )}
+                      </div>
 
-                      {renderCategoryTable('🍳 Kitchen Tops', kitchenGroups, store.kitchenBacksplashHeight, kitchenTopSqft, kitchenBsSqft, kitchenSsSqft, kitchenTotalSqft, 'hsl(213 60% 50%)', 'kitchen')}
-                      {renderCategoryTable('🚿 Bath/Vanity Tops', bathGroups, store.bathBacksplashHeight, bathTopSqft, bathBsSqft, bathSsSqft, bathTotalSqft, 'hsl(38 80% 45%)', 'bath')}
+                      {renderCategoryTable('🍳 Kitchen Tops', kitchenGroups, typeKitchenBsH, kitchenTopSqft, kitchenBsSqft, kitchenSsSqft, kitchenTotalSqft, 'hsl(213 60% 50%)', 'kitchen')}
+                      {renderCategoryTable('🚿 Bath/Vanity Tops', bathGroups, typeBathBsH, bathTopSqft, bathBsSqft, bathSsSqft, bathTotalSqft, 'hsl(38 80% 45%)', 'bath')}
                     </div>
                   );
                 })}
