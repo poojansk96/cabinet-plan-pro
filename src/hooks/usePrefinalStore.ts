@@ -758,6 +758,7 @@ export function usePrefinalStore(projectId: string) {
     return data.stoneInchesOverrideMap[key] !== undefined ? data.stoneInchesOverrideMap[key] : defaultVal;
   }, [data.stoneInchesOverrideMap]);
 
+  const clearAll = useCallback(() => {
     commit({ unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [], kitchenBacksplashHeight: 4, bathBacksplashHeight: 4, sidesplashQtyMap: {}, typeBacksplashHeightMap: {}, stoneInchesOverrideMap: {}, laminateRows: [], laminateUnitTypes: [], laminateManualMap: {} });
   }, [commit]);
 
