@@ -51,6 +51,7 @@ export default function PreFinalModule({ project }: Props) {
   // ── Stone SQFT state ──────────────────────────────────────────────────
   const [showStoneImport, setShowStoneImport] = useState(false);
   const [stoneImportedCount, setStoneImportedCount] = useState<number | null>(null);
+  const [expandedStoneTypes, setExpandedStoneTypes] = useState<Record<string, boolean>>({});
 
   // ── Laminate LFT state ──────────────────────────────────────────────────
   const [showLaminateImport, setShowLaminateImport] = useState(false);
