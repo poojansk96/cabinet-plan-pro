@@ -1123,8 +1123,8 @@ export default function PreFinalModule({ project }: Props) {
                           <tfoot>
                             <tr className="border-t-2 border-border">
                               <td className="text-left">Total</td>
-                              <td className="text-right">{groups.reduce((s, g) => s + g.totalLength, 0)}</td>
-                              <td className="text-right">{groups.reduce((s, g) => s + g.totalBsLength, 0)}</td>
+                              <td className="text-right">{groups.reduce((s, g) => s + getEffectiveTopInches(g, category), 0)}</td>
+                              <td className="text-right">{groups.reduce((s, g) => s + getEffectiveBsInches(g, category), 0)}</td>
                               <td></td>
                               <td className="text-right">{bsHeight}</td>
                               <td className="text-right">{totalTop}</td>
