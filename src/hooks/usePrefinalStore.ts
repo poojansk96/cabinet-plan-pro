@@ -42,6 +42,7 @@ interface PrefinalData {
   bathBacksplashHeight: number;
   sidesplashQtyMap: Record<string, number>; // key: unitType|category|depth
   typeBacksplashHeightMap: Record<string, number>; // key: unitType|category -> height override
+  stoneInchesOverrideMap: Record<string, number>; // key: unitType|category|depth|field (topInches, bsInches)
   laminateRows: PrefinalStoneRow[];
   laminateUnitTypes: string[];
   laminateManualMap: Record<string, number>; // key: unitType|field (ktopSlabCost, bartopSlabCost, ssQty, ssCost)
