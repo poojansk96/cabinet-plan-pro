@@ -140,41 +140,60 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
           const page = await pdf.getPage(p);
           const pageImage = await renderPageToBase64(page);
 
-          try {
-            const resp = await fetch(`${SUPABASE_URL}/functions/v1/extract-pdf-countertops`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${SUPABASE_KEY}`,
-              },
-              body: JSON.stringify({ pageImage }),
-            });
-
-            if (resp.status === 429) { setError('Rate limit reached. Please wait and try again.'); break; }
-            if (resp.status === 402) { setError('AI credits exhausted.'); break; }
-
-            if (resp.ok) {
-              const data = await resp.json();
-              const pageUnitType = String(data.unitTypeName || '').trim();
-              if (pageUnitType && !detectedTypesOrder.includes(pageUnitType)) {
-                detectedTypesOrder.push(pageUnitType);
+          const MAX_CLIENT_RETRIES = 3;
+          let pageSuccess = false;
+          for (let attempt = 0; attempt < MAX_CLIENT_RETRIES && !pageSuccess; attempt++) {
+            try {
+              if (attempt > 0) {
+                setStatusMsg(`Retrying ${file.name} — page ${p}/${pdf.numPages} (attempt ${attempt + 1})`);
+                await new Promise(r => setTimeout(r, 2000 * attempt));
               }
-              for (const ct of (data.countertops ?? [])) {
-                allRows.push({
-                  label: ct.label,
-                  length: ct.length,
-                  depth: ct.depth,
-                  backsplashLength: ct.backsplashLength ?? 0,
-                  isIsland: ct.isIsland,
-                  category: ct.category === 'bath' ? 'bath' : 'kitchen',
-                  selected: true,
-                  sourceFile: file.name,
-                  unitType: pageUnitType || undefined,
-                });
+              const controller = new AbortController();
+              const timeout = setTimeout(() => controller.abort(), 120000); // 2 min timeout
+              const resp = await fetch(`${SUPABASE_URL}/functions/v1/extract-pdf-countertops`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${SUPABASE_KEY}`,
+                },
+                body: JSON.stringify({ pageImage }),
+                signal: controller.signal,
+              });
+              clearTimeout(timeout);
+
+              if (resp.status === 429) { setError('Rate limit reached. Please wait and try again.'); break; }
+              if (resp.status === 402) { setError('AI credits exhausted.'); break; }
+
+              if (resp.ok) {
+                const data = await resp.json();
+                const pageUnitType = String(data.unitTypeName || '').trim();
+                if (pageUnitType && !detectedTypesOrder.includes(pageUnitType)) {
+                  detectedTypesOrder.push(pageUnitType);
+                }
+                for (const ct of (data.countertops ?? [])) {
+                  allRows.push({
+                    label: ct.label,
+                    length: ct.length,
+                    depth: ct.depth,
+                    backsplashLength: ct.backsplashLength ?? 0,
+                    isIsland: ct.isIsland,
+                    category: ct.category === 'bath' ? 'bath' : 'kitchen',
+                    selected: true,
+                    sourceFile: file.name,
+                    unitType: pageUnitType || undefined,
+                  });
+                }
+                pageSuccess = true;
+              } else if (resp.status === 503 && attempt < MAX_CLIENT_RETRIES - 1) {
+                console.warn(`Server 503 on page ${p}, retrying...`);
+                continue;
+              }
+            } catch (err) {
+              console.error(`Error processing page ${p} (attempt ${attempt + 1}):`, err);
+              if (attempt >= MAX_CLIENT_RETRIES - 1) {
+                console.error(`Failed page ${p} after ${MAX_CLIENT_RETRIES} attempts`);
               }
             }
-          } catch (err) {
-            console.error(`Error processing page ${p}:`, err);
           }
 
           pagesDone++;
