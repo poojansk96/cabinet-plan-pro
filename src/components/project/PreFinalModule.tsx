@@ -397,6 +397,13 @@ export default function PreFinalModule({ project }: Props) {
         >
           <Square size={13} /> Stone - SQFT
         </button>
+        <button
+          onClick={() => setActiveSubTab('laminate')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-xs font-medium transition-colors ${activeSubTab === 'laminate' ? 'text-white' : 'text-muted-foreground border border-border hover:bg-secondary'}`}
+          style={activeSubTab === 'laminate' ? { background: 'hsl(142 60% 35%)' } : {}}
+        >
+          <Layers size={13} /> Laminate LFT
+        </button>
 
       </div>
 
