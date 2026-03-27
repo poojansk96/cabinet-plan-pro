@@ -198,6 +198,49 @@ export default function PreFinalModule({ project }: Props) {
     setTimeout(() => setStoneImportedCount(null), 4000);
   };
 
+  // ── Laminate import handler ────────────────────────────────────────────
+  const handleLaminateImport = (rows: StoneExtractedRow[], detectedTypes?: string[]) => {
+    const rowsByType = new Map<string, StoneExtractedRow[]>();
+    const typeOrder: string[] = [];
+
+    for (const r of rows) {
+      if (r.selected === false) continue;
+      const type = r.unitType ? normalizeUnitType(r.unitType) : 'Unassigned';
+      if (!rowsByType.has(type)) {
+        rowsByType.set(type, []);
+        typeOrder.push(type);
+      }
+      rowsByType.get(type)!.push(r);
+    }
+
+    store.clearLaminate();
+
+    if (detectedTypes && detectedTypes.length > 0) {
+      const normalizedOrder = detectedTypes.map(t => normalizeUnitType(t)).filter((t, i, a) => a.indexOf(t) === i);
+      const remaining = typeOrder.filter(t => !normalizedOrder.includes(t));
+      store.addLaminateUnitTypes([...normalizedOrder, ...remaining]);
+    } else {
+      store.addLaminateUnitTypes(typeOrder);
+    }
+
+    for (const [unitType, typeRows] of rowsByType) {
+      const laminateRows: PrefinalStoneRow[] = typeRows.map(r => ({
+        label: r.label,
+        length: r.length,
+        depth: r.depth,
+        backsplashLength: r.backsplashLength ?? 0,
+        isIsland: r.isIsland,
+        category: r.category || 'kitchen',
+        unitType,
+      }));
+      store.addLaminateImport(laminateRows, unitType);
+    }
+
+    setLaminateImportedCount(rows.filter(r => r.selected !== false).length);
+    setShowLaminateImport(false);
+    setTimeout(() => setLaminateImportedCount(null), 4000);
+  };
+
   // ── Stone pivot ─────────────────────────────────────────────────────────
   const stoneUnitTypes = (() => {
     const seen = new Set<string>();
