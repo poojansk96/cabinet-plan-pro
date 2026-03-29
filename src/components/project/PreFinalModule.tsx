@@ -1102,10 +1102,8 @@ export default function PreFinalModule({ project }: Props) {
                   };
                   const calcGroupRawTop = (g: DepthGroup, cat: string) => (getEffectiveTopInches(g, cat) * g.depth) / 144;
                   const calcGroupRawBs = (g: DepthGroup, bsHeight: number, cat: string) => (getEffectiveBsInches(g, cat) * bsHeight) / 144;
-                  const calcGroupRawSs = (g: DepthGroup, bsHeight: number, ssQty: number) => ssQty > 0 ? (g.depth * bsHeight * ssQty) / 144 : 0;
                   const calcGroupTotalSqft = (g: DepthGroup, bsHeight: number, cat: string) => {
-                    const ssQty = store.sidesplashQtyMap[`${unitType}|${cat}|${g.depth}`] || 0;
-                    return Math.ceil(calcGroupRawTop(g, cat) + calcGroupRawBs(g, bsHeight, cat) + calcGroupRawSs(g, bsHeight, ssQty));
+                    return Math.ceil(calcGroupRawTop(g, cat) + calcGroupRawBs(g, bsHeight, cat));
                   };
 
                   const typeKitchenBsH = store.getTypeBsHeight(unitType, 'kitchen');
