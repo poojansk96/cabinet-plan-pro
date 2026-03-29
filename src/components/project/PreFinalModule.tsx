@@ -1210,9 +1210,9 @@ export default function PreFinalModule({ project }: Props) {
                                   </td>
                                   {/* Computed values — gray background, no border */}
                                   <td className="text-right font-mono text-muted-foreground" style={{ background: 'hsl(var(--muted) / 0.5)' }}>{bsHeight}"</td>
-                                  <td className="text-right font-mono text-muted-foreground" style={{ background: 'hsl(var(--muted) / 0.5)' }}>{topSqft}</td>
-                                  <td className="text-right font-mono text-muted-foreground" style={{ background: 'hsl(var(--muted) / 0.5)' }}>{bsSqft + ssSqft}</td>
-                                  <td className="text-right font-bold font-mono" style={{ background: 'hsl(var(--muted) / 0.5)', color: accentColor }}>{topSqft + bsSqft + ssSqft}</td>
+                                  <td className="text-right font-mono text-muted-foreground" style={{ background: 'hsl(var(--muted) / 0.5)' }}>{Math.round(topRaw)}</td>
+                                  <td className="text-right font-mono text-muted-foreground" style={{ background: 'hsl(var(--muted) / 0.5)' }}>{Math.round(bsRaw + ssRaw)}</td>
+                                  <td className="text-right font-bold font-mono" style={{ background: 'hsl(var(--muted) / 0.5)', color: accentColor }}>{rowTotal}</td>
                                 </tr>
                               );
                             })}
@@ -1224,8 +1224,8 @@ export default function PreFinalModule({ project }: Props) {
                               <td className="text-right font-mono font-bold text-xs">{groups.reduce((s, g) => s + getEffectiveBsInches(g, category), 0)}</td>
                               <td></td>
                               <td className="text-right font-mono text-xs">{bsHeight}"</td>
-                              <td className="text-right font-mono font-bold text-xs">{totalTop}</td>
-                              <td className="text-right font-mono font-bold text-xs">{totalBs + totalSs}</td>
+                              <td className="text-right font-mono font-bold text-xs">{Math.round(groups.reduce((s, g) => s + calcGroupRawTop(g, category), 0))}</td>
+                              <td className="text-right font-mono font-bold text-xs">{Math.round(groups.reduce((s, g) => s + calcGroupRawBs(g, bsHeight, category) + calcGroupRawSs(g, bsHeight, store.sidesplashQtyMap[`${unitType}|${category}|${g.depth}`] || 0), 0))}</td>
                               <td className="text-right font-bold text-sm" style={{ color: accentColor }}>{totalSqft}</td>
                             </tr>
                           </tfoot>
@@ -1308,10 +1308,10 @@ export default function PreFinalModule({ project }: Props) {
 
                           <div className="flex gap-3 px-3" style={{ alignItems: 'flex-start' }}>
                             <div className="flex-1 min-w-0">
-                              {renderCategoryTable('🍳 Kitchen Tops', kitchenGroups, typeKitchenBsH, kitchenTopSqft, kitchenBsSqft, kitchenSsSqft, kitchenTotalSqft, 'hsl(213 60% 50%)', 'kitchen')}
+                              {renderCategoryTable('🍳 Kitchen Tops', kitchenGroups, typeKitchenBsH, kitchenTotalSqft, 'hsl(213 60% 50%)', 'kitchen')}
                             </div>
                             <div className="flex-1 min-w-0">
-                              {renderCategoryTable('🚿 Bath / Vanity Tops', bathGroups, typeBathBsH, bathTopSqft, bathBsSqft, bathSsSqft, bathTotalSqft, 'hsl(38 80% 45%)', 'bath')}
+                              {renderCategoryTable('🚿 Bath / Vanity Tops', bathGroups, typeBathBsH, bathTotalSqft, 'hsl(38 80% 45%)', 'bath')}
                             </div>
                           </div>
                         </div>
