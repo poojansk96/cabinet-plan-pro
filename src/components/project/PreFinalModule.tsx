@@ -1121,9 +1121,6 @@ export default function PreFinalModule({ project }: Props) {
                     label: string,
                     groups: DepthGroup[],
                     bsHeight: number,
-                    totalTop: number,
-                    totalBs: number,
-                    totalSs: number,
                     totalSqft: number,
                     accentColor: string,
                     category: 'kitchen' | 'bath',
@@ -1169,11 +1166,12 @@ export default function PreFinalModule({ project }: Props) {
                               const bsInchesKey = `${unitType}|${category}|${g.depth}|bsInches`;
                               const effectiveTopInches = store.stoneInchesOverrideMap[topInchesKey] !== undefined ? store.stoneInchesOverrideMap[topInchesKey] : g.totalLength;
                               const effectiveBsInches = store.stoneInchesOverrideMap[bsInchesKey] !== undefined ? store.stoneInchesOverrideMap[bsInchesKey] : g.totalBsLength;
-                              const topSqft = Math.ceil((effectiveTopInches * g.depth) / 144);
-                              const bsSqft = Math.ceil((effectiveBsInches * bsHeight) / 144);
+                              const topRaw = (effectiveTopInches * g.depth) / 144;
+                              const bsRaw = (effectiveBsInches * bsHeight) / 144;
                               const ssKey = `${unitType}|${category}|${g.depth}`;
                               const ssQty = store.sidesplashQtyMap[ssKey] || 0;
-                              const ssSqft = ssQty > 0 ? Math.ceil((g.depth * bsHeight * ssQty) / 144) : 0;
+                              const ssRaw = ssQty > 0 ? (g.depth * bsHeight * ssQty) / 144 : 0;
+                              const rowTotal = Math.ceil(topRaw + bsRaw + ssRaw);
                               return (
                                 <tr key={gi}>
                                   <td className="font-medium text-foreground">{g.depth}"</td>
