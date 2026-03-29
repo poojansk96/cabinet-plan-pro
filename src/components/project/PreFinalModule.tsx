@@ -928,22 +928,18 @@ export default function PreFinalModule({ project }: Props) {
             const bsKey = `${type}|kitchen|${depth}|bsInches`;
             const effTop = store.stoneInchesOverrideMap[topKey] !== undefined ? store.stoneInchesOverrideMap[topKey] : g.len;
             const effBs = store.stoneInchesOverrideMap[bsKey] !== undefined ? store.stoneInchesOverrideMap[bsKey] : g.bs;
-            const ssQty = store.sidesplashQtyMap[`${type}|kitchen|${depth}`] || 0;
             const rawTop = (effTop * depth) / 144;
             const rawBs = (effBs * typeKBsH) / 144;
-            const rawSs = ssQty > 0 ? (depth * typeKBsH * ssQty) / 144 : 0;
-            kSqft += Math.ceil(rawTop + rawBs + rawSs);
+            kSqft += Math.ceil(rawTop + rawBs);
           }
           for (const [depth, g] of bGroups) {
             const topKey = `${type}|bath|${depth}|topInches`;
             const bsKey = `${type}|bath|${depth}|bsInches`;
             const effTop = store.stoneInchesOverrideMap[topKey] !== undefined ? store.stoneInchesOverrideMap[topKey] : g.len;
             const effBs = store.stoneInchesOverrideMap[bsKey] !== undefined ? store.stoneInchesOverrideMap[bsKey] : g.bs;
-            const ssQty = store.sidesplashQtyMap[`${type}|bath|${depth}`] || 0;
             const rawTop = (effTop * depth) / 144;
             const rawBs = (effBs * typeBBsH) / 144;
-            const rawSs = ssQty > 0 ? (depth * typeBBsH * ssQty) / 144 : 0;
-            bSqft += Math.ceil(rawTop + rawBs + rawSs);
+            bSqft += Math.ceil(rawTop + rawBs);
           }
           return { type, unitCount, kSqft, bSqft };
         });
@@ -1102,10 +1098,8 @@ export default function PreFinalModule({ project }: Props) {
                   };
                   const calcGroupRawTop = (g: DepthGroup, cat: string) => (getEffectiveTopInches(g, cat) * g.depth) / 144;
                   const calcGroupRawBs = (g: DepthGroup, bsHeight: number, cat: string) => (getEffectiveBsInches(g, cat) * bsHeight) / 144;
-                  const calcGroupRawSs = (g: DepthGroup, bsHeight: number, ssQty: number) => ssQty > 0 ? (g.depth * bsHeight * ssQty) / 144 : 0;
                   const calcGroupTotalSqft = (g: DepthGroup, bsHeight: number, cat: string) => {
-                    const ssQty = store.sidesplashQtyMap[`${unitType}|${cat}|${g.depth}`] || 0;
-                    return Math.ceil(calcGroupRawTop(g, cat) + calcGroupRawBs(g, bsHeight, cat) + calcGroupRawSs(g, bsHeight, ssQty));
+                    return Math.ceil(calcGroupRawTop(g, cat) + calcGroupRawBs(g, bsHeight, cat));
                   };
 
                   const typeKitchenBsH = store.getTypeBsHeight(unitType, 'kitchen');
@@ -1133,14 +1127,13 @@ export default function PreFinalModule({ project }: Props) {
                         </div>
                         <table className="est-table text-xs" style={{ tableLayout: 'fixed' }}>
                           <colgroup>
-                            <col style={{ width: '11%' }} />
+                            <col style={{ width: '13%' }} />
+                            <col style={{ width: '18%' }} />
+                            <col style={{ width: '18%' }} />
+                            <col style={{ width: '12%' }} />
                             <col style={{ width: '15%' }} />
-                            <col style={{ width: '15%' }} />
-                            <col style={{ width: '13%' }} />
-                            <col style={{ width: '11%' }} />
-                            <col style={{ width: '13%' }} />
-                            <col style={{ width: '13%' }} />
-                            <col style={{ width: '9%' }} />
+                            <col style={{ width: '14%' }} />
+                            <col style={{ width: '10%' }} />
                           </colgroup>
                           <thead>
                             <tr>
@@ -1148,11 +1141,8 @@ export default function PreFinalModule({ project }: Props) {
                               <th className="text-right" title="Total countertop length in inches (editable)">
                                 <span className="flex items-center justify-end gap-1">Top Inches <Pencil size={9} className="opacity-40" /></span>
                               </th>
-                              <th className="text-right" title="Backsplash length in inches (editable)">
-                                <span className="flex items-center justify-end gap-1">Backsplash In. <Pencil size={9} className="opacity-40" /></span>
-                              </th>
-                              <th className="text-right" title="Side splash quantity (editable)">
-                                <span className="flex items-center justify-end gap-1">Side Splash <Pencil size={9} className="opacity-40" /></span>
+                              <th className="text-right" title="Backsplash & sidesplash combined length in inches (editable)">
+                                <span className="flex items-center justify-end gap-1">BS & SS Inches <Pencil size={9} className="opacity-40" /></span>
                               </th>
                               <th className="text-right" title="Backsplash height in inches">BS Ht.</th>
                               <th className="text-right" title="Countertop area in square feet">Top Sqft</th>
@@ -1168,10 +1158,7 @@ export default function PreFinalModule({ project }: Props) {
                               const effectiveBsInches = store.stoneInchesOverrideMap[bsInchesKey] !== undefined ? store.stoneInchesOverrideMap[bsInchesKey] : g.totalBsLength;
                               const topRaw = (effectiveTopInches * g.depth) / 144;
                               const bsRaw = (effectiveBsInches * bsHeight) / 144;
-                              const ssKey = `${unitType}|${category}|${g.depth}`;
-                              const ssQty = store.sidesplashQtyMap[ssKey] || 0;
-                              const ssRaw = ssQty > 0 ? (g.depth * bsHeight * ssQty) / 144 : 0;
-                              const rowTotal = Math.ceil(topRaw + bsRaw + ssRaw);
+                              const rowTotal = Math.ceil(topRaw + bsRaw);
                               return (
                                 <tr key={gi}>
                                   <td className="font-medium text-foreground">{g.depth}"</td>
@@ -1197,21 +1184,10 @@ export default function PreFinalModule({ project }: Props) {
                                       placeholder={String(g.totalBsLength)}
                                     />
                                   </td>
-                                  <td className="text-right">
-                                    <input
-                                      type="number"
-                                      className="w-full text-right text-xs font-mono px-2 py-1.5 rounded border focus:outline-none focus:ring-1"
-                                      style={{ background: 'hsl(var(--card))', borderColor: 'hsl(var(--primary) / 0.3)', color: 'hsl(var(--foreground))' }}
-                                      value={ssQty || ''}
-                                      min={0}
-                                      onChange={e => store.setSidesplashQty(unitType, category, g.depth, +e.target.value || 0)}
-                                      placeholder="0"
-                                    />
-                                  </td>
                                   {/* Computed values — gray background, no border */}
                                   <td className="text-right font-mono text-muted-foreground" style={{ background: 'hsl(var(--muted) / 0.5)' }}>{bsHeight}"</td>
                                   <td className="text-right font-mono text-muted-foreground" style={{ background: 'hsl(var(--muted) / 0.5)' }}>{Math.round(topRaw)}</td>
-                                  <td className="text-right font-mono text-muted-foreground" style={{ background: 'hsl(var(--muted) / 0.5)' }}>{Math.round(bsRaw + ssRaw)}</td>
+                                  <td className="text-right font-mono text-muted-foreground" style={{ background: 'hsl(var(--muted) / 0.5)' }}>{Math.round(bsRaw)}</td>
                                   <td className="text-right font-bold font-mono" style={{ background: 'hsl(var(--muted) / 0.5)', color: accentColor }}>{rowTotal}</td>
                                 </tr>
                               );
@@ -1222,10 +1198,9 @@ export default function PreFinalModule({ project }: Props) {
                               <td className="text-left font-bold text-xs">Total</td>
                               <td className="text-right font-mono font-bold text-xs">{groups.reduce((s, g) => s + getEffectiveTopInches(g, category), 0)}</td>
                               <td className="text-right font-mono font-bold text-xs">{groups.reduce((s, g) => s + getEffectiveBsInches(g, category), 0)}</td>
-                              <td></td>
                               <td className="text-right font-mono text-xs">{bsHeight}"</td>
                               <td className="text-right font-mono font-bold text-xs">{Math.round(groups.reduce((s, g) => s + calcGroupRawTop(g, category), 0))}</td>
-                              <td className="text-right font-mono font-bold text-xs">{Math.round(groups.reduce((s, g) => s + calcGroupRawBs(g, bsHeight, category) + calcGroupRawSs(g, bsHeight, store.sidesplashQtyMap[`${unitType}|${category}|${g.depth}`] || 0), 0))}</td>
+                              <td className="text-right font-mono font-bold text-xs">{Math.round(groups.reduce((s, g) => s + calcGroupRawBs(g, bsHeight, category), 0))}</td>
                               <td className="text-right font-bold text-sm" style={{ color: accentColor }}>{totalSqft}</td>
                             </tr>
                           </tfoot>
