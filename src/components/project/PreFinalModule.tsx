@@ -1164,10 +1164,7 @@ export default function PreFinalModule({ project }: Props) {
                               const effectiveBsInches = store.stoneInchesOverrideMap[bsInchesKey] !== undefined ? store.stoneInchesOverrideMap[bsInchesKey] : g.totalBsLength;
                               const topRaw = (effectiveTopInches * g.depth) / 144;
                               const bsRaw = (effectiveBsInches * bsHeight) / 144;
-                              const ssKey = `${unitType}|${category}|${g.depth}`;
-                              const ssQty = store.sidesplashQtyMap[ssKey] || 0;
-                              const ssRaw = ssQty > 0 ? (g.depth * bsHeight * ssQty) / 144 : 0;
-                              const rowTotal = Math.ceil(topRaw + bsRaw + ssRaw);
+                              const rowTotal = Math.ceil(topRaw + bsRaw);
                               return (
                                 <tr key={gi}>
                                   <td className="font-medium text-foreground">{g.depth}"</td>
@@ -1193,21 +1190,10 @@ export default function PreFinalModule({ project }: Props) {
                                       placeholder={String(g.totalBsLength)}
                                     />
                                   </td>
-                                  <td className="text-right">
-                                    <input
-                                      type="number"
-                                      className="w-full text-right text-xs font-mono px-2 py-1.5 rounded border focus:outline-none focus:ring-1"
-                                      style={{ background: 'hsl(var(--card))', borderColor: 'hsl(var(--primary) / 0.3)', color: 'hsl(var(--foreground))' }}
-                                      value={ssQty || ''}
-                                      min={0}
-                                      onChange={e => store.setSidesplashQty(unitType, category, g.depth, +e.target.value || 0)}
-                                      placeholder="0"
-                                    />
-                                  </td>
                                   {/* Computed values — gray background, no border */}
                                   <td className="text-right font-mono text-muted-foreground" style={{ background: 'hsl(var(--muted) / 0.5)' }}>{bsHeight}"</td>
                                   <td className="text-right font-mono text-muted-foreground" style={{ background: 'hsl(var(--muted) / 0.5)' }}>{Math.round(topRaw)}</td>
-                                  <td className="text-right font-mono text-muted-foreground" style={{ background: 'hsl(var(--muted) / 0.5)' }}>{Math.round(bsRaw + ssRaw)}</td>
+                                  <td className="text-right font-mono text-muted-foreground" style={{ background: 'hsl(var(--muted) / 0.5)' }}>{Math.round(bsRaw)}</td>
                                   <td className="text-right font-bold font-mono" style={{ background: 'hsl(var(--muted) / 0.5)', color: accentColor }}>{rowTotal}</td>
                                 </tr>
                               );
@@ -1218,10 +1204,9 @@ export default function PreFinalModule({ project }: Props) {
                               <td className="text-left font-bold text-xs">Total</td>
                               <td className="text-right font-mono font-bold text-xs">{groups.reduce((s, g) => s + getEffectiveTopInches(g, category), 0)}</td>
                               <td className="text-right font-mono font-bold text-xs">{groups.reduce((s, g) => s + getEffectiveBsInches(g, category), 0)}</td>
-                              <td></td>
                               <td className="text-right font-mono text-xs">{bsHeight}"</td>
                               <td className="text-right font-mono font-bold text-xs">{Math.round(groups.reduce((s, g) => s + calcGroupRawTop(g, category), 0))}</td>
-                              <td className="text-right font-mono font-bold text-xs">{Math.round(groups.reduce((s, g) => s + calcGroupRawBs(g, bsHeight, category) + calcGroupRawSs(g, bsHeight, store.sidesplashQtyMap[`${unitType}|${category}|${g.depth}`] || 0), 0))}</td>
+                              <td className="text-right font-mono font-bold text-xs">{Math.round(groups.reduce((s, g) => s + calcGroupRawBs(g, bsHeight, category), 0))}</td>
                               <td className="text-right font-bold text-sm" style={{ color: accentColor }}>{totalSqft}</td>
                             </tr>
                           </tfoot>
