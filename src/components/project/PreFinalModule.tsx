@@ -1128,7 +1128,7 @@ export default function PreFinalModule({ project }: Props) {
                     if (groups.length === 0) return null;
                     return (
                       <div>
-                        <div className="px-4 py-2 text-xs font-bold flex items-center gap-2" style={{ background: accentColor, color: '#fff' }}>
+                        <div className="px-4 py-2 text-xs font-bold flex items-center gap-2" style={{ background: `${accentColor.replace(')', ' / 0.12)')}`, color: accentColor }}>
                           {label}
                         </div>
                         <table className="est-table text-xs" style={{ tableLayout: 'fixed' }}>
@@ -1240,13 +1240,13 @@ export default function PreFinalModule({ project }: Props) {
                       <button
                         onClick={() => setExpandedStoneTypes(prev => ({ ...prev, [unitType]: !isExpanded }))}
                         className="w-full px-5 py-3 flex items-center justify-between transition-colors hover:opacity-90"
-                        style={{ background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' }}
+                        style={{ background: 'hsl(var(--primary) / 0.12)', color: 'hsl(var(--primary))' }}
                       >
                         <div className="flex items-center gap-2">
                           {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                          <span className="text-sm font-bold" style={{ color: 'hsl(var(--primary-foreground))' }}>{unitType}</span>
+                          <span className="text-sm font-bold" style={{ color: 'hsl(var(--primary))' }}>{unitType}</span>
                           {unitCount > 0 && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: 'hsl(0 0% 100% / 0.2)', color: 'hsl(0 0% 100%)' }}>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: 'hsl(var(--primary) / 0.15)', color: 'hsl(var(--primary))' }}>
                               {unitCount} unit{unitCount !== 1 ? 's' : ''}
                             </span>
                           )}
@@ -1254,17 +1254,17 @@ export default function PreFinalModule({ project }: Props) {
                         {/* Summary chips — always visible */}
                         <div className="flex items-center gap-3 text-xs">
                           {kitchenTotalSqft > 0 && (
-                            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md font-semibold" style={{ background: 'hsl(0 0% 100% / 0.15)', color: 'hsl(0 0% 100%)' }}>
+                            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md font-semibold" style={{ background: 'hsl(213 60% 50% / 0.1)', color: 'hsl(213 60% 50%)' }}>
                               🍳 Kitchen: {kitchenTotalSqft} sqft
                             </span>
                           )}
                           {bathTotalSqft > 0 && (
-                            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md font-semibold" style={{ background: 'hsl(0 0% 100% / 0.15)', color: 'hsl(38 80% 60%)' }}>
+                            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md font-semibold" style={{ background: 'hsl(38 80% 45% / 0.1)', color: 'hsl(38 80% 45%)' }}>
                               🚿 Bath: {bathTotalSqft} sqft
                             </span>
                           )}
                           {unitCount > 0 && (
-                            <span className="font-bold" style={{ color: 'hsl(0 0% 100%)' }}>
+                            <span className="font-bold text-foreground">
                               × {unitCount} = {(kitchenTotalSqft + bathTotalSqft) * unitCount} sqft
                             </span>
                           )}
