@@ -1241,13 +1241,13 @@ export default function PreFinalModule({ project }: Props) {
                       <button
                         onClick={() => setExpandedStoneTypes(prev => ({ ...prev, [unitType]: !isExpanded }))}
                         className="w-full px-5 py-3 flex items-center justify-between transition-colors hover:opacity-90"
-                        style={{ background: 'hsl(var(--secondary))' }}
+                        style={{ background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' }}
                       >
                         <div className="flex items-center gap-2">
                           {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                          <span className="text-sm font-bold text-foreground">{unitType}</span>
+                          <span className="text-sm font-bold" style={{ color: 'hsl(var(--primary-foreground))' }}>{unitType}</span>
                           {unitCount > 0 && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: 'hsl(0 0% 100% / 0.2)', color: 'hsl(0 0% 100%)' }}>
                               {unitCount} unit{unitCount !== 1 ? 's' : ''}
                             </span>
                           )}
@@ -1255,17 +1255,17 @@ export default function PreFinalModule({ project }: Props) {
                         {/* Summary chips — always visible */}
                         <div className="flex items-center gap-3 text-xs">
                           {kitchenTotalSqft > 0 && (
-                            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md font-semibold" style={{ background: 'hsl(213 60% 50% / 0.1)', color: 'hsl(213 60% 50%)' }}>
+                            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md font-semibold" style={{ background: 'hsl(0 0% 100% / 0.15)', color: 'hsl(0 0% 100%)' }}>
                               🍳 Kitchen: {kitchenTotalSqft} sqft
                             </span>
                           )}
                           {bathTotalSqft > 0 && (
-                            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md font-semibold" style={{ background: 'hsl(38 80% 45% / 0.1)', color: 'hsl(38 80% 45%)' }}>
+                            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md font-semibold" style={{ background: 'hsl(0 0% 100% / 0.15)', color: 'hsl(38 80% 60%)' }}>
                               🚿 Bath: {bathTotalSqft} sqft
                             </span>
                           )}
                           {unitCount > 0 && (
-                            <span className="font-bold text-foreground">
+                            <span className="font-bold" style={{ color: 'hsl(0 0% 100%)' }}>
                               × {unitCount} = {(kitchenTotalSqft + bathTotalSqft) * unitCount} sqft
                             </span>
                           )}
