@@ -929,8 +929,10 @@ export default function PreFinalModule({ project }: Props) {
             const effTop = store.stoneInchesOverrideMap[topKey] !== undefined ? store.stoneInchesOverrideMap[topKey] : g.len;
             const effBs = store.stoneInchesOverrideMap[bsKey] !== undefined ? store.stoneInchesOverrideMap[bsKey] : g.bs;
             const ssQty = store.sidesplashQtyMap[`${type}|kitchen|${depth}`] || 0;
-            const ssSqft = ssQty > 0 ? Math.ceil((depth * typeKBsH * ssQty) / 144) : 0;
-            kSqft += Math.ceil((effTop * depth) / 144) + Math.ceil((effBs * typeKBsH) / 144) + ssSqft;
+            const rawTop = (effTop * depth) / 144;
+            const rawBs = (effBs * typeKBsH) / 144;
+            const rawSs = ssQty > 0 ? (depth * typeKBsH * ssQty) / 144 : 0;
+            kSqft += Math.ceil(rawTop + rawBs + rawSs);
           }
           for (const [depth, g] of bGroups) {
             const topKey = `${type}|bath|${depth}|topInches`;
@@ -938,8 +940,10 @@ export default function PreFinalModule({ project }: Props) {
             const effTop = store.stoneInchesOverrideMap[topKey] !== undefined ? store.stoneInchesOverrideMap[topKey] : g.len;
             const effBs = store.stoneInchesOverrideMap[bsKey] !== undefined ? store.stoneInchesOverrideMap[bsKey] : g.bs;
             const ssQty = store.sidesplashQtyMap[`${type}|bath|${depth}`] || 0;
-            const ssSqft = ssQty > 0 ? Math.ceil((depth * typeBBsH * ssQty) / 144) : 0;
-            bSqft += Math.ceil((effTop * depth) / 144) + Math.ceil((effBs * typeBBsH) / 144) + ssSqft;
+            const rawTop = (effTop * depth) / 144;
+            const rawBs = (effBs * typeBBsH) / 144;
+            const rawSs = ssQty > 0 ? (depth * typeBBsH * ssQty) / 144 : 0;
+            bSqft += Math.ceil(rawTop + rawBs + rawSs);
           }
           return { type, unitCount, kSqft, bSqft };
         });
@@ -1096,9 +1100,13 @@ export default function PreFinalModule({ project }: Props) {
                     const key = `${unitType}|${cat}|${g.depth}|bsInches`;
                     return store.stoneInchesOverrideMap[key] !== undefined ? store.stoneInchesOverrideMap[key] : g.totalBsLength;
                   };
-                  const calcGroupTopSqft = (g: DepthGroup, cat: string) => Math.ceil((getEffectiveTopInches(g, cat) * g.depth) / 144);
-                  const calcGroupBsSqft = (g: DepthGroup, bsHeight: number, cat: string) => Math.ceil((getEffectiveBsInches(g, cat) * bsHeight) / 144);
-                  const calcGroupSsSqft = (g: DepthGroup, bsHeight: number, ssQty: number) => ssQty > 0 ? Math.ceil((g.depth * bsHeight * ssQty) / 144) : 0;
+                  const calcGroupRawTop = (g: DepthGroup, cat: string) => (getEffectiveTopInches(g, cat) * g.depth) / 144;
+                  const calcGroupRawBs = (g: DepthGroup, bsHeight: number, cat: string) => (getEffectiveBsInches(g, cat) * bsHeight) / 144;
+                  const calcGroupRawSs = (g: DepthGroup, bsHeight: number, ssQty: number) => ssQty > 0 ? (g.depth * bsHeight * ssQty) / 144 : 0;
+                  const calcGroupTotalSqft = (g: DepthGroup, bsHeight: number, cat: string) => {
+                    const ssQty = store.sidesplashQtyMap[`${unitType}|${cat}|${g.depth}`] || 0;
+                    return Math.ceil(calcGroupRawTop(g, cat) + calcGroupRawBs(g, bsHeight, cat) + calcGroupRawSs(g, bsHeight, ssQty));
+                  };
 
                   const typeKitchenBsH = store.getTypeBsHeight(unitType, 'kitchen');
                   const typeBathBsH = store.getTypeBsHeight(unitType, 'bath');
