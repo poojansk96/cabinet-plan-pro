@@ -1111,15 +1111,8 @@ export default function PreFinalModule({ project }: Props) {
                   const typeKitchenBsH = store.getTypeBsHeight(unitType, 'kitchen');
                   const typeBathBsH = store.getTypeBsHeight(unitType, 'bath');
 
-                  const kitchenTopSqft = kitchenGroups.reduce((s, g) => s + calcGroupTopSqft(g, 'kitchen'), 0);
-                  const kitchenBsSqft = kitchenGroups.reduce((s, g) => s + calcGroupBsSqft(g, typeKitchenBsH, 'kitchen'), 0);
-                  const kitchenSsSqft = kitchenGroups.reduce((s, g) => s + calcGroupSsSqft(g, typeKitchenBsH, store.sidesplashQtyMap[`${unitType}|kitchen|${g.depth}`] || 0), 0);
-                  const kitchenTotalSqft = kitchenTopSqft + kitchenBsSqft + kitchenSsSqft;
-
-                  const bathTopSqft = bathGroups.reduce((s, g) => s + calcGroupTopSqft(g, 'bath'), 0);
-                  const bathBsSqft = bathGroups.reduce((s, g) => s + calcGroupBsSqft(g, typeBathBsH, 'bath'), 0);
-                  const bathSsSqft = bathGroups.reduce((s, g) => s + calcGroupSsSqft(g, typeBathBsH, store.sidesplashQtyMap[`${unitType}|bath|${g.depth}`] || 0), 0);
-                  const bathTotalSqft = bathTopSqft + bathBsSqft + bathSsSqft;
+                  const kitchenTotalSqft = kitchenGroups.reduce((s, g) => s + calcGroupTotalSqft(g, typeKitchenBsH, 'kitchen'), 0);
+                  const bathTotalSqft = bathGroups.reduce((s, g) => s + calcGroupTotalSqft(g, typeBathBsH, 'bath'), 0);
 
                   // Accordion state
                   const isExpanded = expandedStoneTypes[unitType] !== false; // default expanded
