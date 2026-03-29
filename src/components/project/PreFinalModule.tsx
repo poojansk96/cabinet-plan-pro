@@ -1133,14 +1133,13 @@ export default function PreFinalModule({ project }: Props) {
                         </div>
                         <table className="est-table text-xs" style={{ tableLayout: 'fixed' }}>
                           <colgroup>
-                            <col style={{ width: '11%' }} />
+                            <col style={{ width: '13%' }} />
+                            <col style={{ width: '18%' }} />
+                            <col style={{ width: '18%' }} />
+                            <col style={{ width: '12%' }} />
                             <col style={{ width: '15%' }} />
-                            <col style={{ width: '15%' }} />
-                            <col style={{ width: '13%' }} />
-                            <col style={{ width: '11%' }} />
-                            <col style={{ width: '13%' }} />
-                            <col style={{ width: '13%' }} />
-                            <col style={{ width: '9%' }} />
+                            <col style={{ width: '14%' }} />
+                            <col style={{ width: '10%' }} />
                           </colgroup>
                           <thead>
                             <tr>
@@ -1148,11 +1147,8 @@ export default function PreFinalModule({ project }: Props) {
                               <th className="text-right" title="Total countertop length in inches (editable)">
                                 <span className="flex items-center justify-end gap-1">Top Inches <Pencil size={9} className="opacity-40" /></span>
                               </th>
-                              <th className="text-right" title="Backsplash length in inches (editable)">
-                                <span className="flex items-center justify-end gap-1">Backsplash In. <Pencil size={9} className="opacity-40" /></span>
-                              </th>
-                              <th className="text-right" title="Side splash quantity (editable)">
-                                <span className="flex items-center justify-end gap-1">Side Splash <Pencil size={9} className="opacity-40" /></span>
+                              <th className="text-right" title="Backsplash & sidesplash combined length in inches (editable)">
+                                <span className="flex items-center justify-end gap-1">BS & SS Inches <Pencil size={9} className="opacity-40" /></span>
                               </th>
                               <th className="text-right" title="Backsplash height in inches">BS Ht.</th>
                               <th className="text-right" title="Countertop area in square feet">Top Sqft</th>
