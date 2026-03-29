@@ -1130,7 +1130,7 @@ export default function PreFinalModule({ project }: Props) {
                     if (groups.length === 0) return null;
                     return (
                       <div>
-                        <div className="px-4 py-2 text-xs font-bold flex items-center gap-2" style={{ background: `${accentColor}12`, color: accentColor, borderBottom: `2px solid ${accentColor}30` }}>
+                        <div className="px-4 py-2 text-xs font-bold flex items-center gap-2" style={{ background: accentColor, color: '#fff' }}>
                           {label}
                         </div>
                         <table className="est-table text-xs" style={{ tableLayout: 'fixed' }}>
