@@ -140,16 +140,17 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
           const page = await pdf.getPage(p);
           const pageImage = await renderPageToBase64(page);
 
-          const MAX_CLIENT_RETRIES = 3;
+          const MAX_CLIENT_RETRIES = 5;
           let pageSuccess = false;
           for (let attempt = 0; attempt < MAX_CLIENT_RETRIES && !pageSuccess; attempt++) {
             try {
               if (attempt > 0) {
-                setStatusMsg(`Retrying ${file.name} — page ${p}/${pdf.numPages} (attempt ${attempt + 1})`);
-                await new Promise(r => setTimeout(r, 2000 * attempt));
+                const delay = Math.min(3000 * attempt, 15000);
+                setStatusMsg(`Retrying ${file.name} — page ${p}/${pdf.numPages} (attempt ${attempt + 1}/${MAX_CLIENT_RETRIES})`);
+                await new Promise(r => setTimeout(r, delay));
               }
               const controller = new AbortController();
-              const timeout = setTimeout(() => controller.abort(), 120000); // 2 min timeout
+              const timeout = setTimeout(() => controller.abort(), 180000); // 3 min timeout
               const resp = await fetch(`${SUPABASE_URL}/functions/v1/extract-pdf-countertops`, {
                 method: 'POST',
                 headers: {
@@ -184,8 +185,8 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                   });
                 }
                 pageSuccess = true;
-              } else if (resp.status === 503 && attempt < MAX_CLIENT_RETRIES - 1) {
-                console.warn(`Server 503 on page ${p}, retrying...`);
+              } else if (resp.status === 503) {
+                console.warn(`Server 503 on page ${p}, attempt ${attempt + 1}/${MAX_CLIENT_RETRIES}`);
                 continue;
               }
             } catch (err) {
@@ -194,6 +195,9 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                 console.error(`Failed page ${p} after ${MAX_CLIENT_RETRIES} attempts`);
               }
             }
+          }
+          if (!pageSuccess) {
+            console.warn(`⚠️ Page ${p} of ${file.name} could not be processed after ${MAX_CLIENT_RETRIES} attempts — AI temporarily unavailable`);
           }
 
           pagesDone++;
