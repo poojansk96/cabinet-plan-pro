@@ -834,6 +834,51 @@ If no cabinet SKUs are found, return {"items":[]}`;
       return false;
     });
 
+    // ── Remove phantom substring SKUs ──
+    // AI sometimes reads a substring of a longer SKU as a separate item.
+    // E.g., UREP96 misread → EP96. If EP96 is a strict suffix of another extracted SKU
+    // (like UREP96), and the text layer does NOT independently confirm EP96, remove it.
+    {
+      const allSkus = items.map(i => i.sku);
+      items = items.filter((item) => {
+        // Only filter qty=1 marginal detections
+        if (item.quantity > 1) return true;
+        // Check if this SKU is a strict suffix of any other extracted SKU
+        const isSubstringOfOther = allSkus.some(
+          other => other !== item.sku && other.length > item.sku.length && other.endsWith(item.sku)
+        );
+        if (!isSubstringOfOther) return true;
+        // If text layer independently confirms this SKU, keep it
+        if (textLayerSkuCounts[item.sku] && textLayerSkuCounts[item.sku] >= 1) return true;
+        console.log(`Filtered phantom substring SKU: "${item.sku}" (suffix of another extracted SKU, not in text layer)`);
+        return false;
+      });
+    }
+
+    // ── Remove phantom suffixed variants ──
+    // AI sometimes hallucinates a suffix (e.g., -REM, -L, -R) from a nearby label.
+    // If a suffixed SKU is NOT in the text layer, but its bare base IS in the text layer
+    // AND the bare base is already extracted, remove the phantom suffixed variant.
+    {
+      const extractedSkuSet2 = new Set(items.map(i => i.sku));
+      items = items.filter((item) => {
+        // Only check suffixed SKUs
+        if (!/[-][A-Z0-9]+$/i.test(item.sku)) return true;
+        const base = item.sku.replace(/-[A-Z0-9]+$/i, '');
+        if (!base || base === item.sku) return true;
+        // If this exact suffixed SKU is in text layer, keep it
+        if (textLayerSkuSet.has(item.sku)) return true;
+        // If the bare base is NOT in the text layer either, keep (both are vision-only)
+        if (!textLayerSkuSet.has(base)) return true;
+        // Bare base is in text layer AND already extracted → this suffix is phantom
+        if (extractedSkuSet2.has(base)) {
+          console.log(`Filtered phantom suffix variant: "${item.sku}" (bare "${base}" is text-confirmed and extracted)`);
+          return false;
+        }
+        return true;
+      });
+    }
+
     // ── Merge truncated SKUs into suffixed variants ──
     // When a label is partially hidden (e.g., "W1230-L" cut off → "W1230"), the AI may
     // return both "W1230" (truncated) and "W1230-R" or "W1230-L" as separate entries.
