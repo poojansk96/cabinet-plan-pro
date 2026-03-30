@@ -174,8 +174,26 @@ export default function PreFinalSummaryModule({ project }: Props) {
       { cells: ['Drawer Box', resolveOther(sp?.drawerBox, sp?.drawerBoxCustom)], pendingNote: !sp?.drawerBox ? 'Drawer box selection is pending' : undefined },
       { cells: ['Drawer Guides', resolveOther(sp?.drawerGuides, sp?.drawerGuidesCustom)], pendingNote: !sp?.drawerGuides ? 'Drawer guides selection is pending' : undefined },
       { cells: [] },
-      { cells: ['Kitchen Tops', formatKitchenTops(project.specs)], pendingNote: !sp?.countertops ? 'Kitchen tops material is pending' : undefined },
-      { cells: ['Vanity Tops', formatVanityTops(project.specs)], pendingNote: (!sp?.vanitySameAsKitchen && !sp?.vanityCountertops) ? 'Vanity tops material is pending' : undefined },
+      { cells: ['Kitchen Tops', formatKitchenTops(project.specs)], pendingNote: (() => {
+        if (!sp?.countertops) return 'Kitchen tops material is pending';
+        const pending: string[] = [];
+        if (sp.countertops !== 'Laminate' && !sp.countertopManufacturer) pending.push('Vendor is pending');
+        if ((sp.countertops === 'Quartz' || sp.countertops === 'Granite') && !sp.countertopColor) pending.push('Color selection is pending');
+        if (sp.countertops === 'Laminate' && !sp.laminateSubstrate) pending.push('Substrate is pending');
+        if (sp.countertops === 'Laminate' && !sp.laminateColor) pending.push('Color selection is pending');
+        return pending.length > 0 ? pending.join(', ') : undefined;
+      })() },
+      { cells: ['Vanity Tops', formatVanityTops(project.specs)], pendingNote: (() => {
+        if (sp?.vanitySameAsKitchen) return undefined;
+        if (!sp?.vanityCountertops) return 'Vanity tops material is pending';
+        const pending: string[] = [];
+        if (sp.vanityCountertops !== 'Laminate' && sp.vanityCountertops !== 'Cultured Marble' && sp.vanityCountertops !== 'Swanstone' && !sp.vanityManufacturer) pending.push('Vendor is pending');
+        if ((sp.vanityCountertops === 'Quartz' || sp.vanityCountertops === 'Granite') && !sp.vanityColor) pending.push('Color selection is pending');
+        if ((sp.vanityCountertops === 'Cultured Marble' || sp.vanityCountertops === 'Swanstone') && !sp.vanityCMColor) pending.push('Color selection is pending');
+        if (sp.vanityCountertops === 'Laminate' && !sp.vanityLaminateSubstrate) pending.push('Substrate is pending');
+        if (sp.vanityCountertops === 'Laminate' && !sp.vanityLaminateColor) pending.push('Color selection is pending');
+        return pending.length > 0 ? pending.join(', ') : undefined;
+      })() },
       ...((sp?.additionalTopsEnabled) ? [{ cells: ['Additional Tops', formatAdditionalTops(project.specs)] as (string | undefined)[] }] : []),
       { cells: [] },
       { cells: ['Handles & Hardware', resolveHandles(sp?.handlesAndHardware, sp?.handlesCustom)], pendingNote: getHandlesPending(sp?.handlesAndHardware, sp?.handlesCustom) },
