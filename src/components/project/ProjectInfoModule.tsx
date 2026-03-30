@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Building2, Settings2, Save, Check } from 'lucide-react';
-import type { Project, ProjectType } from '@/types/project';
+import type { Project } from '@/types/project';
 
 const HINGE_OPTIONS = ['Standard soft close 6 way adjustable hinges', 'Other'];
 const DRAWER_BOX_OPTIONS = ['Dovetail Wood', 'Melamine', 'Particleboard', 'Metal (Tandem)', 'Other'];
@@ -15,6 +15,14 @@ const COUNTERTOP_MANUFACTURERS: Record<string, string[]> = {
   'Solid Surface- Corian': ['Parksite Material+ Sterling surface Install', 'Other'],
   Other: ['Other'],
 };
+
+// Door style finish color options per manufacturer + finish type
+const OVERSEAS_STAIN_COLORS = ['Walnut', 'Driftwood', 'Caramel', 'Expresso', 'Other'];
+const OVERSEAS_PAINT_COLORS = ['Painted White', 'Painted Stratus', 'French Vanilla', 'Other'];
+const INDIA_STAIN_COLORS = ['Amaretto', 'Cabernet', 'Toast', 'Cashew', 'Other'];
+const INDIA_PAINT_COLORS = ['Ivory', 'Ash', 'Bisque', 'Pewter', 'Other'];
+const LEGACY_MADISON_COLORS = ['Super White', 'Gothic Grey', 'Other'];
+const LEGACY_EDEN_COLORS = ['Greywood', 'Other'];
 
 interface Props {
   project: Project;
@@ -44,6 +52,9 @@ export default function ProjectInfoModule({ project, onSave }: Props) {
     doorStyleFraming: rawSpecs?.doorStyleFraming ?? '',
     doorStyleName: rawSpecs?.doorStyleName ?? '',
     doorStyleNameCustom: rawSpecs?.doorStyleNameCustom ?? '',
+    doorStyleFinish: rawSpecs?.doorStyleFinish ?? '',
+    doorStyleFinishColor: rawSpecs?.doorStyleFinishColor ?? '',
+    doorStyleFinishColorCustom: rawSpecs?.doorStyleFinishColorCustom ?? '',
     hinges: rawSpecs?.hinges ?? '',
     hingesCustom: rawSpecs?.hingesCustom ?? '',
     drawerBox: rawSpecs?.drawerBox ?? '',
@@ -143,6 +154,39 @@ export default function ProjectInfoModule({ project, onSave }: Props) {
     );
   };
 
+  // Get finish color options based on manufacturer, finish type, and door name
+  const getFinishColorOptions = (): string[] => {
+    const { doorStyle, doorStyleFinish, doorStyleName } = specs;
+    if (doorStyle === 'Overseas') {
+      return doorStyleFinish === 'Stained' ? OVERSEAS_STAIN_COLORS : doorStyleFinish === 'Painted' ? OVERSEAS_PAINT_COLORS : [];
+    }
+    if (doorStyle === 'India') {
+      return doorStyleFinish === 'Stained' ? INDIA_STAIN_COLORS : doorStyleFinish === 'Painted' ? INDIA_PAINT_COLORS : [];
+    }
+    if (doorStyle === 'Legacy') {
+      if (doorStyleName === 'Madison') return LEGACY_MADISON_COLORS;
+      if (doorStyleName === 'Eden') return LEGACY_EDEN_COLORS;
+      return [];
+    }
+    return [];
+  };
+
+  // Determine which fields to show per manufacturer
+  const showStyle = specs.doorStyle === 'Legacy' || specs.doorStyle === 'Bristol' || specs.doorStyle === 'India box+ Bristol door';
+  const showFraming = specs.doorStyle === 'Legacy' || specs.doorStyle === 'Bristol' || specs.doorStyle === 'India box+ Bristol door';
+  const showConstruction = specs.doorStyle === 'India' || specs.doorStyle === 'Legacy' || specs.doorStyle === 'Bristol' || specs.doorStyle === 'India box+ Bristol door';
+  const showSeries = specs.doorStyle === 'Legacy';
+  const showFinish = specs.doorStyle === 'Overseas' || specs.doorStyle === 'India' || specs.doorStyle === 'Legacy';
+
+  const finishColorOptions = getFinishColorOptions();
+
+  // Door name options per manufacturer
+  const doorNameOptions: Record<string, string[]> = {
+    Overseas: ['Avon Group 9', 'Avon Group 10- PTK', 'Kerala Slab', 'Other'],
+    India: ['Madison', 'Eden', 'Other'],
+    Legacy: ['Sagamore Shaker Maple', 'Venetian MDF Painted', 'Other'],
+  };
+
   return (
     <div className="space-y-4">
       {/* Basic Info */}
@@ -158,17 +202,6 @@ export default function ProjectInfoModule({ project, onSave }: Props) {
         <div className="p-4 space-y-3">
           {TF('Project Name *', 'name', 'e.g. Maple Grove Apartments – Phase 1')}
           {TF('Project Address', 'address', 'e.g. 1234 Oak St, Austin, TX 78701')}
-          <div>
-            <label className={labelCls}>Project Type</label>
-            <div className="flex gap-3">
-              {(['Residential', 'Commercial'] as ProjectType[]).map(t => (
-                <button key={t} type="button"
-                  onClick={() => setForm(f => ({ ...f, type: t }))}
-                  className={`flex-1 py-2 rounded-md text-sm font-medium border transition-colors ${form.type === t ? 'border-primary text-white' : 'border-border text-muted-foreground hover:border-primary'}`}
-                  style={form.type === t ? { background: 'hsl(var(--primary))' } : {}}>{t}</button>
-              ))}
-            </div>
-          </div>
           <div>
             <label className={labelCls}>Notes</label>
             <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
@@ -193,7 +226,7 @@ export default function ProjectInfoModule({ project, onSave }: Props) {
             <div>
               <label className={labelCls}>Door Style</label>
               <select value={specs.doorStyle} className={inputCls}
-                onChange={e => setSpecs(s => ({ ...s, doorStyle: e.target.value, doorStyleCustom: '', doorStyleStyle: '', doorStyleStyleCustom: '', doorStyleConstruction: '', doorStyleFraming: '', doorStyleSeries: '', doorStyleName: '', doorStyleNameCustom: '' }))}>
+                onChange={e => setSpecs(s => ({ ...s, doorStyle: e.target.value, doorStyleCustom: '', doorStyleStyle: '', doorStyleStyleCustom: '', doorStyleConstruction: '', doorStyleFraming: '', doorStyleSeries: '', doorStyleName: '', doorStyleNameCustom: '', doorStyleFinish: '', doorStyleFinishColor: '', doorStyleFinishColorCustom: '' }))}>
                 <option value="">Select manufacturer…</option>
                 <option value="Overseas">Overseas</option>
                 <option value="India">India</option>
@@ -207,24 +240,29 @@ export default function ProjectInfoModule({ project, onSave }: Props) {
               <input type="text" value={specs.doorStyleCustom} className={inputCls}
                 onChange={e => setSpecs(s => ({ ...s, doorStyleCustom: e.target.value }))} placeholder="Describe door style / manufacturer…" />
             )}
-            {specs.doorStyle && (
+            {specs.doorStyle && specs.doorStyle !== 'Other' && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <div>
-                    <label className={labelCls}>Style</label>
-                    <select value={specs.doorStyleStyle} className={subInputCls}
-                      onChange={e => setSpecs(s => ({ ...s, doorStyleStyle: e.target.value, doorStyleStyleCustom: '' }))}>
-                      <option value="">Select style…</option>
-                      {specs.doorStyle !== 'India' && <option value="Full overlay shaker">Full overlay shaker</option>}
-                      <option value="Full overlay slab">Full overlay slab</option>
-                      {specs.doorStyle !== 'India' && <option value="Other">Other</option>}
-                    </select>
-                  </div>
-                  {specs.doorStyleStyle === 'Other' && (
+                  {/* Style - only for Legacy, Bristol, India box+ Bristol door */}
+                  {showStyle && (
+                    <div>
+                      <label className={labelCls}>Style</label>
+                      <select value={specs.doorStyleStyle} className={subInputCls}
+                        onChange={e => setSpecs(s => ({ ...s, doorStyleStyle: e.target.value, doorStyleStyleCustom: '' }))}>
+                        <option value="">Select style…</option>
+                        <option value="Full overlay shaker">Full overlay shaker</option>
+                        <option value="Full overlay slab">Full overlay slab</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                  )}
+                  {showStyle && specs.doorStyleStyle === 'Other' && (
                     <input type="text" value={specs.doorStyleStyleCustom} className={inputCls}
                       onChange={e => setSpecs(s => ({ ...s, doorStyleStyleCustom: e.target.value }))} placeholder="Describe style…" />
                   )}
-                  {specs.doorStyle === 'Legacy' && (
+
+                  {/* Series - Legacy only */}
+                  {showSeries && (
                     <div>
                       <label className={labelCls}>Series</label>
                       <select value={specs.doorStyleSeries} className={subInputCls}
@@ -236,56 +274,95 @@ export default function ProjectInfoModule({ project, onSave }: Props) {
                       </select>
                     </div>
                   )}
-                  <div>
-                    <label className={labelCls}>Construction</label>
-                    <select value={specs.doorStyleConstruction} className={subInputCls}
-                      onChange={e => setSpecs(s => ({ ...s, doorStyleConstruction: e.target.value }))}>
-                      <option value="">Select construction…</option>
-                      {specs.doorStyle === 'Legacy' && specs.doorStyleSeries === 'Advantage' ? (
-                        <><option value="Standard">Standard</option><option value="Verde">Verde</option><option value="Intense">Intense</option></>
-                      ) : specs.doorStyle === 'Legacy' && specs.doorStyleSeries === 'Debut' ? (
-                        <><option value="Standard">Standard</option><option value="Plywood">Plywood</option><option value="Extreme">Extreme</option></>
-                      ) : (
-                        <><option value="Particleboard">Particleboard</option><option value="Plywood">Plywood</option></>
-                      )}
-                    </select>
-                  </div>
+
+                  {/* Construction - India, Legacy, Bristol, India box+ Bristol door */}
+                  {showConstruction && (
+                    <div>
+                      <label className={labelCls}>Construction</label>
+                      <select value={specs.doorStyleConstruction} className={subInputCls}
+                        onChange={e => setSpecs(s => ({ ...s, doorStyleConstruction: e.target.value }))}>
+                        <option value="">Select construction…</option>
+                        {specs.doorStyle === 'Legacy' && specs.doorStyleSeries === 'Advantage' ? (
+                          <><option value="Standard">Standard</option><option value="Verde">Verde</option><option value="Intense">Intense</option></>
+                        ) : specs.doorStyle === 'Legacy' && specs.doorStyleSeries === 'Debut' ? (
+                          <><option value="Standard">Standard</option><option value="Plywood">Plywood</option><option value="Extreme">Extreme</option></>
+                        ) : (
+                          <><option value="Particleboard">Particleboard</option><option value="Plywood">Plywood</option></>
+                        )}
+                      </select>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
-                  <div>
-                    <label className={labelCls}>Framing</label>
-                    <select value={specs.doorStyleFraming} className={subInputCls}
-                      onChange={e => setSpecs(s => ({ ...s, doorStyleFraming: e.target.value }))}>
-                      <option value="">Select framing…</option>
-                      {specs.doorStyle !== 'India' && <option value="Framed">Framed</option>}
-                      <option value="Frameless">Frameless</option>
-                    </select>
-                  </div>
-                  {(() => {
-                    const nameOptions: Record<string, string[]> = {
-                      Overseas: ['Avon Group 9', 'Avon Group 10- PTK', 'Kerala Slab', 'Other'],
-                      India: ['Madison', 'Eden', 'Other'],
-                      Legacy: ['Sagamore Shaker Maple', 'Venetian MDF Painted', 'Other'],
-                    };
-                    const opts = nameOptions[specs.doorStyle];
-                    if (!opts) return null;
-                    return (
-                      <div className="space-y-2">
-                        <div>
-                          <label className={labelCls}>Door Style Name</label>
-                          <select value={specs.doorStyleName} className={subInputCls}
-                            onChange={e => setSpecs(s => ({ ...s, doorStyleName: e.target.value, doorStyleNameCustom: '' }))}>
-                            <option value="">Select door style name…</option>
-                            {opts.map(o => <option key={o} value={o}>{o}</option>)}
-                          </select>
-                        </div>
-                        {specs.doorStyleName === 'Other' && (
-                          <input type="text" value={specs.doorStyleNameCustom} className={inputCls}
-                            onChange={e => setSpecs(s => ({ ...s, doorStyleNameCustom: e.target.value }))} placeholder="Enter door style name…" />
-                        )}
+                  {/* Framing - Legacy, Bristol, India box+ Bristol door */}
+                  {showFraming && (
+                    <div>
+                      <label className={labelCls}>Framing</label>
+                      <select value={specs.doorStyleFraming} className={subInputCls}
+                        onChange={e => setSpecs(s => ({ ...s, doorStyleFraming: e.target.value }))}>
+                        <option value="">Select framing…</option>
+                        <option value="Framed">Framed</option>
+                        <option value="Frameless">Frameless</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Door Style Name */}
+                  {doorNameOptions[specs.doorStyle] && (
+                    <div className="space-y-2">
+                      <div>
+                        <label className={labelCls}>Door Style Name</label>
+                        <select value={specs.doorStyleName} className={subInputCls}
+                          onChange={e => setSpecs(s => ({ ...s, doorStyleName: e.target.value, doorStyleNameCustom: '', doorStyleFinish: specs.doorStyle === 'Legacy' ? '' : s.doorStyleFinish, doorStyleFinishColor: specs.doorStyle === 'Legacy' ? '' : s.doorStyleFinishColor, doorStyleFinishColorCustom: specs.doorStyle === 'Legacy' ? '' : s.doorStyleFinishColorCustom }))}>
+                          <option value="">Select door style name…</option>
+                          {doorNameOptions[specs.doorStyle].map(o => <option key={o} value={o}>{o}</option>)}
+                        </select>
                       </div>
-                    );
-                  })()}
+                      {specs.doorStyleName === 'Other' && (
+                        <input type="text" value={specs.doorStyleNameCustom} className={inputCls}
+                          onChange={e => setSpecs(s => ({ ...s, doorStyleNameCustom: e.target.value }))} placeholder="Enter door style name…" />
+                      )}
+                    </div>
+                  )}
+
+                  {/* Door Style Finish - Overseas, India: Stained/Painted select; Legacy: based on door name */}
+                  {showFinish && (specs.doorStyle === 'Overseas' || specs.doorStyle === 'India') && (
+                    <div>
+                      <label className={labelCls}>Door Style Finish</label>
+                      <select value={specs.doorStyleFinish} className={subInputCls}
+                        onChange={e => setSpecs(s => ({ ...s, doorStyleFinish: e.target.value, doorStyleFinishColor: '', doorStyleFinishColorCustom: '' }))}>
+                        <option value="">Select finish…</option>
+                        <option value="Stained">Stained</option>
+                        <option value="Painted">Painted</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Legacy: Finish label appears when door name is Madison or Eden */}
+                  {specs.doorStyle === 'Legacy' && (specs.doorStyleName === 'Madison' || specs.doorStyleName === 'Eden') && (
+                    <div>
+                      <label className={labelCls}>Door Style Finish</label>
+                      <p className="text-xs text-muted-foreground italic mb-1">Color options for {specs.doorStyleName}</p>
+                    </div>
+                  )}
+
+                  {/* Finish Color */}
+                  {finishColorOptions.length > 0 && (
+                    <div className="space-y-2">
+                      <div>
+                        <label className={labelCls}>Finish Color</label>
+                        <select value={specs.doorStyleFinishColor} className={subInputCls}
+                          onChange={e => setSpecs(s => ({ ...s, doorStyleFinishColor: e.target.value, doorStyleFinishColorCustom: '' }))}>
+                          <option value="">Select color…</option>
+                          {finishColorOptions.map(o => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                      </div>
+                      {specs.doorStyleFinishColor === 'Other' && (
+                        <input type="text" value={specs.doorStyleFinishColorCustom} className={inputCls}
+                          onChange={e => setSpecs(s => ({ ...s, doorStyleFinishColorCustom: e.target.value }))} placeholder="Enter color…" />
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

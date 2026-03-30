@@ -1,10 +1,21 @@
 import type { ProjectSpecs } from '@/types/project';
 
+type AnySpecs = ProjectSpecs & Record<string, any>;
+
+function resolveCustom(value?: string, custom?: string): string {
+  if (!value) return '';
+  return value === 'Other' ? (custom || '') : value;
+}
+
 /**
- * Combines all door-style sub-fields into a single descriptive string.
- * Example output: "Overseas Framed Plywood construction — Avon Group 9"
+ * Combines all door-style sub-fields into a manufacturer-specific descriptive string.
+ *
+ * Overseas:  "Door style name" - "Color" from Overseas
+ * India:     "Door style name" - "Construction" - "Color" from India
+ * Legacy:    "Series" - "Door style name" - "Construction" - "Framing" - "Style" - "Color" from Legacy
+ * Others:    Original format
  */
-export function formatDoorStyle(specs?: ProjectSpecs & Record<string, any>): string {
+export function formatDoorStyle(specs?: AnySpecs): string {
   if (!specs) return '';
 
   const manufacturer = specs.doorStyle === 'Other'
@@ -13,34 +24,79 @@ export function formatDoorStyle(specs?: ProjectSpecs & Record<string, any>): str
 
   if (!manufacturer) return '';
 
-  const style = specs.doorStyleStyle === 'Other'
-    ? specs.doorStyleStyleCustom
-    : specs.doorStyleStyle;
-
+  const name = resolveCustom(specs.doorStyleName, specs.doorStyleNameCustom);
+  const color = resolveCustom(specs.doorStyleFinishColor, specs.doorStyleFinishColorCustom);
+  const finish = specs.doorStyleFinish || '';
+  const construction = specs.doorStyleConstruction || '';
   const series = specs.doorStyleSeries || '';
   const framing = specs.doorStyleFraming || '';
-  const construction = specs.doorStyleConstruction
-    ? `${specs.doorStyleConstruction} construction`
-    : '';
+  const style = resolveCustom(specs.doorStyleStyle, specs.doorStyleStyleCustom);
 
-  const name = specs.doorStyleName === 'Other'
-    ? specs.doorStyleNameCustom
-    : specs.doorStyleName;
+  if (manufacturer === 'Overseas') {
+    // "Door style name" - "Color" from Overseas
+    const parts = [name, color].filter(Boolean);
+    return parts.length > 0 ? `${parts.join(' - ')} from Overseas` : 'Overseas';
+  }
 
-  // Build: Manufacturer  Framing  Construction — Name
-  const parts = [manufacturer, series, framing, construction].filter(Boolean);
+  if (manufacturer === 'India') {
+    // "Door style name" - "Construction" - "Color" from India
+    const constr = construction ? `${construction} construction` : '';
+    const parts = [name, constr, color].filter(Boolean);
+    return parts.length > 0 ? `${parts.join(' - ')} from India` : 'India';
+  }
+
+  if (manufacturer === 'Legacy') {
+    // "Series" - "Door style name" - "Construction" - "Framing" - "Style" - "Color" from Legacy
+    const constr = construction ? `${construction} construction` : '';
+    const parts = [series, name, constr, framing, style, color].filter(Boolean);
+    return parts.length > 0 ? `${parts.join(' - ')} from Legacy` : 'Legacy';
+  }
+
+  // Other manufacturers - original format
+  const constr = construction ? `${construction} construction` : '';
+  const parts = [manufacturer, series, framing, constr].filter(Boolean);
   let result = parts.join(' ');
   if (style) result += ` ${style}`;
   if (name) result += ` — ${name}`;
-
   return result;
 }
 
-type AnySpecs = ProjectSpecs & Record<string, any>;
+/**
+ * Returns an object with { value, pending } pairs for door style fields.
+ * Used by Excel export to mark missing fields in red.
+ */
+export function getDoorStylePendingFields(specs?: AnySpecs): { label: string; value: string; pending: string }[] {
+  if (!specs || !specs.doorStyle) return [];
+  const manufacturer = specs.doorStyle;
+  const name = resolveCustom(specs.doorStyleName, specs.doorStyleNameCustom);
+  const color = resolveCustom(specs.doorStyleFinishColor, specs.doorStyleFinishColorCustom);
+  const finish = specs.doorStyleFinish || '';
+  const construction = specs.doorStyleConstruction || '';
+  const series = specs.doorStyleSeries || '';
+  const framing = specs.doorStyleFraming || '';
+  const style = resolveCustom(specs.doorStyleStyle, specs.doorStyleStyleCustom);
 
-function resolveCustom(value?: string, custom?: string): string {
-  if (!value) return '';
-  return value === 'Other' ? (custom || '') : value;
+  const fields: { label: string; value: string; pending: string }[] = [];
+
+  if (manufacturer === 'Overseas') {
+    fields.push({ label: 'Door Style Name', value: name, pending: name ? '' : 'Door style name is pending' });
+    fields.push({ label: 'Door Style Finish', value: finish, pending: finish ? '' : 'Door style finish is pending' });
+    fields.push({ label: 'Door Style Color', value: color, pending: color ? '' : 'Door style color is pending' });
+  } else if (manufacturer === 'India') {
+    fields.push({ label: 'Door Style Name', value: name, pending: name ? '' : 'Door style name is pending' });
+    fields.push({ label: 'Construction', value: construction, pending: construction ? '' : 'Construction is pending' });
+    fields.push({ label: 'Door Style Finish', value: finish, pending: finish ? '' : 'Door style finish is pending' });
+    fields.push({ label: 'Door Style Color', value: color, pending: color ? '' : 'Door style color is pending' });
+  } else if (manufacturer === 'Legacy') {
+    fields.push({ label: 'Series', value: series, pending: series ? '' : 'Series is pending' });
+    fields.push({ label: 'Door Style Name', value: name, pending: name ? '' : 'Door style name is pending' });
+    fields.push({ label: 'Construction', value: construction, pending: construction ? '' : 'Construction is pending' });
+    fields.push({ label: 'Framing', value: framing, pending: framing ? '' : 'Framing is pending' });
+    fields.push({ label: 'Style', value: style, pending: style ? '' : 'Style is pending' });
+    fields.push({ label: 'Door Style Color', value: color, pending: color ? '' : 'Door style color is pending' });
+  }
+
+  return fields;
 }
 
 /**

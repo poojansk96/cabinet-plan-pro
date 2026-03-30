@@ -5,7 +5,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Project } from '@/types/project';
 import { usePrefinalStore, type PrefinalUnitNumber, type PrefinalCabinetRow } from '@/hooks/usePrefinalStore';
-import { formatDoorStyle, formatKitchenTops, formatVanityTops, formatAdditionalTops } from '@/lib/formatSpecs';
+import { formatDoorStyle, formatKitchenTops, formatVanityTops, formatAdditionalTops, getDoorStylePendingFields } from '@/lib/formatSpecs';
 interface Props {
   project: Project;
   [key: string]: unknown;
@@ -125,7 +125,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
     // ── Sheet 1: Project Info ───────────────────────────────────────
     const wsInfo = wb.addWorksheet('Project Info');
-    wsInfo.columns = [{ width: 22 }, { width: 40 }];
+    wsInfo.columns = [{ width: 22 }, { width: 40 }, { width: 30 }];
     const sp = project.specs as Record<string, any> | undefined;
 
     const boldUnderlineLabels = new Set([
@@ -134,38 +134,57 @@ export default function PreFinalSummaryModule({ project }: Props) {
       'Handles & Hardware', 'Sales Tax on Material',
     ]);
 
-    const infoRows: (string | undefined)[][] = [
-      ['Project Name', project.name],
-      [],
-      ['Address', project.address],
-      ['Type', project.type],
-      ['Notes', project.notes || ''],
-      [],
-      ['Project Super', sp?.projectSuper || ''],
-      ['Customer', sp?.customer || ''],
-      [],
-      ['Specifications', ''],
-      ['Door Style', formatDoorStyle(project.specs)],
-      ['Hinges', resolveOther(sp?.hinges, sp?.hingesCustom)],
-      ['Drawer Box', resolveOther(sp?.drawerBox, sp?.drawerBoxCustom)],
-      ['Drawer Guides', resolveOther(sp?.drawerGuides, sp?.drawerGuidesCustom)],
-      [],
-      ['Kitchen Tops', formatKitchenTops(project.specs)],
-      ['Vanity Tops', formatVanityTops(project.specs)],
-      ...((sp?.additionalTopsEnabled) ? [['Additional Tops', formatAdditionalTops(project.specs)]] : []),
-      [],
-      ['Handles & Hardware', resolveOther(sp?.handlesAndHardware, sp?.handlesCustom)],
-      [],
-      ['Sales Tax on Material', resolveOther(sp?.tax, sp?.taxCustom)],
-      [],
-      ['Generated', new Date().toLocaleString()],
+    // Build door style rows with pending indicators
+    const doorStylePendingFields = getDoorStylePendingFields(project.specs);
+    const doorStyleSummaryRow: (string | undefined)[] = ['Door Style', formatDoorStyle(project.specs)];
+
+    // Check if the overall door style string is incomplete
+    const hasDoorPending = doorStylePendingFields.some(f => f.pending);
+
+    const infoRows: { cells: (string | undefined)[]; pendingNote?: string }[] = [
+      { cells: ['Project Name', project.name] },
+      { cells: [] },
+      { cells: ['Address', project.address] },
+      { cells: ['Notes', project.notes || ''] },
+      { cells: [] },
+      { cells: ['Project Super', sp?.projectSuper || ''] },
+      { cells: ['Customer', sp?.customer || ''] },
+      { cells: [] },
+      { cells: ['Specifications', ''] },
+      { cells: doorStyleSummaryRow, pendingNote: hasDoorPending ? doorStylePendingFields.filter(f => f.pending).map(f => f.pending).join(', ') : undefined },
+      { cells: ['Hinges', resolveOther(sp?.hinges, sp?.hingesCustom)], pendingNote: !sp?.hinges ? 'Hinges selection is pending' : undefined },
+      { cells: ['Drawer Box', resolveOther(sp?.drawerBox, sp?.drawerBoxCustom)], pendingNote: !sp?.drawerBox ? 'Drawer box selection is pending' : undefined },
+      { cells: ['Drawer Guides', resolveOther(sp?.drawerGuides, sp?.drawerGuidesCustom)], pendingNote: !sp?.drawerGuides ? 'Drawer guides selection is pending' : undefined },
+      { cells: [] },
+      { cells: ['Kitchen Tops', formatKitchenTops(project.specs)], pendingNote: !sp?.countertops ? 'Kitchen tops material is pending' : undefined },
+      { cells: ['Vanity Tops', formatVanityTops(project.specs)], pendingNote: (!sp?.vanitySameAsKitchen && !sp?.vanityCountertops) ? 'Vanity tops material is pending' : undefined },
+      ...((sp?.additionalTopsEnabled) ? [{ cells: ['Additional Tops', formatAdditionalTops(project.specs)] as (string | undefined)[] }] : []),
+      { cells: [] },
+      { cells: ['Handles & Hardware', resolveOther(sp?.handlesAndHardware, sp?.handlesCustom)], pendingNote: !sp?.handlesAndHardware ? 'Handles selection is pending' : undefined },
+      { cells: [] },
+      { cells: ['Sales Tax on Material', resolveOther(sp?.tax, sp?.taxCustom)], pendingNote: !sp?.tax ? 'Tax selection is pending' : undefined },
+      { cells: [] },
+      { cells: ['Generated', new Date().toLocaleString()] },
     ];
 
-    infoRows.forEach(r => {
+    const redFont: Partial<ExcelJS.Font> = { color: { argb: 'FFCC0000' } };
+
+    infoRows.forEach(({ cells: r, pendingNote }) => {
       const row = wsInfo.addRow(r);
       if (r.length > 0 && r[0] && boldUnderlineLabels.has(r[0])) {
         const cell = row.getCell(1);
         cell.font = { bold: true, underline: true };
+      }
+      // If value is empty/pending, color value cell red and add pending note in col C
+      if (pendingNote) {
+        const valCell = row.getCell(2);
+        if (!valCell.value || String(valCell.value).trim() === '') {
+          valCell.value = '—';
+        }
+        valCell.font = { ...valCell.font as any, ...redFont };
+        const noteCell = row.getCell(3);
+        noteCell.value = pendingNote;
+        noteCell.font = { italic: true, ...redFont };
       }
     });
 
