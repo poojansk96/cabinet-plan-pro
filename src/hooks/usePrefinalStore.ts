@@ -250,7 +250,7 @@ function migrateStoneRow(r: any): PrefinalStoneRow {
 function loadData(projectId: string): PrefinalData {
   try {
     const raw = localStorage.getItem(`prefinal_${projectId}`);
-    if (!raw) return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [], kitchenBacksplashHeight: 4, bathBacksplashHeight: 4, sidesplashQtyMap: {}, typeBacksplashHeightMap: {}, stoneInchesOverrideMap: {}, laminateRows: [], laminateUnitTypes: [], laminateManualMap: {} };
+    if (!raw) return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [], kitchenBacksplashHeight: 4, bathBacksplashHeight: 4, sidesplashQtyMap: {}, typeBacksplashHeightMap: {}, stoneInchesOverrideMap: {}, laminateRows: [], laminateUnitTypes: [], laminateManualMap: {}, vtopRows: [], vtopUnitTypes: [] };
     const parsed = JSON.parse(raw);
     // Migration: old format had unitRows
     if (parsed.unitRows && !parsed.unitTypes) {
