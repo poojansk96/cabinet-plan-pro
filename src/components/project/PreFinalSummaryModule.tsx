@@ -177,8 +177,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
       { cells: ['Kitchen Tops', formatKitchenTops(project.specs)], pendingNote: (() => {
         if (!sp?.countertops) return 'Kitchen tops material is pending';
         const pending: string[] = [];
-        if (sp.countertops !== 'Laminate' && !sp.countertopManufacturer) pending.push('Vendor is pending');
-        if ((sp.countertops === 'Quartz' || sp.countertops === 'Granite') && !sp.countertopColor) pending.push('Color selection is pending');
+        if (!sp.countertopManufacturer) pending.push('Vendor is pending');
+        if (!sp.countertopColor && sp.countertops !== 'Laminate') pending.push('Color selection is pending');
         if (sp.countertops === 'Laminate' && !sp.laminateSubstrate) pending.push('Substrate is pending');
         if (sp.countertops === 'Laminate' && !sp.laminateColor) pending.push('Color selection is pending');
         return pending.length > 0 ? pending.join(', ') : undefined;
