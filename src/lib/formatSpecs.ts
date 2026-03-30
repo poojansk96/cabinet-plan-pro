@@ -39,9 +39,9 @@ export function formatDoorStyle(specs?: AnySpecs): string {
   }
 
   if (manufacturer === 'India') {
-    // "Door style name" - "Construction" - "Color" from India
+    // "Door style name" - "Construction" - "Finish" - "Color" from India
     const constr = construction ? `${construction} construction` : '';
-    const parts = [name, constr, color].filter(Boolean);
+    const parts = [name, constr, finish, color].filter(Boolean);
     return parts.length > 0 ? `${parts.join(' - ')} from India` : 'India';
   }
 
