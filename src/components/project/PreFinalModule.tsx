@@ -5,7 +5,8 @@ import { type LabelRow } from './ShopDrawingImportDialog';
 import ShopDrawingImportDialog from './ShopDrawingImportDialog';
 import UnitTypeImportDialog from './UnitTypeImportDialog';
 import StonePDFImportDialog, { type StoneExtractedRow } from './StonePDFImportDialog';
-import { usePrefinalStore, type PrefinalStoneRow } from '@/hooks/usePrefinalStore';
+import VtopPDFImportDialog, { type VtopImportRow, formatVtopSku, getVtopSidesplashItems } from './VtopPDFImportDialog';
+import { usePrefinalStore, type PrefinalStoneRow, type PrefinalVtopRow } from '@/hooks/usePrefinalStore';
 
 interface Props {
   project: Project;
