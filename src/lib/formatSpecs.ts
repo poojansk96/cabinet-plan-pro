@@ -33,8 +33,8 @@ export function formatDoorStyle(specs?: AnySpecs): string {
   const style = resolveCustom(specs.doorStyleStyle, specs.doorStyleStyleCustom);
 
   if (manufacturer === 'Overseas') {
-    // "Door style name" - "Color" from Overseas
-    const parts = [name, color].filter(Boolean);
+    // "Door style name" - "Finish" - "Color" from Overseas
+    const parts = [name, finish, color].filter(Boolean);
     return parts.length > 0 ? `${parts.join(' - ')} from Overseas` : 'Overseas';
   }
 
