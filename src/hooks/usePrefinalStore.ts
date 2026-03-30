@@ -272,6 +272,8 @@ function loadData(projectId: string): PrefinalData {
         laminateRows: (parsed.laminateRows || []),
         laminateUnitTypes: parsed.laminateUnitTypes || [],
         laminateManualMap: parsed.laminateManualMap || {},
+        vtopRows: parsed.vtopRows || [],
+        vtopUnitTypes: parsed.vtopUnitTypes || [],
       };
     }
     // Normalize + deduplicate unit types preserving first-seen order
