@@ -423,6 +423,15 @@ export default function PreFinalModule({ project }: Props) {
         />
       )}
 
+      {/* Vtop Import Dialog */}
+      {showVtopImport && (
+        <VtopPDFImportDialog
+          onImport={(rows, detectedTypes) => handleVtopImport(rows, detectedTypes)}
+          onClose={() => setShowVtopImport(false)}
+          prefinalPerson={project.specs?.takeoffPerson}
+        />
+      )}
+
       {/* Sub-tab toggle + speed mode */}
       <div className="flex items-center gap-1 flex-wrap">
         <button
@@ -452,6 +461,13 @@ export default function PreFinalModule({ project }: Props) {
           style={activeSubTab === 'laminate' ? { background: 'hsl(142 60% 35%)' } : {}}
         >
           <Layers size={13} /> Laminate LFT
+        </button>
+        <button
+          onClick={() => setActiveSubTab('cmarble')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-xs font-medium transition-colors ${activeSubTab === 'cmarble' ? 'text-white' : 'text-muted-foreground border border-border hover:bg-secondary'}`}
+          style={activeSubTab === 'cmarble' ? { background: 'hsl(280 50% 45%)' } : {}}
+        >
+          🛁 Cmarble/Swan Vtop
         </button>
 
       </div>
