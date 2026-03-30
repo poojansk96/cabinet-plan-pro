@@ -453,20 +453,16 @@ export default function ProjectInfoModule({ project, onSave }: Props) {
                       )}
                       <div>
                         <label className={labelCls}>Color</label>
-                        <select value={specs.laminateColor} className={subInputCls}
-                          onChange={e => setSpecs(s => ({ ...s, laminateColor: e.target.value, laminateColorCustom: '' }))}>
-                          <option value="">Select color group…</option>
-                          <option value="Group 1 Color">Group 1 Color</option>
-                          <option value="Group 2 Color">Group 2 Color</option>
-                          <option value="Group 3 Color">Group 3 Color</option>
-                          <option value="Group 5 Color">Group 5 Color</option>
-                          <option value="Custom/Specific Color">Custom / Specific Color</option>
-                        </select>
+                        <input type="text" value={specs.laminateColor} className={inputCls}
+                          onChange={e => setSpecs(s => ({ ...s, laminateColor: e.target.value }))} placeholder="Enter color name…" />
                       </div>
-                      {specs.laminateColor === 'Custom/Specific Color' && (
-                        <input type="text" value={specs.laminateColorCustom} className={inputCls}
-                          onChange={e => setSpecs(s => ({ ...s, laminateColorCustom: e.target.value }))} placeholder="Enter specific color…" />
-                      )}
+                    </div>
+                  )}
+                  {specs.countertops === 'Solid Surface- Corian' && (
+                    <div>
+                      <label className={labelCls}>Color</label>
+                      <input type="text" value={specs.countertopColor} className={inputCls}
+                        onChange={e => setSpecs(s => ({ ...s, countertopColor: e.target.value }))} placeholder="Enter color name…" />
                     </div>
                   )}
                 </div>
@@ -531,20 +527,16 @@ export default function ProjectInfoModule({ project, onSave }: Props) {
                           )}
                           <div>
                             <label className={labelCls}>Color</label>
-                            <select value={specs.vanityLaminateColor} className={subInputCls}
-                              onChange={e => setSpecs(s => ({ ...s, vanityLaminateColor: e.target.value, vanityLaminateColorCustom: '' }))}>
-                              <option value="">Select color group…</option>
-                              <option value="Group 1 Color">Group 1 Color</option>
-                              <option value="Group 2 Color">Group 2 Color</option>
-                              <option value="Group 3 Color">Group 3 Color</option>
-                              <option value="Group 5 Color">Group 5 Color</option>
-                              <option value="Custom/Specific Color">Custom / Specific Color</option>
-                            </select>
+                            <input type="text" value={specs.vanityLaminateColor} className={inputCls}
+                              onChange={e => setSpecs(s => ({ ...s, vanityLaminateColor: e.target.value }))} placeholder="Enter color name…" />
                           </div>
-                          {specs.vanityLaminateColor === 'Custom/Specific Color' && (
-                            <input type="text" value={specs.vanityLaminateColorCustom} className={inputCls}
-                              onChange={e => setSpecs(s => ({ ...s, vanityLaminateColorCustom: e.target.value }))} placeholder="Enter specific color…" />
-                          )}
+                        </div>
+                      )}
+                      {specs.vanityCountertops === 'Solid Surface- Corian' && (
+                        <div>
+                          <label className={labelCls}>Color</label>
+                          <input type="text" value={specs.vanityColor} className={inputCls}
+                            onChange={e => setSpecs(s => ({ ...s, vanityColor: e.target.value }))} placeholder="Enter color name…" />
                         </div>
                       )}
                     </div>
