@@ -28,6 +28,16 @@ export interface PrefinalStoneRow {
   room?: string;
 }
 
+export interface PrefinalVtopRow {
+  unitType: string;
+  length: number;           // inches
+  depth: number;            // inches (usually 22)
+  bowlPosition: 'offset-left' | 'offset-right' | 'center';
+  bowlOffset: number | null; // inches from closer edge
+  leftWall: boolean;        // double line = wall/sidesplash
+  rightWall: boolean;       // double line = wall/sidesplash
+}
+
 interface PrefinalData {
   unitTypes: string[];
   unitNumbers: PrefinalUnitNumber[];
