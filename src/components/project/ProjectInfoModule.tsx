@@ -639,23 +639,11 @@ export default function ProjectInfoModule({ project, onSave }: Props) {
                       <input type="text" value={specs.additionalTopsManufacturerCustom} className={inputCls}
                         onChange={e => setSpecs(s => ({ ...s, additionalTopsManufacturerCustom: e.target.value }))} placeholder="Enter manufacturer name…" />
                     )}
-                    {(specs.additionalTops === 'Quartz' || specs.additionalTops === 'Granite') && (
-                      <div className="space-y-2">
-                        <div>
-                          <label className={labelCls}>Color</label>
-                          <select value={specs.additionalTopsColor} className={subInputCls}
-                            onChange={e => setSpecs(s => ({ ...s, additionalTopsColor: e.target.value, additionalTopsColorCustom: '' }))}>
-                            <option value="">Select color group…</option>
-                            <option value="Group 1 Color">Group 1 Color</option>
-                            <option value="Group 2 Color">Group 2 Color</option>
-                            <option value="Group 3 Color">Group 3 Color</option>
-                            <option value="Custom/Specific Color">Custom / Specific Color</option>
-                          </select>
-                        </div>
-                        {specs.additionalTopsColor === 'Custom/Specific Color' && (
-                          <input type="text" value={specs.additionalTopsColorCustom} className={inputCls}
-                            onChange={e => setSpecs(s => ({ ...s, additionalTopsColorCustom: e.target.value }))} placeholder="Enter specific color…" />
-                        )}
+                    {(specs.additionalTops === 'Quartz' || specs.additionalTops === 'Granite' || specs.additionalTops === 'Solid Surface- Corian') && (
+                      <div>
+                        <label className={labelCls}>Color</label>
+                        <input type="text" value={specs.additionalTopsColor} className={inputCls}
+                          onChange={e => setSpecs(s => ({ ...s, additionalTopsColor: e.target.value }))} placeholder="Enter color name…" />
                       </div>
                     )}
                     {specs.additionalTops === 'Laminate' && (
@@ -676,20 +664,9 @@ export default function ProjectInfoModule({ project, onSave }: Props) {
                         )}
                         <div>
                           <label className={labelCls}>Color</label>
-                          <select value={specs.additionalTopsLaminateColor} className={subInputCls}
-                            onChange={e => setSpecs(s => ({ ...s, additionalTopsLaminateColor: e.target.value, additionalTopsLaminateColorCustom: '' }))}>
-                            <option value="">Select color group…</option>
-                            <option value="Group 1 Color">Group 1 Color</option>
-                            <option value="Group 2 Color">Group 2 Color</option>
-                            <option value="Group 3 Color">Group 3 Color</option>
-                            <option value="Group 5 Color">Group 5 Color</option>
-                            <option value="Custom/Specific Color">Custom / Specific Color</option>
-                          </select>
+                          <input type="text" value={specs.additionalTopsLaminateColor} className={inputCls}
+                            onChange={e => setSpecs(s => ({ ...s, additionalTopsLaminateColor: e.target.value }))} placeholder="Enter color name…" />
                         </div>
-                        {specs.additionalTopsLaminateColor === 'Custom/Specific Color' && (
-                          <input type="text" value={specs.additionalTopsLaminateColorCustom} className={inputCls}
-                            onChange={e => setSpecs(s => ({ ...s, additionalTopsLaminateColorCustom: e.target.value }))} placeholder="Enter specific color…" />
-                        )}
                       </div>
                     )}
                   </div>

@@ -194,7 +194,15 @@ export default function PreFinalSummaryModule({ project }: Props) {
         if (sp.vanityCountertops === 'Laminate' && !sp.vanityLaminateColor) pending.push('Color selection is pending');
         return pending.length > 0 ? pending.join(', ') : undefined;
       })() },
-      ...((sp?.additionalTopsEnabled) ? [{ cells: ['Additional Tops', formatAdditionalTops(project.specs)] as (string | undefined)[] }] : []),
+      ...((sp?.additionalTopsEnabled) ? [{ cells: ['Additional Tops', formatAdditionalTops(project.specs)] as (string | undefined)[], pendingNote: (() => {
+        if (!sp?.additionalTops) return 'Material selection is pending';
+        const pending: string[] = [];
+        if (sp.additionalTops !== 'Cultured Marble' && sp.additionalTops !== 'Swanstone' && !sp.additionalTopsManufacturer) pending.push('Vendor is pending');
+        if ((sp.additionalTops === 'Quartz' || sp.additionalTops === 'Granite' || sp.additionalTops === 'Solid Surface- Corian') && !sp.additionalTopsColor) pending.push('Color selection is pending');
+        if (sp.additionalTops === 'Laminate' && !sp.additionalTopsLaminateSubstrate) pending.push('Substrate is pending');
+        if (sp.additionalTops === 'Laminate' && !sp.additionalTopsLaminateColor) pending.push('Color selection is pending');
+        return pending.length > 0 ? pending.join(', ') : undefined;
+      })() }] : []),
       { cells: [] },
       { cells: ['Handles & Hardware', resolveHandles(sp?.handlesAndHardware, sp?.handlesCustom)], pendingNote: getHandlesPending(sp?.handlesAndHardware, sp?.handlesCustom) },
       { cells: [] },
