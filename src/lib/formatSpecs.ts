@@ -1,6 +1,6 @@
 import type { ProjectSpecs } from '@/types/project';
 
-type AnySpecs = ProjectSpecs & Record<string, any>;
+type AnySpecs = ProjectSpecs;
 
 function resolveCustom(value?: string, custom?: string): string {
   if (!value) return '';
@@ -33,15 +33,15 @@ export function formatDoorStyle(specs?: AnySpecs): string {
   const style = resolveCustom(specs.doorStyleStyle, specs.doorStyleStyleCustom);
 
   if (manufacturer === 'Overseas') {
-    // "Door style name" - "Color" from Overseas
-    const parts = [name, color].filter(Boolean);
+    // "Door style name" - "Finish" - "Color" from Overseas
+    const parts = [name, finish, color].filter(Boolean);
     return parts.length > 0 ? `${parts.join(' - ')} from Overseas` : 'Overseas';
   }
 
   if (manufacturer === 'India') {
-    // "Door style name" - "Construction" - "Color" from India
+    // "Door style name" - "Construction" - "Finish" - "Color" from India
     const constr = construction ? `${construction} construction` : '';
-    const parts = [name, constr, color].filter(Boolean);
+    const parts = [name, constr, finish, color].filter(Boolean);
     return parts.length > 0 ? `${parts.join(' - ')} from India` : 'India';
   }
 
