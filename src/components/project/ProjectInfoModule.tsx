@@ -395,13 +395,15 @@ export default function ProjectInfoModule({ project, onSave }: Props) {
                 <select value={specs.handlesAndHardware} className={inputCls}
                   onChange={e => setSpecs(s => ({ ...s, handlesAndHardware: e.target.value, handlesCustom: '' }))}>
                   <option value="">Select handles…</option>
-                  <option value='Standard knob, 4" wire pulls or 96mm barpulls in Brushed nickel finish'>Standard knob, 4&quot; wire pulls or 96mm barpulls in Brushed nickel finish</option>
+                  <option value="BP20596195">BP20596195</option>
+                  <option value="BP33206195">BP33206195</option>
+                  <option value="BP9041195">BP9041195</option>
                   <option value="Other">Other</option>
                 </select>
               </div>
               {specs.handlesAndHardware === 'Other' && (
                 <input type="text" value={specs.handlesCustom} className={inputCls}
-                  onChange={e => setSpecs(s => ({ ...s, handlesCustom: e.target.value }))} placeholder="Describe handle style…" />
+                  onChange={e => setSpecs(s => ({ ...s, handlesCustom: e.target.value }))} placeholder="Enter handle details…" />
               )}
             </div>
           </div>

@@ -123,6 +123,24 @@ export default function PreFinalSummaryModule({ project }: Props) {
       return val === 'Other' ? (custom || '') : val;
     };
 
+    const HANDLE_DESCRIPTIONS: Record<string, string> = {
+      'BP20596195': 'BP20596195-Modern Steel -96mm CTC- 205 Brushed Nickel Finish From Richelieu',
+      'BP33206195': 'BP33206195-Functional Steel 4 Inch CTC - 332 Brushed nickel finish from Richelieu',
+      'BP9041195': 'BP9041195 - Modern Metal Knob - 9041  - Brushed Nickel Finish From Richelieu',
+    };
+
+    const resolveHandles = (val?: string, custom?: string): string => {
+      if (!val) return '';
+      if (val === 'Other') return custom || '';
+      return HANDLE_DESCRIPTIONS[val] || val;
+    };
+
+    const getHandlesPending = (val?: string, custom?: string): string | undefined => {
+      if (!val) return 'Handles selection is pending';
+      if (val === 'Other' && !custom?.trim()) return 'Handles selection is pending';
+      return undefined;
+    };
+
     // ── Sheet 1: Project Info ───────────────────────────────────────
     const wsInfo = wb.addWorksheet('Project Info');
     wsInfo.columns = [{ width: 22 }, { width: 40 }, { width: 30 }];
@@ -160,7 +178,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
       { cells: ['Vanity Tops', formatVanityTops(project.specs)], pendingNote: (!sp?.vanitySameAsKitchen && !sp?.vanityCountertops) ? 'Vanity tops material is pending' : undefined },
       ...((sp?.additionalTopsEnabled) ? [{ cells: ['Additional Tops', formatAdditionalTops(project.specs)] as (string | undefined)[] }] : []),
       { cells: [] },
-      { cells: ['Handles & Hardware', resolveOther(sp?.handlesAndHardware, sp?.handlesCustom)], pendingNote: !sp?.handlesAndHardware ? 'Handles selection is pending' : undefined },
+      { cells: ['Handles & Hardware', resolveHandles(sp?.handlesAndHardware, sp?.handlesCustom)], pendingNote: getHandlesPending(sp?.handlesAndHardware, sp?.handlesCustom) },
       { cells: [] },
       { cells: ['Sales Tax on Material', resolveOther(sp?.tax, sp?.taxCustom)], pendingNote: !sp?.tax ? 'Tax selection is pending' : undefined },
       { cells: [] },
