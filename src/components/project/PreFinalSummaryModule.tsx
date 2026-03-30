@@ -187,8 +187,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
         if (sp?.vanitySameAsKitchen) return undefined;
         if (!sp?.vanityCountertops) return 'Vanity tops material is pending';
         const pending: string[] = [];
-        if (sp.vanityCountertops !== 'Laminate' && sp.vanityCountertops !== 'Cultured Marble' && sp.vanityCountertops !== 'Swanstone' && !sp.vanityManufacturer) pending.push('Vendor is pending');
-        if ((sp.vanityCountertops === 'Quartz' || sp.vanityCountertops === 'Granite') && !sp.vanityColor) pending.push('Color selection is pending');
+        if (sp.vanityCountertops !== 'Cultured Marble' && sp.vanityCountertops !== 'Swanstone' && !sp.vanityManufacturer) pending.push('Vendor is pending');
+        if ((sp.vanityCountertops === 'Quartz' || sp.vanityCountertops === 'Granite' || sp.vanityCountertops === 'Solid Surface- Corian') && !sp.vanityColor) pending.push('Color selection is pending');
         if ((sp.vanityCountertops === 'Cultured Marble' || sp.vanityCountertops === 'Swanstone') && !sp.vanityCMColor) pending.push('Color selection is pending');
         if (sp.vanityCountertops === 'Laminate' && !sp.vanityLaminateSubstrate) pending.push('Substrate is pending');
         if (sp.vanityCountertops === 'Laminate' && !sp.vanityLaminateColor) pending.push('Color selection is pending');
