@@ -178,7 +178,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
       { cells: ['Vanity Tops', formatVanityTops(project.specs)], pendingNote: (!sp?.vanitySameAsKitchen && !sp?.vanityCountertops) ? 'Vanity tops material is pending' : undefined },
       ...((sp?.additionalTopsEnabled) ? [{ cells: ['Additional Tops', formatAdditionalTops(project.specs)] as (string | undefined)[] }] : []),
       { cells: [] },
-      { cells: ['Handles & Hardware', resolveOther(sp?.handlesAndHardware, sp?.handlesCustom)], pendingNote: !sp?.handlesAndHardware ? 'Handles selection is pending' : undefined },
+      { cells: ['Handles & Hardware', resolveHandles(sp?.handlesAndHardware, sp?.handlesCustom)], pendingNote: getHandlesPending(sp?.handlesAndHardware, sp?.handlesCustom) },
       { cells: [] },
       { cells: ['Sales Tax on Material', resolveOther(sp?.tax, sp?.taxCustom)], pendingNote: !sp?.tax ? 'Tax selection is pending' : undefined },
       { cells: [] },
