@@ -58,6 +58,10 @@ export default function PreFinalModule({ project }: Props) {
   const [showLaminateImport, setShowLaminateImport] = useState(false);
   const [laminateImportedCount, setLaminateImportedCount] = useState<number | null>(null);
 
+  // ── Cmarble/Swan Vtop state ──────────────────────────────────────────────
+  const [showVtopImport, setShowVtopImport] = useState(false);
+  const [vtopImportedCount, setVtopImportedCount] = useState<number | null>(null);
+
   // ── Unit import handler ───────────────────────────────────────────────────
   const handleUnitImport = (rows: { unitNumber: string; unitType: string; bldg: string }[], typeOrder?: string[]) => {
     const normalized = rows.map(r => ({ ...r, unitType: normalizeUnitType(r.unitType) }));
