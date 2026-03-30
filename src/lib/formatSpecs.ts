@@ -1,6 +1,6 @@
 import type { ProjectSpecs } from '@/types/project';
 
-type AnySpecs = ProjectSpecs & Record<string, any>;
+type AnySpecs = ProjectSpecs;
 
 function resolveCustom(value?: string, custom?: string): string {
   if (!value) return '';
