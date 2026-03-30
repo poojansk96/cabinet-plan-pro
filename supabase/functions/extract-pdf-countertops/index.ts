@@ -64,37 +64,51 @@ RULES:
 Return ONLY valid JSON — no markdown fences, no explanation:
 {"unitTypeName":"1.1B-AS","countertops":[{"label":"Perimeter Left","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"}]}`;
 
-    let response: Response | null = null;
-    const MAX_RETRIES = 3;
-    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-      try {
-        response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${GEMINI_API_KEY}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ role: "user", parts: [
-                { inlineData: { mimeType: "image/jpeg", data: pageImage } },
-                { text: prompt },
-              ]}],
-              generationConfig: { temperature: 0.2, maxOutputTokens: 8192 },
-            }),
-          }
-        );
-      } catch (fetchErr) {
-        console.error(`AI fetch error (attempt ${attempt + 1}):`, fetchErr);
-        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
-        throw fetchErr;
-      }
+    const MODELS = [
+      "gemini-2.5-flash",
+      "gemini-2.5-pro",
+      "gemini-3-flash-preview",
+    ];
 
-      if (response && (response.status === 503 || response.status === 500)) {
-        console.warn(`AI unavailable (${response.status}), attempt ${attempt + 1}/${MAX_RETRIES}`);
-        response = null;
-        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
-        return new Response(JSON.stringify({ error: "AI model temporarily unavailable.", unitTypeName: "", countertops: [] }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    let response: Response | null = null;
+    for (const model of MODELS) {
+      console.log(`Trying model: ${model}`);
+      const MAX_RETRIES = 2;
+      let succeeded = false;
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+          response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ role: "user", parts: [
+                  { inlineData: { mimeType: "image/jpeg", data: pageImage } },
+                  { text: prompt },
+                ]}],
+                generationConfig: { temperature: 0.2, maxOutputTokens: 8192 },
+              }),
+            }
+          );
+        } catch (fetchErr) {
+          console.error(`AI fetch error (${model}, attempt ${attempt + 1}):`, fetchErr);
+          if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
+          response = null;
+          break;
+        }
+
+        if (response && (response.status === 503 || response.status === 500)) {
+          console.warn(`AI unavailable (${response.status}) for ${model}, attempt ${attempt + 1}/${MAX_RETRIES}`);
+          response = null;
+          if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
+          break;
+        }
+        succeeded = true;
+        break;
       }
-      break;
+      if (succeeded && response) break;
+      console.warn(`Model ${model} failed, trying next fallback...`);
     }
 
     if (!response) {
