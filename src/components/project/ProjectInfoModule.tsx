@@ -429,23 +429,10 @@ export default function ProjectInfoModule({ project, onSave }: Props) {
                       onChange={e => setSpecs(s => ({ ...s, countertopManufacturerCustom: e.target.value }))} placeholder="Enter manufacturer name…" />
                   )}
                   {(specs.countertops === 'Quartz' || specs.countertops === 'Granite') && (
-                    <div className="space-y-2">
-                      <div>
-                        <label className={labelCls}>Color</label>
-                        <select value={specs.countertopColor} className={subInputCls}
-                          onChange={e => setSpecs(s => ({ ...s, countertopColor: e.target.value, countertopColorCustom: '' }))}>
-                          <option value="">Select color group…</option>
-                          {specs.countertopManufacturer === 'Local MSI' && <option value="Group 0 Color">Group 0 Color</option>}
-                          <option value="Group 1 Color">Group 1 Color</option>
-                          <option value="Group 2 Color">Group 2 Color</option>
-                          <option value="Group 3 Color">Group 3 Color</option>
-                          <option value="Custom/Specific Color">Custom / Specific Color</option>
-                        </select>
-                      </div>
-                      {specs.countertopColor === 'Custom/Specific Color' && (
-                        <input type="text" value={specs.countertopColorCustom} className={inputCls}
-                          onChange={e => setSpecs(s => ({ ...s, countertopColorCustom: e.target.value }))} placeholder="Enter specific color…" />
-                      )}
+                    <div>
+                      <label className={labelCls}>Color</label>
+                      <input type="text" value={specs.countertopColor} className={inputCls}
+                        onChange={e => setSpecs(s => ({ ...s, countertopColor: e.target.value }))} placeholder="Enter color name…" />
                     </div>
                   )}
                   {specs.countertops === 'Laminate' && (
@@ -520,23 +507,10 @@ export default function ProjectInfoModule({ project, onSave }: Props) {
                           onChange={e => setSpecs(s => ({ ...s, vanityManufacturerCustom: e.target.value }))} placeholder="Enter manufacturer name…" />
                       )}
                       {(specs.vanityCountertops === 'Quartz' || specs.vanityCountertops === 'Granite') && (
-                        <div className="space-y-2">
-                          <div>
-                            <label className={labelCls}>Color</label>
-                            <select value={specs.vanityColor} className={subInputCls}
-                              onChange={e => setSpecs(s => ({ ...s, vanityColor: e.target.value, vanityColorCustom: '' }))}>
-                              <option value="">Select color group…</option>
-                              {specs.vanityManufacturer === 'Local MSI' && <option value="Group 0 Color">Group 0 Color</option>}
-                              <option value="Group 1 Color">Group 1 Color</option>
-                              <option value="Group 2 Color">Group 2 Color</option>
-                              <option value="Group 3 Color">Group 3 Color</option>
-                              <option value="Custom/Specific Color">Custom / Specific Color</option>
-                            </select>
-                          </div>
-                          {specs.vanityColor === 'Custom/Specific Color' && (
-                            <input type="text" value={specs.vanityColorCustom} className={inputCls}
-                              onChange={e => setSpecs(s => ({ ...s, vanityColorCustom: e.target.value }))} placeholder="Enter specific color…" />
-                          )}
+                        <div>
+                          <label className={labelCls}>Color</label>
+                          <input type="text" value={specs.vanityColor} className={inputCls}
+                            onChange={e => setSpecs(s => ({ ...s, vanityColor: e.target.value }))} placeholder="Enter color name…" />
                         </div>
                       )}
                       {specs.vanityCountertops === 'Laminate' && (
