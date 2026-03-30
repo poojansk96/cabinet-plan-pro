@@ -30,35 +30,88 @@ const PERSONAL_QUOTES = [
   (name: string) => `Almost there, ${name}! Stay sharp! ✨`,
 ];
 
-async function renderPageToBase64(page: any, scale = 3): Promise<string> {
-  const vp = page.getViewport({ scale });
-  let canvas: any;
-  let ctx: any;
+async function renderPageToCanvasData(page: any): Promise<{ canvas: OffscreenCanvas | HTMLCanvasElement; width: number; height: number }> {
+  const MAX_PX = 3200;
+  const baseViewport = page.getViewport({ scale: 1 });
+  const longSide = Math.max(baseViewport.width, baseViewport.height);
+  const scale = Math.min(4.5, MAX_PX / longSide);
+  const viewport = page.getViewport({ scale });
+  const width = Math.ceil(viewport.width);
+  const height = Math.ceil(viewport.height);
+
   if (typeof OffscreenCanvas !== 'undefined') {
-    canvas = new OffscreenCanvas(vp.width, vp.height);
-    ctx = canvas.getContext('2d');
-  } else {
-    canvas = document.createElement('canvas');
-    canvas.width = vp.width;
-    canvas.height = vp.height;
-    ctx = canvas.getContext('2d');
+    const canvas = new OffscreenCanvas(width, height);
+    const ctx = canvas.getContext('2d')!;
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    return { canvas, width, height };
   }
-  await page.render({ canvasContext: ctx, viewport: vp }).promise;
-  let blob: Blob;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d')!;
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  return { canvas, width, height };
+}
+
+async function canvasToBase64(canvas: OffscreenCanvas | HTMLCanvasElement, quality = 0.82): Promise<string> {
   if (canvas instanceof OffscreenCanvas) {
-    blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.85 });
-  } else {
-    blob = await new Promise<Blob>((res) => canvas.toBlob((b: Blob) => res(b), 'image/jpeg', 0.85));
+    const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality });
+    const buf = await blob.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
   }
-  const buf = await blob.arrayBuffer();
-  const bytes = new Uint8Array(buf);
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-  let b64 = btoa(binary);
-  if (b64.length > 3_500_000 && scale > 1.5) {
-    return renderPageToBase64(page, scale - 0.5);
+  return (canvas as HTMLCanvasElement).toDataURL('image/jpeg', quality).split(',')[1];
+}
+
+async function canvasCropToBase64(
+  sourceCanvas: OffscreenCanvas | HTMLCanvasElement,
+  sx: number,
+  sy: number,
+  sw: number,
+  sh: number,
+  quality = 0.86,
+): Promise<string> {
+  if (typeof OffscreenCanvas !== 'undefined') {
+    const crop = new OffscreenCanvas(sw, sh);
+    const ctx = crop.getContext('2d')!;
+    ctx.drawImage(sourceCanvas as any, sx, sy, sw, sh, 0, 0, sw, sh);
+    return canvasToBase64(crop, quality);
   }
-  return b64;
+
+  const crop = document.createElement('canvas');
+  crop.width = sw;
+  crop.height = sh;
+  const ctx = crop.getContext('2d')!;
+  ctx.drawImage(sourceCanvas as HTMLCanvasElement, sx, sy, sw, sh, 0, 0, sw, sh);
+  return crop.toDataURL('image/jpeg', quality).split(',')[1];
+}
+
+async function renderPagePassImages(page: any): Promise<{ pageImage: string; stripImages: string[] }> {
+  const { canvas, width, height } = await renderPageToCanvasData(page);
+  const pageImage = await canvasToBase64(canvas, 0.82);
+
+  const xRanges: Array<[number, number]> = [
+    [0, 0.5],
+    [0.25, 0.75],
+    [0.5, 1],
+  ];
+  const yStart = 0.03;
+  const yEnd = 0.98;
+
+  const stripImages = await Promise.all(
+    xRanges.map(async ([xStart, xEnd]) => {
+      const sx = Math.floor(xStart * width);
+      const sy = Math.floor(yStart * height);
+      const sw = Math.max(1, Math.ceil((xEnd - xStart) * width));
+      const sh = Math.max(1, Math.ceil((yEnd - yStart) * height));
+      return canvasCropToBase64(canvas, sx, sy, sw, sh, 0.88);
+    }),
+  );
+
+  return { pageImage, stripImages };
 }
 
 function formatVtopSku(row: VtopImportRow): string {
@@ -141,7 +194,7 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
 
         for (let p = 1; p <= pdf.numPages; p++) {
           const page = await pdf.getPage(p);
-          const pageImage = await renderPageToBase64(page);
+          const { pageImage, stripImages } = await renderPagePassImages(page);
 
           const MAX_CLIENT_RETRIES = 5;
           let pageSuccess = false;
@@ -159,7 +212,7 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
                   'Content-Type': 'application/json',
                   'Authorization': `Bearer ${SUPABASE_KEY}`,
                 },
-                body: JSON.stringify({ pageImage }),
+                body: JSON.stringify({ pageImage, stripImages }),
                 signal: controller.signal,
               });
               clearTimeout(timeout);
