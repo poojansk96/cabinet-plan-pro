@@ -247,6 +247,49 @@ export default function PreFinalModule({ project }: Props) {
     setTimeout(() => setLaminateImportedCount(null), 4000);
   };
 
+  // ── Vtop import handler ────────────────────────────────────────────────
+  const handleVtopImport = (rows: VtopImportRow[], detectedTypes?: string[]) => {
+    const rowsByType = new Map<string, VtopImportRow[]>();
+    const typeOrder: string[] = [];
+
+    for (const r of rows) {
+      if (!r.selected) continue;
+      const type = r.unitType ? normalizeUnitType(r.unitType) : 'Unassigned';
+      if (!rowsByType.has(type)) {
+        rowsByType.set(type, []);
+        typeOrder.push(type);
+      }
+      rowsByType.get(type)!.push(r);
+    }
+
+    store.clearVtops();
+
+    if (detectedTypes && detectedTypes.length > 0) {
+      const normalizedOrder = detectedTypes.map(t => normalizeUnitType(t)).filter((t, i, a) => a.indexOf(t) === i);
+      const remaining = typeOrder.filter(t => !normalizedOrder.includes(t));
+      store.addVtopUnitTypes([...normalizedOrder, ...remaining]);
+    } else {
+      store.addVtopUnitTypes(typeOrder);
+    }
+
+    for (const [unitType, typeRows] of rowsByType) {
+      const vtopRows: PrefinalVtopRow[] = typeRows.map(r => ({
+        length: r.length,
+        depth: r.depth,
+        bowlPosition: r.bowlPosition,
+        bowlOffset: r.bowlOffset,
+        leftWall: r.leftWall,
+        rightWall: r.rightWall,
+        unitType,
+      }));
+      store.addVtopImport(vtopRows, unitType);
+    }
+
+    setVtopImportedCount(rows.filter(r => r.selected).length);
+    setShowVtopImport(false);
+    setTimeout(() => setVtopImportedCount(null), 4000);
+  };
+
   // ── Stone pivot ─────────────────────────────────────────────────────────
   const stoneUnitTypes = (() => {
     const seen = new Set<string>();
