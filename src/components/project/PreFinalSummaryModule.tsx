@@ -206,7 +206,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
       { cells: [] },
       { cells: ['Handles & Hardware', resolveHandles(sp?.handlesAndHardware, sp?.handlesCustom)], pendingNote: getHandlesPending(sp?.handlesAndHardware, sp?.handlesCustom) },
       { cells: [] },
-      { cells: ['Sales Tax on Material', resolveOther(sp?.tax, sp?.taxCustom)], pendingNote: !sp?.tax ? 'Tax selection is pending' : undefined },
+      { cells: ['Sales Tax on Material', resolveOther(sp?.tax, sp?.taxCustom)], pendingNote: !sp?.tax ? 'Tax selection is pending' : (sp?.tax === 'Tax Exempt' ? 'Tax exempt certificate?' : undefined) },
       { cells: [] },
       { cells: ['Generated', new Date().toLocaleString()] },
     ];
