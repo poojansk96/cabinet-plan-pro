@@ -1645,6 +1645,161 @@ export default function PreFinalModule({ project }: Props) {
           </div>
         </>
       )}
+
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* CMARBLE/SWAN VTOP SUB-TAB                                          */}
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {activeSubTab === 'cmarble' && (
+        <>
+          {vtopImportedCount !== null && (
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-white" style={{ background: 'hsl(280 50% 45%)' }}>
+              ✓ Successfully imported {vtopImportedCount} vanity top{vtopImportedCount !== 1 ? 's' : ''}
+            </div>
+          )}
+
+          <div className="est-card overflow-hidden">
+            <div className="est-section-header flex items-center gap-2 flex-wrap">
+              🛁 Cmarble/Swan Vtop
+
+              <div className="ml-auto flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => setShowVtopImport(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
+                  style={{ background: 'hsl(280 50% 45%)' }}
+                >
+                  <FileUp size={12} /> Upload 2020 Ctop plans
+                </button>
+                {store.vtopRows.length > 0 && (
+                  <button
+                    onClick={() => { if (confirm('Clear all Cmarble/Swan Vtop data?')) store.clearVtops(); }}
+                    className="flex items-center gap-1 px-2 py-1 rounded text-xs text-muted-foreground hover:text-destructive border border-border hover:border-destructive transition-colors"
+                  >
+                    <RotateCcw size={11} /> Clear
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {store.vtopRows.length === 0 ? (
+              <div className="text-center py-10 text-muted-foreground text-sm">
+                No data yet — import 2020 countertop shop drawings to extract vanity top sizes.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                {(() => {
+                  const vtopUnitTypes = (() => {
+                    const seen = new Set<string>();
+                    return store.vtopUnitTypes.filter(t => {
+                      const key = t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '').trim();
+                      if (seen.has(key)) return false;
+                      seen.add(key);
+                      return true;
+                    });
+                  })();
+
+                  return (
+                    <>
+                      {vtopUnitTypes.map(unitType => {
+                        const typeRows = store.vtopRows.filter(r => r.unitType === unitType);
+                        if (typeRows.length === 0) return null;
+                        const unitCount = store.unitNumbers.filter(u => u.assignments[unitType]).length;
+
+                        return (
+                          <div key={unitType} className="mb-4">
+                            <div className="px-4 py-2 flex items-center justify-between" style={{ background: 'hsl(280 50% 40%)', color: '#fff' }}>
+                              <span className="text-xs font-bold">{unitType}</span>
+                              {unitCount > 0 && (
+                                <span className="text-xs">× {unitCount} units</span>
+                              )}
+                            </div>
+                            <table className="est-table text-xs w-full">
+                              <thead>
+                                <tr>
+                                  <th className="text-left text-[10px]" style={{ width: '5%' }}>#</th>
+                                  <th className="text-left text-[10px]" style={{ width: '45%' }}>VTop SKU</th>
+                                  <th className="text-center text-[10px]" style={{ width: '10%' }}>QTY</th>
+                                  <th className="text-left text-[10px]" style={{ width: '35%' }}>Sidesplash</th>
+                                  <th style={{ width: '5%' }}></th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {typeRows.map((row, idx) => {
+                                  const sku = formatVtopSku({ ...row, selected: true });
+                                  const ssItems = getVtopSidesplashItems({ ...row, selected: true });
+                                  return (
+                                    <tr key={idx}>
+                                      <td className="text-muted-foreground">{idx + 1}</td>
+                                      <td className="font-mono text-[10px] font-bold">{sku}</td>
+                                      <td className="text-center font-mono">1</td>
+                                      <td className="text-[10px]">
+                                        {ssItems.length > 0
+                                          ? ssItems.map((s, i) => <div key={i}>{s} — 1 qty</div>)
+                                          : <span className="text-muted-foreground">None</span>}
+                                      </td>
+                                      <td>
+                                        <button
+                                          onClick={() => store.deleteVtopRow(unitType, idx)}
+                                          className="p-1 hover:text-destructive"
+                                        >
+                                          <Trash2 size={12} />
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        );
+                      })}
+
+                      {/* Summary */}
+                      <div className="px-4 py-4 border-t-2 border-border">
+                        <div className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Vtop Summary by Type</div>
+                        <table className="est-table text-xs w-full" style={{ tableLayout: 'fixed' }}>
+                          <colgroup>
+                            <col style={{ width: '30%' }} />
+                            <col style={{ width: '15%' }} />
+                            <col style={{ width: '15%' }} />
+                            <col style={{ width: '20%' }} />
+                            <col style={{ width: '20%' }} />
+                          </colgroup>
+                          <thead>
+                            <tr>
+                              <th className="text-left">Type</th>
+                              <th className="text-right">Units</th>
+                              <th className="text-right">Vtops</th>
+                              <th className="text-right">Total Vtops</th>
+                              <th className="text-right">Total SS</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {vtopUnitTypes.map(type => {
+                              const unitCount = store.unitNumbers.filter(u => u.assignments[type]).length || 1;
+                              const typeRows = store.vtopRows.filter(r => r.unitType === type);
+                              const vtopCount = typeRows.length;
+                              const ssCount = typeRows.reduce((s, r) => s + (r.leftWall ? 1 : 0) + (r.rightWall ? 1 : 0), 0);
+                              return (
+                                <tr key={type}>
+                                  <td className="font-bold">{type}</td>
+                                  <td className="text-right font-mono">{unitCount}</td>
+                                  <td className="text-right font-mono">{vtopCount}</td>
+                                  <td className="text-right font-mono font-bold" style={{ color: 'hsl(280 50% 45%)' }}>{vtopCount * unitCount}</td>
+                                  <td className="text-right font-mono font-bold" style={{ color: 'hsl(280 50% 45%)' }}>{ssCount * unitCount}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
