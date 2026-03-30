@@ -65,15 +65,13 @@ Return ONLY valid JSON — no markdown fences, no explanation:
 {"unitTypeName":"1.1B-AS","countertops":[{"label":"Perimeter Left","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"}]}`;
 
     const MODELS = [
-      "gemini-2.5-flash",
-      "gemini-2.5-pro",
-      "gemini-3-flash-preview",
+      { name: "gemini-3-flash-preview", retries: 3 },
+      { name: "gemini-2.5-pro", retries: 2 },
     ];
 
     let response: Response | null = null;
-    for (const model of MODELS) {
-      console.log(`Trying model: ${model}`);
-      const MAX_RETRIES = 2;
+    for (const { name: model, retries: MAX_RETRIES } of MODELS) {
+      console.log(`Trying model: ${model} (${MAX_RETRIES} attempts)`);
       let succeeded = false;
       for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
         try {
