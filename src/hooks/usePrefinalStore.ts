@@ -55,7 +55,9 @@ interface PrefinalData {
   stoneInchesOverrideMap: Record<string, number>; // key: unitType|category|depth|field (topInches, bsInches)
   laminateRows: PrefinalStoneRow[];
   laminateUnitTypes: string[];
-  laminateManualMap: Record<string, number>; // key: unitType|field (ktopSlabCost, bartopSlabCost, ssQty, ssCost)
+  laminateManualMap: Record<string, number>;
+  vtopRows: PrefinalVtopRow[];
+  vtopUnitTypes: string[];
 }
 
 function sanitizeUnitNumber(value: string): string {
