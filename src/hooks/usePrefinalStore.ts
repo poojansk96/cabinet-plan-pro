@@ -821,6 +821,52 @@ export function usePrefinalStore(projectId: string) {
     });
   }, [projectId]);
 
+  // ── Vtop (Cmarble/Swan) ──────────────────────────────────────────────
+  const addVtopUnitTypes = useCallback((types: string[]) => {
+    setData(prev => {
+      const normalizeKey = (t: string) => t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '').trim();
+      const existingKeys = new Set(prev.vtopUnitTypes.map(t => normalizeKey(t)));
+      const newTypes = types.filter(t => {
+        const key = normalizeKey(t);
+        if (!key || existingKeys.has(key)) return false;
+        existingKeys.add(key);
+        return true;
+      });
+      if (!newTypes.length) return prev;
+      const vtopUnitTypes = [...prev.vtopUnitTypes, ...newTypes];
+      const next = { ...prev, vtopUnitTypes };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
+  const addVtopImport = useCallback((rows: PrefinalVtopRow[], unitType: string) => {
+    setData(prev => {
+      const existingOther = prev.vtopRows.filter(r => r.unitType !== unitType);
+      const vtopRows = [...existingOther, ...rows.map(r => ({ ...r, unitType }))];
+      const next = { ...prev, vtopRows };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
+  const deleteVtopRow = useCallback((unitType: string, index: number) => {
+    setData(prev => {
+      let typeIdx = 0;
+      const vtopRows = prev.vtopRows.filter(r => {
+        if (r.unitType !== unitType) return true;
+        return typeIdx++ !== index;
+      });
+      const next = { ...prev, vtopRows };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
+
+  const clearVtops = useCallback(() => {
+    commit({ ...data, vtopRows: [], vtopUnitTypes: [] });
+  }, [commit, data]);
+
   return {
     unitTypes: data.unitTypes,
     unitNumbers: data.unitNumbers,
@@ -839,6 +885,8 @@ export function usePrefinalStore(projectId: string) {
     laminateRows: data.laminateRows,
     laminateUnitTypes: data.laminateUnitTypes,
     laminateManualMap: data.laminateManualMap,
+    vtopRows: data.vtopRows,
+    vtopUnitTypes: data.vtopUnitTypes,
     addUnitTypes,
     deleteUnitType,
     renameUnitType,
@@ -874,6 +922,10 @@ export function usePrefinalStore(projectId: string) {
     addLaminateImport,
     clearLaminate,
     setLaminateManual,
+    addVtopUnitTypes,
+    addVtopImport,
+    deleteVtopRow,
+    clearVtops,
     clearAll,
   };
 }
