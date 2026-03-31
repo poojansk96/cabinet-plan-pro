@@ -388,10 +388,18 @@ function extractTypeHintsFromText(pageText: string): string[] {
   }
 
   // Also match full pattern with parenthesized variants like "1BR TYPE A (ADA)"
-  const withParen = /\b(?:(\d+\s*BR|STUDIO)\s+)?TYPE\s+([A-Z0-9]+(?:\s*-\s*[A-Z0-9]+)*)\s*\(([A-Z0-9]+)\)/g;
+  const withParen = /\b(?:(\d+\s*BR|STUDIO)\s+)?TYPE\s+([A-Z0-9.]+(?:\s*-\s*[A-Z0-9.]+)*)\s*\(([A-Z0-9.]+)\)/g;
   while ((match = withParen.exec(text)) !== null) {
     const brPrefix = match[1] ? match[1].replace(/\s+/g, '') + ' ' : findBedroomPrefix(text, match.index);
     push(`${brPrefix}TYPE ${match[2]} (${match[3]})`);
+  }
+
+  // Match slash-separated type pairs like "TYPE A / TYPE A-AS" or "1BR-A / 1BR-A-MIRROR"
+  const slashPair = /\b(?:(\d+\s*BR|STUDIO)\s+)?TYPE\s+([A-Z0-9.]+(?:\s*-\s*[A-Z0-9.]+)*)\s*\/\s*(?:TYPE\s+)?([A-Z0-9.]+(?:\s*-\s*[A-Z0-9.]+)*)\b/g;
+  while ((match = slashPair.exec(text)) !== null) {
+    const brPrefix = match[1] ? match[1].replace(/\s+/g, '') + ' ' : findBedroomPrefix(text, match.index);
+    push(`${brPrefix}TYPE ${match[2]}`);
+    push(`${brPrefix}TYPE ${match[3]}`);
   }
 
   const generic = new RegExp(`\\bTYPE\\s+${typeBase}(?!\\s*(?:-|:)?\\s*(?:AS|MIRROR|ADA|REV|ALT|OPTION)\\b)(?!\\s*\\()`, 'g');
