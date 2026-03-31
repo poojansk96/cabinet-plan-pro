@@ -116,7 +116,7 @@ async function callGemini(
 
 // ── SKU Helpers ──
 
-const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|WDC|UB|WC|OH|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HALC|HAL|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HW|HSS|HS)\d[\w\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
+const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|WDC|UB|WC|OH|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HALC|HAL|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HW|HSS|HS)\d[\w\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
 // Secondary pattern for APPRON with space before dimensions (e.g. "APPRON 59X21")
 const APPRON_DIM_PATTERN = /\bAPPRON\s+(\d+X\d+)\b/gi;
 const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
@@ -213,7 +213,7 @@ function classifySku(sku: string): string {
   if (/^(T|UT|TC|PT|PTC|UC)(\d|$)/i.test(sku)) return "Tall";
   if (/^(HALC|HCUC)\d/i.test(sku)) return "Tall";
   if (/^(V|VB|VD|VDC)\d/i.test(sku)) return "Vanity";
-  if (/^(HAV)\d/i.test(sku)) return "Vanity";
+  if (/^(HAV|HAVDB)\d/i.test(sku)) return "Vanity";
   if (/^(FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|TF|APPRON|UREP|REP)\d/i.test(sku)) return "Accessory";
   return "Base";
 }
@@ -559,9 +559,9 @@ For each cabinet found, provide:
 1. sku: The SKU label exactly as written (e.g. B24, W3036, DB15, BF3, WF6X30, LS36-L, BLW36/3930-L, B09FH, APPRON59X21, DWR1). For APPRON labels with dimensions like "APPRON 59X21", combine into one string without spaces: "APPRON59X21".
 2. type: Classify by prefix:
    - "Base" → B, DB, SB, CB, EB, LS, LSB (but NOT BLW/BRW — those are Wall, NOT HAV — those are Vanity)
-   - "Wall" → W, WDC, UB, WC, OH, BLW, BRW
-   - "Tall" → T, UT, TC, PT, PTC, UC, HALC
-   - "Vanity" → V, VB, VD, VDC, HAV (HAV = Vanity, NOT Base)
+    - "Wall" → W, WDC, UB, WC, OH, BLW, BRW, HW (but NOT HAV — those are Vanity)
+    - "Tall" → T, UT, TC, PT, PTC, UC, HALC
+    - "Vanity" → V, VB, VD, VDC, HAV, HAVDB (HAV/HAVDB = Vanity, NOT Base)
    - "Accessory" → FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR, TF, APPRON
 3. room: From room labels on the plan (Kitchen, Bath, Laundry, Pantry — capitalize first letter only)
 4. quantity: Count EVERY separate label occurrence of this SKU on this page
@@ -575,18 +575,21 @@ COUNTING — CRITICAL:
 - Corner cabinets (LS, LSB) at wall junction = count ONCE even if label appears at junction of two wall runs.
 - Look for "xN" or "(2)" multiplier notation next to labels.
 
-HAV PREFIX = VANITY (NOT Base):
-- Any SKU starting with "HAV" (e.g. HAV3621BFH-REM) is a VANITY cabinet. Classify as type "Vanity", NOT "Base".
-- Do NOT duplicate HAV items — report each HAV label exactly ONCE with the correct type "Vanity".
+HAV / HAVDB PREFIX = VANITY (NOT Base):
+- Any SKU starting with "HAV" or "HAVDB" (e.g. HAV3621BFH-REM, HAVDB12, HAVDB18) is a VANITY cabinet. Classify as type "Vanity", NOT "Base".
+- HAVDB12, HAVDB18, HAVDB15 are drawer-base vanity cabinets — they are REAL cabinet SKUs. Do NOT skip them.
+- Do NOT duplicate HAV/HAVDB items — report each HAV/HAVDB label exactly ONCE with the correct type "Vanity".
 
 STACKED / ADJACENT LABELS — MOST COMMON ERROR:
 - Two or more SKU labels near the same location are ALWAYS SEPARATE cabinets. NEVER merge them into one string.
+- "W1836-R" stacked above or near "WDC2436-R" → TWO separate entries: W1836-R (qty 1) AND WDC2436-R (qty 1). NOT one combined entry.
+- "W1536-L" near "W1836-L" → TWO separate entries: W1536-L (qty 1) AND W1836-L (qty 1). They are DIFFERENT sizes (15" vs 18").
 - "W1230" on one line and "VDC2430" below it → TWO separate entries: W1230 (qty 1) AND VDC2430 (qty 1). NOT "W1230VDC2430".
 - "W1530" near "BLW24/2730-R" → TWO separate entries. NOT "W1530-BLW24/2730-R".
 - If two labels visually touch or OCR reads them with NO separator, split them into separate SKUs when both parts are valid labels.
 - Example: "HCUC15X8HCOC3082D" means TWO entries: "HCUC15X8" and "HCOC3082D".
-- Example: "HSS318XCHSS3032LB" means TWO entries: "HSS318X" and "CHSS3032LB".
 - Example: "W1230VDC2430" means TWO entries: "W1230" and "VDC2430".
+- CRITICAL: Even when two wall cabinet labels (e.g., W1836-R and WDC2436-R) are physically next to each other in the drawing, they are SEPARATE cabinets. Different prefix/dimensions = different cabinet.
 
 PRESERVE FULL SKU LABELS — CRITICAL:
 - Report the COMPLETE label exactly as printed on the drawing, including ALL suffixes.
@@ -607,12 +610,12 @@ SKIP THESE — NOT CABINET SKUs:
 
 VALID SKU PREFIXES (a label must start with letters followed by a digit):
 B, DB, SB, CB, EB, LS, LSB, W, WDC, UB, WC, OH, BLW, BRW, T, TF, UT, TC, PT, PTC, UC, V, VB, VD, VDC, FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR, APPRON
-Also accept manufacturer-specific longer prefixes (e.g. HA, HAV, HALC, SA, SV) followed by digits.
+Also accept manufacturer-specific longer prefixes (e.g. HA, HAV, HAVDB, HALC, SA, SV) followed by digits.
 
 VALID NO-DIGIT SKUS:
 UC, SCRIBE, BP
 
-FINAL SWEEP: After your initial scan, go back and specifically look for: B09FH, B06FH, B12FH, BF3, BF6, WF3X30, WF6X30, TF3X96, DWR1, DWR3, DWR6, CM8, TK, TKRUN, EP, LR, UC, SCRIBE, BP, APPRON (with dimensions like "APPRON 59X21" — report as "APPRON59X21" without the space). These appear as very small labels on narrow shapes. DWR labels are often rotated vertically — scan rotated text carefully.
+FINAL SWEEP: After your initial scan, go back and specifically look for: B09FH, B06FH, B12FH, BF3, BF6, WF3X30, WF6X30, TF3X96, DWR1, DWR3, DWR6, CM8, TK, TKRUN, EP, LR, UC, SCRIBE, BP, HAVDB12, HAVDB18, HAVDB15, APPRON (with dimensions like "APPRON 59X21" — report as "APPRON59X21" without the space). These appear as very small labels on narrow shapes. DWR labels are often rotated vertically — scan rotated text carefully.
 ${isStrip ? '\nNOTE: This image shows a CROPPED SECTION of a larger drawing page. Extract all cabinet labels visible in this cropped section.\n' : ''}${textLayerSkus.length > 0 ? `\nTEXT LAYER CROSS-REFERENCE — the PDF text layer detected these SKUs on this page:\n${textLayerSkus.join(', ')}\nMake sure ALL of these appear in your results if they are visible as labels on the drawing. If any are missing from your results, look harder for them.\n` : ''}${unitType ? `\nUnit type context: ${unitType}` : ""}
 If no cabinet SKUs are found, return {"items":[]}`;
 
@@ -727,7 +730,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
         let rawType = String(c.type ?? "Base").trim();
         if (/^BLW|^BRW/i.test(sku)) rawType = "Wall";
         if (/^WDC\d/i.test(sku)) rawType = "Wall";
-        if (/^HAV\d/i.test(sku)) rawType = "Vanity";
+        if (/^HAV\d|^HAVDB\d/i.test(sku)) rawType = "Vanity";
         if (/^HALC\d/i.test(sku)) rawType = "Tall";
         const normalizedType = rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase();
         const rawRoom = String(c.room ?? "Kitchen").trim();
@@ -947,7 +950,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
     // For most SKUs, duplicate entries are summed (multiple distinct labels on page).
     // For corner units, HAV vanities, and manufacturer dimension SKUs, duplicate detections are usually
     // the same physical cabinet repeated across passes, so keep MAX instead of SUM.
-    const isMaxDedupSku = (sku: string) => /^(LS|LSB|HAV)\d+/i.test(sku) || /^(HCUC|HCOC|HCDB)\d+X?\d*[A-Z0-9+\-]*$/i.test(sku);
+    const isMaxDedupSku = (sku: string) => /^(LS|LSB|HAV|HAVDB)\d+/i.test(sku) || /^(HCUC|HCOC|HCDB)\d+X?\d*[A-Z0-9+\-]*$/i.test(sku);
     const deduped = new Map<string, { sku: string; type: string; room: string; quantity: number }>();
     for (const item of items) {
       const key = `${item.sku}|${item.room}`;
@@ -977,7 +980,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
       return 5;
     };
 
-    const isRoomFragileSku = (sku: string) => /^(?:HAV\d|HC|HS|HW)/i.test(sku);
+    const isRoomFragileSku = (sku: string) => /^(?:HAV\d|HAVDB\d|HC|HS|HW)/i.test(sku);
     const collapsed = new Map<string, { sku: string; type: string; room: string; quantity: number }>();
     for (const item of deduped.values()) {
       const textCap = getTextOccurrenceCap(item.sku);

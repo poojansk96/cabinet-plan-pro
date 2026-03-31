@@ -159,8 +159,8 @@ function mergeExtractionPasses(passes: any[][]): any[] {
       .replace(/\s*-\s*/g, '-')
       .replace(/\s+/g, '');
   const keyOf = (item: any) => `${normalizeSkuLabel(item.sku)}|${String(item.room || 'Kitchen')}`;
-  const isHavSku = (sku: string) => /^HAV\d/i.test(normalizeSkuLabel(sku));
-  const isRoomFragileManufacturerSku = (sku: string) => /^(?:HAV\d|HC|HS|HW)/i.test(normalizeSkuLabel(sku));
+  const isHavSku = (sku: string) => /^HAV\d|^HAVDB\d/i.test(normalizeSkuLabel(sku));
+  const isRoomFragileManufacturerSku = (sku: string) => /^(?:HAV\d|HAVDB\d|HC|HS|HW)/i.test(normalizeSkuLabel(sku));
 
   const findExistingSkuKeys = (sku: string): string[] => {
     const upper = normalizeSkuLabel(sku);
