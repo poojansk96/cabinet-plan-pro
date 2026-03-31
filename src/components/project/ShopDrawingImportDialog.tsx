@@ -264,7 +264,7 @@ function normalizeTypeKey(value: string): string {
     .toUpperCase()
     .trim()
     .replace(/^TYPE\s+/, '')
-    .replace(/[^A-Z0-9]/g, '');
+    .replace(/[^A-Z0-9.]/g, '');
 }
 
 function normalizeTypeText(value: string): string {
