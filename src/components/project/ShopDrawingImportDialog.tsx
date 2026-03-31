@@ -427,6 +427,14 @@ function extractTypeHintsFromText(pageText: string): string[] {
     push(`${bedroom}-${code}${variant}`);
   }
 
+  // Match standalone slash-separated bedroom-types like "1BR-A / 1BR-A-AS"
+  const slashBedroomPair = /\b(\d+\s*BR|STUDIO)\s*-\s*([A-Z][A-Z0-9.]*)\s*\/\s*(?:\d+\s*BR|STUDIO)\s*-\s*([A-Z][A-Z0-9.]*(?:\s*-\s*(?:AS|MIRROR|ADA|REV|ALT|OPTION))?)\b/g;
+  while ((match = slashBedroomPair.exec(text)) !== null) {
+    const bedroom = match[1].replace(/\s+/g, '');
+    push(`${bedroom}-${match[2]}`);
+    push(`${bedroom}-${match[3].replace(/\s*-\s*/g, '-')}`);
+  }
+
   if (/\bKITCHENETTE\b/.test(text)) {
     push('KITCHENETTE');
   }
