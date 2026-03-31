@@ -947,7 +947,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
     // For most SKUs, duplicate entries are summed (multiple distinct labels on page).
     // For corner units, HAV vanities, and manufacturer dimension SKUs, duplicate detections are usually
     // the same physical cabinet repeated across passes, so keep MAX instead of SUM.
-    const isMaxDedupSku = (sku: string) => /^(LS|LSB|HAV)\d+/i.test(sku) || /^(HCUC|HCOC|HCDB)\d+X?\d*[A-Z0-9+\-]*$/i.test(sku);
+    const isMaxDedupSku = (sku: string) => /^(LS|LSB|HAV|HAVDB)\d+/i.test(sku) || /^(HCUC|HCOC|HCDB)\d+X?\d*[A-Z0-9+\-]*$/i.test(sku);
     const deduped = new Map<string, { sku: string; type: string; room: string; quantity: number }>();
     for (const item of items) {
       const key = `${item.sku}|${item.room}`;
