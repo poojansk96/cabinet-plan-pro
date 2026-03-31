@@ -402,7 +402,7 @@ function extractTypeHintsFromText(pageText: string): string[] {
 
   // Match standalone bedroom-type patterns like "2BR-3-AS", but require the code part
   // to contain at least one letter to avoid matching partial fragments like "2BR-2" from "2BR-2-AS"
-  const standaloneBedroomType = /\b(STUDIO|\d+\s*BR)\s*-\s*([A-Z][A-Z0-9]*)(?:\s*-\s*(ADA|AS|MIRROR|REV|ALT|OPTION))?\b/g;
+  const standaloneBedroomType = /\b(STUDIO|\d+\s*BR)\s*-\s*([A-Z][A-Z0-9.]*)(?:\s*-\s*(ADA|AS|MIRROR|REV|ALT|OPTION))?\b/g;
   while ((match = standaloneBedroomType.exec(text)) !== null) {
     const bedroom = match[1].replace(/\s+/g, '');
     const code = match[2];
