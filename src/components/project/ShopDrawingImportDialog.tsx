@@ -366,7 +366,7 @@ function extractTypeHintsFromText(pageText: string): string[] {
     return brMatch ? brMatch[1].replace(/\s+/g, '') + ' ' : '';
   };
 
-  const typeBase = '([A-Z0-9]+(?:\\s*-\\s*(?!AS\\b|MIRROR\\b|ADA\\b|REV\\b|ALT\\b|OPTION\\b)[A-Z0-9]+)*)';
+  const typeBase = '([A-Z0-9.]+(?:\\s*-\\s*(?!AS\\b|MIRROR\\b|ADA\\b|REV\\b|ALT\\b|OPTION\\b)[A-Z0-9.]+)*)';
   const variantToken = '(AS|MIRROR|ADA|REV|ALT|OPTION)';
   const combined = new RegExp(`\\bTYPE\\s+${typeBase}\\s*(?:-|:)?\\s*${variantToken}\\s*(?:\\/|&|AND)\\s*${variantToken}\\b`, 'g');
   let match: RegExpExecArray | null;
