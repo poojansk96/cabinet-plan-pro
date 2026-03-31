@@ -286,10 +286,10 @@ function normalizeTypeBase(value: string): string {
 
   const canonical = text.replace(/\s+\((AS|MIRROR|ADA|REV|ALT|OPTION)\)$/i, '-$1');
   const patterns = [
-    /^((?:STUDIO|\d+BR)-[A-Z0-9]+)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
-    /^((?:STUDIO|\d+BR)\s+TYPE\s+[A-Z0-9]+)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
-    /^(TYPE\s+(?:STUDIO|\d+BR)-[A-Z0-9]+)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
-    /^(TYPE\s+[A-Z0-9]+)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
+    /^((?:STUDIO|\d+BR)-[A-Z0-9.]+)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
+    /^((?:STUDIO|\d+BR)\s+TYPE\s+[A-Z0-9.]+)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
+    /^(TYPE\s+(?:STUDIO|\d+BR)-[A-Z0-9.]+)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
+    /^(TYPE\s+[A-Z0-9.]+)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
   ];
 
   for (const pattern of patterns) {
