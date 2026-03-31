@@ -575,18 +575,21 @@ COUNTING — CRITICAL:
 - Corner cabinets (LS, LSB) at wall junction = count ONCE even if label appears at junction of two wall runs.
 - Look for "xN" or "(2)" multiplier notation next to labels.
 
-HAV PREFIX = VANITY (NOT Base):
-- Any SKU starting with "HAV" (e.g. HAV3621BFH-REM) is a VANITY cabinet. Classify as type "Vanity", NOT "Base".
-- Do NOT duplicate HAV items — report each HAV label exactly ONCE with the correct type "Vanity".
+HAV / HAVDB PREFIX = VANITY (NOT Base):
+- Any SKU starting with "HAV" or "HAVDB" (e.g. HAV3621BFH-REM, HAVDB12, HAVDB18) is a VANITY cabinet. Classify as type "Vanity", NOT "Base".
+- HAVDB12, HAVDB18, HAVDB15 are drawer-base vanity cabinets — they are REAL cabinet SKUs. Do NOT skip them.
+- Do NOT duplicate HAV/HAVDB items — report each HAV/HAVDB label exactly ONCE with the correct type "Vanity".
 
 STACKED / ADJACENT LABELS — MOST COMMON ERROR:
 - Two or more SKU labels near the same location are ALWAYS SEPARATE cabinets. NEVER merge them into one string.
+- "W1836-R" stacked above or near "WDC2436-R" → TWO separate entries: W1836-R (qty 1) AND WDC2436-R (qty 1). NOT one combined entry.
+- "W1536-L" near "W1836-L" → TWO separate entries: W1536-L (qty 1) AND W1836-L (qty 1). They are DIFFERENT sizes (15" vs 18").
 - "W1230" on one line and "VDC2430" below it → TWO separate entries: W1230 (qty 1) AND VDC2430 (qty 1). NOT "W1230VDC2430".
 - "W1530" near "BLW24/2730-R" → TWO separate entries. NOT "W1530-BLW24/2730-R".
 - If two labels visually touch or OCR reads them with NO separator, split them into separate SKUs when both parts are valid labels.
 - Example: "HCUC15X8HCOC3082D" means TWO entries: "HCUC15X8" and "HCOC3082D".
-- Example: "HSS318XCHSS3032LB" means TWO entries: "HSS318X" and "CHSS3032LB".
 - Example: "W1230VDC2430" means TWO entries: "W1230" and "VDC2430".
+- CRITICAL: Even when two wall cabinet labels (e.g., W1836-R and WDC2436-R) are physically next to each other in the drawing, they are SEPARATE cabinets. Different prefix/dimensions = different cabinet.
 
 PRESERVE FULL SKU LABELS — CRITICAL:
 - Report the COMPLETE label exactly as printed on the drawing, including ALL suffixes.
