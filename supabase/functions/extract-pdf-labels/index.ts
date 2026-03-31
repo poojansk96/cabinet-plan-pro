@@ -977,7 +977,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
       return 5;
     };
 
-    const isRoomFragileSku = (sku: string) => /^(?:HAV\d|HC|HS|HW)/i.test(sku);
+    const isRoomFragileSku = (sku: string) => /^(?:HAV\d|HAVDB\d|HC|HS|HW)/i.test(sku);
     const collapsed = new Map<string, { sku: string; type: string; room: string; quantity: number }>();
     for (const item of deduped.values()) {
       const textCap = getTextOccurrenceCap(item.sku);
