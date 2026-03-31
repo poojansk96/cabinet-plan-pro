@@ -494,10 +494,13 @@ RESIDENTIAL (set isCommonArea to false):
 Type 1, Type 2, Type 3, Studio, 1 Bed, 2 Bed, 1BR, 2BR, Unit A, Unit B, any numbered/lettered residential unit type including AS and MIRROR variants.
 
 UNIT TYPE NAME: Look in the title block, header, sheet title, or prominent labels on this page.
-Common formats: "3BR TYPE C-MIRROR", "2BR TYPE B1", "TYPE 1 - AS", "TYPE 1 - MIRROR", "TYPE 2 - ADA", "TYPE 3 - AS", "TYPE B1", "TYPE C2", "Laundry", "Mail Room", etc.
+Common formats: "3BR TYPE C-MIRROR", "2BR TYPE B1", "TYPE 1 - AS", "TYPE 1 - MIRROR", "TYPE 2 - ADA", "TYPE 3 - AS", "TYPE B1", "TYPE C2", "1BR-A.2", "1BR-A.1", "Laundry", "Mail Room", etc.
 IMPORTANT: Return the FULL type name exactly as written, INCLUDING bedroom-count prefixes like "1BR", "2BR", "3BR", "STUDIO".
   Example: "2BR TYPE B1" → return "2BR TYPE B1". "3BR TYPE C-MIRROR" → return "3BR TYPE C-MIRROR".
-IMPORTANT: "TYPE B1" and "TYPE B" are DIFFERENT types. Do NOT drop trailing digits.
+  Example: "1BR TYPE A.2" → return "1BR TYPE A.2" (preserve the dot/period in the type code).
+  Example: "1BR-A / TYPE A-AS" → this page has TWO types: "1BR-A" and the AS variant. Return the FULL name including variant.
+IMPORTANT: "TYPE B1" and "TYPE B" are DIFFERENT types. Do NOT drop trailing digits or dot-suffixes.
+IMPORTANT: If the title block shows "TYPE A-AS" or "TYPE A-MIRROR", return that FULL variant name including "-AS" or "-MIRROR". Do NOT drop the variant suffix.
 Return null for unitTypeName ONLY if you truly cannot find any unit type identifier.
 ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
 
@@ -537,12 +540,16 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
 
     const unitTypeDetectInstructions = skipClassify && !isStrip ? `
 UNIT TYPE NAME: Also detect the unit type name from the title block, header, or prominent text on this page.
-Look for formats like: "3BR TYPE C-MIRROR", "2BR TYPE B1", "TYPE 1 - AS", "TYPE A - MIRROR", "TYPE 2 - ADA", "TYPE B1", "TYPE C2", "Laundry", "Mail Room", etc.
+Look for formats like: "3BR TYPE C-MIRROR", "2BR TYPE B1", "TYPE 1 - AS", "TYPE A - MIRROR", "TYPE 2 - ADA", "TYPE B1", "TYPE C2", "1BR-A.2", "1BR-A.1", "1BR-A / TYPE A-AS", "Laundry", "Mail Room", etc.
 IMPORTANT: Return the FULL type name exactly as written, INCLUDING bedroom-count prefixes like "1BR", "2BR", "3BR", "STUDIO".
   Example: If the title says "2BR TYPE B1" → return "2BR TYPE B1" (NOT just "TYPE B1").
   Example: If the title says "3BR TYPE C-MIRROR" → return "3BR TYPE C-MIRROR".
   Example: If the title says "STUDIO TYPE S1" → return "TYPE S1".
-IMPORTANT: "TYPE B1" and "TYPE B" are DIFFERENT types. Do NOT drop trailing digits. "B1" is the full type code, not "B" with variant "1".
+  Example: If the title says "1BR TYPE A.2" → return "1BR TYPE A.2" (preserve dot/period).
+  Example: If the title says "TYPE A-AS" → return "TYPE A-AS" (preserve variant suffix).
+  Example: If the title says "TYPE A-MIRROR" → return "TYPE A-MIRROR" (preserve variant suffix).
+IMPORTANT: "TYPE B1" and "TYPE B" are DIFFERENT types. Do NOT drop trailing digits or dot-suffixes.
+IMPORTANT: If the title block shows a variant like "-AS" or "-MIRROR", you MUST include it in the returned type name.
 Return it as "unitTypeName" in your response. Return null if no unit type is found.
 ` : '';
 
