@@ -167,8 +167,8 @@ function detectDoubleLineAtEdge(imageData: ImageData, side: 'left' | 'right'): n
   const analyzeHeight = yEnd - yStart;
   if (analyzeHeight < 5) return 0.5;
 
-  // Only look at edge zone: first/last 15% of width
-  const edgeZoneWidth = Math.max(4, Math.floor(width * 0.15));
+  // Inspect 45% of the end crop width to catch both lines
+  const edgeZoneWidth = Math.max(6, Math.floor(width * 0.45));
   const xStart = side === 'left' ? 0 : width - edgeZoneWidth;
   const xEnd = xStart + edgeZoneWidth;
 
