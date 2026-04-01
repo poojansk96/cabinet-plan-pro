@@ -454,8 +454,10 @@ Return ONLY valid JSON:
       // No strip evidence — add default confidence and sidesplash count
       vtops = vtops.map(row => ({
         ...row,
-        leftWallConfidence: 0.5,
-        rightWallConfidence: 0.5,
+        leftWallYesConfidence: row.leftWallYesConfidence ?? 0.5,
+        rightWallYesConfidence: row.rightWallYesConfidence ?? 0.5,
+        leftWallConfidence: row.leftWallYesConfidence ?? 0.5,
+        rightWallConfidence: row.rightWallYesConfidence ?? 0.5,
         sidesplashCount: (row.leftWall ? 1 : 0) + (row.rightWall ? 1 : 0),
         reviewRequired: true,
         reviewReason: "No strip corroboration available — AI hint only.",
