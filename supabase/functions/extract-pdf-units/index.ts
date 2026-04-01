@@ -171,7 +171,7 @@ serve(async (req) => {
     const userPrompt = `Analyze this floor plan page (page ${pageIndex + 1}).\n\nSHEET TITLE / HEADER AREA (check here first for building name):\n${titleBlock}\n\nFOOTER / TITLE BLOCK:\n${tailBlock}\n\nFULL PAGE TEXT:\n${(pageText ?? "").slice(0, 8000)}`;
 
     // Models to try: primary first, then fallback
-    const MODELS = ["gemini-3-flash-preview", "gemini-2.5-flash"];
+    const MODELS = ["gemini-3-flash-preview", "gemini-2.5-pro"];
     const MAX_RETRIES = 3;
     let response: Response | null = null;
 
