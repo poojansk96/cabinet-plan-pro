@@ -281,19 +281,18 @@ function analyzeEndCrop(
  */
 function scoreWallEvidence(
   deterministicConf: number,
-  aiWallYesProb: number, // direct probability wall=true from backend (0..1)
+  aiWallYesProb: number,
 ): { wall: boolean; confidence: number; reviewRequired: boolean } {
-  if (deterministicConf >= 0.75) {
-    // Strong deterministic yes
+  // Only very strong deterministic overrides AI
+  if (deterministicConf >= 0.82) {
     return { wall: true, confidence: deterministicConf, reviewRequired: false };
   }
-  if (deterministicConf <= 0.25) {
-    // Strong deterministic no
+  if (deterministicConf <= 0.08 && aiWallYesProb <= 0.20) {
     return { wall: false, confidence: 1 - deterministicConf, reviewRequired: false };
   }
 
-  // Weak deterministic — blend with AI (deterministic 0.8, AI 0.2)
-  const combined = deterministicConf * 0.8 + aiWallYesProb * 0.2;
+  // AI is primary, deterministic is secondary
+  const combined = aiWallYesProb * 0.65 + deterministicConf * 0.35;
   const wall = combined >= 0.5;
   return {
     wall,
