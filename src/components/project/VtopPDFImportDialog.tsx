@@ -44,11 +44,10 @@ const PERSONAL_QUOTES = [
 
 // ─── Canvas rendering helpers ───
 
-async function renderPageToCanvasData(page: any): Promise<{ canvas: OffscreenCanvas | HTMLCanvasElement; width: number; height: number }> {
-  const MAX_PX = 3200;
+async function renderPageToCanvasData(page: any, maxPx = 3200, maxScale = 4.5): Promise<{ canvas: OffscreenCanvas | HTMLCanvasElement; width: number; height: number }> {
   const baseViewport = page.getViewport({ scale: 1 });
   const longSide = Math.max(baseViewport.width, baseViewport.height);
-  const scale = Math.min(4.5, MAX_PX / longSide);
+  const scale = Math.min(maxScale, maxPx / longSide);
   const viewport = page.getViewport({ scale });
   const width = Math.ceil(viewport.width);
   const height = Math.ceil(viewport.height);
