@@ -435,12 +435,12 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
         for (let p = 1; p <= pdf.numPages; p++) {
           const page = await pdf.getPage(p);
 
-          // Render at high res for both AI and deterministic detection
-          const { canvas, width: canvasW, height: canvasH } = await renderPageToCanvasData(page);
-          const pageImage = await canvasToBase64(canvas, 0.82);
-
-          // Strip images removed — deterministic bbox detection is now primary for wall detection,
-          // and strip AI passes were causing edge function timeouts (4 sequential Gemini calls).
+          // High-res canvas for deterministic bbox crops (kept at 3200px)
+          const { canvas, width: canvasW, height: canvasH } = await renderPageToCanvasData(page, 3200, 4.5);
+          
+          // Smaller image for AI pass to avoid edge function timeouts
+          const aiCanvas = await renderPageToCanvasData(page, 2000, 3);
+          const pageImage = await canvasToBase64(aiCanvas.canvas, 0.7);
 
           const MAX_CLIENT_RETRIES = 5;
           let pageSuccess = false;
@@ -451,7 +451,7 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
                 await new Promise(r => setTimeout(r, delay));
               }
               const controller = new AbortController();
-              const timeout = setTimeout(() => controller.abort(), 180000);
+              const timeout = setTimeout(() => controller.abort(), 90000);
               const resp = await fetch(`${SUPABASE_URL}/functions/v1/extract-pdf-vtops`, {
                 method: 'POST',
                 headers: {
