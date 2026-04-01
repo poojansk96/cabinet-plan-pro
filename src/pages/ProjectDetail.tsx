@@ -12,6 +12,7 @@ import SummaryPanel from '@/components/project/SummaryPanel';
 import EditProjectDialog from '@/components/project/EditProjectDialog';
 import ProjectInfoModule from '@/components/project/ProjectInfoModule';
 import ApplianceModule from '@/components/project/ApplianceModule';
+import AICommandButton from '@/components/project/AICommandButton';
 
 type Tab = 'units' | 'cabinets' | 'countertops' | 'summary' | 'project-info' | 'prefinal-units' | 'prefinal-summary' | 'app-units' | 'app-takeoff' | 'app-summary';
 
