@@ -429,8 +429,8 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
           const { canvas, width: canvasW, height: canvasH } = await renderPageToCanvasData(page, 3200, 4.5);
           
           // Smaller image for AI pass to avoid edge function timeouts
-          const aiCanvas = await renderPageToCanvasData(page, 2000, 3);
-          const pageImage = await canvasToBase64(aiCanvas.canvas, 0.7);
+          const aiCanvas = await renderPageToCanvasData(page, 2500, 3.5);
+          const pageImage = await canvasToBase64(aiCanvas.canvas, 0.8);
 
           const MAX_CLIENT_RETRIES = 5;
           let pageSuccess = false;
