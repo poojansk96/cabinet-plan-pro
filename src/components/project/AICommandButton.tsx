@@ -331,15 +331,40 @@ export default function AICommandButton({
     }
   };
 
+  const [showNudge, setShowNudge] = useState(false);
+  const nudgeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Show nudge bubble after 3s on mount, hide after 5s
+  useEffect(() => {
+    const showTimer = setTimeout(() => setShowNudge(true), 3000);
+    nudgeTimerRef.current = setTimeout(() => setShowNudge(false), 8000);
+    return () => {
+      clearTimeout(showTimer);
+      if (nudgeTimerRef.current) clearTimeout(nudgeTimerRef.current);
+    };
+  }, []);
+
   if (!open) {
     return (
-      <button
-        onClick={() => setOpen(true)}
-        className="fixed bottom-20 right-6 z-50 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all hover:scale-105 flex items-center justify-center"
-        title="AI Command"
-      >
-        <Bot size={24} />
-      </button>
+      <div className="fixed bottom-20 right-6 z-50 flex items-center gap-2">
+        {/* Nudge tooltip */}
+        <div
+          className={`bg-card border border-border shadow-lg rounded-xl px-3 py-2 text-xs font-medium text-foreground whitespace-nowrap transition-all duration-500 ${
+            showNudge ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4 pointer-events-none'
+          }`}
+        >
+          <span>Need help? Ask me anything! ✨</span>
+          <div className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 bg-card border-r border-t border-border rotate-45" />
+        </div>
+
+        <button
+          onClick={() => { setOpen(true); setShowNudge(false); }}
+          className="w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all hover:scale-105 flex items-center justify-center"
+          title="AI Command"
+        >
+          <Bot size={24} />
+        </button>
+      </div>
     );
   }
 
