@@ -344,12 +344,21 @@ TASK:
    d. **bowlOffset** — if offset, measure the distance in inches from the CLOSER edge to the center of the bowl. If center, set to null.
    e. **leftWall** — your best guess whether the left side has a wall (double line). This is a HINT only.
    f. **rightWall** — your best guess whether the right side has a wall (double line). This is a HINT only.
-   g. **bbox** — the bounding box of this vanity top's plan view drawing, normalized 0..1 relative to the full page image:
+   g. **leftWallYesConfidence** — probability 0.0 to 1.0 that left side IS a wall (double line). 0.9 = very likely wall, 0.1 = very likely open.
+   h. **rightWallYesConfidence** — probability 0.0 to 1.0 that right side IS a wall (double line). 0.9 = very likely wall, 0.1 = very likely open.
+   i. **bbox** — the bounding box of ONLY the vanity top plan-view rectangle itself, normalized 0..1 relative to the full page image:
       - x: left edge (0 = page left, 1 = page right)
       - y: top edge (0 = page top, 1 = page bottom)
-      - width: width of the vanity drawing area
-      - height: height of the vanity drawing area
-      The bbox should tightly enclose just this vanity top's plan-view rectangle and its dimension lines.
+      - width: width of ONLY the vanity rectangle
+      - height: height of ONLY the vanity rectangle
+
+CRITICAL BBOX RULES:
+- bbox must tightly wrap ONLY the vanity top rectangle outline (the plan-view shape).
+- DO NOT include dimension lines, dimension text, leader lines, or extension lines in the bbox.
+- DO NOT include nearby notes, callouts, or labels in the bbox.
+- DO NOT include title block area in the bbox.
+- DO NOT include side/front elevation views in the bbox.
+- The bbox should be as tight as possible to just the rectangular outline of the vanity top plan view.
 
 RULES FOR BOWL POSITION:
 - Look for dimension lines showing the distance from the vanity edge to the bowl centerline.
@@ -361,10 +370,10 @@ IMPORTANT:
 - Only extract vanity/bathroom tops. Skip ALL kitchen countertops (depth > 22").
 - If the page has no vanity tops, return {"unitTypeName":"","vtops":[]}
 - Round all dimensions to nearest 0.25 inch.
-- The bbox coordinates MUST be normalized 0..1 relative to the full page. Be as precise as possible.
+- The bbox coordinates MUST be normalized 0..1 relative to the full page.
 
 Return ONLY valid JSON — no markdown fences, no explanation:
-{"unitTypeName":"TYPE 1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true,"bbox":{"x":0.05,"y":0.3,"width":0.4,"height":0.25}}]}`;
+{"unitTypeName":"TYPE 1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true,"leftWallYesConfidence":0.85,"rightWallYesConfidence":0.9,"bbox":{"x":0.05,"y":0.3,"width":0.35,"height":0.2}}]}`;
 
     const stripPrompt = `You are analyzing a cropped strip of a 2020 countertop shop drawing page.
 
