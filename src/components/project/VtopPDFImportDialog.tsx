@@ -229,30 +229,21 @@ function detectDoubleLineAtEdge(imageData: ImageData, side: 'left' | 'right'): n
   });
 
   if (validBands.length >= 2) {
-    // Sort by position to find gap between first two
     validBands.sort((a, b) => a.start - b.start);
     const gap = validBands[1].start - validBands[0].end - 1;
-    const maxGap = Math.max(8, edgeZoneWidth * 0.5);
+    const maxGap = Math.max(10, edgeZoneWidth * 0.5);
 
     if (gap >= 1 && gap <= maxGap) {
-      // Two bands with reasonable gap = strong double line (wall)
-      return 0.92;
+      return 0.85; // two bands with gap = wall
     }
     if (gap === 0) {
-      // Adjacent bands, might be one thick line
-      return 0.4;
+      return 0.5; // adjacent/merged — unknown
     }
-    // Very large gap — suspicious
-    return 0.55;
+    return 0.5; // large gap — unknown
   }
 
-  if (validBands.length === 1) {
-    // Single narrow band = likely open end (single line)
-    return 0.15;
-  }
-
-  // No clear bands found
-  return 0.3;
+  // 1 band or 0 bands = unknown (do NOT force false)
+  return 0.5;
 }
 
 /**
