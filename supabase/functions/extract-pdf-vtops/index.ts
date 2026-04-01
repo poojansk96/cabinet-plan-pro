@@ -68,6 +68,8 @@ function normalizeVtop(vt: any): VtopRow {
     rightWall: aiRight,
     aiLeftWallHint: aiLeft,
     aiRightWallHint: aiRight,
+    leftWallYesConfidence: Math.max(0, Math.min(1, Number(vt?.leftWallYesConfidence) || 0.5)),
+    rightWallYesConfidence: Math.max(0, Math.min(1, Number(vt?.rightWallYesConfidence) || 0.5)),
   };
 
   if (vt?.bbox && typeof vt.bbox === "object") {
