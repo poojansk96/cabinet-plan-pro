@@ -18,6 +18,8 @@ type VtopRow = {
   bbox?: VtopBbox;
   aiLeftWallHint?: boolean;
   aiRightWallHint?: boolean;
+  leftWallYesConfidence?: number;
+  rightWallYesConfidence?: number;
 };
 
 type ParsedExtraction = {
