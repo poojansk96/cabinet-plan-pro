@@ -283,6 +283,21 @@ export default function ProjectDetail() {
           </aside>
         )}
       </div>
+      <AICommandButton
+        project={project}
+        addUnit={store.addUnit}
+        updateUnit={store.updateUnit}
+        deleteUnit={store.deleteUnit}
+        clearUnits={store.clearUnits}
+        addCabinet={store.addCabinet}
+        updateCabinet={store.updateCabinet}
+        deleteCabinet={store.deleteCabinet}
+        addAccessory={store.addAccessory}
+        deleteAccessory={store.deleteAccessory}
+        addCountertop={store.addCountertop}
+        deleteCountertop={store.deleteCountertop}
+        updateProject={updateProject}
+      />
       <footer className="text-center py-2 border-t bg-card flex-shrink-0">
         <span style={{ fontSize: '10px' }} className="text-muted-foreground">© {new Date().getFullYear()} Poojan K. All rights reserved.</span>
       </footer>
