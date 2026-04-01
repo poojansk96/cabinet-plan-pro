@@ -379,11 +379,12 @@ Return ONLY valid JSON — no markdown fences, no explanation:
 
 TASK:
 - Extract ONLY vanity tops visible in this cropped image (ignore kitchen tops).
-- For each vanity top, return: length, depth, bowlPosition, bowlOffset, leftWall, rightWall.
+- For each vanity top, return: length, depth, bowlPosition, bowlOffset, leftWall, rightWall, leftWallYesConfidence, rightWallYesConfidence.
 - leftWall/rightWall are your best guesses (hints only).
+- leftWallYesConfidence/rightWallYesConfidence: probability 0.0-1.0 that the side IS a wall.
 
 Return ONLY valid JSON:
-{"vtops":[{"length":47.5,"depth":22,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true}]}`;
+{"vtops":[{"length":47.5,"depth":22,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true,"leftWallYesConfidence":0.8,"rightWallYesConfidence":0.7}]}`;
 
     let fullContent = "";
     try {
