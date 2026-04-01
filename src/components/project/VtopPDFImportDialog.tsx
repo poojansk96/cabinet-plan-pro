@@ -222,10 +222,10 @@ function detectDoubleLineAtEdge(imageData: ImageData, side: 'left' | 'right'): n
     });
   }
 
-  // Filter: bands must be narrow (1-6 px) and tall enough (avg darkness > 0.5)
+  // Filter: bands must be narrow and have some darkness (relaxed for anti-aliased lines)
   const validBands = bands.filter(b => {
     const w = b.end - b.start + 1;
-    return w >= 1 && w <= Math.max(6, edgeZoneWidth * 0.4) && b.avgDarkness >= 0.5;
+    return w >= 1 && w <= Math.max(8, edgeZoneWidth * 0.45) && b.avgDarkness >= 0.25;
   });
 
   if (validBands.length >= 2) {
