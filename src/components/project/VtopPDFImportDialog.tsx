@@ -459,7 +459,7 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
                   'Content-Type': 'application/json',
                   'Authorization': `Bearer ${SUPABASE_KEY}`,
                 },
-                body: JSON.stringify({ pageImage, stripImages }),
+                body: JSON.stringify({ pageImage }),
                 signal: controller.signal,
               });
               clearTimeout(timeout);
