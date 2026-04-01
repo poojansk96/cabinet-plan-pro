@@ -167,14 +167,14 @@ function detectDoubleLineAtEdge(imageData: ImageData, side: 'left' | 'right'): n
   const analyzeHeight = yEnd - yStart;
   if (analyzeHeight < 5) return 0.5;
 
-  // Only look at edge zone: first/last 15% of width
-  const edgeZoneWidth = Math.max(4, Math.floor(width * 0.15));
+  // Inspect 45% of the end crop width to catch both lines
+  const edgeZoneWidth = Math.max(6, Math.floor(width * 0.45));
   const xStart = side === 'left' ? 0 : width - edgeZoneWidth;
   const xEnd = xStart + edgeZoneWidth;
 
   // Build column darkness profile in the edge zone
   // For each column, count how many rows in the center zone are "dark"
-  const darkThreshold = 128; // pixel luminance below this = dark
+  const darkThreshold = 180; // relaxed for anti-aliased PDF linework
   const columnDarkRatio = new Float64Array(edgeZoneWidth);
 
   for (let localX = 0; localX < edgeZoneWidth; localX++) {
@@ -188,8 +188,8 @@ function detectDoubleLineAtEdge(imageData: ImageData, side: 'left' | 'right'): n
     columnDarkRatio[localX] = darkCount / analyzeHeight;
   }
 
-  // Find vertical bands: contiguous columns where > 40% of center pixels are dark
-  const bandThreshold = 0.4;
+  // Find vertical bands: relaxed threshold for thin/gray PDF lines
+  const bandThreshold = 0.22;
   const bands: Array<{ start: number; end: number; avgDarkness: number }> = [];
   let inBand = false;
   let bandStart = 0;
@@ -222,37 +222,28 @@ function detectDoubleLineAtEdge(imageData: ImageData, side: 'left' | 'right'): n
     });
   }
 
-  // Filter: bands must be narrow (1-6 px) and tall enough (avg darkness > 0.5)
+  // Filter: bands must be narrow and have some darkness (relaxed for anti-aliased lines)
   const validBands = bands.filter(b => {
     const w = b.end - b.start + 1;
-    return w >= 1 && w <= Math.max(6, edgeZoneWidth * 0.4) && b.avgDarkness >= 0.5;
+    return w >= 1 && w <= Math.max(8, edgeZoneWidth * 0.45) && b.avgDarkness >= 0.25;
   });
 
   if (validBands.length >= 2) {
-    // Sort by position to find gap between first two
     validBands.sort((a, b) => a.start - b.start);
     const gap = validBands[1].start - validBands[0].end - 1;
-    const maxGap = Math.max(8, edgeZoneWidth * 0.5);
+    const maxGap = Math.max(10, edgeZoneWidth * 0.5);
 
     if (gap >= 1 && gap <= maxGap) {
-      // Two bands with reasonable gap = strong double line (wall)
-      return 0.92;
+      return 0.85; // two bands with gap = wall
     }
     if (gap === 0) {
-      // Adjacent bands, might be one thick line
-      return 0.4;
+      return 0.5; // adjacent/merged — unknown
     }
-    // Very large gap — suspicious
-    return 0.55;
+    return 0.5; // large gap — unknown
   }
 
-  if (validBands.length === 1) {
-    // Single narrow band = likely open end (single line)
-    return 0.15;
-  }
-
-  // No clear bands found
-  return 0.3;
+  // 1 band or 0 bands = unknown (do NOT force false)
+  return 0.5;
 }
 
 /**
@@ -267,7 +258,7 @@ function analyzeEndCrop(
 ): { confidence: number; cropBase64: string } {
   // Crop a narrow strip at the specified end of the vanity bbox
   // Use 10% of vanity width, staying inside the bbox (not outside)
-  const endWidthFrac = Math.max(0.02, bbox.width * 0.10);
+  const endWidthFrac = Math.max(0.05, bbox.width * 0.22);
   const endBbox = {
     x: side === 'left' ? bbox.x : bbox.x + bbox.width - endWidthFrac,
     y: bbox.y,
@@ -290,19 +281,18 @@ function analyzeEndCrop(
  */
 function scoreWallEvidence(
   deterministicConf: number,
-  aiWallYesProb: number, // direct probability wall=true from backend (0..1)
+  aiWallYesProb: number,
 ): { wall: boolean; confidence: number; reviewRequired: boolean } {
-  if (deterministicConf >= 0.75) {
-    // Strong deterministic yes
+  // Only very strong deterministic overrides AI
+  if (deterministicConf >= 0.82) {
     return { wall: true, confidence: deterministicConf, reviewRequired: false };
   }
-  if (deterministicConf <= 0.25) {
-    // Strong deterministic no
+  if (deterministicConf <= 0.08 && aiWallYesProb <= 0.20) {
     return { wall: false, confidence: 1 - deterministicConf, reviewRequired: false };
   }
 
-  // Weak deterministic — blend with AI (deterministic 0.8, AI 0.2)
-  const combined = deterministicConf * 0.8 + aiWallYesProb * 0.2;
+  // AI is primary, deterministic is secondary
+  const combined = aiWallYesProb * 0.65 + deterministicConf * 0.35;
   const wall = combined >= 0.5;
   return {
     wall,
@@ -439,8 +429,8 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
           const { canvas, width: canvasW, height: canvasH } = await renderPageToCanvasData(page, 3200, 4.5);
           
           // Smaller image for AI pass to avoid edge function timeouts
-          const aiCanvas = await renderPageToCanvasData(page, 2000, 3);
-          const pageImage = await canvasToBase64(aiCanvas.canvas, 0.7);
+          const aiCanvas = await renderPageToCanvasData(page, 2500, 3.5);
+          const pageImage = await canvasToBase64(aiCanvas.canvas, 0.8);
 
           const MAX_CLIENT_RETRIES = 5;
           let pageSuccess = false;
