@@ -440,17 +440,8 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
           const { canvas, width: canvasW, height: canvasH } = await renderPageToCanvasData(page);
           const pageImage = await canvasToBase64(canvas, 0.82);
 
-          // Build strip images from the same canvas
-          const xRanges: Array<[number, number]> = [[0, 0.5], [0.25, 0.75], [0.5, 1]];
-          const stripImages = await Promise.all(
-            xRanges.map(async ([xStart, xEnd]) => {
-              const sx = Math.floor(xStart * canvasW);
-              const sy = Math.floor(0.03 * canvasH);
-              const sw = Math.max(1, Math.ceil((xEnd - xStart) * canvasW));
-              const sh = Math.max(1, Math.ceil(0.95 * canvasH));
-              return canvasCropToBase64(canvas, sx, sy, sw, sh, 0.88);
-            }),
-          );
+          // Strip images removed — deterministic bbox detection is now primary for wall detection,
+          // and strip AI passes were causing edge function timeouts (4 sequential Gemini calls).
 
           const MAX_CLIENT_RETRIES = 5;
           let pageSuccess = false;
