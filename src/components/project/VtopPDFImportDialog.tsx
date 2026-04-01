@@ -1,10 +1,22 @@
 import { useState, useRef } from 'react';
-import { X, Upload, Loader2, Sparkles, Trash2 } from 'lucide-react';
+import { X, Upload, Loader2, Sparkles, Trash2, AlertTriangle, Eye, EyeOff } from 'lucide-react';
 import type { PrefinalVtopRow } from '@/hooks/usePrefinalStore';
 
+// ─── Extended import row with new detection fields ───
 export interface VtopImportRow extends PrefinalVtopRow {
   selected: boolean;
   sourceFile?: string;
+  bbox?: { x: number; y: number; width: number; height: number };
+  leftWallConfidence?: number;
+  rightWallConfidence?: number;
+  sidesplashCount?: number;
+  reviewRequired?: boolean;
+  reviewReason?: string;
+  debugImages?: {
+    vanityCrop?: string;
+    leftEndCrop?: string;
+    rightEndCrop?: string;
+  };
 }
 
 interface Props {
@@ -29,6 +41,8 @@ const PERSONAL_QUOTES = [
   (name: string) => `${name}, your attention to detail is top-notch.`,
   (name: string) => `Almost there, ${name}! Stay sharp! ✨`,
 ];
+
+// ─── Canvas rendering helpers ───
 
 async function renderPageToCanvasData(page: any): Promise<{ canvas: OffscreenCanvas | HTMLCanvasElement; width: number; height: number }> {
   const MAX_PX = 3200;
@@ -68,10 +82,7 @@ async function canvasToBase64(canvas: OffscreenCanvas | HTMLCanvasElement, quali
 
 async function canvasCropToBase64(
   sourceCanvas: OffscreenCanvas | HTMLCanvasElement,
-  sx: number,
-  sy: number,
-  sw: number,
-  sh: number,
+  sx: number, sy: number, sw: number, sh: number,
   quality = 0.86,
 ): Promise<string> {
   if (typeof OffscreenCanvas !== 'undefined') {
@@ -80,7 +91,6 @@ async function canvasCropToBase64(
     ctx.drawImage(sourceCanvas as any, sx, sy, sw, sh, 0, 0, sw, sh);
     return canvasToBase64(crop, quality);
   }
-
   const crop = document.createElement('canvas');
   crop.width = sw;
   crop.height = sh;
@@ -94,9 +104,7 @@ async function renderPagePassImages(page: any): Promise<{ pageImage: string; str
   const pageImage = await canvasToBase64(canvas, 0.82);
 
   const xRanges: Array<[number, number]> = [
-    [0, 0.5],
-    [0.25, 0.75],
-    [0.5, 1],
+    [0, 0.5], [0.25, 0.75], [0.5, 1],
   ];
   const yStart = 0.03;
   const yEnd = 0.98;
@@ -113,6 +121,207 @@ async function renderPagePassImages(page: any): Promise<{ pageImage: string; str
 
   return { pageImage, stripImages };
 }
+
+// ─── Deterministic wall detection helpers ───
+
+/**
+ * Crop a normalized bbox region from a canvas and return PNG base64 + ImageData.
+ */
+function cropNormalizedRegion(
+  canvas: OffscreenCanvas | HTMLCanvasElement,
+  canvasW: number, canvasH: number,
+  bbox: { x: number; y: number; width: number; height: number },
+): { imageData: ImageData; base64: string } {
+  const sx = Math.max(0, Math.floor(bbox.x * canvasW));
+  const sy = Math.max(0, Math.floor(bbox.y * canvasH));
+  const sw = Math.max(1, Math.min(Math.ceil(bbox.width * canvasW), canvasW - sx));
+  const sh = Math.max(1, Math.min(Math.ceil(bbox.height * canvasH), canvasH - sy));
+
+  const crop = document.createElement('canvas');
+  crop.width = sw;
+  crop.height = sh;
+  const ctx = crop.getContext('2d')!;
+  ctx.drawImage(canvas as HTMLCanvasElement, sx, sy, sw, sh, 0, 0, sw, sh);
+  const imageData = ctx.getImageData(0, 0, sw, sh);
+  const base64 = crop.toDataURL('image/png').split(',')[1];
+  return { imageData, base64 };
+}
+
+/**
+ * Analyze an end crop (left or right edge of vanity) for double vs single line.
+ * Returns a confidence score 0..1 where higher = more likely a wall (double line).
+ *
+ * Logic: project pixel luminance into a horizontal profile, then count dark peaks.
+ * Double line = 2 separated dark peaks; single line = 1 dark peak.
+ */
+function detectDoubleLineAtEdge(imageData: ImageData): number {
+  const { data, width, height } = imageData;
+  if (width < 3 || height < 3) return 0.5;
+
+  // Build horizontal luminance profile (average luminance per column)
+  const profile = new Float64Array(width);
+  for (let x = 0; x < width; x++) {
+    let sum = 0;
+    for (let y = 0; y < height; y++) {
+      const idx = (y * width + x) * 4;
+      // luminance approximation
+      sum += data[idx] * 0.299 + data[idx + 1] * 0.587 + data[idx + 2] * 0.114;
+    }
+    profile[x] = sum / height;
+  }
+
+  // Smooth the profile (3-wide moving average)
+  const smooth = new Float64Array(width);
+  for (let x = 0; x < width; x++) {
+    const lo = Math.max(0, x - 1);
+    const hi = Math.min(width - 1, x + 1);
+    smooth[x] = (profile[lo] + profile[x] + profile[hi]) / 3;
+  }
+
+  // Find dark peaks: columns significantly darker than neighbors
+  const maxLum = Math.max(...smooth);
+  const minLum = Math.min(...smooth);
+  const range = maxLum - minLum;
+  if (range < 10) return 0.3; // very flat, no clear lines
+
+  const threshold = minLum + range * 0.35;
+  const darkRegions: Array<{ start: number; end: number; minVal: number }> = [];
+  let inDark = false;
+  let regionStart = 0;
+  let regionMin = 255;
+
+  for (let x = 0; x < width; x++) {
+    if (smooth[x] < threshold) {
+      if (!inDark) {
+        inDark = true;
+        regionStart = x;
+        regionMin = smooth[x];
+      } else {
+        regionMin = Math.min(regionMin, smooth[x]);
+      }
+    } else if (inDark) {
+      darkRegions.push({ start: regionStart, end: x - 1, minVal: regionMin });
+      inDark = false;
+      regionMin = 255;
+    }
+  }
+  if (inDark) {
+    darkRegions.push({ start: regionStart, end: width - 1, minVal: regionMin });
+  }
+
+  // Filter out very thin noise (< 2px wide)
+  const significant = darkRegions.filter(r => (r.end - r.start) >= 1);
+
+  if (significant.length >= 2) {
+    // Check if there's a light gap between the two darkest regions
+    const sorted = significant.sort((a, b) => a.minVal - b.minVal);
+    const r1 = sorted[0];
+    const r2 = sorted[1];
+    const gap = Math.abs(
+      Math.min(r1.start, r2.start) === r1.start
+        ? r2.start - r1.end
+        : r1.start - r2.end
+    );
+    // Gap must be at least a few pixels but not too large (< 40% of width)
+    if (gap >= 2 && gap < width * 0.4) {
+      return 0.9; // strong double line
+    }
+    if (gap >= 1) {
+      return 0.75; // possible double line
+    }
+    return 0.6; // peaks very close, uncertain
+  }
+
+  if (significant.length === 1) {
+    return 0.2; // single line, likely no wall
+  }
+
+  return 0.3; // no clear line structure
+}
+
+/**
+ * Analyze a vanity end crop and return wall confidence.
+ */
+function analyzeEndCrop(
+  canvas: OffscreenCanvas | HTMLCanvasElement,
+  canvasW: number, canvasH: number,
+  bbox: { x: number; y: number; width: number; height: number },
+  side: 'left' | 'right',
+): { confidence: number; cropBase64: string } {
+  // Crop a narrow strip at the specified end of the vanity bbox
+  const endWidth = Math.max(0.02, bbox.width * 0.12); // ~12% of vanity width
+  const endBbox = {
+    x: side === 'left' ? Math.max(0, bbox.x - endWidth * 0.3) : bbox.x + bbox.width - endWidth * 0.7,
+    y: bbox.y,
+    width: endWidth,
+    height: bbox.height,
+  };
+
+  const { imageData, base64 } = cropNormalizedRegion(canvas, canvasW, canvasH, endBbox);
+  const confidence = detectDoubleLineAtEdge(imageData);
+  return { confidence, cropBase64: base64 };
+}
+
+/**
+ * Score and combine wall evidence from AI hint, strip merge, and deterministic detection.
+ */
+function scoreWallEvidence(
+  aiHint: boolean,
+  aiConfidence: number, // from strip merge (0..1)
+  deterministicConf: number, // from pixel analysis (0..1)
+): { wall: boolean; confidence: number; reviewRequired: boolean } {
+  // Deterministic detection is primary (weight 0.6), AI/strip is secondary (weight 0.4)
+  const deterministicWeight = 0.6;
+  const aiWeight = 0.4;
+
+  const aiScore = aiHint ? aiConfidence : (1 - aiConfidence);
+  const combined = deterministicConf * deterministicWeight + aiScore * aiWeight;
+
+  // Decision threshold
+  const wall = combined >= 0.55;
+  const reviewRequired = combined > 0.35 && combined < 0.65;
+
+  return { wall, confidence: Math.round(combined * 100) / 100, reviewRequired };
+}
+
+/**
+ * Final wall decision for a row, combining all evidence.
+ */
+function finalizeWallDecision(
+  row: VtopImportRow,
+  leftDet: { confidence: number; cropBase64: string },
+  rightDet: { confidence: number; cropBase64: string },
+  vanityCropBase64: string,
+): VtopImportRow {
+  const aiLeftConf = row.leftWallConfidence ?? 0.5;
+  const aiRightConf = row.rightWallConfidence ?? 0.5;
+
+  const left = scoreWallEvidence(row.leftWall, aiLeftConf, leftDet.confidence);
+  const right = scoreWallEvidence(row.rightWall, aiRightConf, rightDet.confidence);
+
+  const reviewRequired = left.reviewRequired || right.reviewRequired;
+  const reasons: string[] = [];
+  if (left.reviewRequired) reasons.push('Left wall uncertain');
+  if (right.reviewRequired) reasons.push('Right wall uncertain');
+
+  return {
+    ...row,
+    leftWall: left.wall,
+    rightWall: right.wall,
+    leftWallConfidence: left.confidence,
+    rightWallConfidence: right.confidence,
+    sidesplashCount: (left.wall ? 1 : 0) + (right.wall ? 1 : 0),
+    reviewRequired,
+    reviewReason: reasons.length ? reasons.join('. ') : undefined,
+    debugImages: {
+      vanityCrop: vanityCropBase64,
+      leftEndCrop: leftDet.cropBase64,
+      rightEndCrop: rightDet.cropBase64,
+    },
+  };
+}
+
+// ─── SKU formatting ───
 
 function formatVtopSku(row: VtopImportRow): string {
   const size = `${row.length}x${row.depth}"`;
@@ -143,6 +352,8 @@ function getVtopSidesplashItems(row: VtopImportRow): string[] {
 
 export { formatVtopSku, getVtopSidesplashItems };
 
+// ─── Main component ───
+
 export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<VtopImportRow[]>([]);
@@ -151,6 +362,7 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
   const [quoteIdx, setQuoteIdx] = useState(0);
   const [personalQuoteIdx, setPersonalQuoteIdx] = useState(0);
   const [quoteVisible, setQuoteVisible] = useState(true);
+  const [showDebug, setShowDebug] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const processingRef = useRef(false);
 
@@ -194,7 +406,22 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
 
         for (let p = 1; p <= pdf.numPages; p++) {
           const page = await pdf.getPage(p);
-          const { pageImage, stripImages } = await renderPagePassImages(page);
+
+          // Render at high res for both AI and deterministic detection
+          const { canvas, width: canvasW, height: canvasH } = await renderPageToCanvasData(page);
+          const pageImage = await canvasToBase64(canvas, 0.82);
+
+          // Build strip images from the same canvas
+          const xRanges: Array<[number, number]> = [[0, 0.5], [0.25, 0.75], [0.5, 1]];
+          const stripImages = await Promise.all(
+            xRanges.map(async ([xStart, xEnd]) => {
+              const sx = Math.floor(xStart * canvasW);
+              const sy = Math.floor(0.03 * canvasH);
+              const sw = Math.max(1, Math.ceil((xEnd - xStart) * canvasW));
+              const sh = Math.max(1, Math.ceil(0.95 * canvasH));
+              return canvasCropToBase64(canvas, sx, sy, sw, sh, 0.88);
+            }),
+          );
 
           const MAX_CLIENT_RETRIES = 5;
           let pageSuccess = false;
@@ -226,8 +453,9 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
                 if (pageUnitType && !detectedTypesOrder.includes(pageUnitType)) {
                   detectedTypesOrder.push(pageUnitType);
                 }
+
                 for (const vt of (data.vtops ?? [])) {
-                  allRows.push({
+                  let importRow: VtopImportRow = {
                     length: vt.length,
                     depth: vt.depth,
                     bowlPosition: vt.bowlPosition,
@@ -237,7 +465,40 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
                     unitType: pageUnitType || 'Unassigned',
                     selected: true,
                     sourceFile: file.name,
-                  });
+                    bbox: vt.bbox,
+                    leftWallConfidence: vt.leftWallConfidence,
+                    rightWallConfidence: vt.rightWallConfidence,
+                    sidesplashCount: vt.sidesplashCount,
+                    reviewRequired: vt.reviewRequired,
+                    reviewReason: vt.reviewReason,
+                  };
+
+                  // ── Deterministic wall detection using bbox crops ──
+                  if (vt.bbox && vt.bbox.width > 0.01 && vt.bbox.height > 0.01) {
+                    try {
+                      // Crop vanity area
+                      const { base64: vanityCropB64 } = cropNormalizedRegion(
+                        canvas, canvasW, canvasH, vt.bbox,
+                      );
+                      // Analyze left and right ends
+                      const leftDet = analyzeEndCrop(canvas, canvasW, canvasH, vt.bbox, 'left');
+                      const rightDet = analyzeEndCrop(canvas, canvasW, canvasH, vt.bbox, 'right');
+
+                      // Finalize wall decision (deterministic is primary)
+                      importRow = finalizeWallDecision(importRow, leftDet, rightDet, vanityCropB64);
+                    } catch (detErr) {
+                      console.warn('Deterministic wall detection failed for row:', detErr);
+                      // Fall back to AI-only results
+                      importRow.reviewRequired = true;
+                      importRow.reviewReason = (importRow.reviewReason || '') + ' Deterministic detection failed.';
+                    }
+                  } else {
+                    // No bbox — can't do deterministic detection
+                    importRow.reviewRequired = true;
+                    importRow.reviewReason = 'No bounding box — wall detection is AI-only.';
+                  }
+
+                  allRows.push(importRow);
                 }
                 pageSuccess = true;
               } else if (resp.status === 503) {
@@ -283,6 +544,15 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
   const toggleAll = (checked: boolean) => setRows(r => r.map(row => ({ ...row, selected: checked })));
   const deleteRow = (idx: number) => setRows(r => r.filter((_, i) => i !== idx));
 
+  const toggleWall = (idx: number, side: 'leftWall' | 'rightWall') => {
+    setRows(r => r.map((row, i) => {
+      if (i !== idx) return row;
+      const updated = { ...row, [side]: !row[side] };
+      updated.sidesplashCount = (updated.leftWall ? 1 : 0) + (updated.rightWall ? 1 : 0);
+      return updated;
+    }));
+  };
+
   const handleImport = () => {
     const selected = rows.filter(r => r.selected);
     const typeOrder: string[] = [];
@@ -294,10 +564,11 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
   };
 
   const selectedCount = rows.filter(r => r.selected).length;
+  const reviewCount = rows.filter(r => r.reviewRequired).length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="bg-background rounded-lg shadow-xl w-full max-w-4xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+      <div className="bg-background rounded-lg shadow-xl w-full max-w-5xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <h3 className="font-semibold text-sm">🛁 Cmarble/Swan Vtop — Extract from 2020 Shop Drawings</h3>
           <button onClick={onClose} className="p-1 hover:bg-secondary rounded"><X size={16} /></button>
@@ -352,13 +623,29 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
           {step === 'review' && (
             <div className="space-y-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <p className="text-sm font-medium">
-                  Found {rows.length} vanity top{rows.length !== 1 ? 's' : ''}
-                </p>
-                <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                  <input type="checkbox" checked={selectedCount === rows.length && rows.length > 0} onChange={e => toggleAll(e.target.checked)} />
-                  Select all
-                </label>
+                <div className="flex items-center gap-3">
+                  <p className="text-sm font-medium">
+                    Found {rows.length} vanity top{rows.length !== 1 ? 's' : ''}
+                  </p>
+                  {reviewCount > 0 && (
+                    <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                      <AlertTriangle size={10} /> {reviewCount} need review
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setShowDebug(d => !d)}
+                    className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
+                  >
+                    {showDebug ? <EyeOff size={10} /> : <Eye size={10} />}
+                    {showDebug ? 'Hide' : 'Show'} debug
+                  </button>
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <input type="checkbox" checked={selectedCount === rows.length && rows.length > 0} onChange={e => toggleAll(e.target.checked)} />
+                    Select all
+                  </label>
+                </div>
               </div>
 
               {rows.length === 0 ? (
@@ -375,27 +662,99 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
                         <th>Type</th>
                         <th>SKU Description</th>
                         <th>Sidesplash</th>
+                        <th className="text-center">SS#</th>
+                        <th className="text-center">L Wall</th>
+                        <th className="text-center">R Wall</th>
+                        {showDebug && <th>Debug</th>}
                         <th></th>
                       </tr>
                     </thead>
                     <tbody>
-                      {rows.map((row, idx) => (
-                        <tr key={idx} className={!row.selected ? 'opacity-50' : ''}>
-                          <td>
-                            <input type="checkbox" checked={row.selected} onChange={() => setRows(r => r.map((rr, i) => i === idx ? { ...rr, selected: !rr.selected } : rr))} />
-                          </td>
-                          <td className="font-medium text-[10px]">{row.unitType}</td>
-                          <td className="font-mono text-[10px] font-bold">{formatVtopSku(row)}</td>
-                          <td className="text-[10px]">
-                            {getVtopSidesplashItems(row).length > 0
-                              ? getVtopSidesplashItems(row).map((s, i) => <div key={i}>{s} — 1 qty</div>)
-                              : <span className="text-muted-foreground">None</span>}
-                          </td>
-                          <td>
-                            <button onClick={() => deleteRow(idx)} className="p-1 hover:text-destructive"><Trash2 size={12} /></button>
-                          </td>
-                        </tr>
-                      ))}
+                      {rows.map((row, idx) => {
+                        const isReview = row.reviewRequired;
+                        return (
+                          <tr
+                            key={idx}
+                            className={`${!row.selected ? 'opacity-50' : ''} ${isReview ? 'bg-amber-50/50 dark:bg-amber-950/20' : ''}`}
+                          >
+                            <td>
+                              <input type="checkbox" checked={row.selected} onChange={() => setRows(r => r.map((rr, i) => i === idx ? { ...rr, selected: !rr.selected } : rr))} />
+                            </td>
+                            <td className="font-medium text-[10px]">
+                              {row.unitType}
+                              {isReview && (
+                                <span className="block text-[9px] text-amber-600 dark:text-amber-400" title={row.reviewReason}>
+                                  ⚠ {row.reviewReason}
+                                </span>
+                              )}
+                            </td>
+                            <td className="font-mono text-[10px] font-bold">{formatVtopSku(row)}</td>
+                            <td className="text-[10px]">
+                              {getVtopSidesplashItems(row).length > 0
+                                ? getVtopSidesplashItems(row).map((s, i) => <div key={i}>{s} — 1 qty</div>)
+                                : <span className="text-muted-foreground">None</span>}
+                            </td>
+                            <td className="text-center font-bold text-[10px]">
+                              {row.sidesplashCount ?? ((row.leftWall ? 1 : 0) + (row.rightWall ? 1 : 0))}
+                            </td>
+                            <td className="text-center">
+                              <input
+                                type="checkbox"
+                                checked={row.leftWall}
+                                onChange={() => toggleWall(idx, 'leftWall')}
+                                title={`Confidence: ${((row.leftWallConfidence ?? 0.5) * 100).toFixed(0)}%`}
+                              />
+                              {row.leftWallConfidence != null && (
+                                <span className="block text-[8px] text-muted-foreground">{(row.leftWallConfidence * 100).toFixed(0)}%</span>
+                              )}
+                            </td>
+                            <td className="text-center">
+                              <input
+                                type="checkbox"
+                                checked={row.rightWall}
+                                onChange={() => toggleWall(idx, 'rightWall')}
+                                title={`Confidence: ${((row.rightWallConfidence ?? 0.5) * 100).toFixed(0)}%`}
+                              />
+                              {row.rightWallConfidence != null && (
+                                <span className="block text-[8px] text-muted-foreground">{(row.rightWallConfidence * 100).toFixed(0)}%</span>
+                              )}
+                            </td>
+                            {showDebug && (
+                              <td>
+                                <div className="flex gap-1">
+                                  {row.debugImages?.leftEndCrop && (
+                                    <img
+                                      src={`data:image/png;base64,${row.debugImages.leftEndCrop}`}
+                                      alt="Left end"
+                                      className="h-8 border border-border rounded"
+                                      title="Left end crop"
+                                    />
+                                  )}
+                                  {row.debugImages?.vanityCrop && (
+                                    <img
+                                      src={`data:image/png;base64,${row.debugImages.vanityCrop}`}
+                                      alt="Vanity"
+                                      className="h-8 border border-border rounded"
+                                      title="Full vanity crop"
+                                    />
+                                  )}
+                                  {row.debugImages?.rightEndCrop && (
+                                    <img
+                                      src={`data:image/png;base64,${row.debugImages.rightEndCrop}`}
+                                      alt="Right end"
+                                      className="h-8 border border-border rounded"
+                                      title="Right end crop"
+                                    />
+                                  )}
+                                </div>
+                              </td>
+                            )}
+                            <td>
+                              <button onClick={() => deleteRow(idx)} className="p-1 hover:text-destructive"><Trash2 size={12} /></button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

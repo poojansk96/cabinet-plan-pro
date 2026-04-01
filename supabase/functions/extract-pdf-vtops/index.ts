@@ -6,6 +6,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+type VtopBbox = { x: number; y: number; width: number; height: number };
+
 type VtopRow = {
   length: number;
   depth: number;
@@ -13,6 +15,9 @@ type VtopRow = {
   bowlOffset: number | null;
   leftWall: boolean;
   rightWall: boolean;
+  bbox?: VtopBbox;
+  aiLeftWallHint?: boolean;
+  aiRightWallHint?: boolean;
 };
 
 type ParsedExtraction = {
@@ -35,6 +40,10 @@ const STRIP_MODELS: ModelAttempt[] = [
   { name: "gemini-2.5-pro", retries: 1 },
 ];
 
+function clampNorm(v: number): number {
+  return Math.max(0, Math.min(1, Number(v) || 0));
+}
+
 function normalizeVtop(vt: any): VtopRow {
   const length = Math.round((Number(vt?.length) || 31) * 4) / 4;
   const depth = Math.round((Number(vt?.depth) || 22) * 4) / 4;
@@ -44,14 +53,34 @@ function normalizeVtop(vt: any): VtopRow {
   const bowlOffset = bowlPosition !== "center"
     ? Math.round((Number(vt?.bowlOffset) || 0) * 4) / 4
     : null;
-  return {
+
+  const aiLeft = Boolean(vt?.leftWall);
+  const aiRight = Boolean(vt?.rightWall);
+
+  const row: VtopRow = {
     length,
     depth,
     bowlPosition,
     bowlOffset,
-    leftWall: Boolean(vt?.leftWall),
-    rightWall: Boolean(vt?.rightWall),
+    leftWall: aiLeft,
+    rightWall: aiRight,
+    aiLeftWallHint: aiLeft,
+    aiRightWallHint: aiRight,
   };
+
+  if (vt?.bbox && typeof vt.bbox === "object") {
+    row.bbox = {
+      x: clampNorm(vt.bbox.x),
+      y: clampNorm(vt.bbox.y),
+      width: clampNorm(vt.bbox.width),
+      height: clampNorm(vt.bbox.height),
+    };
+    if (row.bbox.width < 0.01 || row.bbox.height < 0.01) {
+      row.bbox = undefined;
+    }
+  }
+
+  return row;
 }
 
 function parseExtractionText(content: string): ParsedExtraction {
@@ -96,17 +125,22 @@ function vtopMatchScore(a: VtopRow, b: VtopRow): number {
   return lengthDiff + depthDiff;
 }
 
+/**
+ * Confidence-based merge: strip evidence is secondary, not authoritative.
+ * AI hints from the primary pass are kept as-is unless strip evidence
+ * provides STRONG agreement (2+ strips agree on a wall).
+ * Conflicting/weak evidence flags the row for review instead of guessing.
+ */
 function mergeWallEvidence(primary: VtopRow[], stripSets: VtopRow[][]): VtopRow[] {
   if (!primary.length || !stripSets.length) return primary;
 
   const merged = primary.map((row) => ({
     ...row,
-    leftWallVotes: 0,
-    rightWallVotes: 0,
+    leftWallYes: 0,
+    leftWallNo: 0,
+    rightWallYes: 0,
+    rightWallNo: 0,
   }));
-
-  const stripOnly = new Map<string, { row: VtopRow; support: number }>();
-  const stripKey = (row: VtopRow) => `${row.length}|${row.depth}|${row.bowlPosition}|${row.bowlOffset ?? ""}`;
 
   for (const stripRows of stripSets) {
     const matchedIndices = new Set<number>();
@@ -124,39 +158,70 @@ function mergeWallEvidence(primary: VtopRow[], stripSets: VtopRow[][]): VtopRow[
       }
 
       if (bestIdx >= 0 && Number.isFinite(bestScore)) {
-        if (stripRow.leftWall) merged[bestIdx].leftWallVotes += 1;
-        if (stripRow.rightWall) merged[bestIdx].rightWallVotes += 1;
+        if (stripRow.leftWall) merged[bestIdx].leftWallYes += 1;
+        else merged[bestIdx].leftWallNo += 1;
+        if (stripRow.rightWall) merged[bestIdx].rightWallYes += 1;
+        else merged[bestIdx].rightWallNo += 1;
         matchedIndices.add(bestIdx);
-      } else {
-        const key = stripKey(stripRow);
-        const existing = stripOnly.get(key);
-        if (existing) {
-          existing.support += 1;
-          existing.row.leftWall = existing.row.leftWall || stripRow.leftWall;
-          existing.row.rightWall = existing.row.rightWall || stripRow.rightWall;
-        } else {
-          stripOnly.set(key, { row: { ...stripRow }, support: 1 });
-        }
       }
     }
   }
 
-  const finalized = merged.map((row) => ({
-    length: row.length,
-    depth: row.depth,
-    bowlPosition: row.bowlPosition,
-    bowlOffset: row.bowlOffset,
-    leftWall: row.leftWall || row.leftWallVotes > 0,
-    rightWall: row.rightWall || row.rightWallVotes > 0,
-  }));
+  return merged.map((row) => {
+    // Only override AI hint if strip evidence is strong (2+ agreeing)
+    let leftWall = row.leftWall; // AI hint
+    let rightWall = row.rightWall;
+    let leftConf = 0.5;
+    let rightConf = 0.5;
+    let reviewRequired = false;
+    let reviewReason = "";
 
-  for (const candidate of stripOnly.values()) {
-    if (candidate.support >= 2) {
-      finalized.push(candidate.row);
+    const leftTotal = row.leftWallYes + row.leftWallNo;
+    const rightTotal = row.rightWallYes + row.rightWallNo;
+
+    if (leftTotal > 0) {
+      leftConf = row.leftWallYes / leftTotal;
+      if (row.leftWallYes >= 2 && leftConf >= 0.67) {
+        leftWall = true;
+      } else if (row.leftWallNo >= 2 && (1 - leftConf) >= 0.67) {
+        leftWall = false;
+      } else if (leftTotal >= 2 && leftConf > 0.3 && leftConf < 0.7) {
+        reviewRequired = true;
+        reviewReason += "Left wall evidence conflicting. ";
+      }
     }
-  }
 
-  return finalized;
+    if (rightTotal > 0) {
+      rightConf = row.rightWallYes / rightTotal;
+      if (row.rightWallYes >= 2 && rightConf >= 0.67) {
+        rightWall = true;
+      } else if (row.rightWallNo >= 2 && (1 - rightConf) >= 0.67) {
+        rightWall = false;
+      } else if (rightTotal >= 2 && rightConf > 0.3 && rightConf < 0.7) {
+        reviewRequired = true;
+        reviewReason += "Right wall evidence conflicting. ";
+      }
+    }
+
+    const sidesplashCount = (leftWall ? 1 : 0) + (rightWall ? 1 : 0);
+
+    return {
+      length: row.length,
+      depth: row.depth,
+      bowlPosition: row.bowlPosition,
+      bowlOffset: row.bowlOffset,
+      leftWall,
+      rightWall,
+      bbox: row.bbox,
+      aiLeftWallHint: row.aiLeftWallHint,
+      aiRightWallHint: row.aiRightWallHint,
+      leftWallConfidence: Math.round(leftConf * 100) / 100,
+      rightWallConfidence: Math.round(rightConf * 100) / 100,
+      sidesplashCount,
+      reviewRequired,
+      reviewReason: reviewReason.trim() || undefined,
+    };
+  });
 }
 
 async function requestGemini(
@@ -276,17 +341,15 @@ TASK:
         - "offset-left" if bowl center is closer to the left edge
         - "offset-right" if bowl center is closer to the right edge
       - If the bowl is centered horizontally (equal distance from both edges), it is "center"
-   d. **bowlOffset** — if offset, measure the distance in inches from the CLOSER edge to the center of the bowl. This is usually dimensioned in the drawing (e.g., 17.75" from left edge). If center, set to null.
-   e. **leftWall** — true if the LEFT side of the vanity top shows a DOUBLE LINE (two parallel lines close together) at the left edge. Double lines indicate the vanity is against a wall on that side, which means there would be a sidesplash. A single line means an open/exposed edge.
-   f. **rightWall** — true if the RIGHT side shows a DOUBLE LINE at the right edge. Same logic as leftWall.
-   
-RULES FOR WALL DETECTION (CRITICAL):
-- A DOUBLE LINE (two parallel lines very close together, ~0.5-1" apart) at the edge of a vanity top means there is a WALL on that side.
-- A SINGLE LINE at the edge means the edge is OPEN (exposed/finished).
-- Look carefully at both the LEFT and RIGHT short edges of the rectangular vanity drawing.
-- The backsplash (back wall) is typically always present — focus on detecting LEFT and RIGHT wall indicators.
-- Double lines = sidesplash present on that side.
-- If a faint second parallel line is present, treat it as a DOUBLE LINE (prefer wall=true over false-negative).
+   d. **bowlOffset** — if offset, measure the distance in inches from the CLOSER edge to the center of the bowl. If center, set to null.
+   e. **leftWall** — your best guess whether the left side has a wall (double line). This is a HINT only.
+   f. **rightWall** — your best guess whether the right side has a wall (double line). This is a HINT only.
+   g. **bbox** — the bounding box of this vanity top's plan view drawing, normalized 0..1 relative to the full page image:
+      - x: left edge (0 = page left, 1 = page right)
+      - y: top edge (0 = page top, 1 = page bottom)
+      - width: width of the vanity drawing area
+      - height: height of the vanity drawing area
+      The bbox should tightly enclose just this vanity top's plan-view rectangle and its dimension lines.
 
 RULES FOR BOWL POSITION:
 - Look for dimension lines showing the distance from the vanity edge to the bowl centerline.
@@ -298,19 +361,17 @@ IMPORTANT:
 - Only extract vanity/bathroom tops. Skip ALL kitchen countertops (depth > 22").
 - If the page has no vanity tops, return {"unitTypeName":"","vtops":[]}
 - Round all dimensions to nearest 0.25 inch.
+- The bbox coordinates MUST be normalized 0..1 relative to the full page. Be as precise as possible.
 
 Return ONLY valid JSON — no markdown fences, no explanation:
-{"unitTypeName":"TYPE 1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true}]}`;
+{"unitTypeName":"TYPE 1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true,"bbox":{"x":0.05,"y":0.3,"width":0.4,"height":0.25}}]}`;
+
     const stripPrompt = `You are analyzing a cropped strip of a 2020 countertop shop drawing page.
 
 TASK:
 - Extract ONLY vanity tops visible in this cropped image (ignore kitchen tops).
 - For each vanity top, return: length, depth, bowlPosition, bowlOffset, leftWall, rightWall.
-
-WALL DETECTION (VERY IMPORTANT):
-- Double/parallel lines at a vanity edge mean WALL on that side (leftWall/rightWall = true).
-- Even a faint second parallel line should be treated as a wall indicator.
-- Single line means open edge.
+- leftWall/rightWall are your best guesses (hints only).
 
 Return ONLY valid JSON:
 {"vtops":[{"length":47.5,"depth":22,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true}]}`;
@@ -367,6 +428,16 @@ Return ONLY valid JSON:
       );
 
       vtops = mergeWallEvidence(vtops, stripResults.filter(set => set.length > 0));
+    } else {
+      // No strip evidence — add default confidence and sidesplash count
+      vtops = vtops.map(row => ({
+        ...row,
+        leftWallConfidence: 0.5,
+        rightWallConfidence: 0.5,
+        sidesplashCount: (row.leftWall ? 1 : 0) + (row.rightWall ? 1 : 0),
+        reviewRequired: true,
+        reviewReason: "No strip corroboration available — AI hint only.",
+      }));
     }
 
     return new Response(JSON.stringify({ unitTypeName, vtops }), {
