@@ -267,7 +267,7 @@ function analyzeEndCrop(
 ): { confidence: number; cropBase64: string } {
   // Crop a narrow strip at the specified end of the vanity bbox
   // Use 10% of vanity width, staying inside the bbox (not outside)
-  const endWidthFrac = Math.max(0.02, bbox.width * 0.10);
+  const endWidthFrac = Math.max(0.05, bbox.width * 0.22);
   const endBbox = {
     x: side === 'left' ? bbox.x : bbox.x + bbox.width - endWidthFrac,
     y: bbox.y,
