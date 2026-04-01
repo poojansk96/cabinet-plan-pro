@@ -172,36 +172,42 @@ function mergeWallEvidence(primary: VtopRow[], stripSets: VtopRow[][]): VtopRow[
   }
 
   return merged.map((row) => {
-    // Only override AI hint if strip evidence is strong (2+ agreeing)
-    let leftWall = row.leftWall; // AI hint
+    let leftWall = row.leftWall;
     let rightWall = row.rightWall;
-    let leftConf = 0.5;
-    let rightConf = 0.5;
+    // Start from AI's direct probability estimate
+    let leftWallYesConf = row.leftWallYesConfidence ?? 0.5;
+    let rightWallYesConf = row.rightWallYesConfidence ?? 0.5;
     let reviewRequired = false;
     let reviewReason = "";
 
     const leftTotal = row.leftWallYes + row.leftWallNo;
     const rightTotal = row.rightWallYes + row.rightWallNo;
 
+    // Update confidence with strip evidence (weighted average)
     if (leftTotal > 0) {
-      leftConf = row.leftWallYes / leftTotal;
-      if (row.leftWallYes >= 2 && leftConf >= 0.67) {
+      const stripConf = row.leftWallYes / leftTotal;
+      // Blend: primary AI conf (0.6) + strip evidence (0.4)
+      leftWallYesConf = leftWallYesConf * 0.6 + stripConf * 0.4;
+
+      if (row.leftWallYes >= 2 && stripConf >= 0.67) {
         leftWall = true;
-      } else if (row.leftWallNo >= 2 && (1 - leftConf) >= 0.67) {
+      } else if (row.leftWallNo >= 2 && stripConf <= 0.33) {
         leftWall = false;
-      } else if (leftTotal >= 2 && leftConf > 0.3 && leftConf < 0.7) {
+      } else if (leftTotal >= 2 && stripConf > 0.3 && stripConf < 0.7) {
         reviewRequired = true;
         reviewReason += "Left wall evidence conflicting. ";
       }
     }
 
     if (rightTotal > 0) {
-      rightConf = row.rightWallYes / rightTotal;
-      if (row.rightWallYes >= 2 && rightConf >= 0.67) {
+      const stripConf = row.rightWallYes / rightTotal;
+      rightWallYesConf = rightWallYesConf * 0.6 + stripConf * 0.4;
+
+      if (row.rightWallYes >= 2 && stripConf >= 0.67) {
         rightWall = true;
-      } else if (row.rightWallNo >= 2 && (1 - rightConf) >= 0.67) {
+      } else if (row.rightWallNo >= 2 && stripConf <= 0.33) {
         rightWall = false;
-      } else if (rightTotal >= 2 && rightConf > 0.3 && rightConf < 0.7) {
+      } else if (rightTotal >= 2 && stripConf > 0.3 && stripConf < 0.7) {
         reviewRequired = true;
         reviewReason += "Right wall evidence conflicting. ";
       }
@@ -219,8 +225,10 @@ function mergeWallEvidence(primary: VtopRow[], stripSets: VtopRow[][]): VtopRow[
       bbox: row.bbox,
       aiLeftWallHint: row.aiLeftWallHint,
       aiRightWallHint: row.aiRightWallHint,
-      leftWallConfidence: Math.round(leftConf * 100) / 100,
-      rightWallConfidence: Math.round(rightConf * 100) / 100,
+      leftWallYesConfidence: Math.round(leftWallYesConf * 100) / 100,
+      rightWallYesConfidence: Math.round(rightWallYesConf * 100) / 100,
+      leftWallConfidence: Math.round(leftWallYesConf * 100) / 100,
+      rightWallConfidence: Math.round(rightWallYesConf * 100) / 100,
       sidesplashCount,
       reviewRequired,
       reviewReason: reviewReason.trim() || undefined,
