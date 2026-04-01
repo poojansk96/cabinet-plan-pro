@@ -174,7 +174,7 @@ function detectDoubleLineAtEdge(imageData: ImageData, side: 'left' | 'right'): n
 
   // Build column darkness profile in the edge zone
   // For each column, count how many rows in the center zone are "dark"
-  const darkThreshold = 128; // pixel luminance below this = dark
+  const darkThreshold = 180; // relaxed for anti-aliased PDF linework
   const columnDarkRatio = new Float64Array(edgeZoneWidth);
 
   for (let localX = 0; localX < edgeZoneWidth; localX++) {
