@@ -188,8 +188,8 @@ function detectDoubleLineAtEdge(imageData: ImageData, side: 'left' | 'right'): n
     columnDarkRatio[localX] = darkCount / analyzeHeight;
   }
 
-  // Find vertical bands: contiguous columns where > 40% of center pixels are dark
-  const bandThreshold = 0.4;
+  // Find vertical bands: relaxed threshold for thin/gray PDF lines
+  const bandThreshold = 0.22;
   const bands: Array<{ start: number; end: number; avgDarkness: number }> = [];
   let inBand = false;
   let bandStart = 0;
