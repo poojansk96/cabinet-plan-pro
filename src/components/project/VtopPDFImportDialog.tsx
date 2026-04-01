@@ -148,99 +148,117 @@ function cropNormalizedRegion(
 }
 
 /**
- * Analyze an end crop (left or right edge of vanity) for double vs single line.
- * Returns a confidence score 0..1 where higher = more likely a wall (double line).
+ * Detect double-line (wall) vs single-line (open end) at a vanity edge.
  *
- * Logic: project pixel luminance into a horizontal profile, then count dark peaks.
- * Double line = 2 separated dark peaks; single line = 1 dark peak.
+ * Strategy:
+ * 1. Only analyze the center 60% of height (skip top/bottom noise from dimension lines)
+ * 2. Only look at the first/last 15% of width (the actual edge zone)
+ * 3. Find vertical dark bands (columns where most pixels are dark)
+ * 4. Two narrow tall bands with a small gap = wall (double line)
+ * 5. One narrow tall band = open end (single line)
+ * 6. Anything else = uncertain
  */
-function detectDoubleLineAtEdge(imageData: ImageData): number {
+function detectDoubleLineAtEdge(imageData: ImageData, side: 'left' | 'right'): number {
   const { data, width, height } = imageData;
-  if (width < 3 || height < 3) return 0.5;
+  if (width < 6 || height < 10) return 0.5;
 
-  // Build horizontal luminance profile (average luminance per column)
-  const profile = new Float64Array(width);
-  for (let x = 0; x < width; x++) {
-    let sum = 0;
-    for (let y = 0; y < height; y++) {
-      const idx = (y * width + x) * 4;
-      // luminance approximation
-      sum += data[idx] * 0.299 + data[idx + 1] * 0.587 + data[idx + 2] * 0.114;
+  // Only analyze center 60% of height
+  const yStart = Math.floor(height * 0.2);
+  const yEnd = Math.floor(height * 0.8);
+  const analyzeHeight = yEnd - yStart;
+  if (analyzeHeight < 5) return 0.5;
+
+  // Only look at edge zone: first/last 15% of width
+  const edgeZoneWidth = Math.max(4, Math.floor(width * 0.15));
+  const xStart = side === 'left' ? 0 : width - edgeZoneWidth;
+  const xEnd = xStart + edgeZoneWidth;
+
+  // Build column darkness profile in the edge zone
+  // For each column, count how many rows in the center zone are "dark"
+  const darkThreshold = 128; // pixel luminance below this = dark
+  const columnDarkRatio = new Float64Array(edgeZoneWidth);
+
+  for (let localX = 0; localX < edgeZoneWidth; localX++) {
+    const absX = xStart + localX;
+    let darkCount = 0;
+    for (let y = yStart; y < yEnd; y++) {
+      const idx = (y * width + absX) * 4;
+      const lum = data[idx] * 0.299 + data[idx + 1] * 0.587 + data[idx + 2] * 0.114;
+      if (lum < darkThreshold) darkCount++;
     }
-    profile[x] = sum / height;
+    columnDarkRatio[localX] = darkCount / analyzeHeight;
   }
 
-  // Smooth the profile (3-wide moving average)
-  const smooth = new Float64Array(width);
-  for (let x = 0; x < width; x++) {
-    const lo = Math.max(0, x - 1);
-    const hi = Math.min(width - 1, x + 1);
-    smooth[x] = (profile[lo] + profile[x] + profile[hi]) / 3;
-  }
+  // Find vertical bands: contiguous columns where > 40% of center pixels are dark
+  const bandThreshold = 0.4;
+  const bands: Array<{ start: number; end: number; avgDarkness: number }> = [];
+  let inBand = false;
+  let bandStart = 0;
+  let bandDarkSum = 0;
 
-  // Find dark peaks: columns significantly darker than neighbors
-  const maxLum = Math.max(...smooth);
-  const minLum = Math.min(...smooth);
-  const range = maxLum - minLum;
-  if (range < 10) return 0.3; // very flat, no clear lines
-
-  const threshold = minLum + range * 0.35;
-  const darkRegions: Array<{ start: number; end: number; minVal: number }> = [];
-  let inDark = false;
-  let regionStart = 0;
-  let regionMin = 255;
-
-  for (let x = 0; x < width; x++) {
-    if (smooth[x] < threshold) {
-      if (!inDark) {
-        inDark = true;
-        regionStart = x;
-        regionMin = smooth[x];
-      } else {
-        regionMin = Math.min(regionMin, smooth[x]);
+  for (let x = 0; x < edgeZoneWidth; x++) {
+    if (columnDarkRatio[x] >= bandThreshold) {
+      if (!inBand) {
+        inBand = true;
+        bandStart = x;
+        bandDarkSum = 0;
       }
-    } else if (inDark) {
-      darkRegions.push({ start: regionStart, end: x - 1, minVal: regionMin });
-      inDark = false;
-      regionMin = 255;
+      bandDarkSum += columnDarkRatio[x];
+    } else if (inBand) {
+      const bandWidth = x - bandStart;
+      bands.push({
+        start: bandStart,
+        end: x - 1,
+        avgDarkness: bandDarkSum / bandWidth,
+      });
+      inBand = false;
     }
   }
-  if (inDark) {
-    darkRegions.push({ start: regionStart, end: width - 1, minVal: regionMin });
+  if (inBand) {
+    const bandWidth = edgeZoneWidth - bandStart;
+    bands.push({
+      start: bandStart,
+      end: edgeZoneWidth - 1,
+      avgDarkness: bandDarkSum / bandWidth,
+    });
   }
 
-  // Filter out very thin noise (< 2px wide)
-  const significant = darkRegions.filter(r => (r.end - r.start) >= 1);
+  // Filter: bands must be narrow (1-6 px) and tall enough (avg darkness > 0.5)
+  const validBands = bands.filter(b => {
+    const w = b.end - b.start + 1;
+    return w >= 1 && w <= Math.max(6, edgeZoneWidth * 0.4) && b.avgDarkness >= 0.5;
+  });
 
-  if (significant.length >= 2) {
-    // Check if there's a light gap between the two darkest regions
-    const sorted = significant.sort((a, b) => a.minVal - b.minVal);
-    const r1 = sorted[0];
-    const r2 = sorted[1];
-    const gap = Math.abs(
-      Math.min(r1.start, r2.start) === r1.start
-        ? r2.start - r1.end
-        : r1.start - r2.end
-    );
-    // Gap must be at least a few pixels but not too large (< 40% of width)
-    if (gap >= 2 && gap < width * 0.4) {
-      return 0.9; // strong double line
+  if (validBands.length >= 2) {
+    // Sort by position to find gap between first two
+    validBands.sort((a, b) => a.start - b.start);
+    const gap = validBands[1].start - validBands[0].end - 1;
+    const maxGap = Math.max(8, edgeZoneWidth * 0.5);
+
+    if (gap >= 1 && gap <= maxGap) {
+      // Two bands with reasonable gap = strong double line (wall)
+      return 0.92;
     }
-    if (gap >= 1) {
-      return 0.75; // possible double line
+    if (gap === 0) {
+      // Adjacent bands, might be one thick line
+      return 0.4;
     }
-    return 0.6; // peaks very close, uncertain
+    // Very large gap — suspicious
+    return 0.55;
   }
 
-  if (significant.length === 1) {
-    return 0.2; // single line, likely no wall
+  if (validBands.length === 1) {
+    // Single narrow band = likely open end (single line)
+    return 0.15;
   }
 
-  return 0.3; // no clear line structure
+  // No clear bands found
+  return 0.3;
 }
 
 /**
  * Analyze a vanity end crop and return wall confidence.
+ * Crops tightly at the edge of the vanity bbox.
  */
 function analyzeEndCrop(
   canvas: OffscreenCanvas | HTMLCanvasElement,
@@ -249,39 +267,49 @@ function analyzeEndCrop(
   side: 'left' | 'right',
 ): { confidence: number; cropBase64: string } {
   // Crop a narrow strip at the specified end of the vanity bbox
-  const endWidth = Math.max(0.02, bbox.width * 0.12); // ~12% of vanity width
+  // Use 10% of vanity width, staying inside the bbox (not outside)
+  const endWidthFrac = Math.max(0.02, bbox.width * 0.10);
   const endBbox = {
-    x: side === 'left' ? Math.max(0, bbox.x - endWidth * 0.3) : bbox.x + bbox.width - endWidth * 0.7,
+    x: side === 'left' ? bbox.x : bbox.x + bbox.width - endWidthFrac,
     y: bbox.y,
-    width: endWidth,
+    width: endWidthFrac,
     height: bbox.height,
   };
 
   const { imageData, base64 } = cropNormalizedRegion(canvas, canvasW, canvasH, endBbox);
-  const confidence = detectDoubleLineAtEdge(imageData);
+  const confidence = detectDoubleLineAtEdge(imageData, side);
   return { confidence, cropBase64: base64 };
 }
 
 /**
- * Score and combine wall evidence from AI hint, strip merge, and deterministic detection.
+ * Final wall decision: deterministic is primary, AI is fallback only.
+ *
+ * Rules:
+ * - deterministic strong yes (>= 0.75) → wall=true
+ * - deterministic strong no (<= 0.25) → wall=false
+ * - deterministic weak (0.25..0.75) → consult AI probability, mark review
  */
 function scoreWallEvidence(
-  aiHint: boolean,
-  aiConfidence: number, // from strip merge (0..1)
-  deterministicConf: number, // from pixel analysis (0..1)
+  deterministicConf: number,
+  aiWallYesProb: number, // direct probability wall=true from backend (0..1)
 ): { wall: boolean; confidence: number; reviewRequired: boolean } {
-  // Deterministic detection is primary (weight 0.6), AI/strip is secondary (weight 0.4)
-  const deterministicWeight = 0.6;
-  const aiWeight = 0.4;
+  if (deterministicConf >= 0.75) {
+    // Strong deterministic yes
+    return { wall: true, confidence: deterministicConf, reviewRequired: false };
+  }
+  if (deterministicConf <= 0.25) {
+    // Strong deterministic no
+    return { wall: false, confidence: 1 - deterministicConf, reviewRequired: false };
+  }
 
-  const aiScore = aiHint ? aiConfidence : (1 - aiConfidence);
-  const combined = deterministicConf * deterministicWeight + aiScore * aiWeight;
-
-  // Decision threshold
-  const wall = combined >= 0.55;
-  const reviewRequired = combined > 0.35 && combined < 0.65;
-
-  return { wall, confidence: Math.round(combined * 100) / 100, reviewRequired };
+  // Weak deterministic — blend with AI (deterministic 0.8, AI 0.2)
+  const combined = deterministicConf * 0.8 + aiWallYesProb * 0.2;
+  const wall = combined >= 0.5;
+  return {
+    wall,
+    confidence: Math.round(combined * 100) / 100,
+    reviewRequired: true,
+  };
 }
 
 /**
@@ -293,16 +321,17 @@ function finalizeWallDecision(
   rightDet: { confidence: number; cropBase64: string },
   vanityCropBase64: string,
 ): VtopImportRow {
-  const aiLeftConf = row.leftWallConfidence ?? 0.5;
-  const aiRightConf = row.rightWallConfidence ?? 0.5;
+  // Use direct AI wall probability (not derived from boolean)
+  const aiLeftProb = row.leftWallConfidence ?? 0.5;
+  const aiRightProb = row.rightWallConfidence ?? 0.5;
 
-  const left = scoreWallEvidence(row.leftWall, aiLeftConf, leftDet.confidence);
-  const right = scoreWallEvidence(row.rightWall, aiRightConf, rightDet.confidence);
+  const left = scoreWallEvidence(leftDet.confidence, aiLeftProb);
+  const right = scoreWallEvidence(rightDet.confidence, aiRightProb);
 
   const reviewRequired = left.reviewRequired || right.reviewRequired;
   const reasons: string[] = [];
-  if (left.reviewRequired) reasons.push('Left wall uncertain');
-  if (right.reviewRequired) reasons.push('Right wall uncertain');
+  if (left.reviewRequired) reasons.push(`Left wall uncertain (det:${(leftDet.confidence * 100).toFixed(0)}%)`);
+  if (right.reviewRequired) reasons.push(`Right wall uncertain (det:${(rightDet.confidence * 100).toFixed(0)}%)`);
 
   return {
     ...row,
@@ -466,8 +495,8 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
                     selected: true,
                     sourceFile: file.name,
                     bbox: vt.bbox,
-                    leftWallConfidence: vt.leftWallConfidence,
-                    rightWallConfidence: vt.rightWallConfidence,
+                    leftWallConfidence: vt.leftWallYesConfidence ?? vt.leftWallConfidence ?? 0.5,
+                    rightWallConfidence: vt.rightWallYesConfidence ?? vt.rightWallConfidence ?? 0.5,
                     sidesplashCount: vt.sidesplashCount,
                     reviewRequired: vt.reviewRequired,
                     reviewReason: vt.reviewReason,

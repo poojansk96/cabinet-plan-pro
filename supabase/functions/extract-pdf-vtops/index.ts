@@ -18,6 +18,8 @@ type VtopRow = {
   bbox?: VtopBbox;
   aiLeftWallHint?: boolean;
   aiRightWallHint?: boolean;
+  leftWallYesConfidence?: number;
+  rightWallYesConfidence?: number;
 };
 
 type ParsedExtraction = {
@@ -66,6 +68,8 @@ function normalizeVtop(vt: any): VtopRow {
     rightWall: aiRight,
     aiLeftWallHint: aiLeft,
     aiRightWallHint: aiRight,
+    leftWallYesConfidence: Math.max(0, Math.min(1, Number(vt?.leftWallYesConfidence) || 0.5)),
+    rightWallYesConfidence: Math.max(0, Math.min(1, Number(vt?.rightWallYesConfidence) || 0.5)),
   };
 
   if (vt?.bbox && typeof vt.bbox === "object") {
@@ -168,36 +172,42 @@ function mergeWallEvidence(primary: VtopRow[], stripSets: VtopRow[][]): VtopRow[
   }
 
   return merged.map((row) => {
-    // Only override AI hint if strip evidence is strong (2+ agreeing)
-    let leftWall = row.leftWall; // AI hint
+    let leftWall = row.leftWall;
     let rightWall = row.rightWall;
-    let leftConf = 0.5;
-    let rightConf = 0.5;
+    // Start from AI's direct probability estimate
+    let leftWallYesConf = row.leftWallYesConfidence ?? 0.5;
+    let rightWallYesConf = row.rightWallYesConfidence ?? 0.5;
     let reviewRequired = false;
     let reviewReason = "";
 
     const leftTotal = row.leftWallYes + row.leftWallNo;
     const rightTotal = row.rightWallYes + row.rightWallNo;
 
+    // Update confidence with strip evidence (weighted average)
     if (leftTotal > 0) {
-      leftConf = row.leftWallYes / leftTotal;
-      if (row.leftWallYes >= 2 && leftConf >= 0.67) {
+      const stripConf = row.leftWallYes / leftTotal;
+      // Blend: primary AI conf (0.6) + strip evidence (0.4)
+      leftWallYesConf = leftWallYesConf * 0.6 + stripConf * 0.4;
+
+      if (row.leftWallYes >= 2 && stripConf >= 0.67) {
         leftWall = true;
-      } else if (row.leftWallNo >= 2 && (1 - leftConf) >= 0.67) {
+      } else if (row.leftWallNo >= 2 && stripConf <= 0.33) {
         leftWall = false;
-      } else if (leftTotal >= 2 && leftConf > 0.3 && leftConf < 0.7) {
+      } else if (leftTotal >= 2 && stripConf > 0.3 && stripConf < 0.7) {
         reviewRequired = true;
         reviewReason += "Left wall evidence conflicting. ";
       }
     }
 
     if (rightTotal > 0) {
-      rightConf = row.rightWallYes / rightTotal;
-      if (row.rightWallYes >= 2 && rightConf >= 0.67) {
+      const stripConf = row.rightWallYes / rightTotal;
+      rightWallYesConf = rightWallYesConf * 0.6 + stripConf * 0.4;
+
+      if (row.rightWallYes >= 2 && stripConf >= 0.67) {
         rightWall = true;
-      } else if (row.rightWallNo >= 2 && (1 - rightConf) >= 0.67) {
+      } else if (row.rightWallNo >= 2 && stripConf <= 0.33) {
         rightWall = false;
-      } else if (rightTotal >= 2 && rightConf > 0.3 && rightConf < 0.7) {
+      } else if (rightTotal >= 2 && stripConf > 0.3 && stripConf < 0.7) {
         reviewRequired = true;
         reviewReason += "Right wall evidence conflicting. ";
       }
@@ -215,8 +225,10 @@ function mergeWallEvidence(primary: VtopRow[], stripSets: VtopRow[][]): VtopRow[
       bbox: row.bbox,
       aiLeftWallHint: row.aiLeftWallHint,
       aiRightWallHint: row.aiRightWallHint,
-      leftWallConfidence: Math.round(leftConf * 100) / 100,
-      rightWallConfidence: Math.round(rightConf * 100) / 100,
+      leftWallYesConfidence: Math.round(leftWallYesConf * 100) / 100,
+      rightWallYesConfidence: Math.round(rightWallYesConf * 100) / 100,
+      leftWallConfidence: Math.round(leftWallYesConf * 100) / 100,
+      rightWallConfidence: Math.round(rightWallYesConf * 100) / 100,
       sidesplashCount,
       reviewRequired,
       reviewReason: reviewReason.trim() || undefined,
@@ -344,12 +356,21 @@ TASK:
    d. **bowlOffset** — if offset, measure the distance in inches from the CLOSER edge to the center of the bowl. If center, set to null.
    e. **leftWall** — your best guess whether the left side has a wall (double line). This is a HINT only.
    f. **rightWall** — your best guess whether the right side has a wall (double line). This is a HINT only.
-   g. **bbox** — the bounding box of this vanity top's plan view drawing, normalized 0..1 relative to the full page image:
+   g. **leftWallYesConfidence** — probability 0.0 to 1.0 that left side IS a wall (double line). 0.9 = very likely wall, 0.1 = very likely open.
+   h. **rightWallYesConfidence** — probability 0.0 to 1.0 that right side IS a wall (double line). 0.9 = very likely wall, 0.1 = very likely open.
+   i. **bbox** — the bounding box of ONLY the vanity top plan-view rectangle itself, normalized 0..1 relative to the full page image:
       - x: left edge (0 = page left, 1 = page right)
       - y: top edge (0 = page top, 1 = page bottom)
-      - width: width of the vanity drawing area
-      - height: height of the vanity drawing area
-      The bbox should tightly enclose just this vanity top's plan-view rectangle and its dimension lines.
+      - width: width of ONLY the vanity rectangle
+      - height: height of ONLY the vanity rectangle
+
+CRITICAL BBOX RULES:
+- bbox must tightly wrap ONLY the vanity top rectangle outline (the plan-view shape).
+- DO NOT include dimension lines, dimension text, leader lines, or extension lines in the bbox.
+- DO NOT include nearby notes, callouts, or labels in the bbox.
+- DO NOT include title block area in the bbox.
+- DO NOT include side/front elevation views in the bbox.
+- The bbox should be as tight as possible to just the rectangular outline of the vanity top plan view.
 
 RULES FOR BOWL POSITION:
 - Look for dimension lines showing the distance from the vanity edge to the bowl centerline.
@@ -361,20 +382,21 @@ IMPORTANT:
 - Only extract vanity/bathroom tops. Skip ALL kitchen countertops (depth > 22").
 - If the page has no vanity tops, return {"unitTypeName":"","vtops":[]}
 - Round all dimensions to nearest 0.25 inch.
-- The bbox coordinates MUST be normalized 0..1 relative to the full page. Be as precise as possible.
+- The bbox coordinates MUST be normalized 0..1 relative to the full page.
 
 Return ONLY valid JSON — no markdown fences, no explanation:
-{"unitTypeName":"TYPE 1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true,"bbox":{"x":0.05,"y":0.3,"width":0.4,"height":0.25}}]}`;
+{"unitTypeName":"TYPE 1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true,"leftWallYesConfidence":0.85,"rightWallYesConfidence":0.9,"bbox":{"x":0.05,"y":0.3,"width":0.35,"height":0.2}}]}`;
 
     const stripPrompt = `You are analyzing a cropped strip of a 2020 countertop shop drawing page.
 
 TASK:
 - Extract ONLY vanity tops visible in this cropped image (ignore kitchen tops).
-- For each vanity top, return: length, depth, bowlPosition, bowlOffset, leftWall, rightWall.
+- For each vanity top, return: length, depth, bowlPosition, bowlOffset, leftWall, rightWall, leftWallYesConfidence, rightWallYesConfidence.
 - leftWall/rightWall are your best guesses (hints only).
+- leftWallYesConfidence/rightWallYesConfidence: probability 0.0-1.0 that the side IS a wall.
 
 Return ONLY valid JSON:
-{"vtops":[{"length":47.5,"depth":22,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true}]}`;
+{"vtops":[{"length":47.5,"depth":22,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true,"leftWallYesConfidence":0.8,"rightWallYesConfidence":0.7}]}`;
 
     let fullContent = "";
     try {
@@ -432,8 +454,10 @@ Return ONLY valid JSON:
       // No strip evidence — add default confidence and sidesplash count
       vtops = vtops.map(row => ({
         ...row,
-        leftWallConfidence: 0.5,
-        rightWallConfidence: 0.5,
+        leftWallYesConfidence: row.leftWallYesConfidence ?? 0.5,
+        rightWallYesConfidence: row.rightWallYesConfidence ?? 0.5,
+        leftWallConfidence: row.leftWallYesConfidence ?? 0.5,
+        rightWallConfidence: row.rightWallYesConfidence ?? 0.5,
         sidesplashCount: (row.leftWall ? 1 : 0) + (row.rightWall ? 1 : 0),
         reviewRequired: true,
         reviewReason: "No strip corroboration available — AI hint only.",
