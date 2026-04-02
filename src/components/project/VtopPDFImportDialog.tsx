@@ -251,37 +251,33 @@ function analyzeEndCrop(
 }
 
 /**
- * Final wall decision: deterministic is primary, AI is fallback only.
- *
- * Rules:
- * - deterministic strong yes (>= 0.75) → wall=true
- * - deterministic strong no (<= 0.25) → wall=false
- * - deterministic weak (0.25..0.75) → consult AI probability, mark review
+ * Dead-zone scoring: deterministic first, then AI, then uncertain.
+ * No more forcing weak signals into yes/no with combined >= 0.5.
  */
 function scoreWallEvidence(
-  deterministicConf: number,
-  aiWallYesProb: number,
+  det: number,
+  ai: number,
+  aiHint: boolean,
 ): { wall: boolean; confidence: number; reviewRequired: boolean } {
-  // Only very strong deterministic overrides AI
-  if (deterministicConf >= 0.82) {
-    return { wall: true, confidence: deterministicConf, reviewRequired: false };
-  }
-  if (deterministicConf <= 0.08 && aiWallYesProb <= 0.20) {
-    return { wall: false, confidence: 1 - deterministicConf, reviewRequired: false };
-  }
+  // Strong deterministic → trust it
+  if (det >= 0.82) return { wall: true, confidence: det, reviewRequired: false };
+  if (det <= 0.18) return { wall: false, confidence: 1 - det, reviewRequired: false };
 
-  // AI is primary, deterministic is secondary
-  const combined = aiWallYesProb * 0.65 + deterministicConf * 0.35;
-  const wall = combined >= 0.5;
+  // Strong AI → trust it but flag for review
+  if (ai >= 0.75) return { wall: true, confidence: ai, reviewRequired: true };
+  if (ai <= 0.25) return { wall: false, confidence: 1 - ai, reviewRequired: true };
+
+  // Dead zone: both signals are weak — keep AI hint, mark uncertain
   return {
-    wall,
-    confidence: Math.round(combined * 100) / 100,
+    wall: aiHint,
+    confidence: 0.5,
     reviewRequired: true,
   };
 }
 
 /**
- * Final wall decision for a row, combining all evidence.
+ * Initial wall decision from deterministic detector + full-page AI fallback.
+ * Full-page AI confidence is a rough fallback, NOT the main signal.
  */
 function finalizeWallDecision(
   row: VtopImportRow,
@@ -289,17 +285,16 @@ function finalizeWallDecision(
   rightDet: { confidence: number; cropBase64: string },
   vanityCropBase64: string,
 ): VtopImportRow {
-  // Use direct AI wall probability (not derived from boolean)
   const aiLeftProb = row.leftWallConfidence ?? 0.5;
   const aiRightProb = row.rightWallConfidence ?? 0.5;
 
-  const left = scoreWallEvidence(leftDet.confidence, aiLeftProb);
-  const right = scoreWallEvidence(rightDet.confidence, aiRightProb);
+  const left = scoreWallEvidence(leftDet.confidence, aiLeftProb, Boolean(row.leftWall));
+  const right = scoreWallEvidence(rightDet.confidence, aiRightProb, Boolean(row.rightWall));
 
   const reviewRequired = left.reviewRequired || right.reviewRequired;
   const reasons: string[] = [];
-  if (left.reviewRequired) reasons.push(`Left wall uncertain (det:${(leftDet.confidence * 100).toFixed(0)}%)`);
-  if (right.reviewRequired) reasons.push(`Right wall uncertain (det:${(rightDet.confidence * 100).toFixed(0)}%)`);
+  if (left.reviewRequired) reasons.push(`Left wall uncertain (det:${(leftDet.confidence * 100).toFixed(0)}%, ai:${(aiLeftProb * 100).toFixed(0)}%)`);
+  if (right.reviewRequired) reasons.push(`Right wall uncertain (det:${(rightDet.confidence * 100).toFixed(0)}%, ai:${(aiRightProb * 100).toFixed(0)}%)`);
 
   return {
     ...row,
@@ -316,6 +311,43 @@ function finalizeWallDecision(
       rightEndCrop: rightDet.cropBase64,
     },
   };
+}
+
+/**
+ * Focused AI call for ambiguous rows only.
+ * Sends end crops (not full page) and asks ONLY about wall confidence.
+ */
+async function focusedWallAICall(
+  supabaseUrl: string,
+  supabaseKey: string,
+  leftCropB64: string,
+  rightCropB64: string,
+): Promise<{ leftWallYesConfidence: number; rightWallYesConfidence: number } | null> {
+  try {
+    // Combine left and right crops into a single image side by side
+    const resp = await fetch(`${supabaseUrl}/functions/v1/extract-pdf-vtops`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseKey}`,
+      },
+      body: JSON.stringify({
+        pageImage: leftCropB64,
+        focusedWallDetection: true,
+        rightEndCrop: rightCropB64,
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    return {
+      leftWallYesConfidence: data.leftWallYesConfidence ?? 0.5,
+      rightWallYesConfidence: data.rightWallYesConfidence ?? 0.5,
+    };
+  } catch {
+    console.warn('Focused wall AI call failed');
+    return null;
+  }
 }
 
 // ─── SKU formatting ───
