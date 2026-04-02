@@ -98,28 +98,7 @@ async function canvasCropToBase64(
   return crop.toDataURL('image/jpeg', quality).split(',')[1];
 }
 
-async function renderPagePassImages(page: any): Promise<{ pageImage: string; stripImages: string[] }> {
-  const { canvas, width, height } = await renderPageToCanvasData(page);
-  const pageImage = await canvasToBase64(canvas, 0.82);
-
-  const xRanges: Array<[number, number]> = [
-    [0, 0.5], [0.25, 0.75], [0.5, 1],
-  ];
-  const yStart = 0.03;
-  const yEnd = 0.98;
-
-  const stripImages = await Promise.all(
-    xRanges.map(async ([xStart, xEnd]) => {
-      const sx = Math.floor(xStart * width);
-      const sy = Math.floor(yStart * height);
-      const sw = Math.max(1, Math.ceil((xEnd - xStart) * width));
-      const sh = Math.max(1, Math.ceil((yEnd - yStart) * height));
-      return canvasCropToBase64(canvas, sx, sy, sw, sh, 0.88);
-    }),
-  );
-
-  return { pageImage, stripImages };
-}
+// No more strip images — single full-page AI call only
 
 // ─── Deterministic wall detection helpers ───
 
