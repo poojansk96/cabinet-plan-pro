@@ -290,33 +290,24 @@ TASK:
 3. For EACH vanity top, extract:
    a. **length** — total length in inches (e.g., 47.5, 31, 25)
    b. **depth** — depth in inches (usually 22")
-   c. **bowlPosition** — examine the bowl cutout location:
-      - If the bowl is NOT centered horizontally, it is "offset". Determine which side it is closer to:
-        - "offset-left" if bowl center is closer to the left edge
-        - "offset-right" if bowl center is closer to the right edge
-      - If the bowl is centered horizontally (equal distance from both edges), it is "center"
-   d. **bowlOffset** — if offset, measure the distance in inches from the CLOSER edge to the center of the bowl. If center, set to null.
-   e. **leftWall** — your rough guess whether the left side has a wall (double line). This is a HINT only, not the final decision.
-   f. **rightWall** — your rough guess whether the right side has a wall (double line). This is a HINT only, not the final decision.
-   g. **leftWallYesConfidence** — probability 0.0 to 1.0 that left side IS a wall. This is a rough estimate from the full page.
-   h. **rightWallYesConfidence** — probability 0.0 to 1.0 that right side IS a wall. This is a rough estimate from the full page.
-   i. **bbox** — the bounding box of ONLY the vanity top plan-view rectangle itself, normalized 0..1 relative to the full page image:
-      - x: left edge (0 = page left, 1 = page right)
-      - y: top edge (0 = page top, 1 = page bottom)
-      - width: width of ONLY the vanity rectangle
-      - height: height of ONLY the vanity rectangle
-
-CRITICAL BBOX RULES:
-- bbox must tightly wrap ONLY the vanity top rectangle outline (the plan-view shape).
-- DO NOT include dimension lines, dimension text, leader lines, or extension lines in the bbox.
-- DO NOT include nearby notes, callouts, or labels in the bbox.
-- DO NOT include title block area in the bbox.
-- DO NOT include side/front elevation views in the bbox.
-- The bbox should be as tight as possible to just the rectangular outline of the vanity top plan view.
+   c. **bowlPosition** — examine the bowl cutout location relative to the vanity's LENGTH (long dimension):
+      CRITICAL ORIENTATION NOTE: Vanity tops may be drawn VERTICALLY on the page (rotated 90°).
+      If the vanity rectangle is taller than wide on the page, it is rotated — "left" and "right" refer to the vanity's own long-axis ends, NOT page-left/page-right.
+      To determine left vs right:
+        1. Identify the vanity's LENGTH axis (the longer dimension, e.g., 47.5").
+        2. Look at dimension callouts that show the distance from each end of the LENGTH axis to the bowl center.
+        3. The end with the SHORTER dimension is the side the bowl is offset toward.
+        4. Use the vanity's installed orientation: typically the LENGTH runs left-to-right as viewed in the plan. If the vanity is drawn vertically, the TOP of the drawing = LEFT end, BOTTOM = RIGHT end (standard drafting convention).
+      - "offset-left" if bowl center is closer to the LEFT end of the length axis
+      - "offset-right" if bowl center is closer to the RIGHT end of the length axis
+      - "center" if bowl is centered along the length axis
+   d. **bowlOffset** — if offset, measure the distance in inches from the CLOSER end to the center of the bowl. If center, set to null.
 
 RULES FOR BOWL POSITION:
+- ALWAYS use dimension callout lines to determine offset — do not guess from visual position alone.
 - Look for dimension lines showing the distance from the vanity edge to the bowl centerline.
-- If the drawing shows a measurement like "17 3/4"" from one side, that's the bowlOffset.
+- The SMALLER dimension value indicates which end the bowl is offset toward.
+- If the drawing shows a measurement like "17 3/4"" from one side and "29 3/4"" from the other, the bowl is offset toward the 17 3/4" side.
 - If both sides have equal dimensions to the bowl center, it's "center".
 - Convert fractions to decimals: 3/4 = 0.75, 1/2 = 0.5, 1/4 = 0.25, 3/8 = 0.375
 
@@ -327,7 +318,7 @@ IMPORTANT:
 - The bbox coordinates MUST be normalized 0..1 relative to the full page.
 
 Return ONLY valid JSON — no markdown fences, no explanation:
-{"unitTypeName":"TYPE 1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true,"leftWallYesConfidence":0.85,"rightWallYesConfidence":0.9,"bbox":{"x":0.05,"y":0.3,"width":0.35,"height":0.2}}]}`;
+{"unitTypeName":"TYPE 1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"bowlPosition":"offset-right","bowlOffset":17.75,"leftWall":true,"rightWall":false,"leftWallYesConfidence":0.85,"rightWallYesConfidence":0.1,"bbox":{"x":0.05,"y":0.3,"width":0.35,"height":0.2}}]}`;
 
     let fullContent = "";
     try {
