@@ -98,28 +98,7 @@ async function canvasCropToBase64(
   return crop.toDataURL('image/jpeg', quality).split(',')[1];
 }
 
-async function renderPagePassImages(page: any): Promise<{ pageImage: string; stripImages: string[] }> {
-  const { canvas, width, height } = await renderPageToCanvasData(page);
-  const pageImage = await canvasToBase64(canvas, 0.82);
-
-  const xRanges: Array<[number, number]> = [
-    [0, 0.5], [0.25, 0.75], [0.5, 1],
-  ];
-  const yStart = 0.03;
-  const yEnd = 0.98;
-
-  const stripImages = await Promise.all(
-    xRanges.map(async ([xStart, xEnd]) => {
-      const sx = Math.floor(xStart * width);
-      const sy = Math.floor(yStart * height);
-      const sw = Math.max(1, Math.ceil((xEnd - xStart) * width));
-      const sh = Math.max(1, Math.ceil((yEnd - yStart) * height));
-      return canvasCropToBase64(canvas, sx, sy, sw, sh, 0.88);
-    }),
-  );
-
-  return { pageImage, stripImages };
-}
+// No more strip images — single full-page AI call only
 
 // ─── Deterministic wall detection helpers ───
 
@@ -272,37 +251,33 @@ function analyzeEndCrop(
 }
 
 /**
- * Final wall decision: deterministic is primary, AI is fallback only.
- *
- * Rules:
- * - deterministic strong yes (>= 0.75) → wall=true
- * - deterministic strong no (<= 0.25) → wall=false
- * - deterministic weak (0.25..0.75) → consult AI probability, mark review
+ * Dead-zone scoring: deterministic first, then AI, then uncertain.
+ * No more forcing weak signals into yes/no with combined >= 0.5.
  */
 function scoreWallEvidence(
-  deterministicConf: number,
-  aiWallYesProb: number,
+  det: number,
+  ai: number,
+  aiHint: boolean,
 ): { wall: boolean; confidence: number; reviewRequired: boolean } {
-  // Only very strong deterministic overrides AI
-  if (deterministicConf >= 0.82) {
-    return { wall: true, confidence: deterministicConf, reviewRequired: false };
-  }
-  if (deterministicConf <= 0.08 && aiWallYesProb <= 0.20) {
-    return { wall: false, confidence: 1 - deterministicConf, reviewRequired: false };
-  }
+  // Strong deterministic → trust it
+  if (det >= 0.82) return { wall: true, confidence: det, reviewRequired: false };
+  if (det <= 0.18) return { wall: false, confidence: 1 - det, reviewRequired: false };
 
-  // AI is primary, deterministic is secondary
-  const combined = aiWallYesProb * 0.65 + deterministicConf * 0.35;
-  const wall = combined >= 0.5;
+  // Strong AI → trust it but flag for review
+  if (ai >= 0.75) return { wall: true, confidence: ai, reviewRequired: true };
+  if (ai <= 0.25) return { wall: false, confidence: 1 - ai, reviewRequired: true };
+
+  // Dead zone: both signals are weak — keep AI hint, mark uncertain
   return {
-    wall,
-    confidence: Math.round(combined * 100) / 100,
+    wall: aiHint,
+    confidence: 0.5,
     reviewRequired: true,
   };
 }
 
 /**
- * Final wall decision for a row, combining all evidence.
+ * Initial wall decision from deterministic detector + full-page AI fallback.
+ * Full-page AI confidence is a rough fallback, NOT the main signal.
  */
 function finalizeWallDecision(
   row: VtopImportRow,
@@ -310,17 +285,16 @@ function finalizeWallDecision(
   rightDet: { confidence: number; cropBase64: string },
   vanityCropBase64: string,
 ): VtopImportRow {
-  // Use direct AI wall probability (not derived from boolean)
   const aiLeftProb = row.leftWallConfidence ?? 0.5;
   const aiRightProb = row.rightWallConfidence ?? 0.5;
 
-  const left = scoreWallEvidence(leftDet.confidence, aiLeftProb);
-  const right = scoreWallEvidence(rightDet.confidence, aiRightProb);
+  const left = scoreWallEvidence(leftDet.confidence, aiLeftProb, Boolean(row.leftWall));
+  const right = scoreWallEvidence(rightDet.confidence, aiRightProb, Boolean(row.rightWall));
 
   const reviewRequired = left.reviewRequired || right.reviewRequired;
   const reasons: string[] = [];
-  if (left.reviewRequired) reasons.push(`Left wall uncertain (det:${(leftDet.confidence * 100).toFixed(0)}%)`);
-  if (right.reviewRequired) reasons.push(`Right wall uncertain (det:${(rightDet.confidence * 100).toFixed(0)}%)`);
+  if (left.reviewRequired) reasons.push(`Left wall uncertain (det:${(leftDet.confidence * 100).toFixed(0)}%, ai:${(aiLeftProb * 100).toFixed(0)}%)`);
+  if (right.reviewRequired) reasons.push(`Right wall uncertain (det:${(rightDet.confidence * 100).toFixed(0)}%, ai:${(aiRightProb * 100).toFixed(0)}%)`);
 
   return {
     ...row,
@@ -337,6 +311,43 @@ function finalizeWallDecision(
       rightEndCrop: rightDet.cropBase64,
     },
   };
+}
+
+/**
+ * Focused AI call for ambiguous rows only.
+ * Sends end crops (not full page) and asks ONLY about wall confidence.
+ */
+async function focusedWallAICall(
+  supabaseUrl: string,
+  supabaseKey: string,
+  leftCropB64: string,
+  rightCropB64: string,
+): Promise<{ leftWallYesConfidence: number; rightWallYesConfidence: number } | null> {
+  try {
+    // Combine left and right crops into a single image side by side
+    const resp = await fetch(`${supabaseUrl}/functions/v1/extract-pdf-vtops`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseKey}`,
+      },
+      body: JSON.stringify({
+        pageImage: leftCropB64,
+        focusedWallDetection: true,
+        rightEndCrop: rightCropB64,
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    return {
+      leftWallYesConfidence: data.leftWallYesConfidence ?? 0.5,
+      rightWallYesConfidence: data.rightWallYesConfidence ?? 0.5,
+    };
+  } catch {
+    console.warn('Focused wall AI call failed');
+    return null;
+  }
 }
 
 // ─── SKU formatting ───
@@ -493,11 +504,35 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
                       const leftDet = analyzeEndCrop(canvas, canvasW, canvasH, vt.bbox, 'left');
                       const rightDet = analyzeEndCrop(canvas, canvasW, canvasH, vt.bbox, 'right');
 
-                      // Finalize wall decision (deterministic is primary)
+                      // Finalize wall decision (deterministic + full-page AI fallback)
                       importRow = finalizeWallDecision(importRow, leftDet, rightDet, vanityCropB64);
+
+                      // Fix 2: If still ambiguous, do ONE focused AI call with end crops
+                      if (importRow.reviewRequired && importRow.debugImages?.leftEndCrop && importRow.debugImages?.rightEndCrop) {
+                        const focused = await focusedWallAICall(
+                          SUPABASE_URL, SUPABASE_KEY,
+                          importRow.debugImages.leftEndCrop,
+                          importRow.debugImages.rightEndCrop,
+                        );
+                        if (focused) {
+                          // Re-score with focused AI confidence (much more reliable than full-page)
+                          const leftFocused = scoreWallEvidence(leftDet.confidence, focused.leftWallYesConfidence, Boolean(importRow.leftWall));
+                          const rightFocused = scoreWallEvidence(rightDet.confidence, focused.rightWallYesConfidence, Boolean(importRow.rightWall));
+                          
+                          importRow.leftWall = leftFocused.wall;
+                          importRow.rightWall = rightFocused.wall;
+                          importRow.leftWallConfidence = leftFocused.confidence;
+                          importRow.rightWallConfidence = rightFocused.confidence;
+                          importRow.sidesplashCount = (leftFocused.wall ? 1 : 0) + (rightFocused.wall ? 1 : 0);
+                          importRow.reviewRequired = leftFocused.reviewRequired || rightFocused.reviewRequired;
+                          const focusedReasons: string[] = [];
+                          if (leftFocused.reviewRequired) focusedReasons.push(`Left wall still uncertain after focused AI (${(focused.leftWallYesConfidence * 100).toFixed(0)}%)`);
+                          if (rightFocused.reviewRequired) focusedReasons.push(`Right wall still uncertain after focused AI (${(focused.rightWallYesConfidence * 100).toFixed(0)}%)`);
+                          importRow.reviewReason = focusedReasons.length ? focusedReasons.join('. ') : undefined;
+                        }
+                      }
                     } catch (detErr) {
                       console.warn('Deterministic wall detection failed for row:', detErr);
-                      // Fall back to AI-only results
                       importRow.reviewRequired = true;
                       importRow.reviewReason = (importRow.reviewReason || '') + ' Deterministic detection failed.';
                     }
