@@ -493,6 +493,20 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
                     reviewReason: vt.reviewReason,
                   };
 
+                  // ── MIRROR type fix: flip bowl position ──
+                  // "-MIRROR" suffix means the vanity layout is horizontally mirrored
+                  const unitUpper = (pageUnitType || '').toUpperCase();
+                  if (unitUpper.includes('MIRROR') && importRow.bowlPosition !== 'center') {
+                    importRow.bowlPosition = importRow.bowlPosition === 'offset-left' ? 'offset-right' : 'offset-left';
+                    // Also swap wall hints since the layout is mirrored
+                    const tmpWall = importRow.leftWall;
+                    importRow.leftWall = importRow.rightWall;
+                    importRow.rightWall = tmpWall;
+                    const tmpConf = importRow.leftWallConfidence;
+                    importRow.leftWallConfidence = importRow.rightWallConfidence;
+                    importRow.rightWallConfidence = tmpConf;
+                  }
+
                   // ── Deterministic wall detection using bbox crops ──
                   if (vt.bbox && vt.bbox.width > 0.01 && vt.bbox.height > 0.01) {
                     try {
