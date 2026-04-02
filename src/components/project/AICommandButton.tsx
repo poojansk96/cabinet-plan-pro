@@ -368,7 +368,7 @@ export default function AICommandButton({
 
         <button
           onClick={() => { setOpen(true); setShowNudge(false); }}
-          className="w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all hover:scale-105 flex items-center justify-center animate-pulse"
+          className={`w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all hover:scale-105 flex items-center justify-center ${messages.length === 0 ? 'animate-pulse' : ''}`}
           title="AI Command"
         >
           <Bot size={24} />
