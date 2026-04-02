@@ -331,10 +331,19 @@ export default function AICommandButton({
     }
   };
 
+  const NUDGE_MESSAGES = [
+    "Need help? Ask me anything! ✨",
+    "I can add units, cabinets & more 🚀",
+    "Try saying: 'Add unit 101' 💡",
+    "Let me handle the boring stuff 😎",
+    "Got a question? I'm here! 🙋",
+    "Type a command, I'll do the rest ⚡",
+  ];
+
   const [showNudge, setShowNudge] = useState(false);
+  const [nudgeMessage] = useState(() => NUDGE_MESSAGES[Math.floor(Math.random() * NUDGE_MESSAGES.length)]);
   const nudgeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Show nudge bubble after 3s on mount, hide after 5s
   useEffect(() => {
     const showTimer = setTimeout(() => setShowNudge(true), 3000);
     nudgeTimerRef.current = setTimeout(() => setShowNudge(false), 8000);
@@ -353,13 +362,13 @@ export default function AICommandButton({
             showNudge ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4 pointer-events-none'
           }`}
         >
-          <span>Need help? Ask me anything! ✨</span>
+          <span>{nudgeMessage}</span>
           <div className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 bg-card border-r border-t border-border rotate-45" />
         </div>
 
         <button
           onClick={() => { setOpen(true); setShowNudge(false); }}
-          className="w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all hover:scale-105 flex items-center justify-center"
+          className="w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all hover:scale-105 flex items-center justify-center animate-pulse"
           title="AI Command"
         >
           <Bot size={24} />
