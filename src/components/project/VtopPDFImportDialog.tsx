@@ -504,11 +504,35 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
                       const leftDet = analyzeEndCrop(canvas, canvasW, canvasH, vt.bbox, 'left');
                       const rightDet = analyzeEndCrop(canvas, canvasW, canvasH, vt.bbox, 'right');
 
-                      // Finalize wall decision (deterministic is primary)
+                      // Finalize wall decision (deterministic + full-page AI fallback)
                       importRow = finalizeWallDecision(importRow, leftDet, rightDet, vanityCropB64);
+
+                      // Fix 2: If still ambiguous, do ONE focused AI call with end crops
+                      if (importRow.reviewRequired && importRow.debugImages?.leftEndCrop && importRow.debugImages?.rightEndCrop) {
+                        const focused = await focusedWallAICall(
+                          SUPABASE_URL, SUPABASE_KEY,
+                          importRow.debugImages.leftEndCrop,
+                          importRow.debugImages.rightEndCrop,
+                        );
+                        if (focused) {
+                          // Re-score with focused AI confidence (much more reliable than full-page)
+                          const leftFocused = scoreWallEvidence(leftDet.confidence, focused.leftWallYesConfidence, Boolean(importRow.leftWall));
+                          const rightFocused = scoreWallEvidence(rightDet.confidence, focused.rightWallYesConfidence, Boolean(importRow.rightWall));
+                          
+                          importRow.leftWall = leftFocused.wall;
+                          importRow.rightWall = rightFocused.wall;
+                          importRow.leftWallConfidence = leftFocused.confidence;
+                          importRow.rightWallConfidence = rightFocused.confidence;
+                          importRow.sidesplashCount = (leftFocused.wall ? 1 : 0) + (rightFocused.wall ? 1 : 0);
+                          importRow.reviewRequired = leftFocused.reviewRequired || rightFocused.reviewRequired;
+                          const focusedReasons: string[] = [];
+                          if (leftFocused.reviewRequired) focusedReasons.push(`Left wall still uncertain after focused AI (${(focused.leftWallYesConfidence * 100).toFixed(0)}%)`);
+                          if (rightFocused.reviewRequired) focusedReasons.push(`Right wall still uncertain after focused AI (${(focused.rightWallYesConfidence * 100).toFixed(0)}%)`);
+                          importRow.reviewReason = focusedReasons.length ? focusedReasons.join('. ') : undefined;
+                        }
+                      }
                     } catch (detErr) {
                       console.warn('Deterministic wall detection failed for row:', detErr);
-                      // Fall back to AI-only results
                       importRow.reviewRequired = true;
                       importRow.reviewReason = (importRow.reviewReason || '') + ' Deterministic detection failed.';
                     }
