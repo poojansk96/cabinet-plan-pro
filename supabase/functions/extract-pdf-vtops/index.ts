@@ -37,11 +37,6 @@ const PRIMARY_MODELS: ModelAttempt[] = [
   { name: "gemini-2.5-pro", retries: 2 },
 ];
 
-const STRIP_MODELS: ModelAttempt[] = [
-  { name: "gemini-3-flash-preview", retries: 2 },
-  { name: "gemini-2.5-pro", retries: 1 },
-];
-
 function clampNorm(v: number): number {
   return Math.max(0, Math.min(1, Number(v) || 0));
 }
@@ -114,136 +109,38 @@ function parseExtractionText(content: string): ParsedExtraction {
   };
 }
 
-function vtopMatchScore(a: VtopRow, b: VtopRow): number {
-  const lengthDiff = Math.abs(a.length - b.length);
-  const depthDiff = Math.abs(a.depth - b.depth);
-  if (lengthDiff > 3 || depthDiff > 2) return Number.POSITIVE_INFINITY;
-
-  if (a.bowlPosition !== b.bowlPosition) return Number.POSITIVE_INFINITY;
-  if (a.bowlPosition !== "center") {
-    const offA = a.bowlOffset ?? 0;
-    const offB = b.bowlOffset ?? 0;
-    if (Math.abs(offA - offB) > 4) return Number.POSITIVE_INFINITY;
-  }
-
-  return lengthDiff + depthDiff;
-}
-
-/**
- * Confidence-based merge: strip evidence is secondary, not authoritative.
- * AI hints from the primary pass are kept as-is unless strip evidence
- * provides STRONG agreement (2+ strips agree on a wall).
- * Conflicting/weak evidence flags the row for review instead of guessing.
- */
-function mergeWallEvidence(primary: VtopRow[], stripSets: VtopRow[][]): VtopRow[] {
-  if (!primary.length || !stripSets.length) return primary;
-
-  const merged = primary.map((row) => ({
-    ...row,
-    leftWallYes: 0,
-    leftWallNo: 0,
-    rightWallYes: 0,
-    rightWallNo: 0,
-  }));
-
-  for (const stripRows of stripSets) {
-    const matchedIndices = new Set<number>();
-    for (const stripRow of stripRows) {
-      let bestIdx = -1;
-      let bestScore = Number.POSITIVE_INFINITY;
-
-      for (let i = 0; i < merged.length; i++) {
-        if (matchedIndices.has(i)) continue;
-        const score = vtopMatchScore(merged[i], stripRow);
-        if (score < bestScore) {
-          bestScore = score;
-          bestIdx = i;
-        }
-      }
-
-      if (bestIdx >= 0 && Number.isFinite(bestScore)) {
-        if (stripRow.leftWall) merged[bestIdx].leftWallYes += 1;
-        else merged[bestIdx].leftWallNo += 1;
-        if (stripRow.rightWall) merged[bestIdx].rightWallYes += 1;
-        else merged[bestIdx].rightWallNo += 1;
-        matchedIndices.add(bestIdx);
-      }
-    }
-  }
-
-  return merged.map((row) => {
-    let leftWall = row.leftWall;
-    let rightWall = row.rightWall;
-    // Start from AI's direct probability estimate
-    let leftWallYesConf = row.leftWallYesConfidence ?? 0.5;
-    let rightWallYesConf = row.rightWallYesConfidence ?? 0.5;
-    let reviewRequired = false;
-    let reviewReason = "";
-
-    const leftTotal = row.leftWallYes + row.leftWallNo;
-    const rightTotal = row.rightWallYes + row.rightWallNo;
-
-    // Update confidence with strip evidence (weighted average)
-    if (leftTotal > 0) {
-      const stripConf = row.leftWallYes / leftTotal;
-      // Blend: primary AI conf (0.6) + strip evidence (0.4)
-      leftWallYesConf = leftWallYesConf * 0.6 + stripConf * 0.4;
-
-      if (row.leftWallYes >= 2 && stripConf >= 0.67) {
-        leftWall = true;
-      } else if (row.leftWallNo >= 2 && stripConf <= 0.33) {
-        leftWall = false;
-      } else if (leftTotal >= 2 && stripConf > 0.3 && stripConf < 0.7) {
-        reviewRequired = true;
-        reviewReason += "Left wall evidence conflicting. ";
-      }
-    }
-
-    if (rightTotal > 0) {
-      const stripConf = row.rightWallYes / rightTotal;
-      rightWallYesConf = rightWallYesConf * 0.6 + stripConf * 0.4;
-
-      if (row.rightWallYes >= 2 && stripConf >= 0.67) {
-        rightWall = true;
-      } else if (row.rightWallNo >= 2 && stripConf <= 0.33) {
-        rightWall = false;
-      } else if (rightTotal >= 2 && stripConf > 0.3 && stripConf < 0.7) {
-        reviewRequired = true;
-        reviewReason += "Right wall evidence conflicting. ";
-      }
-    }
-
-    const sidesplashCount = (leftWall ? 1 : 0) + (rightWall ? 1 : 0);
-
+function parseWallConfidence(content: string): { leftWallYesConfidence: number; rightWallYesConfidence: number } {
+  try {
+    let cleaned = content
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/```\s*$/i, "")
+      .trim();
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+    if (start >= 0 && end > start) cleaned = cleaned.slice(start, end + 1);
+    const parsed = JSON.parse(cleaned);
     return {
-      length: row.length,
-      depth: row.depth,
-      bowlPosition: row.bowlPosition,
-      bowlOffset: row.bowlOffset,
-      leftWall,
-      rightWall,
-      bbox: row.bbox,
-      aiLeftWallHint: row.aiLeftWallHint,
-      aiRightWallHint: row.aiRightWallHint,
-      leftWallYesConfidence: Math.round(leftWallYesConf * 100) / 100,
-      rightWallYesConfidence: Math.round(rightWallYesConf * 100) / 100,
-      leftWallConfidence: Math.round(leftWallYesConf * 100) / 100,
-      rightWallConfidence: Math.round(rightWallYesConf * 100) / 100,
-      sidesplashCount,
-      reviewRequired,
-      reviewReason: reviewReason.trim() || undefined,
+      leftWallYesConfidence: Math.max(0, Math.min(1, Number(parsed?.leftWallYesConfidence) || 0.5)),
+      rightWallYesConfidence: Math.max(0, Math.min(1, Number(parsed?.rightWallYesConfidence) || 0.5)),
     };
-  });
+  } catch {
+    return { leftWallYesConfidence: 0.5, rightWallYesConfidence: 0.5 };
+  }
 }
 
 async function requestGemini(
   apiKey: string,
-  pageImage: string,
+  images: Array<{ mimeType: string; data: string }>,
   prompt: string,
   models: ModelAttempt[],
   generationConfig: { temperature: number; maxOutputTokens: number },
 ): Promise<string> {
   let response: Response | null = null;
+
+  const imageParts = images.map(img => ({
+    inlineData: { mimeType: img.mimeType, data: img.data },
+  }));
 
   for (const { name: model, retries } of models) {
     console.log(`Trying model: ${model} (${retries} attempts)`);
@@ -260,7 +157,7 @@ async function requestGemini(
               contents: [{
                 role: "user",
                 parts: [
-                  { inlineData: { mimeType: "image/jpeg", data: pageImage } },
+                  ...imageParts,
                   { text: prompt },
                 ],
               }],
@@ -321,7 +218,8 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
-    const { pageImage, stripImages } = await req.json();
+    const body = await req.json();
+    const { pageImage, focusedWallDetection, rightEndCrop } = body;
 
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage (base64 string) required" }), {
@@ -330,10 +228,54 @@ serve(async (req) => {
       });
     }
 
-    const safeStripImages: string[] = Array.isArray(stripImages)
-      ? stripImages.filter((img: unknown) => typeof img === "string" && img.length > 1000).slice(0, 3)
-      : [];
+    // ── Mode 2: Focused wall detection on end crops ──
+    if (focusedWallDetection && rightEndCrop) {
+      console.log("Focused wall detection mode");
+      const focusedPrompt = `You are analyzing two cropped images of the left and right ends of a vanity top from a 2020 countertop shop drawing.
 
+TASK: Determine if each end has a WALL (double line / sidesplash) or is OPEN (single line / finish end).
+
+Image 1 = LEFT end of the vanity
+Image 2 = RIGHT end of the vanity
+
+Wall indicators:
+- Double parallel lines at the edge = WALL (sidesplash needed)
+- Single line at the edge = OPEN (finish end needed)
+- A wall adjacent to the vanity = WALL
+
+Return ONLY valid JSON:
+{"leftWallYesConfidence":0.85,"rightWallYesConfidence":0.2}
+
+leftWallYesConfidence: probability 0.0-1.0 that the LEFT end has a wall
+rightWallYesConfidence: probability 0.0-1.0 that the RIGHT end has a wall`;
+
+      try {
+        const content = await requestGemini(
+          GEMINI_API_KEY,
+          [
+            { mimeType: "image/png", data: pageImage },
+            { mimeType: "image/png", data: rightEndCrop },
+          ],
+          focusedPrompt,
+          [{ name: "gemini-3-flash-preview", retries: 2 }],
+          { temperature: 0.1, maxOutputTokens: 256 },
+        );
+        console.log("Focused wall raw:", content);
+        const result = parseWallConfidence(content);
+        return new Response(JSON.stringify(result), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (err) {
+        if (err instanceof Error && err.message === "rate_limit") {
+          return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        return new Response(JSON.stringify({ leftWallYesConfidence: 0.5, rightWallYesConfidence: 0.5 }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // ── Mode 1: Full-page extraction (dimensions, bbox, rough wall hints) ──
     const fullPrompt = `You are an expert millwork estimator analyzing a 2020 countertop shop drawing page.
 
 TASK:
@@ -354,10 +296,10 @@ TASK:
         - "offset-right" if bowl center is closer to the right edge
       - If the bowl is centered horizontally (equal distance from both edges), it is "center"
    d. **bowlOffset** — if offset, measure the distance in inches from the CLOSER edge to the center of the bowl. If center, set to null.
-   e. **leftWall** — your best guess whether the left side has a wall (double line). This is a HINT only.
-   f. **rightWall** — your best guess whether the right side has a wall (double line). This is a HINT only.
-   g. **leftWallYesConfidence** — probability 0.0 to 1.0 that left side IS a wall (double line). 0.9 = very likely wall, 0.1 = very likely open.
-   h. **rightWallYesConfidence** — probability 0.0 to 1.0 that right side IS a wall (double line). 0.9 = very likely wall, 0.1 = very likely open.
+   e. **leftWall** — your rough guess whether the left side has a wall (double line). This is a HINT only, not the final decision.
+   f. **rightWall** — your rough guess whether the right side has a wall (double line). This is a HINT only, not the final decision.
+   g. **leftWallYesConfidence** — probability 0.0 to 1.0 that left side IS a wall. This is a rough estimate from the full page.
+   h. **rightWallYesConfidence** — probability 0.0 to 1.0 that right side IS a wall. This is a rough estimate from the full page.
    i. **bbox** — the bounding box of ONLY the vanity top plan-view rectangle itself, normalized 0..1 relative to the full page image:
       - x: left edge (0 = page left, 1 = page right)
       - y: top edge (0 = page top, 1 = page bottom)
@@ -387,22 +329,11 @@ IMPORTANT:
 Return ONLY valid JSON — no markdown fences, no explanation:
 {"unitTypeName":"TYPE 1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true,"leftWallYesConfidence":0.85,"rightWallYesConfidence":0.9,"bbox":{"x":0.05,"y":0.3,"width":0.35,"height":0.2}}]}`;
 
-    const stripPrompt = `You are analyzing a cropped strip of a 2020 countertop shop drawing page.
-
-TASK:
-- Extract ONLY vanity tops visible in this cropped image (ignore kitchen tops).
-- For each vanity top, return: length, depth, bowlPosition, bowlOffset, leftWall, rightWall, leftWallYesConfidence, rightWallYesConfidence.
-- leftWall/rightWall are your best guesses (hints only).
-- leftWallYesConfidence/rightWallYesConfidence: probability 0.0-1.0 that the side IS a wall.
-
-Return ONLY valid JSON:
-{"vtops":[{"length":47.5,"depth":22,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true,"leftWallYesConfidence":0.8,"rightWallYesConfidence":0.7}]}`;
-
     let fullContent = "";
     try {
       fullContent = await requestGemini(
         GEMINI_API_KEY,
-        pageImage,
+        [{ mimeType: "image/jpeg", data: pageImage }],
         fullPrompt,
         PRIMARY_MODELS,
         { temperature: 0.1, maxOutputTokens: 4096 },
@@ -426,43 +357,16 @@ Return ONLY valid JSON:
     const unitTypeName = fullParsed.unitTypeName;
     console.log("Detected unit type name:", unitTypeName);
 
-    let vtops = fullParsed.vtops;
-
-    if (safeStripImages.length > 0 && vtops.length > 0) {
-      const stripResults = await Promise.all(
-        safeStripImages.map(async (stripImage, index) => {
-          try {
-            const stripContent = await requestGemini(
-              GEMINI_API_KEY,
-              stripImage,
-              stripPrompt,
-              STRIP_MODELS,
-              { temperature: 0.1, maxOutputTokens: 2048 },
-            );
-            const parsed = parseExtractionText(stripContent);
-            console.log(`Strip ${index + 1} rows:`, parsed.vtops.length);
-            return parsed.vtops;
-          } catch (err) {
-            console.warn(`Strip pass ${index + 1} failed:`, err);
-            return [] as VtopRow[];
-          }
-        }),
-      );
-
-      vtops = mergeWallEvidence(vtops, stripResults.filter(set => set.length > 0));
-    } else {
-      // No strip evidence — add default confidence and sidesplash count
-      vtops = vtops.map(row => ({
-        ...row,
-        leftWallYesConfidence: row.leftWallYesConfidence ?? 0.5,
-        rightWallYesConfidence: row.rightWallYesConfidence ?? 0.5,
-        leftWallConfidence: row.leftWallYesConfidence ?? 0.5,
-        rightWallConfidence: row.rightWallYesConfidence ?? 0.5,
-        sidesplashCount: (row.leftWall ? 1 : 0) + (row.rightWall ? 1 : 0),
-        reviewRequired: true,
-        reviewReason: "No strip corroboration available — AI hint only.",
-      }));
-    }
+    // No more strip merging — return raw AI results with rough wall hints
+    // Wall detection is finalized on the frontend with deterministic detector + focused AI
+    const vtops = fullParsed.vtops.map(row => ({
+      ...row,
+      leftWallYesConfidence: row.leftWallYesConfidence ?? 0.5,
+      rightWallYesConfidence: row.rightWallYesConfidence ?? 0.5,
+      sidesplashCount: (row.leftWall ? 1 : 0) + (row.rightWall ? 1 : 0),
+      reviewRequired: true,
+      reviewReason: "Wall hints are rough — will be refined by local detector.",
+    }));
 
     return new Response(JSON.stringify({ unitTypeName, vtops }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
