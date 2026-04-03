@@ -285,11 +285,12 @@ function normalizeTypeBase(value: string): string {
   if (/\bKITCHENETTE\b/.test(text)) return 'KITCHENETTE';
 
   const canonical = text.replace(/\s+\((AS|MIRROR|ADA|REV|ALT|OPTION)\)$/i, '-$1');
+  // Strip trailing variant suffixes (-AS, -MIRROR, etc.) but preserve underscore compound parts
   const patterns = [
-    /^((?:STUDIO|\d+BR)-[A-Z0-9.]+)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
-    /^((?:STUDIO|\d+BR)\s+TYPE\s+[A-Z0-9.]+)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
-    /^(TYPE\s+(?:STUDIO|\d+BR)-[A-Z0-9.]+)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
-    /^(TYPE\s+[A-Z0-9.]+)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
+    /^((?:STUDIO|\d+BR)-[A-Z0-9._]+(?:[_][A-Z][A-Z0-9._-]*)*)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
+    /^((?:STUDIO|\d+BR)\s+TYPE\s+[A-Z0-9._]+(?:[_][A-Z][A-Z0-9._-]*)*)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
+    /^(TYPE\s+(?:STUDIO|\d+BR)-[A-Z0-9._]+(?:[_][A-Z][A-Z0-9._-]*)*)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
+    /^(TYPE\s+[A-Z0-9._]+(?:[_][A-Z][A-Z0-9._-]*)*)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
   ];
 
   for (const pattern of patterns) {
