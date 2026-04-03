@@ -285,11 +285,12 @@ function normalizeTypeBase(value: string): string {
   if (/\bKITCHENETTE\b/.test(text)) return 'KITCHENETTE';
 
   const canonical = text.replace(/\s+\((AS|MIRROR|ADA|REV|ALT|OPTION)\)$/i, '-$1');
+  // Strip trailing variant suffixes (-AS, -MIRROR, etc.) but preserve underscore compound parts
   const patterns = [
-    /^((?:STUDIO|\d+BR)-[A-Z0-9.]+)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
-    /^((?:STUDIO|\d+BR)\s+TYPE\s+[A-Z0-9.]+)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
-    /^(TYPE\s+(?:STUDIO|\d+BR)-[A-Z0-9.]+)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
-    /^(TYPE\s+[A-Z0-9.]+)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
+    /^((?:STUDIO|\d+BR)-[A-Z0-9._]+(?:[_][A-Z][A-Z0-9._-]*)*)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
+    /^((?:STUDIO|\d+BR)\s+TYPE\s+[A-Z0-9._]+(?:[_][A-Z][A-Z0-9._-]*)*)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
+    /^(TYPE\s+(?:STUDIO|\d+BR)-[A-Z0-9._]+(?:[_][A-Z][A-Z0-9._-]*)*)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
+    /^(TYPE\s+[A-Z0-9._]+(?:[_][A-Z][A-Z0-9._-]*)*)(?:-(?:AS|MIRROR|ADA|REV|ALT|OPTION))?$/,
   ];
 
   for (const pattern of patterns) {
@@ -366,7 +367,7 @@ function extractTypeHintsFromText(pageText: string): string[] {
     return brMatch ? brMatch[1].replace(/\s+/g, '') + ' ' : '';
   };
 
-  const typeBase = '([A-Z0-9.]+(?:\\s*-\\s*(?!AS\\b|MIRROR\\b|ADA\\b|REV\\b|ALT\\b|OPTION\\b)[A-Z0-9.]+)*)';
+  const typeBase = '([A-Z0-9._]+(?:\\s*[-_]\\s*(?!AS\\b|MIRROR\\b|ADA\\b|REV\\b|ALT\\b|OPTION\\b)[A-Z0-9._]+)*)';
   const variantToken = '(AS|MIRROR|ADA|REV|ALT|OPTION)';
   const combined = new RegExp(`\\bTYPE\\s+${typeBase}\\s*(?:-|:)?\\s*${variantToken}\\s*(?:\\/|&|AND)\\s*${variantToken}\\b`, 'g');
   let match: RegExpExecArray | null;
@@ -410,7 +411,7 @@ function extractTypeHintsFromText(pageText: string): string[] {
 
   // Match standalone bedroom-type patterns like "2BR-3-AS", but require the code part
   // to contain at least one letter to avoid matching partial fragments like "2BR-2" from "2BR-2-AS"
-  const standaloneBedroomType = /\b(STUDIO|\d+\s*BR)\s*-\s*([A-Z][A-Z0-9.]*)(?:\s*-\s*(ADA|AS|MIRROR|REV|ALT|OPTION))?\b/g;
+  const standaloneBedroomType = /\b(STUDIO|\d+\s*BR)\s*-\s*([A-Z][A-Z0-9._]*(?:[_][A-Z][A-Z0-9._-]*)*)(?:\s*-\s*(ADA|AS|MIRROR|REV|ALT|OPTION))?\b/g;
   while ((match = standaloneBedroomType.exec(text)) !== null) {
     const bedroom = match[1].replace(/\s+/g, '');
     const code = match[2];
@@ -428,7 +429,7 @@ function extractTypeHintsFromText(pageText: string): string[] {
   }
 
   // Match standalone slash-separated bedroom-types like "1BR-A / 1BR-A-AS"
-  const slashBedroomPair = /\b(\d+\s*BR|STUDIO)\s*-\s*([A-Z][A-Z0-9.]*)\s*\/\s*(?:\d+\s*BR|STUDIO)\s*-\s*([A-Z][A-Z0-9.]*(?:\s*-\s*(?:AS|MIRROR|ADA|REV|ALT|OPTION))?)\b/g;
+  const slashBedroomPair = /\b(\d+\s*BR|STUDIO)\s*-\s*([A-Z][A-Z0-9._]*(?:[_][A-Z][A-Z0-9._-]*)*)\s*\/\s*(?:\d+\s*BR|STUDIO)\s*-\s*([A-Z][A-Z0-9._]*(?:[_][A-Z][A-Z0-9._-]*)*(?:\s*-\s*(?:AS|MIRROR|ADA|REV|ALT|OPTION))?)\b/g;
   while ((match = slashBedroomPair.exec(text)) !== null) {
     const bedroom = match[1].replace(/\s+/g, '');
     push(`${bedroom}-${match[2]}`);

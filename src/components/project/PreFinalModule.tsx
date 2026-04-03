@@ -113,9 +113,13 @@ export default function PreFinalModule({ project }: Props) {
       const incomingKey = toTypeKey(normalizedIncoming);
       const knownResolved = resolveKnownType(rawType) || resolveKnownType(normalizedIncoming);
 
-      // Promote any detected type with a non-empty key as its own column.
-      // Missing columns is far worse than an extra column the user can delete.
-      const canPromoteIncomingType = Boolean(incomingKey);
+      // Only promote detected types that have structural validity (bedroom prefix, TYPE keyword, or underscore compound)
+      // This prevents AI hallucinations like "2BR-C" when no such type exists in unit count or PDF text
+      const hasStructure = /\b(\d+BR|STUDIO)\b/i.test(normalizedIncoming) ||
+        /\bTYPE\b/i.test(normalizedIncoming) ||
+        /_/.test(normalizedIncoming) ||
+        /\bKITCHENETTE\b/i.test(normalizedIncoming);
+      const canPromoteIncomingType = Boolean(incomingKey) && hasStructure;
 
       const finalType = knownResolved || (canPromoteIncomingType ? normalizedIncoming : 'Unassigned');
 
