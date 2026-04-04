@@ -879,6 +879,8 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       let allRows: LabelRow[] = [];
       let firstDetectedType: string | null = null;
       const collectedTypeOrder: string[] = [];
+      const failedFiles: { file: File; error: string }[] = [];
+
       for (let i = 0; i < files.length; i++) {
         setProcessingStatus(`Processing file ${i + 1} of ${files.length}: "${files[i].name}"…`);
         try {
@@ -887,19 +889,54 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
             setProcessedPages(pagesProcessed);
           }, () => {
             stepsCompletedRef.current++;
-            // Progress: 10% (setup) → 95% (processing) → 100% (done)
             setProgress(10 + Math.round((stepsCompletedRef.current / totalStepsCount) * 85));
           });
           allRows = mergeRows(result.rows, allRows);
           if (!firstDetectedType && result.detectedType) firstDetectedType = result.detectedType;
-          // Collect type order from each file, preserving page order across files
           for (const t of result.typeOrder) {
             if (!collectedTypeOrder.includes(t)) collectedTypeOrder.push(t);
           }
         } catch (err: any) {
           if (err.message === 'rate_limit') { toast.error('AI rate limit reached. Try again shortly.'); setStep('upload'); return; }
           if (err.message === 'credits') { toast.error('AI credits exhausted.'); setStep('upload'); return; }
-          toast.error(`Skipped "${files[i].name}": ${err.message}`);
+          failedFiles.push({ file: files[i], error: err.message });
+          console.warn(`File "${files[i].name}" failed in first pass: ${err.message}`);
+        }
+      }
+
+      // ── Background retry queue: re-attempt failed files up to 2 more times ──
+      if (failedFiles.length > 0) {
+        let retryQueue = [...failedFiles];
+        const MAX_FILE_RETRIES = 2;
+        for (let retryRound = 1; retryRound <= MAX_FILE_RETRIES && retryQueue.length > 0; retryRound++) {
+          setProcessingStatus(`Retrying ${retryQueue.length} failed file(s) (round ${retryRound})…`);
+          // Wait before retry to let API cool down
+          await new Promise(r => setTimeout(r, 5000 * retryRound));
+          const stillFailed: { file: File; error: string }[] = [];
+          for (const { file } of retryQueue) {
+            setProcessingStatus(`Retrying "${file.name}" (round ${retryRound})…`);
+            try {
+              const result = await processSingleFile(file, pdfjsLib, setProcessingStatus);
+              allRows = mergeRows(result.rows, allRows);
+              if (!firstDetectedType && result.detectedType) firstDetectedType = result.detectedType;
+              for (const t of result.typeOrder) {
+                if (!collectedTypeOrder.includes(t)) collectedTypeOrder.push(t);
+              }
+              toast.success(`"${file.name}" succeeded on retry!`);
+            } catch (retryErr: any) {
+              if (retryErr.message === 'rate_limit' || retryErr.message === 'credits') {
+                // Don't retry further on these
+                toast.error(`Skipped "${file.name}": ${retryErr.message}`);
+                continue;
+              }
+              stillFailed.push({ file, error: retryErr.message });
+            }
+          }
+          retryQueue = stillFailed;
+        }
+        // Report any permanently failed files
+        for (const { file, error } of retryQueue) {
+          toast.error(`Skipped "${file.name}" after retries: ${error}`);
         }
       }
 
