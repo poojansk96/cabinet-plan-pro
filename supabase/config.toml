@@ -5,6 +5,7 @@ verify_jwt = false
 
 [functions.extract-pdf-labels]
 verify_jwt = false
+wall_clock_timeout = 120
 
 [functions.extract-pdf-unit-types]
 verify_jwt = false
