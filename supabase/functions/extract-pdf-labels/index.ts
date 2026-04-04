@@ -264,7 +264,52 @@ function trySplitConcatenatedSku(rawSku: string, knownTextSkus: string[] = []): 
   return null;
 }
 
+// Known cabinet SKU prefixes for boundary detection (ordered longest-first to match greedily)
+const CABINET_PREFIXES = [
+  'HAWDC','HAVDB','HALSB','HADB','HAOC','HASB','HACB','HAEB','HALS','HALC',
+  'HCBMW','HCBM','HCOC','HCUC','HCDB','HCLS','HWSB',
+  'BFFIL','WFFIL','TKRUN',
+  'HAB','HAW','HAV','HAL','HCB','HSS',
+  'BLW','BRW','WDC','PTC','VDC',
+  'DB','SB','CB','EB','LS','LSB','WC','UB','OH','BF','WF','TF','TK','UC','VB','VD','FIL','CM','LR','EP','FP','DWR','HC','HW','HS','HA','SA','SV','PT','TC','UT',
+  'APPRON','UREP','REP',
+  'B','W','T','V',
+];
+
+// Pre-split: detect directional suffix (-L, -R, -S) immediately followed by a cabinet prefix
+// e.g. "HAB15-LHAB18FH-L" → "HAB15-L" + "HAB18FH-L"
+function preSplitSuffixBoundary(sku: string): string[] | null {
+  // Build a regex that finds: (suffix letter)(cabinet prefix + digit)
+  // Pattern: -[LRS] immediately followed by a known prefix + digit
+  const prefixAlt = CABINET_PREFIXES.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  const re = new RegExp(`(-[LRSD])(?=(${prefixAlt})\\d)`, 'gi');
+  
+  // Find all split points
+  const splitPoints: number[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(sku)) !== null) {
+    splitPoints.push(m.index + m[1].length); // position right after the suffix letter
+  }
+  
+  if (splitPoints.length === 0) return null;
+  
+  const parts: string[] = [];
+  let prev = 0;
+  for (const sp of splitPoints) {
+    parts.push(sku.slice(prev, sp));
+    prev = sp;
+  }
+  parts.push(sku.slice(prev));
+  
+  // Validate all parts are real SKUs
+  if (parts.every(p => isValidSku(p))) {
+    return parts;
+  }
+  return null;
+}
+
 // Split merged/touching SKUs conservatively:
+// 0) pre-split directional suffix boundaries (e.g. HAB15-LHAB18FH-L)
 // 1) explicit hyphen boundaries where both sides are valid SKUs
 // 2) text-layer-guided concatenations like HCUC15X8HCOC3082D or W1230VDC2430
 function splitMergedSkus(items: any[], knownTextSkus: string[] = []): any[] {
@@ -274,21 +319,36 @@ function splitMergedSkus(items: any[], knownTextSkus: string[] = []): any[] {
     if (!sku) { result.push(item); continue; }
 
     let wasSplit = false;
-    const hyphenParts = sku.split('-');
-    if (hyphenParts.length >= 2) {
-      for (let i = 1; i < hyphenParts.length; i++) {
-        const left = hyphenParts.slice(0, i).join('-');
-        const right = hyphenParts.slice(i).join('-');
-        if (isValidSku(left) && isValidSku(right)) {
-          console.log(`Split merged SKU: "${sku}" → "${left}" + "${right}"`);
-          result.push({ ...item, sku: left, type: classifySku(left), quantity: Number(item.quantity) || 1 });
-          result.push({ ...item, sku: right, type: classifySku(right), quantity: Number(item.quantity) || 1 });
-          wasSplit = true;
-          break;
+
+    // Step 0: Pre-split on suffix-then-prefix boundaries
+    const preSplit = preSplitSuffixBoundary(sku);
+    if (preSplit && preSplit.length >= 2) {
+      console.log(`Pre-split suffix boundary: "${sku}" → ${preSplit.join(' + ')}`);
+      for (const part of preSplit) {
+        result.push({ ...item, sku: part, type: classifySku(part), quantity: Number(item.quantity) || 1 });
+      }
+      wasSplit = true;
+    }
+
+    // Step 1: Hyphen boundaries
+    if (!wasSplit) {
+      const hyphenParts = sku.split('-');
+      if (hyphenParts.length >= 2) {
+        for (let i = 1; i < hyphenParts.length; i++) {
+          const left = hyphenParts.slice(0, i).join('-');
+          const right = hyphenParts.slice(i).join('-');
+          if (isValidSku(left) && isValidSku(right)) {
+            console.log(`Split merged SKU: "${sku}" → "${left}" + "${right}"`);
+            result.push({ ...item, sku: left, type: classifySku(left), quantity: Number(item.quantity) || 1 });
+            result.push({ ...item, sku: right, type: classifySku(right), quantity: Number(item.quantity) || 1 });
+            wasSplit = true;
+            break;
+          }
         }
       }
     }
 
+    // Step 2: Text-layer-guided concatenation splits
     if (!wasSplit) {
       const concatenated = trySplitConcatenatedSku(sku, knownTextSkus);
       if (concatenated && concatenated.length >= 2) {
