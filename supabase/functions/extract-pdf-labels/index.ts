@@ -637,9 +637,9 @@ If no cabinet SKUs are found, return {"items":[]}`;
     let finalItems = splitMergedSkus(rawItems, textLayerSkus);
     console.log(`Step 2a (lite): ${rawItems.length} raw → ${finalItems.length} after split`);
 
-    // ── Step 2b: Verification pass with stronger model ──
+    // ── Step 2b: Verification pass ──
     // Catches hallucinated SKUs (e.g. W1836X6-L) and recovers missed ones (kitchenette types).
-    // Sends the lite model's results + the image to gemini-3-flash-preview for review.
+    // Sends the lite model's results + the image to gemini-3.1-flash-lite-preview for review.
     {
       const liteSkuList = finalItems.map((i: any) => `${i.sku} (qty ${i.quantity}, ${i.room})`).join(', ');
       const verifyPrompt = `You are verifying cabinet SKU extraction results from a fast AI model on this 2020 Design shop drawing.
