@@ -8,30 +8,22 @@ const corsHeaders = {
 
 const SYSTEM_PROMPT = `You are an expert millwork estimator reading a page from a 2020 Design shop drawing PDF.
 
-YOUR TASK: Determine the PAGE TYPE and extract data ONLY from FLOOR PLAN pages.
+YOUR TASK: Extract ALL unit / room identifiers from this page. Every page the user uploads is intentional — NEVER skip a page.
 
-PAGE TYPE IDENTIFICATION:
-A FLOOR PLAN page shows a TOP-DOWN / BIRD'S EYE VIEW of a unit layout — you can see:
-- Walls, doors, windows drawn from above
-- Cabinet boxes shown as rectangles from above (not front view)
-- Room labels like "Kitchen", "Bath", "Laundry" placed inside rooms
-- A UNIT TYPE name in the title block (e.g. "TYPE A1 - AS", "TYPE C1-2BR", "UNIT TYPE: PH-A")
-- Often unit numbers listed (e.g. "UNIT# 230, 330, 430" or "UNITS: 101, 102")
+ACCEPT ALL PAGE TYPES — any page that shows a space with cabinets or millwork is valid:
+- Standard apartment floor plans (top-down view)
+- Common area plans: restroom, laundry, mail room, office, community room, package room, janitor closet, etc.
+- Elevation drawings that reference a unit/room
+- Enlarged unit plans, detail plans
+- ANY page that contains a unit number or room identifier
 
-SKIP THESE PAGE TYPES — return {"bldg":null,"units":[]} immediately:
-- ELEVATION drawings (front/side view of cabinets showing doors, handles, heights)
-- COUNTERTOP drawings (showing countertop outlines, edges, cutouts)
-- TITLE/COVER pages with NO drawings (just text and lists)
-- Detail/section views, legends, schedules
-- Any page that is NOT a top-down floor plan view
+ONLY return {"bldg":null,"units":[]} if the page is truly a cover/title page with NO unit or room references at all.
 
-*** ONLY extract from FLOOR PLAN (top-down view) pages. Skip ALL other page types. ***
-
-IF THIS IS A FLOOR PLAN PAGE, EXTRACT:
+EXTRACT:
 
 1. UNIT TYPE (most important — NEVER leave null or empty):
    - Prefer the title-block type when present (e.g. "TYPE A1 - AS", "UNIT TYPE: A1-3BR", "TYPE C1-2BR", "TYPE PH-A")
-   - For COMMON AREA spaces (restroom, office, laundry, mail room, etc.), use the ROOM LABEL as the unitType (e.g. "Restroom", "Office", "Laundry", "Mail Room")
+   - For COMMON AREA spaces (restroom, office, laundry, mail room, community room, package room, janitor closet, trash room, etc.), use the ROOM LABEL as the unitType (e.g. "Restroom", "Office", "Laundry", "Mail Room")
    - If you cannot find ANY type label, use the room/space name visible on the plan as unitType
    - Preserve EXACT text including suffixes like "-AS", "-Mirror", "-Rev", "-3BR"
    - KEEP the FULL type name exactly as written, including bedroom-count prefixes like "1BR", "2BR", "3BR", "STUDIO". Example: "2BR TYPE B1" → "2BR TYPE B1", "STUDIO TYPE S1" → "STUDIO TYPE S1", "3BR TYPE C-MIRROR" → "3BR TYPE C-MIRROR"
@@ -42,6 +34,8 @@ IF THIS IS A FLOOR PLAN PAGE, EXTRACT:
 2. UNIT NUMBERS (CRITICAL — DO NOT MISS ANY):
    - Look for text like "UNIT# 230, 330, 430" or "UNITS: 101, 102, 201, 202"
    - Unit numbers are apartment/suite identifiers (e.g., 230, 101, A-502, PH-1)
+   - For common areas that don't have an explicit unit number but have a room number (e.g., "103", "110"), use that room number as the unitNumber
+   - If a common area page has NO unit/room number at all, use "1" as unitNumber so the entry is not lost
    - Usually listed as a COMMA-SEPARATED sequence on the floor plan page
    - COUNT every single number. Read the list CHARACTER BY CHARACTER.
    - Each unit number gets its OWN entry in the output array, all sharing the SAME unit type
@@ -65,7 +59,7 @@ IF THIS IS A FLOOR PLAN PAGE, EXTRACT:
 
 DO NOT EXTRACT:
 - Cabinet SKUs (W3030, B24, SB36, HASB48B, HAV3621-REM, etc.)
-- Room names (Kitchen, Bath, Island, Pantry, Laundry) as unit numbers
+- Room names (Kitchen, Bath, Island, Pantry) as unit numbers — but DO use them as unitType for common areas
 - Elevation labels, sheet numbers, dimensions
 - Cabinet or countertop descriptions
 - DETAIL CALLOUT ADDRESSES — these are references like "B1-A/403", "A/101", "2/A301" where the format is "detail-name/sheet-number". They reference other drawing sheets and are NOT unit numbers. Any value containing a "/" is almost certainly a callout address.
@@ -139,13 +133,9 @@ function isValidUnitNumber(val: string, unitType = ""): boolean {
   if (/^\?/.test(val.trim())) return false;
 
   // Reject detail callout addresses containing "/" (e.g. "B1-A/403", "A/101", "2/A301")
-  // These reference detail-name/sheet-number and are NOT unit numbers
   if (/\//.test(val.trim())) return false;
 
-  // Reject room/space names
-  if (/^(KITCHEN|KITCHENETTE|LIVING|BEDROOM|MASTER|DINING|PANTRY|CLOSET|HALLWAY|CORRIDOR|STORAGE|UTILITY|MECHANICAL|FOYER|ENTRY|GARAGE|ISLAND|STUDIO|COMMON)/i.test(compact)) return false;
-
-  // Reject architectural labels
+  // Reject architectural labels (but NOT room names - those are valid for common areas)
   if (/^(FLOOR|LEVEL|BUILDING|BLDG|TOWER|WING|BLOCK|EAST|WEST|NORTH|SOUTH)/i.test(compact)) return false;
   if (/^(ELEVATION|ELEV|SECTION|DETAIL|SCALE|SHEET|DWG|REV|DATE|DRAWN|CHECKED|DOOR|WINDOW|SCHEDULE|LEGEND|NOTE|PLAN|TYPICAL)\b/i.test(compact)) return false;
 
@@ -156,8 +146,8 @@ function isValidUnitNumber(val: string, unitType = ""): boolean {
    if (!isBuildingUnit && /^[A-Z]{1,4}\d{2,4}[A-Z]{0,4}$/i.test(compactNoDash)) return false;
    if (!isBuildingUnit && /^(W|B|SB|DB|UB|UC|TC|TK|WF|BF|V|OH|PT|PTC|UT|HAV|HASB|HASP|HAT|HAF|LS|LSB|FIL|CM|LR|EP|FP)\d/i.test(compactNoDash)) return false;
 
-  // Reject values containing cabinet/room words anywhere
-  if (/\b(island|cabinet|base|wall|upper|sink|drawer|countertop|vanity|pantry|lazy|susan|filler|kitchenette)\b/i.test(compact)) return false;
+  // Reject values containing cabinet-specific words (but allow room names)
+  if (/\b(cabinet|base|wall|upper|sink|drawer|countertop|vanity|lazy|susan|filler)\b/i.test(compact)) return false;
 
   // Support projects where unit IDs are letter-only (A/B/C) but only with strong type context
   if (!/\d/.test(compact)) {
@@ -165,15 +155,6 @@ function isValidUnitNumber(val: string, unitType = ""): boolean {
     if (!(isShortAlphaUnit && hasStrongTypeHint(unitType))) return false;
   }
 
-  return true;
-}
-
-function hasValidUnitType(val: string): boolean {
-  const t = String(val || "").trim();
-  if (!t) return false;
-  // Reject obvious non-type metadata, but allow common-area labels (e.g. RESTROOM/OFFICE/MAIL ROOM)
-  if (/^(FLOOR|LEVEL|ELEVATION|ELEV|PLAN|SECTION|DETAIL|SHEET|DRAWING|DWG|REV|DATE|SCALE|NOTE|LEGEND)\b/i.test(t)) return false;
-  if (/^(W|B|SB|DB|UB|UC|TC|TK|WF|BF|V|OH|PT|PTC|UT|HAV|HASB|HASP|HAT|HAF|LS|LSB|FIL|CM|LR|EP|FP)\d/i.test(t.replace(/\s+/g, '').toUpperCase())) return false;
   return true;
 }
 
