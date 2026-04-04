@@ -209,12 +209,15 @@ function classifySku(sku: string): string {
   if (/^(W|WDC|UB|WC|OH)\d/i.test(sku)) return "Wall";
   // HC/HW/HS manufacturer prefixes: classify by the inner prefix after H
   if (/^HW/i.test(sku)) return "Wall";   // HWSB = H + Wall variant
+  if (/^(HAW|HAWDC)\d/i.test(sku)) return "Wall"; // HA + Wall variants
   if (/^HCW\d/i.test(sku)) return "Wall";
   if (/^(T|UT|TC|PT|PTC|UC)(\d|$)/i.test(sku)) return "Tall";
   if (/^(HALC|HCUC)\d/i.test(sku)) return "Tall";
   if (/^(V|VB|VD|VDC)\d/i.test(sku)) return "Vanity";
   if (/^(HAV|HAVDB)\d/i.test(sku)) return "Vanity";
   if (/^(FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|TF|APPRON|UREP|REP)\d/i.test(sku)) return "Accessory";
+  // HA-prefixed base variants: HAB, HADB, HAOC, HASB, etc.
+  if (/^(HAB|HADB|HAOC|HASB|HACB|HAEB|HALS|HALSB)\d/i.test(sku)) return "Base";
   return "Base";
 }
 
