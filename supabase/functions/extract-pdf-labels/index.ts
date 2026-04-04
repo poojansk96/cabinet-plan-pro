@@ -221,6 +221,43 @@ function classifySku(sku: string): string {
 // Dimension-pattern SKU: prefix + digits + X + digits (e.g., UC15X84, TF3X96, HCUC15X8)
 const DIMENSION_SKU_RE = /^[A-Z]{1,8}\d+X\d+/i;
 
+// Known dimension-pattern prefixes where X is intentional (e.g., WF3X30, TF3X96, UC15X84, W3024X24B)
+const INTENTIONAL_X_RE = /^(?:WF|BF|TF|FIL|BFFIL|WFFIL|CM|UC|HCUC|HCOC|W\d{2,4}X\d{2,})/i;
+
+/**
+ * Clean dimension-contaminated SKUs.
+ * The AI sometimes merges adjacent dimension text into a SKU label.
+ * E.g., "W1836X6-L" where "X6" is garbage from a nearby dimension annotation.
+ * Real dimension SKUs have X followed by large numbers (X24, X30, X84, X96).
+ * A small X-suffix like X6, X8 on a standard cabinet SKU is contamination.
+ */
+function cleanDimensionContamination(sku: string, textLayerSkuSet: Set<string>): string {
+  const upper = sku.toUpperCase();
+  // If it's already in text layer as-is, keep it
+  if (textLayerSkuSet.has(upper)) return upper;
+  // If it matches an intentional dimension pattern, keep it
+  if (INTENTIONAL_X_RE.test(upper)) return upper;
+
+  // Pattern: standard cabinet prefix + dims + X + small number (1-2 digits ≤12) + optional suffix
+  // E.g., W1836X6-L, B24X3, DB18X6-R
+  const contaminationMatch = upper.match(/^([A-Z]{1,4}\d{2,4})(X\d{1,2})(-[A-Z0-9]+)?$/);
+  if (contaminationMatch) {
+    const [, base, xPart, suffix] = contaminationMatch;
+    const xVal = parseInt(xPart.slice(1));
+    // X followed by small number (≤12) is likely dimension contamination
+    // Real dimension suffixes are X24, X30, X36, X42, X84, X96 etc.
+    if (xVal <= 12) {
+      const cleaned = base + (suffix || '');
+      // Verify the cleaned version looks like a valid SKU
+      if (isValidSku(cleaned)) {
+        console.log(`Cleaned dimension contamination: "${sku}" → "${cleaned}" (removed "${xPart}")`);
+        return cleaned;
+      }
+    }
+  }
+  return upper;
+}
+
 function trySplitConcatenatedSku(rawSku: string, knownTextSkus: string[] = []): string[] | null {
   const sku = normalizeSkuLabel(rawSku);
   if (!sku) return null;
@@ -387,9 +424,18 @@ serve(async (req) => {
     }
 
     // Extract SKUs from PDF text layer (instant, no AI needed)
-    const textLayerSkus = extractSkusFromText(pageText ?? "");
-    const textLayerSkuSet = new Set(textLayerSkus.map((s) => normalizeSkuLabel(s)));
-    const textLayerSkuCounts = countSkusFromText(pageText ?? "");
+    const rawTextLayerSkus = extractSkusFromText(pageText ?? "");
+    // Clean dimension contamination from text layer SKUs (e.g., W1836X6-L → W1836-L)
+    const emptySet = new Set<string>(); // dummy for initial cleaning pass
+    const textLayerSkus = [...new Set(rawTextLayerSkus.map(s => cleanDimensionContamination(normalizeSkuLabel(s), emptySet)))];
+    const textLayerSkuSet = new Set(textLayerSkus);
+    // Also build counts with cleaned SKUs
+    const rawTextLayerSkuCounts = countSkusFromText(pageText ?? "");
+    const textLayerSkuCounts: Record<string, number> = {};
+    for (const [sku, count] of Object.entries(rawTextLayerSkuCounts)) {
+      const cleaned = cleanDimensionContamination(normalizeSkuLabel(sku), emptySet);
+      textLayerSkuCounts[cleaned] = (textLayerSkuCounts[cleaned] ?? 0) + count;
+    }
     const textLayerSplitByBase = new Map<string, string>();
     for (const sku of textLayerSkuSet) {
       if (!SPLIT_SUFFIX_RE.test(sku)) continue;
@@ -691,6 +737,65 @@ Return ALL valid cabinet SKUs (kept from original + newly found). If the origina
       }
     }
 
+    // ── Step 2c: Focused recovery for missed text-layer SKUs ──
+    // When the AI found items but missed several SKUs that the text layer confirms exist,
+    // do a targeted AI call asking specifically about those missing SKUs.
+    // This catches kitchenette/laundry/bath cabinets the lite model overlooked.
+    if (!isStrip && finalItems.length > 0 && textLayerSkus.length > 0) {
+      const extractedSkuSet = new Set(finalItems.map((i: any) => normalizeSkuLabel(String(i.sku || ''))));
+      const extractedBases = new Set(finalItems.map((i: any) => normalizeSkuLabel(String(i.sku || '')).replace(/[-+][A-Z0-9]+$/i, '')));
+      
+      const missingSkus: string[] = [];
+      for (const tlSku of textLayerSkus) {
+        const normalized = normalizeSkuLabel(tlSku);
+        if (!normalized || !isValidSku(normalized)) continue;
+        if (APPLIANCE_RE.test(normalized)) continue;
+        if (extractedSkuSet.has(normalized)) continue;
+        const bareForm = normalized.replace(/[-+][A-Z0-9]+$/i, '');
+        if (extractedBases.has(normalized)) continue;
+        // Check prefix overlap
+        let covered = false;
+        for (const es of extractedSkuSet) {
+          if (es.startsWith(normalized) || normalized.startsWith(es)) { covered = true; break; }
+        }
+        if (covered) continue;
+        missingSkus.push(normalized);
+      }
+
+      // Only do recovery if there are 3+ missing SKUs (worth the API call)
+      if (missingSkus.length >= 3) {
+        console.log(`Step 2c: ${missingSkus.length} text-layer SKUs missing from extraction: ${missingSkus.join(', ')}`);
+        const recoveryPrompt = `Look at this 2020 Design shop drawing and find ONLY these specific cabinet SKU labels:
+${missingSkus.join(', ')}
+
+These SKUs were detected in the PDF text layer but were NOT found by the initial extraction.
+For each one you can ACTUALLY SEE as a label on the drawing (not in title blocks or legends), report:
+- sku: exact label as written
+- type: Base/Wall/Tall/Vanity/Accessory (classify by prefix)
+- room: which room it's in (Kitchen, Kitchenette, Bath, Laundry, Pantry, etc.)
+- quantity: how many separate label occurrences you see
+
+IMPORTANT: Only report SKUs you can ACTUALLY SEE on the drawing. Do NOT guess or fabricate.
+Check ALL rooms including kitchenette, laundry, bath, pantry — not just the main kitchen area.
+${unitType ? `Unit type context: ${unitType}` : ""}
+If none of these SKUs are visible, return {"items":[]}`;
+
+        try {
+          const recovered: any = await callGemini(GEMINI_API_KEY, "gemini-3.1-flash-lite-preview", pageImage, recoveryPrompt, 0.1, 4096, EXTRACT_SCHEMA);
+          const recoveredItems = (recovered.items ?? []).filter((i: any) => {
+            const normalized = normalizeSkuLabel(String(i.sku || ''));
+            return missingSkus.includes(normalized) && isValidSku(normalized);
+          });
+          if (recoveredItems.length > 0) {
+            console.log(`Step 2c: recovered ${recoveredItems.length} missed SKUs: ${recoveredItems.map((i: any) => i.sku).join(', ')}`);
+            finalItems.push(...recoveredItems);
+          }
+        } catch (e: any) {
+          console.warn(`Step 2c recovery error (non-fatal): ${e.message}`);
+        }
+      }
+    }
+
     // ── RECOVERY: If extraction is empty but text layer has SKUs ──
     // This catches MIRROR pages and cases where the AI fails to read labels.
     // Seed with qty=1 each (text counts are unreliable due to legends/notes).
@@ -777,6 +882,8 @@ Return ALL valid cabinet SKUs (kept from original + newly found). If the origina
       })
       .map((c: any) => {
         let sku = canonicalizeSkuWithText(String(c.sku ?? ''));
+        // Clean dimension contamination (e.g., W1836X6-L → W1836-L)
+        sku = cleanDimensionContamination(sku, textLayerSkuSet);
         // Fix AI-merged adjacent labels using text layer (e.g. "RW1230" → "W1230")
         if (textLayerSkuSet.size > 0) {
           sku = fixMergedAdjacentLabel(sku, textLayerSkuSet);
