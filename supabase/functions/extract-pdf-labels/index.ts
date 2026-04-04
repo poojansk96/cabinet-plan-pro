@@ -389,9 +389,7 @@ serve(async (req) => {
     }
 
     // Extract SKUs from PDF text layer (instant, no AI needed)
-    const rawTextLayerSkus = extractSkusFromText(pageText ?? "");
-    // Clean dimension contamination from text layer SKUs (e.g., W1836X6-L → W1836-L)
-    const textLayerSkus = rawTextLayerSkus.map(s => normalizeSkuLabel(s)).filter(Boolean);
+    const textLayerSkus = extractSkusFromText(pageText ?? "").map(s => normalizeSkuLabel(s)).filter(Boolean);
     const textLayerSkuSet = new Set(textLayerSkus);
     const textLayerSkuCounts = countSkusFromText(pageText ?? "");
     const textLayerSplitByBase = new Map<string, string>();
