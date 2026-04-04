@@ -31,7 +31,8 @@ IF THIS IS A FLOOR PLAN PAGE, EXTRACT:
 
 1. UNIT TYPE (most important — NEVER leave null or empty):
    - Prefer the title-block type when present (e.g. "TYPE A1 - AS", "UNIT TYPE: A1-3BR", "TYPE C1-2BR", "TYPE PH-A")
-   - For COMMON AREA spaces (restroom, office, laundry, mail room, etc.), use the ROOM LABEL as the unitType (e.g. "Restroom", "Office", "Laundry", "Mail Room")
+   - For COMMON AREA spaces (restroom, office, laundry, mail room, reception, lobby, clubhouse, fitness, leasing, business center, pool bath, package room, community room, break room, etc.), use the ROOM LABEL as the unitType (e.g. "Restroom", "Office", "Laundry", "Mail Room", "Reception")
+   - CRITICAL: If a common area page has variant suffixes like "-AS", "-MIRROR", "-REV", "-ADA" in the title block or header, PRESERVE them as part of the unitType. Example: if the page shows "RESTROOM - AS" or "RESTROOM-AS", return "RESTROOM-AS" as the unitType, NOT just "RESTROOM". Similarly "RESTROOM - MIRROR" → "RESTROOM-MIRROR". Each variant is a SEPARATE unit type.
    - If you cannot find ANY type label, use the room/space name visible on the plan as unitType
    - Preserve EXACT text including suffixes like "-AS", "-Mirror", "-Rev", "-3BR"
    - KEEP the FULL type name exactly as written, including bedroom-count prefixes like "1BR", "2BR", "3BR", "STUDIO". Example: "2BR TYPE B1" → "2BR TYPE B1", "STUDIO TYPE S1" → "STUDIO TYPE S1", "3BR TYPE C-MIRROR" → "3BR TYPE C-MIRROR"
