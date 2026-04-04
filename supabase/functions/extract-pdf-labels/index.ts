@@ -221,42 +221,7 @@ function classifySku(sku: string): string {
 // Dimension-pattern SKU: prefix + digits + X + digits (e.g., UC15X84, TF3X96, HCUC15X8)
 const DIMENSION_SKU_RE = /^[A-Z]{1,8}\d+X\d+/i;
 
-// Known dimension-pattern prefixes where X is intentional (e.g., WF3X30, TF3X96, UC15X84, W3024X24B)
-const INTENTIONAL_X_RE = /^(?:WF|BF|TF|FIL|BFFIL|WFFIL|CM|UC|HCUC|HCOC|W\d{2,4}X\d{2,})/i;
-
-/**
- * Clean dimension-contaminated SKUs.
- * The AI sometimes merges adjacent dimension text into a SKU label.
- * E.g., "W1836X6-L" where "X6" is garbage from a nearby dimension annotation.
- * Real dimension SKUs have X followed by large numbers (X24, X30, X84, X96).
- * A small X-suffix like X6, X8 on a standard cabinet SKU is contamination.
- */
-function cleanDimensionContamination(sku: string, textLayerSkuSet: Set<string>): string {
-  const upper = sku.toUpperCase();
-  // If it's already in text layer as-is, keep it
-  if (textLayerSkuSet.has(upper)) return upper;
-  // If it matches an intentional dimension pattern, keep it
-  if (INTENTIONAL_X_RE.test(upper)) return upper;
-
-  // Pattern: standard cabinet prefix + dims + X + small number (1-2 digits ≤12) + optional suffix
-  // E.g., W1836X6-L, B24X3, DB18X6-R
-  const contaminationMatch = upper.match(/^([A-Z]{1,4}\d{2,4})(X\d{1,2})(-[A-Z0-9]+)?$/);
-  if (contaminationMatch) {
-    const [, base, xPart, suffix] = contaminationMatch;
-    const xVal = parseInt(xPart.slice(1));
-    // X followed by small number (≤12) is likely dimension contamination
-    // Real dimension suffixes are X24, X30, X36, X42, X84, X96 etc.
-    if (xVal <= 12) {
-      const cleaned = base + (suffix || '');
-      // Verify the cleaned version looks like a valid SKU
-      if (isValidSku(cleaned)) {
-        console.log(`Cleaned dimension contamination: "${sku}" → "${cleaned}" (removed "${xPart}")`);
-        return cleaned;
-      }
-    }
-  }
-  return upper;
-}
+// SKUs with X+digits are valid depth indicators (e.g., W1836X6-L = 18"W x 36"H x 6"D)
 
 function trySplitConcatenatedSku(rawSku: string, knownTextSkus: string[] = []): string[] | null {
   const sku = normalizeSkuLabel(rawSku);
@@ -424,18 +389,9 @@ serve(async (req) => {
     }
 
     // Extract SKUs from PDF text layer (instant, no AI needed)
-    const rawTextLayerSkus = extractSkusFromText(pageText ?? "");
-    // Clean dimension contamination from text layer SKUs (e.g., W1836X6-L → W1836-L)
-    const emptySet = new Set<string>(); // dummy for initial cleaning pass
-    const textLayerSkus = [...new Set(rawTextLayerSkus.map(s => cleanDimensionContamination(normalizeSkuLabel(s), emptySet)))];
+    const textLayerSkus = extractSkusFromText(pageText ?? "").map(s => normalizeSkuLabel(s)).filter(Boolean);
     const textLayerSkuSet = new Set(textLayerSkus);
-    // Also build counts with cleaned SKUs
-    const rawTextLayerSkuCounts = countSkusFromText(pageText ?? "");
-    const textLayerSkuCounts: Record<string, number> = {};
-    for (const [sku, count] of Object.entries(rawTextLayerSkuCounts)) {
-      const cleaned = cleanDimensionContamination(normalizeSkuLabel(sku), emptySet);
-      textLayerSkuCounts[cleaned] = (textLayerSkuCounts[cleaned] ?? 0) + count;
-    }
+    const textLayerSkuCounts = countSkusFromText(pageText ?? "");
     const textLayerSplitByBase = new Map<string, string>();
     for (const sku of textLayerSkuSet) {
       if (!SPLIT_SUFFIX_RE.test(sku)) continue;
