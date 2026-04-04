@@ -728,6 +728,65 @@ Return ALL valid cabinet SKUs (kept from original + newly found). If the origina
       }
     }
 
+    // ── Step 2c: Focused recovery for missed text-layer SKUs ──
+    // When the AI found items but missed several SKUs that the text layer confirms exist,
+    // do a targeted AI call asking specifically about those missing SKUs.
+    // This catches kitchenette/laundry/bath cabinets the lite model overlooked.
+    if (!isStrip && finalItems.length > 0 && textLayerSkus.length > 0) {
+      const extractedSkuSet = new Set(finalItems.map((i: any) => normalizeSkuLabel(String(i.sku || ''))));
+      const extractedBases = new Set(finalItems.map((i: any) => normalizeSkuLabel(String(i.sku || '')).replace(/[-+][A-Z0-9]+$/i, '')));
+      
+      const missingSkus: string[] = [];
+      for (const tlSku of textLayerSkus) {
+        const normalized = normalizeSkuLabel(tlSku);
+        if (!normalized || !isValidSku(normalized)) continue;
+        if (APPLIANCE_RE.test(normalized)) continue;
+        if (extractedSkuSet.has(normalized)) continue;
+        const bareForm = normalized.replace(/[-+][A-Z0-9]+$/i, '');
+        if (extractedBases.has(normalized)) continue;
+        // Check prefix overlap
+        let covered = false;
+        for (const es of extractedSkuSet) {
+          if (es.startsWith(normalized) || normalized.startsWith(es)) { covered = true; break; }
+        }
+        if (covered) continue;
+        missingSkus.push(normalized);
+      }
+
+      // Only do recovery if there are 3+ missing SKUs (worth the API call)
+      if (missingSkus.length >= 3) {
+        console.log(`Step 2c: ${missingSkus.length} text-layer SKUs missing from extraction: ${missingSkus.join(', ')}`);
+        const recoveryPrompt = `Look at this 2020 Design shop drawing and find ONLY these specific cabinet SKU labels:
+${missingSkus.join(', ')}
+
+These SKUs were detected in the PDF text layer but were NOT found by the initial extraction.
+For each one you can ACTUALLY SEE as a label on the drawing (not in title blocks or legends), report:
+- sku: exact label as written
+- type: Base/Wall/Tall/Vanity/Accessory (classify by prefix)
+- room: which room it's in (Kitchen, Kitchenette, Bath, Laundry, Pantry, etc.)
+- quantity: how many separate label occurrences you see
+
+IMPORTANT: Only report SKUs you can ACTUALLY SEE on the drawing. Do NOT guess or fabricate.
+Check ALL rooms including kitchenette, laundry, bath, pantry — not just the main kitchen area.
+${unitType ? `Unit type context: ${unitType}` : ""}
+If none of these SKUs are visible, return {"items":[]}`;
+
+        try {
+          const recovered: any = await callGemini(GEMINI_API_KEY, "gemini-3.1-flash-lite-preview", pageImage, recoveryPrompt, 0.1, 4096, EXTRACT_SCHEMA);
+          const recoveredItems = (recovered.items ?? []).filter((i: any) => {
+            const normalized = normalizeSkuLabel(String(i.sku || ''));
+            return missingSkus.includes(normalized) && isValidSku(normalized);
+          });
+          if (recoveredItems.length > 0) {
+            console.log(`Step 2c: recovered ${recoveredItems.length} missed SKUs: ${recoveredItems.map((i: any) => i.sku).join(', ')}`);
+            finalItems.push(...recoveredItems);
+          }
+        } catch (e: any) {
+          console.warn(`Step 2c recovery error (non-fatal): ${e.message}`);
+        }
+      }
+    }
+
     // ── RECOVERY: If extraction is empty but text layer has SKUs ──
     // This catches MIRROR pages and cases where the AI fails to read labels.
     // Seed with qty=1 each (text counts are unreliable due to legends/notes).
