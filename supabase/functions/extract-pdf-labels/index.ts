@@ -619,13 +619,14 @@ FINAL SWEEP: After your initial scan, go back and specifically look for: B09FH, 
 ${isStrip ? '\nNOTE: This image shows a CROPPED SECTION of a larger drawing page. Extract all cabinet labels visible in this cropped section.\n' : ''}${textLayerSkus.length > 0 ? `\nTEXT LAYER CROSS-REFERENCE — the PDF text layer detected these SKUs on this page:\n${textLayerSkus.join(', ')}\nMake sure ALL of these appear in your results if they are visible as labels on the drawing. If any are missing from your results, look harder for them.\n` : ''}${unitType ? `\nUnit type context: ${unitType}` : ""}
 If no cabinet SKUs are found, return {"items":[]}`;
 
+    // ── Step 2a: Initial extraction with fast lite model ──
     let extracted: any = { items: [] };
     try {
       extracted = await callGemini(GEMINI_API_KEY, "gemini-3.1-flash-lite-preview", pageImage, extractPrompt, 0.2, 8192, EXTRACT_SCHEMA);
     } catch (e: any) {
       if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      console.error("Step 2 extraction error:", e.message);
+      console.error("Step 2a extraction error:", e.message);
     }
 
     const rawItems = extracted.items ?? [];
@@ -634,7 +635,61 @@ If no cabinet SKUs are found, return {"items":[]}`;
       detectedUnitType = extracted.unitTypeName;
     }
     let finalItems = splitMergedSkus(rawItems, textLayerSkus);
-    console.log(`Step 2: ${rawItems.length} raw → ${finalItems.length} after split`);
+    console.log(`Step 2a (lite): ${rawItems.length} raw → ${finalItems.length} after split`);
+
+    // ── Step 2b: Verification pass with stronger model ──
+    // Catches hallucinated SKUs (e.g. W1836X6-L) and recovers missed ones (kitchenette types).
+    // Sends the lite model's results + the image to gemini-3-flash-preview for review.
+    {
+      const liteSkuList = finalItems.map((i: any) => `${i.sku} (qty ${i.quantity}, ${i.room})`).join(', ');
+      const verifyPrompt = `You are verifying cabinet SKU extraction results from a fast AI model on this 2020 Design shop drawing.
+
+The fast model detected these SKUs:
+${liteSkuList || '(none detected)'}
+
+${textLayerSkus.length > 0 ? `The PDF text layer independently detected these SKUs on this page:\n${textLayerSkus.join(', ')}\n` : ''}
+
+Your job:
+1. REMOVE any SKU that does NOT actually appear as a label on this drawing. Common hallucinations include:
+   - Fabricated dimension suffixes like "W1836X6" (real SKU would be "W1836" — the "X6" is garbage)
+   - Merged adjacent labels like "W1230VDC2430" (should be two separate SKUs)
+   - SKUs from title blocks, legends, or notes that aren't actual cabinet labels on the plan
+2. ADD any cabinet SKU labels visible on the drawing that were MISSED by the fast model. Scan carefully for:
+   - Small accessories: BF3, BF6, WF3X30, DWR1, DWR3, FIL3, CM8, TK, EP, LR, UC, SCRIBE, BP
+   - Filler-head cabinets: B09FH, B06FH, B12FH (very narrow rectangles)
+   - APPRON labels (report as "APPRON59X21" without space)
+   - Cabinets in ALL rooms including kitchenette, laundry, bath — not just the main kitchen
+3. CORRECT any wrong quantities — count each separate label occurrence on the drawing.
+4. PRESERVE full SKU labels with all suffixes (-L, -R, -REM, -FB, -1D, etc.)
+
+For each cabinet, provide: sku, type (Base/Wall/Tall/Vanity/Accessory), room, quantity.
+${isStrip ? '\nNOTE: This is a CROPPED SECTION of a larger page. Only report what is visible.\n' : ''}${unitType ? `\nUnit type context: ${unitType}` : ""}
+Return ALL valid cabinet SKUs (kept from original + newly found). If the original list was correct, return it unchanged.`;
+
+      try {
+        const verified: any = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", pageImage, verifyPrompt, 0.1, 8192, EXTRACT_SCHEMA);
+        const verifiedItems = verified.items ?? [];
+        if (verifiedItems.length > 0) {
+          // Use verification results but never let it drop count below 50% of original
+          // (prevents catastrophic failures where verification model returns empty/minimal)
+          if (verifiedItems.length >= finalItems.length * 0.5 || finalItems.length === 0) {
+            console.log(`Step 2b (verify): ${finalItems.length} → ${verifiedItems.length} items after verification`);
+            finalItems = splitMergedSkus(verifiedItems, textLayerSkus);
+            // Capture unitTypeName from verification if not already detected
+            if (skipClassify && !isStrip && verified.unitTypeName && !detectedUnitType) {
+              detectedUnitType = verified.unitTypeName;
+            }
+          } else {
+            console.log(`Step 2b (verify): verification returned only ${verifiedItems.length} vs ${finalItems.length} — keeping original`);
+          }
+        } else {
+          console.log(`Step 2b (verify): verification returned empty — keeping original ${finalItems.length} items`);
+        }
+      } catch (e: any) {
+        // Don't fail on verification errors — keep lite results
+        console.warn(`Step 2b verification error (non-fatal): ${e.message}`);
+      }
+    }
 
     // ── RECOVERY: If extraction is empty but text layer has SKUs ──
     // This catches MIRROR pages and cases where the AI fails to read labels.
