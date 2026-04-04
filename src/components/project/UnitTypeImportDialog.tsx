@@ -249,8 +249,8 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
         return { units };
       };
 
-      // Process pages in batches of 4 concurrently
-      const CONCURRENCY = 4;
+      // Process pages in batches of 6 concurrently
+      const CONCURRENCY = 6;
       let pagesProcessed = 0;
       for (let i = 0; i < pageTasks.length; i += CONCURRENCY) {
         const batch = pageTasks.slice(i, i + CONCURRENCY);
