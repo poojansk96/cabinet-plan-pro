@@ -133,13 +133,9 @@ function isValidUnitNumber(val: string, unitType = ""): boolean {
   if (/^\?/.test(val.trim())) return false;
 
   // Reject detail callout addresses containing "/" (e.g. "B1-A/403", "A/101", "2/A301")
-  // These reference detail-name/sheet-number and are NOT unit numbers
   if (/\//.test(val.trim())) return false;
 
-  // Reject room/space names
-  if (/^(KITCHEN|KITCHENETTE|LIVING|BEDROOM|MASTER|DINING|PANTRY|CLOSET|HALLWAY|CORRIDOR|STORAGE|UTILITY|MECHANICAL|FOYER|ENTRY|GARAGE|ISLAND|STUDIO|COMMON)/i.test(compact)) return false;
-
-  // Reject architectural labels
+  // Reject architectural labels (but NOT room names - those are valid for common areas)
   if (/^(FLOOR|LEVEL|BUILDING|BLDG|TOWER|WING|BLOCK|EAST|WEST|NORTH|SOUTH)/i.test(compact)) return false;
   if (/^(ELEVATION|ELEV|SECTION|DETAIL|SCALE|SHEET|DWG|REV|DATE|DRAWN|CHECKED|DOOR|WINDOW|SCHEDULE|LEGEND|NOTE|PLAN|TYPICAL)\b/i.test(compact)) return false;
 
@@ -150,8 +146,8 @@ function isValidUnitNumber(val: string, unitType = ""): boolean {
    if (!isBuildingUnit && /^[A-Z]{1,4}\d{2,4}[A-Z]{0,4}$/i.test(compactNoDash)) return false;
    if (!isBuildingUnit && /^(W|B|SB|DB|UB|UC|TC|TK|WF|BF|V|OH|PT|PTC|UT|HAV|HASB|HASP|HAT|HAF|LS|LSB|FIL|CM|LR|EP|FP)\d/i.test(compactNoDash)) return false;
 
-  // Reject values containing cabinet/room words anywhere
-  if (/\b(island|cabinet|base|wall|upper|sink|drawer|countertop|vanity|pantry|lazy|susan|filler|kitchenette)\b/i.test(compact)) return false;
+  // Reject values containing cabinet-specific words (but allow room names)
+  if (/\b(cabinet|base|wall|upper|sink|drawer|countertop|vanity|lazy|susan|filler)\b/i.test(compact)) return false;
 
   // Support projects where unit IDs are letter-only (A/B/C) but only with strong type context
   if (!/\d/.test(compact)) {
@@ -159,15 +155,6 @@ function isValidUnitNumber(val: string, unitType = ""): boolean {
     if (!(isShortAlphaUnit && hasStrongTypeHint(unitType))) return false;
   }
 
-  return true;
-}
-
-function hasValidUnitType(val: string): boolean {
-  const t = String(val || "").trim();
-  if (!t) return false;
-  // Reject obvious non-type metadata, but allow common-area labels (e.g. RESTROOM/OFFICE/MAIL ROOM)
-  if (/^(FLOOR|LEVEL|ELEVATION|ELEV|PLAN|SECTION|DETAIL|SHEET|DRAWING|DWG|REV|DATE|SCALE|NOTE|LEGEND)\b/i.test(t)) return false;
-  if (/^(W|B|SB|DB|UB|UC|TC|TK|WF|BF|V|OH|PT|PTC|UT|HAV|HASB|HASP|HAT|HAF|LS|LSB|FIL|CM|LR|EP|FP)\d/i.test(t.replace(/\s+/g, '').toUpperCase())) return false;
   return true;
 }
 
