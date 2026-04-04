@@ -33,27 +33,20 @@ async function callGemini(
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 50000); // 50s fetch timeout
-        try {
-          response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${apiKey}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              signal: controller.signal,
-              body: JSON.stringify({
-                contents: [{ role: "user", parts: [
-                  { inlineData: { mimeType: "image/jpeg", data: pageImage } },
-                  { text: prompt },
-                ]}],
-                generationConfig: genConfig,
-              }),
-            },
-          );
-        } finally {
-          clearTimeout(timeout);
-        }
+        response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ role: "user", parts: [
+                { inlineData: { mimeType: "image/jpeg", data: pageImage } },
+                { text: prompt },
+              ]}],
+              generationConfig: genConfig,
+            }),
+          },
+        );
       } catch (fetchErr) {
         console.error(`AI fetch error [${currentModel}] (attempt ${attempt + 1}):`, fetchErr);
         if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
