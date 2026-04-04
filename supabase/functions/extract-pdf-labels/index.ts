@@ -17,9 +17,9 @@ async function callGemini(
   maxTokens = 8192,
   responseSchema?: any,
 ): Promise<any> {
-  // Model fallback: try primary model 3 times, then fallback to gemini-2.5-flash 3 times
+  // Model fallback: try primary model 2 times, then fallback to gemini-2.5-flash 2 times
   const MODELS = [model, "gemini-2.5-flash"];
-  const MAX_RETRIES = 3;
+  const MAX_RETRIES = 2;
   let response: Response | null = null;
 
   const genConfig: any = { temperature, maxOutputTokens: maxTokens };
@@ -56,20 +56,20 @@ async function callGemini(
         }
       } catch (fetchErr) {
         console.error(`AI fetch error [${currentModel}] (attempt ${attempt + 1}):`, fetchErr);
-        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
+        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 1500 * (attempt + 1))); continue; }
         break; // Try next model
       }
 
       if (response.status === 429) {
         console.warn(`AI rate limited (429) [${currentModel}], attempt ${attempt + 1}/${MAX_RETRIES}`);
         response = null;
-        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 8000 * (attempt + 1))); continue; }
+        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 4000 * (attempt + 1))); continue; }
         throw new Error("rate_limit"); // Rate limit affects all models, don't fallback
       }
       if (response.status === 503 || response.status === 500) {
         console.warn(`AI unavailable (${response.status}) [${currentModel}], attempt ${attempt + 1}/${MAX_RETRIES}`);
         response = null;
-        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
+        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
         console.log(`${currentModel} failed after ${MAX_RETRIES} retries, trying fallback...`);
         break; // Try next model
       }
