@@ -471,7 +471,7 @@ serve(async (req) => {
       console.log("Skipping classification (skipClassify=true, assuming plan_view)");
       rawPageType = "plan_view";
       // Detect common area from text hints
-      const commonAreaPattern = /\b(LAUNDRY|MAIL\s*ROOM|RESTROOM|LOBBY|CLUBHOUSE|FITNESS|LEASING|BUSINESS\s*CENTER|POOL\s*BATH|TRASH|MAINTENANCE|MODEL|STORAGE|GARAGE|CORRIDOR|MECHANICAL|COMMUNITY|BREAK\s*ROOM)\b/i;
+      const commonAreaPattern = /\b(LAUNDRY|MAIL\s*ROOM|RESTROOM|LOBBY|CLUBHOUSE|FITNESS|LEASING|BUSINESS\s*CENTER|POOL\s*BATH|TRASH|MAINTENANCE|MODEL|STORAGE|GARAGE|CORRIDOR|MECHANICAL|COMMUNITY|BREAK\s*ROOM|RECEPTION)\b/i;
       isCommonArea = commonAreaPattern.test(pageText || '');
     } else if (classificationOverride) {
       const co = classificationOverride;
@@ -488,7 +488,8 @@ PAGE TYPES (return one of these exact strings for pageType):
 - "title_page": Cover page or title page with project info, unit type name, unit numbers list. No cabinet drawings visible.
 
 COMMON AREAS (set isCommonArea to true for ANY of these):
-Laundry, Mail Room, Restroom, Lobby, Clubhouse, Fitness Center, Leasing Office, Business Center, Pool Bath, Trash Room, Maintenance, Model, Storage, Garage, Corridor, Mechanical, Community Room, Break Room, Kitchen (Common), any non-residential space.
+Laundry, Mail Room, Restroom, Lobby, Clubhouse, Fitness Center, Leasing Office, Business Center, Pool Bath, Trash Room, Maintenance, Model, Storage, Garage, Corridor, Mechanical, Community Room, Break Room, Kitchen (Common), Reception, any non-residential space.
+COMMON AREA VARIANTS: If a common area page has a variant suffix like "RESTROOM-AS", "RESTROOM-MIRROR", "RESTROOM (AS)", include the FULL variant in unitTypeName (e.g., return "RESTROOM-AS" not just "RESTROOM"). Same for Reception, Laundry, etc.
 
 RESIDENTIAL (set isCommonArea to false):
 Type 1, Type 2, Type 3, Studio, 1 Bed, 2 Bed, 1BR, 2BR, Unit A, Unit B, any numbered/lettered residential unit type including AS and MIRROR variants.
@@ -688,6 +689,60 @@ Return ALL valid cabinet SKUs (kept from original + newly found). If the origina
       } catch (e: any) {
         // Don't fail on verification errors — keep lite results
         console.warn(`Step 2b verification error (non-fatal): ${e.message}`);
+      }
+    }
+
+    // ── Step 2c: Targeted recovery for text-layer SKUs still missing ──
+    // Catches intermittent misses (especially kitchenette/common area pages)
+    // by asking the same lite model specifically about the missing SKUs.
+    if (textLayerSkuSet.size > 0 && finalItems.length > 0) {
+      const extractedAfterVerify = new Set(finalItems.map((i: any) => normalizeSkuLabel(String(i.sku || ''))));
+      const extractedBasesAfterVerify = new Set(finalItems.map((i: any) => normalizeSkuLabel(String(i.sku || '')).replace(/[-+][A-Z0-9]+$/i, '')));
+      const missingFromText = textLayerSkus.filter(sku => {
+        const normalized = normalizeSkuLabel(sku);
+        if (!normalized || !isValidSku(normalized)) return false;
+        if (APPLIANCE_RE.test(normalized)) return false;
+        if (extractedAfterVerify.has(normalized)) return false;
+        const bareForm = normalized.replace(/[-+][A-Z0-9]+$/i, '');
+        if (extractedBasesAfterVerify.has(normalized)) return false;
+        for (const es of extractedAfterVerify) {
+          if (es.startsWith(normalized) || normalized.startsWith(es)) return false;
+        }
+        return true;
+      });
+
+      if (missingFromText.length > 0) {
+        console.log(`Step 2c: ${missingFromText.length} text-layer SKUs still missing: ${missingFromText.join(', ')}`);
+        const recoveryPrompt = `Look at this 2020 Design shop drawing carefully. Find these SPECIFIC cabinet SKU labels that should be visible on the drawing:
+${missingFromText.join(', ')}
+
+For EACH SKU that IS visible as a printed label on the drawing, provide:
+- sku: exact label as printed
+- type: Base/Wall/Tall/Vanity/Accessory (classify by prefix)
+- room: Kitchen/Bath/Laundry/Pantry/Other
+- quantity: count of separate label occurrences
+
+IMPORTANT: Only include a SKU if you can actually SEE it as a printed label on the drawing. Do not guess or fabricate.
+${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
+
+        try {
+          const recovery: any = await callGemini(GEMINI_API_KEY, "gemini-3.1-flash-lite-preview", pageImage, recoveryPrompt, 0.3, 4096, EXTRACT_SCHEMA);
+          const recoveredItems = (recovery.items ?? []).filter((item: any) => {
+            const normalized = normalizeSkuLabel(String(item.sku || ''));
+            return normalized && isValidSku(normalized) && !extractedAfterVerify.has(normalized);
+          });
+          if (recoveredItems.length > 0) {
+            console.log(`Step 2c (recovery): found ${recoveredItems.length} previously missed SKUs`);
+            for (const item of recoveredItems) {
+              finalItems.push(item);
+              extractedAfterVerify.add(normalizeSkuLabel(String(item.sku || '')));
+            }
+          } else {
+            console.log(`Step 2c (recovery): no additional SKUs found`);
+          }
+        } catch (e: any) {
+          console.warn(`Step 2c recovery error (non-fatal): ${e.message}`);
+        }
       }
     }
 

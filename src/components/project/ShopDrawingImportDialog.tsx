@@ -306,7 +306,7 @@ function normalizeTypeComparison(value: string): string {
 }
 
 function isCommonAreaType(value: string): boolean {
-  return /\b(KITCHENETTE|LAUNDRY|MAIL\s*ROOM|RESTROOM|LOBBY|CLUBHOUSE|FITNESS|LEASING|BUSINESS\s*CENTER|POOL\s*BATH|TRASH|MAINTENANCE|MODEL|STORAGE|GARAGE|CORRIDOR|MECHANICAL|COMMUNITY|BREAK\s*ROOM|OFFICE)\b/i
+  return /\b(KITCHENETTE|LAUNDRY|MAIL\s*ROOM|RESTROOM|LOBBY|CLUBHOUSE|FITNESS|LEASING|BUSINESS\s*CENTER|POOL\s*BATH|TRASH|MAINTENANCE|MODEL|STORAGE|GARAGE|CORRIDOR|MECHANICAL|COMMUNITY|BREAK\s*ROOM|OFFICE|RECEPTION)\b/i
     .test(String(value || ''));
 }
 
@@ -324,6 +324,7 @@ const COMMON_AREA_LABELS: Array<{ label: string; re: RegExp }> = [
   { label: 'Restroom', re: /\bRESTROOM\b/i },
   { label: 'Lobby', re: /\bLOBBY\b/i },
   { label: 'Office', re: /\bOFFICE\b/i },
+  { label: 'Reception', re: /\bRECEPTION\b/i },
   { label: 'Storage', re: /\bSTORAGE\b/i },
   { label: 'Garage', re: /\bGARAGE\b/i },
   { label: 'Corridor', re: /\bCORRIDOR\b/i },
@@ -482,9 +483,27 @@ function resolvePageUnitType(
   const textHints = extractTypeHintsFromText(pageText);
 
   if (isCommonAreaPage) {
-    const commonAreaLabel = isCommonAreaType(ai) ? ai : extractCommonAreaLabel(pageText);
-    if (!commonAreaLabel) return { primary: null, aliases: [] };
-    return { primary: commonAreaLabel, aliases: [commonAreaLabel] };
+    const baseLabel = extractCommonAreaLabel(isCommonAreaType(ai) ? ai : (pageText || ''));
+    if (!baseLabel) return { primary: null, aliases: [] };
+
+    // Check for variant suffixes (AS, MIRROR, ADA, etc.) in AI type or page text
+    const variantRe = /[-–—\s](AS|MIRROR|ADA|REV|ALT|OPTION)\s*$/i;
+    const aiVariant = (ai || '').match(variantRe);
+    if (aiVariant) {
+      const fullLabel = `${baseLabel}-${aiVariant[1].toUpperCase()}`;
+      return { primary: fullLabel, aliases: [fullLabel] };
+    }
+
+    // Check page text for variant near the common area name
+    const escapedBase = baseLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const textVariantRe = new RegExp(`\\b${escapedBase}\\s*[-–—]\\s*(AS|MIRROR|ADA|REV|ALT|OPTION)\\b`, 'i');
+    const textVariant = (pageText || '').match(textVariantRe);
+    if (textVariant) {
+      const fullLabel = `${baseLabel}-${textVariant[1].toUpperCase()}`;
+      return { primary: fullLabel, aliases: [fullLabel] };
+    }
+
+    return { primary: baseLabel, aliases: [baseLabel] };
   }
 
   if (!ai && textHints.length === 0) return { primary: null, aliases: [] };
@@ -734,56 +753,63 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       };
     };
 
-    const CONCURRENCY = 1; // Sequential to avoid Gemini API rate limits (multi-pass = multiple calls per page)
-    for (let i = 0; i < pageTasks.length; i += CONCURRENCY) {
-      const batch = pageTasks.slice(i, i + CONCURRENCY);
-      const results = await Promise.allSettled(batch.map(t => processOnePage(t.p)));
+    const MAX_PAGE_RETRIES = 3;
+    for (const task of pageTasks) {
+      let pageResult: any = null;
+      let lastError: any = null;
 
-      for (let j = 0; j < results.length; j++) {
-        const result = results[j];
-        const { p } = batch[j];
-
-        if (result.status === 'fulfilled') {
-          const data = result.value;
-          const resolvedPageType = String(data.unitTypeName || '').trim();
-          const resolvedTypeAliases = Array.isArray((data as any).unitTypeAliases)
-            ? (data as any).unitTypeAliases.map((value: unknown) => normalizeTypeText(String(value || ''))).filter(Boolean)
-            : [];
-          const pageItems = Array.isArray(data.items) ? data.items : [];
-          const hasCabinetRows = pageItems.length > 0;
-          const isCommonAreaPage = Boolean((data as any).isCommonArea);
-
-          // Track every resolved page type, even if this page produced zero cabinet rows.
-          // This keeps the cabinet matrix column visible instead of dropping the whole type.
-          const shouldTrackType = Boolean(resolvedPageType) || resolvedTypeAliases.length > 0 || isCommonAreaPage || hasCabinetRows;
-          const typesForOrder = resolvedTypeAliases.length > 0
-            ? resolvedTypeAliases
-            : resolvedPageType
-              ? [resolvedPageType]
-              : [];
-
-          for (const t of typesForOrder) {
-            if (!detectedType) detectedType = t;
-            if (!pageTypeOrder.includes(t)) pageTypeOrder.push(t);
+      for (let attempt = 1; attempt <= MAX_PAGE_RETRIES; attempt++) {
+        try {
+          pageResult = await processOnePage(task.p);
+          break;
+        } catch (err: any) {
+          if (err?.message === 'rate_limit') throw err;
+          if (err?.message === 'credits') throw err;
+          lastError = err;
+          console.warn(`Page ${task.p} attempt ${attempt}/${MAX_PAGE_RETRIES} failed: ${err?.message}`);
+          if (attempt < MAX_PAGE_RETRIES) {
+            onStatus(`Retrying page ${task.p} of "${file.name}" (attempt ${attempt + 1})…`);
+            await new Promise(r => setTimeout(r, 3000 * attempt));
           }
-
-          const pageRows = pageItems.map((c: any) => ({
-            sku: c.sku,
-            type: c.type,
-            room: c.room,
-            quantity: c.quantity,
-            selected: true,
-            sourceFile: file.name,
-            detectedUnitType: shouldTrackType ? (resolvedPageType || undefined) : undefined,
-          }));
-          allRows.push(...pageRows);
-        } else {
-          console.warn(`Page ${p} of "${file.name}" failed:`, result.reason?.message);
-          if (result.reason?.message === 'rate_limit') throw new Error('rate_limit');
-          if (result.reason?.message === 'credits') throw new Error('credits');
         }
-        onPageDone?.();
       }
+
+      if (pageResult) {
+        const data = pageResult;
+        const resolvedPageType = String(data.unitTypeName || '').trim();
+        const resolvedTypeAliases = Array.isArray((data as any).unitTypeAliases)
+          ? (data as any).unitTypeAliases.map((value: unknown) => normalizeTypeText(String(value || ''))).filter(Boolean)
+          : [];
+        const pageItems = Array.isArray(data.items) ? data.items : [];
+        const hasCabinetRows = pageItems.length > 0;
+        const isCommonAreaPage = Boolean((data as any).isCommonArea);
+
+        const shouldTrackType = Boolean(resolvedPageType) || resolvedTypeAliases.length > 0 || isCommonAreaPage || hasCabinetRows;
+        const typesForOrder = resolvedTypeAliases.length > 0
+          ? resolvedTypeAliases
+          : resolvedPageType
+            ? [resolvedPageType]
+            : [];
+
+        for (const t of typesForOrder) {
+          if (!detectedType) detectedType = t;
+          if (!pageTypeOrder.includes(t)) pageTypeOrder.push(t);
+        }
+
+        const pageRows = pageItems.map((c: any) => ({
+          sku: c.sku,
+          type: c.type,
+          room: c.room,
+          quantity: c.quantity,
+          selected: true,
+          sourceFile: file.name,
+          detectedUnitType: shouldTrackType ? (resolvedPageType || undefined) : undefined,
+        }));
+        allRows.push(...pageRows);
+      } else {
+        console.warn(`Page ${task.p} of "${file.name}" failed after ${MAX_PAGE_RETRIES} attempts:`, lastError?.message);
+      }
+      onPageDone?.();
     }
     return { rows: allRows, detectedType, typeOrder: pageTypeOrder };
   };
