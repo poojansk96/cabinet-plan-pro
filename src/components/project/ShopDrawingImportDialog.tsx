@@ -483,9 +483,27 @@ function resolvePageUnitType(
   const textHints = extractTypeHintsFromText(pageText);
 
   if (isCommonAreaPage) {
-    const commonAreaLabel = isCommonAreaType(ai) ? ai : extractCommonAreaLabel(pageText);
-    if (!commonAreaLabel) return { primary: null, aliases: [] };
-    return { primary: commonAreaLabel, aliases: [commonAreaLabel] };
+    const baseLabel = extractCommonAreaLabel(isCommonAreaType(ai) ? ai : (pageText || ''));
+    if (!baseLabel) return { primary: null, aliases: [] };
+
+    // Check for variant suffixes (AS, MIRROR, ADA, etc.) in AI type or page text
+    const variantRe = /[-–—\s](AS|MIRROR|ADA|REV|ALT|OPTION)\s*$/i;
+    const aiVariant = (ai || '').match(variantRe);
+    if (aiVariant) {
+      const fullLabel = `${baseLabel}-${aiVariant[1].toUpperCase()}`;
+      return { primary: fullLabel, aliases: [fullLabel] };
+    }
+
+    // Check page text for variant near the common area name
+    const escapedBase = baseLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const textVariantRe = new RegExp(`\\b${escapedBase}\\s*[-–—]\\s*(AS|MIRROR|ADA|REV|ALT|OPTION)\\b`, 'i');
+    const textVariant = (pageText || '').match(textVariantRe);
+    if (textVariant) {
+      const fullLabel = `${baseLabel}-${textVariant[1].toUpperCase()}`;
+      return { primary: fullLabel, aliases: [fullLabel] };
+    }
+
+    return { primary: baseLabel, aliases: [baseLabel] };
   }
 
   if (!ai && textHints.length === 0) return { primary: null, aliases: [] };
