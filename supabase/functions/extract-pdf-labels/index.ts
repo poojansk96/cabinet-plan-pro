@@ -692,6 +692,60 @@ Return ALL valid cabinet SKUs (kept from original + newly found). If the origina
       }
     }
 
+    // ── Step 2c: Targeted recovery for text-layer SKUs still missing ──
+    // Catches intermittent misses (especially kitchenette/common area pages)
+    // by asking the same lite model specifically about the missing SKUs.
+    if (textLayerSkuSet.size > 0 && finalItems.length > 0) {
+      const extractedAfterVerify = new Set(finalItems.map((i: any) => normalizeSkuLabel(String(i.sku || ''))));
+      const extractedBasesAfterVerify = new Set(finalItems.map((i: any) => normalizeSkuLabel(String(i.sku || '')).replace(/[-+][A-Z0-9]+$/i, '')));
+      const missingFromText = textLayerSkus.filter(sku => {
+        const normalized = normalizeSkuLabel(sku);
+        if (!normalized || !isValidSku(normalized)) return false;
+        if (APPLIANCE_RE.test(normalized)) return false;
+        if (extractedAfterVerify.has(normalized)) return false;
+        const bareForm = normalized.replace(/[-+][A-Z0-9]+$/i, '');
+        if (extractedBasesAfterVerify.has(normalized)) return false;
+        for (const es of extractedAfterVerify) {
+          if (es.startsWith(normalized) || normalized.startsWith(es)) return false;
+        }
+        return true;
+      });
+
+      if (missingFromText.length > 0) {
+        console.log(`Step 2c: ${missingFromText.length} text-layer SKUs still missing: ${missingFromText.join(', ')}`);
+        const recoveryPrompt = `Look at this 2020 Design shop drawing carefully. Find these SPECIFIC cabinet SKU labels that should be visible on the drawing:
+${missingFromText.join(', ')}
+
+For EACH SKU that IS visible as a printed label on the drawing, provide:
+- sku: exact label as printed
+- type: Base/Wall/Tall/Vanity/Accessory (classify by prefix)
+- room: Kitchen/Bath/Laundry/Pantry/Other
+- quantity: count of separate label occurrences
+
+IMPORTANT: Only include a SKU if you can actually SEE it as a printed label on the drawing. Do not guess or fabricate.
+${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
+
+        try {
+          const recovery: any = await callGemini(GEMINI_API_KEY, "gemini-3.1-flash-lite-preview", pageImage, recoveryPrompt, 0.3, 4096, EXTRACT_SCHEMA);
+          const recoveredItems = (recovery.items ?? []).filter((item: any) => {
+            const normalized = normalizeSkuLabel(String(item.sku || ''));
+            return normalized && isValidSku(normalized) && !extractedAfterVerify.has(normalized);
+          });
+          if (recoveredItems.length > 0) {
+            console.log(`Step 2c (recovery): found ${recoveredItems.length} previously missed SKUs`);
+            for (const item of recoveredItems) {
+              finalItems.push(item);
+              extractedAfterVerify.add(normalizeSkuLabel(String(item.sku || '')));
+            }
+          } else {
+            console.log(`Step 2c (recovery): no additional SKUs found`);
+          }
+        } catch (e: any) {
+          console.warn(`Step 2c recovery error (non-fatal): ${e.message}`);
+        }
+      }
+    }
+
     // ── RECOVERY: If extraction is empty but text layer has SKUs ──
     // This catches MIRROR pages and cases where the AI fails to read labels.
     // Seed with qty=1 each (text counts are unreliable due to legends/notes).
