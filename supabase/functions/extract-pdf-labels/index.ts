@@ -471,7 +471,7 @@ serve(async (req) => {
       console.log("Skipping classification (skipClassify=true, assuming plan_view)");
       rawPageType = "plan_view";
       // Detect common area from text hints
-      const commonAreaPattern = /\b(LAUNDRY|MAIL\s*ROOM|RESTROOM|LOBBY|CLUBHOUSE|FITNESS|LEASING|BUSINESS\s*CENTER|POOL\s*BATH|TRASH|MAINTENANCE|MODEL|STORAGE|GARAGE|CORRIDOR|MECHANICAL|COMMUNITY|BREAK\s*ROOM)\b/i;
+      const commonAreaPattern = /\b(LAUNDRY|MAIL\s*ROOM|RESTROOM|LOBBY|CLUBHOUSE|FITNESS|LEASING|BUSINESS\s*CENTER|POOL\s*BATH|TRASH|MAINTENANCE|MODEL|STORAGE|GARAGE|CORRIDOR|MECHANICAL|COMMUNITY|BREAK\s*ROOM|RECEPTION)\b/i;
       isCommonArea = commonAreaPattern.test(pageText || '');
     } else if (classificationOverride) {
       const co = classificationOverride;
