@@ -637,9 +637,9 @@ If no cabinet SKUs are found, return {"items":[]}`;
     let finalItems = splitMergedSkus(rawItems, textLayerSkus);
     console.log(`Step 2a (lite): ${rawItems.length} raw → ${finalItems.length} after split`);
 
-    // ── Step 2b: Verification pass with stronger model ──
+    // ── Step 2b: Verification pass ──
     // Catches hallucinated SKUs (e.g. W1836X6-L) and recovers missed ones (kitchenette types).
-    // Sends the lite model's results + the image to gemini-3-flash-preview for review.
+    // Sends the lite model's results + the image to gemini-3.1-flash-lite-preview for review.
     {
       const liteSkuList = finalItems.map((i: any) => `${i.sku} (qty ${i.quantity}, ${i.room})`).join(', ');
       const verifyPrompt = `You are verifying cabinet SKU extraction results from a fast AI model on this 2020 Design shop drawing.
@@ -667,7 +667,7 @@ ${isStrip ? '\nNOTE: This is a CROPPED SECTION of a larger page. Only report wha
 Return ALL valid cabinet SKUs (kept from original + newly found). If the original list was correct, return it unchanged.`;
 
       try {
-        const verified: any = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", pageImage, verifyPrompt, 0.1, 8192, EXTRACT_SCHEMA);
+        const verified: any = await callGemini(GEMINI_API_KEY, "gemini-3.1-flash-lite-preview", pageImage, verifyPrompt, 0.1, 8192, EXTRACT_SCHEMA);
         const verifiedItems = verified.items ?? [];
         if (verifiedItems.length > 0) {
           // Use verification results but never let it drop count below 50% of original
