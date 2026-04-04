@@ -424,9 +424,18 @@ serve(async (req) => {
     }
 
     // Extract SKUs from PDF text layer (instant, no AI needed)
-    const textLayerSkus = extractSkusFromText(pageText ?? "");
-    const textLayerSkuSet = new Set(textLayerSkus.map((s) => normalizeSkuLabel(s)));
-    const textLayerSkuCounts = countSkusFromText(pageText ?? "");
+    const rawTextLayerSkus = extractSkusFromText(pageText ?? "");
+    // Clean dimension contamination from text layer SKUs (e.g., W1836X6-L → W1836-L)
+    const emptySet = new Set<string>(); // dummy for initial cleaning pass
+    const textLayerSkus = [...new Set(rawTextLayerSkus.map(s => cleanDimensionContamination(normalizeSkuLabel(s), emptySet)))];
+    const textLayerSkuSet = new Set(textLayerSkus);
+    // Also build counts with cleaned SKUs
+    const rawTextLayerSkuCounts = countSkusFromText(pageText ?? "");
+    const textLayerSkuCounts: Record<string, number> = {};
+    for (const [sku, count] of Object.entries(rawTextLayerSkuCounts)) {
+      const cleaned = cleanDimensionContamination(normalizeSkuLabel(sku), emptySet);
+      textLayerSkuCounts[cleaned] = (textLayerSkuCounts[cleaned] ?? 0) + count;
+    }
     const textLayerSplitByBase = new Map<string, string>();
     for (const sku of textLayerSkuSet) {
       if (!SPLIT_SUFFIX_RE.test(sku)) continue;
