@@ -17,9 +17,9 @@ async function callGemini(
   maxTokens = 8192,
   responseSchema?: any,
 ): Promise<any> {
-  // Model fallback: try primary model 3 times, then fallback to gemini-2.5-flash 3 times
+  // Model fallback: try primary model 2 times, then fallback to gemini-2.5-flash 2 times
   const MODELS = [model, "gemini-2.5-flash"];
-  const MAX_RETRIES = 3;
+  const MAX_RETRIES = 2;
   let response: Response | null = null;
 
   const genConfig: any = { temperature, maxOutputTokens: maxTokens };
