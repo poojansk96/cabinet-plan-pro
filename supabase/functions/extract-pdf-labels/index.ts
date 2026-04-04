@@ -56,7 +56,7 @@ async function callGemini(
         }
       } catch (fetchErr) {
         console.error(`AI fetch error [${currentModel}] (attempt ${attempt + 1}):`, fetchErr);
-        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
+        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 1500 * (attempt + 1))); continue; }
         break; // Try next model
       }
 
