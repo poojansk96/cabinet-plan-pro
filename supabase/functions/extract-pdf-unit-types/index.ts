@@ -385,7 +385,7 @@ This page may show ANY type of drawing that contains cabinet/millwork informatio
 **IMPORTANT**: Do NOT reject a page just because it shows a single room (restroom, laundry, mail room). These are valid units that need cabinets.
 
 Verify:
-- Is the UNIT TYPE correct? Prefer title-block unit type when present; for common areas (restroom, office, laundry, mail room, community room, package room), use the ROOM LABEL as unitType.
+- Is the UNIT TYPE correct? Prefer title-block unit type when present; for common areas (restroom, office, laundry, mail room, reception, lobby, community room, package room), use the ROOM LABEL as unitType. CRITICAL: preserve variant suffixes (-AS, -MIRROR, -REV, -ADA) for common areas too — "RESTROOM-AS" and "RESTROOM-MIRROR" are SEPARATE types.
 - Are ALL unit numbers captured? Re-read the comma-separated list CHARACTER BY CHARACTER. Add any missing ones.
 - Are there FALSE entries (cabinet SKUs like W3030, HASB48B, room names like "Island")? Remove them.
 - ONLY apartment/suite unit numbers or common area room numbers should remain (e.g., 230, 101, A-502, PH-1, 103, 110).
