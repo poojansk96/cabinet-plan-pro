@@ -534,7 +534,7 @@ PAGE TYPES (return one of these exact strings for pageType):
 - "title_page": Cover page or title page with project info, unit type name, unit numbers list. No cabinet drawings visible.
 
 COMMON AREAS (set isCommonArea to true for ANY of these):
-Laundry, Mail Room, Restroom, Lobby, Clubhouse, Fitness Center, Leasing Office, Business Center, Pool Bath, Trash Room, Maintenance, Model, Storage, Garage, Corridor, Mechanical, Community Room, Break Room, Kitchen (Common), any non-residential space.
+Laundry, Mail Room, Restroom, Lobby, Clubhouse, Fitness Center, Leasing Office, Business Center, Pool Bath, Trash Room, Maintenance, Model, Storage, Garage, Corridor, Mechanical, Community Room, Break Room, Kitchen (Common), Reception, any non-residential space.
 
 RESIDENTIAL (set isCommonArea to false):
 Type 1, Type 2, Type 3, Studio, 1 Bed, 2 Bed, 1BR, 2BR, Unit A, Unit B, any numbered/lettered residential unit type including AS and MIRROR variants.
