@@ -31,7 +31,8 @@ IF THIS IS A FLOOR PLAN PAGE, EXTRACT:
 
 1. UNIT TYPE (most important — NEVER leave null or empty):
    - Prefer the title-block type when present (e.g. "TYPE A1 - AS", "UNIT TYPE: A1-3BR", "TYPE C1-2BR", "TYPE PH-A")
-   - For COMMON AREA spaces (restroom, office, laundry, mail room, etc.), use the ROOM LABEL as the unitType (e.g. "Restroom", "Office", "Laundry", "Mail Room")
+   - For COMMON AREA spaces (restroom, office, laundry, mail room, reception, lobby, clubhouse, fitness, leasing, business center, pool bath, package room, community room, break room, etc.), use the ROOM LABEL as the unitType (e.g. "Restroom", "Office", "Laundry", "Mail Room", "Reception")
+   - CRITICAL: If a common area page has variant suffixes like "-AS", "-MIRROR", "-REV", "-ADA" in the title block or header, PRESERVE them as part of the unitType. Example: if the page shows "RESTROOM - AS" or "RESTROOM-AS", return "RESTROOM-AS" as the unitType, NOT just "RESTROOM". Similarly "RESTROOM - MIRROR" → "RESTROOM-MIRROR". Each variant is a SEPARATE unit type.
    - If you cannot find ANY type label, use the room/space name visible on the plan as unitType
    - Preserve EXACT text including suffixes like "-AS", "-Mirror", "-Rev", "-3BR"
    - KEEP the FULL type name exactly as written, including bedroom-count prefixes like "1BR", "2BR", "3BR", "STUDIO". Example: "2BR TYPE B1" → "2BR TYPE B1", "STUDIO TYPE S1" → "STUDIO TYPE S1", "3BR TYPE C-MIRROR" → "3BR TYPE C-MIRROR"
@@ -384,7 +385,7 @@ This page may show ANY type of drawing that contains cabinet/millwork informatio
 **IMPORTANT**: Do NOT reject a page just because it shows a single room (restroom, laundry, mail room). These are valid units that need cabinets.
 
 Verify:
-- Is the UNIT TYPE correct? Prefer title-block unit type when present; for common areas (restroom, office, laundry, mail room, community room, package room), use the ROOM LABEL as unitType.
+- Is the UNIT TYPE correct? Prefer title-block unit type when present; for common areas (restroom, office, laundry, mail room, reception, lobby, community room, package room), use the ROOM LABEL as unitType. CRITICAL: preserve variant suffixes (-AS, -MIRROR, -REV, -ADA) for common areas too — "RESTROOM-AS" and "RESTROOM-MIRROR" are SEPARATE types.
 - Are ALL unit numbers captured? Re-read the comma-separated list CHARACTER BY CHARACTER. Add any missing ones.
 - Are there FALSE entries (cabinet SKUs like W3030, HASB48B, room names like "Island")? Remove them.
 - ONLY apartment/suite unit numbers or common area room numbers should remain (e.g., 230, 101, A-502, PH-1, 103, 110).
