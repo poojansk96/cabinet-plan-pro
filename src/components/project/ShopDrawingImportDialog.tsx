@@ -324,6 +324,7 @@ const COMMON_AREA_LABELS: Array<{ label: string; re: RegExp }> = [
   { label: 'Restroom', re: /\bRESTROOM\b/i },
   { label: 'Lobby', re: /\bLOBBY\b/i },
   { label: 'Office', re: /\bOFFICE\b/i },
+  { label: 'Reception', re: /\bRECEPTION\b/i },
   { label: 'Storage', re: /\bSTORAGE\b/i },
   { label: 'Garage', re: /\bGARAGE\b/i },
   { label: 'Corridor', re: /\bCORRIDOR\b/i },
