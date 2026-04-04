@@ -608,11 +608,11 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
 
       onStatus(`AI analyzing "${file.name}" page ${p}/${pdf.numPages}…`);
 
-      // Retry helper: try up to 3 times with a 5-minute timeout each attempt
-      const fetchWithRetry = async (body: string, attempts = 3): Promise<Response> => {
+      // Retry helper: try up to 2 times with a 90-second timeout each attempt
+      const fetchWithRetry = async (body: string, attempts = 2): Promise<Response> => {
         for (let attempt = 1; attempt <= attempts; attempt++) {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000);
+          const timeoutId = setTimeout(() => controller.abort(), 90 * 1000);
           try {
             if (attempt > 1) {
               onStatus(`AI reading "${file.name}" page ${p}/${pdf.numPages} (retry ${attempt - 1})…`);
@@ -625,8 +625,8 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
             });
             clearTimeout(timeoutId);
             if ((res.status === 503 || res.status === 500) && attempt < attempts) {
-              console.warn(`Page ${p} attempt ${attempt}: AI unavailable (${res.status}), retrying in ${3 * attempt}s…`);
-              await new Promise(r => setTimeout(r, 3000 * attempt));
+              console.warn(`Page ${p} attempt ${attempt}: AI unavailable (${res.status}), retrying in ${2 * attempt}s…`);
+              await new Promise(r => setTimeout(r, 2000 * attempt));
               continue;
             }
             return res;
