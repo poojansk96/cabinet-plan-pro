@@ -63,7 +63,7 @@ async function callGemini(
       if (response.status === 429) {
         console.warn(`AI rate limited (429) [${currentModel}], attempt ${attempt + 1}/${MAX_RETRIES}`);
         response = null;
-        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 8000 * (attempt + 1))); continue; }
+        if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 4000 * (attempt + 1))); continue; }
         throw new Error("rate_limit"); // Rate limit affects all models, don't fallback
       }
       if (response.status === 503 || response.status === 500) {
