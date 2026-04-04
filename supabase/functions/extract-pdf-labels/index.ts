@@ -814,6 +814,8 @@ Return ALL valid cabinet SKUs (kept from original + newly found). If the origina
       })
       .map((c: any) => {
         let sku = canonicalizeSkuWithText(String(c.sku ?? ''));
+        // Clean dimension contamination (e.g., W1836X6-L → W1836-L)
+        sku = cleanDimensionContamination(sku, textLayerSkuSet);
         // Fix AI-merged adjacent labels using text layer (e.g. "RW1230" → "W1230")
         if (textLayerSkuSet.size > 0) {
           sku = fixMergedAdjacentLabel(sku, textLayerSkuSet);
