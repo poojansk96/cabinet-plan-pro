@@ -234,7 +234,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
     });
 
     // ── Sheet 2: Unit Count ─────────────────────────────────────────
-    const wsUnits = wb.addWorksheet('Unit Count');
+    const wsUnits = wb.addWorksheet('2-Unit Count');
     const unitTypeCols = store.unitTypes.length;
     wsUnits.columns = [
       { width: 3 },   // blank col A
@@ -335,7 +335,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
     });
 
     // ── Sheet 3: Cabinet Count ──────────────────────────────────────
-    const wsCabs = wb.addWorksheet('Cabinet Count');
+    const wsCabs = wb.addWorksheet('3-Cabinet Count');
     const cabTypes = store.cabinetUnitTypes;
     const nTypes = cabTypes.length;
 
@@ -792,7 +792,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
 
     // ── Sheet 4: Costing ────────────────────────────────────────────
-    const wsCosting = wb.addWorksheet('Costing');
+    const wsCosting = wb.addWorksheet('4-Costing');
 
     // Column indices (1-based) — col 1 is blank pad
     const cc = {
@@ -1271,7 +1271,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
     // ── Sheet 5: Schedule of Values ─────────────────────────────────
     // Flat format: BLDG | FLOOR | Unit# | ADA | UNIT TYPE NAME | MATERIAL | LABOR | TAX | Total
-    const wsSov = wb.addWorksheet('Schedule of Values');
+    const wsSov = wb.addWorksheet('5-Schedule of Values');
 
     // Column layout (1-indexed, col A = 1)
     // A: blank pad | B: BLDG | C: FLOOR | D: Unit# | E: ADA | F: UNIT TYPE NAME | G: MATERIAL | H: LABOR | I: TAX | J: Total
