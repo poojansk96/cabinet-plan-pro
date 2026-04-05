@@ -135,7 +135,7 @@ export async function startBackgroundExtraction(
 
   const update = (patch: Partial<ExtractionJob>) => {
     if (!currentJob || currentJob.id !== jobId) return; // job was cleared
-    Object.assign(currentJob, patch);
+    currentJob = { ...currentJob, ...patch };
     notify();
   };
 
