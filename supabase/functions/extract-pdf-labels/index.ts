@@ -599,7 +599,7 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
     }
 
     // Common area sub-types that are fixture-only (no cabinets expected)
-    const FIXTURE_ONLY_COMMON_AREAS = /\b(RESTROOM|LOBBY|CORRIDOR|MECHANICAL|GARAGE|STORAGE|TRASH|POOL\s*BATH|FITNESS)\b/i;
+    const FIXTURE_ONLY_COMMON_AREAS = /\b(RESTROOM|LOBBY|CORRIDOR|MECHANICAL|GARAGE|STORAGE|TRASH|POOL\s*BATH|FITNESS|OFFICE)\b/i;
     const isFixtureOnlyCommonArea = isCommonArea && FIXTURE_ONLY_COMMON_AREAS.test(detectedUnitType ?? pageText ?? '');
 
     // ═══════════════════════════════════════════════════════════
