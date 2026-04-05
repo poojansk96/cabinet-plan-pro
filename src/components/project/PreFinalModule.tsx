@@ -407,6 +407,7 @@ export default function PreFinalModule({ project }: Props) {
           prefinalPerson={project.specs?.takeoffPerson}
           speedMode="thorough"
           skipClassify
+          aiModel={cabinetAiModel}
         />
       )}
 
