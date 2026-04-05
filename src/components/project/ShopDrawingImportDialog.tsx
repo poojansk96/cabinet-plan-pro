@@ -464,6 +464,46 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
   const fileRef = useRef<HTMLInputElement>(null);
   const addMoreRef = useRef<HTMLInputElement>(null);
 
+  // ── Pick up background job results ──────────────────────────────────
+  const bgJob = useExtractionJob();
+  const bgPickedUpRef = useRef(false);
+
+  useEffect(() => {
+    if (!bgJob || bgPickedUpRef.current) return;
+    if (bgJob.status === 'processing') {
+      // Show processing state from background job
+      setStep('processing');
+      setProgress(bgJob.progress);
+      setProcessedPages(bgJob.processedPages);
+      setTotalPages(bgJob.totalPages);
+      setProcessingStatus(bgJob.statusText);
+    } else if (bgJob.status === 'done') {
+      // Auto-load results into review
+      bgPickedUpRef.current = true;
+      setRows(bgJob.rows);
+      setDetectedUnitType(bgJob.detectedUnitType);
+      setTypeOrder(bgJob.typeOrder);
+      setFilterSource('all');
+      setProgress(100);
+      setStep('review');
+      clearExtractionJob();
+    } else if (bgJob.status === 'error') {
+      bgPickedUpRef.current = true;
+      setError(bgJob.error);
+      setStep('upload');
+      clearExtractionJob();
+    }
+  }, [bgJob]);
+
+  // Sync ongoing background progress into local state
+  useEffect(() => {
+    if (!bgJob || bgJob.status !== 'processing' || bgPickedUpRef.current) return;
+    setProgress(bgJob.progress);
+    setProcessedPages(bgJob.processedPages);
+    setTotalPages(bgJob.totalPages);
+    setProcessingStatus(bgJob.statusText);
+  }, [bgJob?.progress, bgJob?.processedPages, bgJob?.statusText]);
+
   // Rotate quote every 4 seconds during processing
   useEffect(() => {
     if (step !== 'processing') return;
