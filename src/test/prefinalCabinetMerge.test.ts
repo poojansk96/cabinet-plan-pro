@@ -17,7 +17,7 @@ describe('extractPlanSkuCountsFromTextItems', () => {
 });
 
 describe('mergePrefinalExtractionPasses', () => {
-  it('does NOT promote quantity based on text layer counts (AI vision is source of truth)', () => {
+  it('recovers the missing +1 on higher-quantity repeated SKUs', () => {
     const merged = mergePrefinalExtractionPasses([
       [{ sku: 'W2430B', room: 'Kitchen', type: 'Wall', quantity: 3 }],
       [{ sku: 'W2430B', room: 'Kitchen', type: 'Wall', quantity: 2 }],
@@ -28,8 +28,7 @@ describe('mergePrefinalExtractionPasses', () => {
     });
 
     expect(merged).toHaveLength(1);
-    // AI max across passes is 3, text says 4 but should NOT promote
-    expect(merged[0].quantity).toBe(3);
+    expect(merged[0].quantity).toBe(4);
   });
 
   it('does not add the old extra +1 on lower-count SKUs', () => {
