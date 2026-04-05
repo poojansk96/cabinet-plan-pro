@@ -464,14 +464,14 @@ export default function PreFinalModule({ project }: Props) {
         <button
           onClick={() => setActiveSubTab('laminate')}
           className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-xs font-medium transition-colors ${activeSubTab === 'laminate' ? 'text-white' : 'text-muted-foreground border border-border hover:bg-secondary'}`}
-          style={activeSubTab === 'laminate' ? { background: 'hsl(142 60% 35%)' } : {}}
+          style={activeSubTab === 'laminate' ? { background: 'hsl(142 50% 50%)' } : {}}
         >
           <Layers size={13} /> Laminate LFT
         </button>
         <button
           onClick={() => setActiveSubTab('cmarble')}
           className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-xs font-medium transition-colors ${activeSubTab === 'cmarble' ? 'text-white' : 'text-muted-foreground border border-border hover:bg-secondary'}`}
-          style={activeSubTab === 'cmarble' ? { background: 'hsl(280 50% 45%)' } : {}}
+          style={activeSubTab === 'cmarble' ? { background: 'hsl(280 45% 58%)' } : {}}
         >
           🛁 Cmarble/Swan Vtop
         </button>
