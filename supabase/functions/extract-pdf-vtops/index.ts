@@ -33,8 +33,12 @@ type ModelAttempt = {
 };
 
 const PRIMARY_MODELS: ModelAttempt[] = [
-  { name: "gemini-3-flash-preview", retries: 3 },
-  { name: "gemini-2.5-pro", retries: 2 },
+  { name: "gemini-3.1-flash-lite-preview", retries: 3 },
+  { name: "gemini-3-flash-preview", retries: 2 },
+];
+
+const VERIFY_MODELS: ModelAttempt[] = [
+  { name: "gemini-3.1-flash-lite-preview", retries: 2 },
 ];
 
 function clampNorm(v: number): number {
@@ -257,7 +261,7 @@ rightWallYesConfidence: probability 0.0-1.0 that the RIGHT end has a wall`;
             { mimeType: "image/png", data: rightEndCrop },
           ],
           focusedPrompt,
-          [{ name: "gemini-3-flash-preview", retries: 2 }],
+          [{ name: "gemini-3.1-flash-lite-preview", retries: 2 }],
           { temperature: 0.1, maxOutputTokens: 256 },
         );
         console.log("Focused wall raw:", content);
@@ -320,6 +324,7 @@ IMPORTANT:
 Return ONLY valid JSON — no markdown fences, no explanation:
 {"unitTypeName":"TYPE 1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"bowlPosition":"offset-right","bowlOffset":17.75,"leftWall":true,"rightWall":false,"leftWallYesConfidence":0.85,"rightWallYesConfidence":0.1,"bbox":{"x":0.05,"y":0.3,"width":0.35,"height":0.2}}]}`;
 
+    // ── Pass 1: Extraction ──
     let fullContent = "";
     try {
       fullContent = await requestGemini(
@@ -345,12 +350,55 @@ Return ONLY valid JSON — no markdown fences, no explanation:
     console.log("AI vtop raw:", fullContent.slice(0, 800));
 
     const fullParsed = parseExtractionText(fullContent);
-    const unitTypeName = fullParsed.unitTypeName;
-    console.log("Detected unit type name:", unitTypeName);
+    const extractedUnitTypeName = fullParsed.unitTypeName;
+    console.log("Detected unit type name:", extractedUnitTypeName);
 
-    // No more strip merging — return raw AI results with rough wall hints
-    // Wall detection is finalized on the frontend with deterministic detector + focused AI
-    const vtops = fullParsed.vtops.map(row => ({
+    let finalVtops = fullParsed.vtops;
+    let finalUnitTypeName = extractedUnitTypeName;
+
+    // ── Pass 2: Verification ──
+    if (finalVtops.length > 0) {
+      console.log("Starting vtop verification pass...");
+      const verifyPrompt = `You are verifying AI-extracted vanity top data from a 2020 shop drawing.
+
+Here is the extracted data:
+${JSON.stringify({ unitTypeName: extractedUnitTypeName, vtops: finalVtops }, null, 2)}
+
+Look at the SAME shop drawing image and verify:
+1. Is the unitTypeName correct? If not, provide the correct one.
+2. Are the dimensions (length, depth) accurate? Correct any errors.
+3. Is the bowlPosition correct? Check dimension callouts for bowl offset direction.
+4. Is the bowlOffset value accurate?
+5. Are there any MISSING vanity tops not extracted? Add them.
+6. Are there any FALSE vanity tops (actually kitchen countertops)? Remove them.
+
+Return the CORRECTED complete JSON — same format:
+{"unitTypeName":"...","vtops":[...]}
+
+If everything looks correct, return the data as-is. Return ONLY valid JSON — no markdown fences, no explanation.`;
+
+      try {
+        const verifyContent = await requestGemini(
+          GEMINI_API_KEY,
+          [{ mimeType: "image/jpeg", data: pageImage }],
+          verifyPrompt,
+          VERIFY_MODELS,
+          { temperature: 0.1, maxOutputTokens: 4096 },
+        );
+        console.log("Verify vtop raw:", verifyContent.slice(0, 800));
+        const verified = parseExtractionText(verifyContent);
+
+        if (verified.vtops && verified.vtops.length > 0) {
+          finalVtops = verified.vtops;
+          finalUnitTypeName = (verified.unitTypeName || extractedUnitTypeName).trim();
+          console.log("Verified vtop unit type:", finalUnitTypeName, "vtops:", finalVtops.length);
+        }
+      } catch (verifyErr) {
+        console.warn("Vtop verification pass failed, using extraction result:", verifyErr);
+      }
+    }
+
+    const vtops = finalVtops.map(row => ({
       ...row,
       leftWallYesConfidence: row.leftWallYesConfidence ?? 0.5,
       rightWallYesConfidence: row.rightWallYesConfidence ?? 0.5,
@@ -359,7 +407,7 @@ Return ONLY valid JSON — no markdown fences, no explanation:
       reviewReason: "Wall hints are rough — will be refined by local detector.",
     }));
 
-    return new Response(JSON.stringify({ unitTypeName, vtops }), {
+    return new Response(JSON.stringify({ unitTypeName: finalUnitTypeName, vtops }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {

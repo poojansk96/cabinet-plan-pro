@@ -6,6 +6,128 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+type ModelAttempt = { name: string; retries: number };
+
+const PRIMARY_MODELS: ModelAttempt[] = [
+  { name: "gemini-3.1-flash-lite-preview", retries: 3 },
+  { name: "gemini-3-flash-preview", retries: 2 },
+];
+
+const VERIFY_MODELS: ModelAttempt[] = [
+  { name: "gemini-3.1-flash-lite-preview", retries: 2 },
+];
+
+async function requestGemini(
+  apiKey: string,
+  imageData: string,
+  prompt: string,
+  models: ModelAttempt[],
+  generationConfig: { temperature: number; maxOutputTokens: number },
+): Promise<string> {
+  let response: Response | null = null;
+
+  for (const { name: model, retries } of models) {
+    console.log(`Trying model: ${model} (${retries} attempts)`);
+    let succeeded = false;
+
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ role: "user", parts: [
+                { inlineData: { mimeType: "image/jpeg", data: imageData } },
+                { text: prompt },
+              ]}],
+              generationConfig,
+            }),
+          }
+        );
+      } catch (fetchErr) {
+        console.error(`AI fetch error (${model}, attempt ${attempt + 1}):`, fetchErr);
+        if (attempt < retries - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
+        response = null;
+        break;
+      }
+
+      if (response.status === 429) throw new Error("rate_limit");
+      if (response.status === 402) throw new Error("credits");
+
+      if (response.status === 503 || response.status === 500) {
+        console.warn(`AI unavailable (${response.status}) for ${model}, attempt ${attempt + 1}/${retries}`);
+        response = null;
+        if (attempt < retries - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
+        break;
+      }
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error("AI error:", response.status, errText);
+        throw new Error(`AI error: ${response.status}`);
+      }
+
+      succeeded = true;
+      break;
+    }
+
+    if (succeeded && response) {
+      const aiData = await response.json();
+      return aiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    }
+
+    console.warn(`Model ${model} failed, trying next fallback...`);
+  }
+
+  throw new Error("ai_unavailable");
+}
+
+function parseCountertopJSON(content: string): { unitTypeName: string; countertops: any[] } {
+  let parsed: { unitTypeName?: string; countertops?: any[] } = { countertops: [] };
+  try {
+    let cleaned = content.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
+    const jsonStart = cleaned.indexOf('{"unitTypeName"');
+    if (jsonStart >= 0) {
+      cleaned = cleaned.slice(jsonStart);
+    } else {
+      const altStart = cleaned.indexOf('{"countertops"');
+      if (altStart > 0) cleaned = cleaned.slice(altStart);
+    }
+    const end = cleaned.lastIndexOf("}");
+    if (end >= 0) cleaned = cleaned.slice(0, end + 1);
+    parsed = JSON.parse(cleaned);
+  } catch {
+    console.error("JSON parse failed, raw:", content.slice(0, 500));
+  }
+  return {
+    unitTypeName: String(parsed.unitTypeName || "").trim(),
+    countertops: parsed.countertops ?? [],
+  };
+}
+
+function normalizeCountertop(ct: any) {
+  const depth = Math.round((Number(ct.depth) || 25.5) * 2) / 2;
+  let category = String(ct.category || "").toLowerCase().trim();
+  if (!category || (category !== "kitchen" && category !== "bath")) {
+    const label = String(ct.label || "").toLowerCase();
+    if (depth <= 22 || /vanity|bath|lav|powder/.test(label)) {
+      category = "bath";
+    } else {
+      category = "kitchen";
+    }
+  }
+  return {
+    label: String(ct.label || "Section").trim(),
+    length: Math.round((Number(ct.length) || 96) * 2) / 2,
+    depth,
+    backsplashLength: Math.round((Number(ct.backsplashLength) || 0) * 2) / 2,
+    isIsland: Boolean(ct.isIsland),
+    category,
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -24,7 +146,7 @@ serve(async (req) => {
       });
     }
 
-    const prompt = `You are an expert millwork estimator analyzing a 2020 countertop shop drawing.
+    const extractionPrompt = `You are an expert millwork estimator analyzing a 2020 countertop shop drawing.
 
 TASK:
 1. First, find the UNIT TYPE NAME from the drawing's title block. This is the architectural unit/plan type shown in the title block area (usually bottom-right or top of the drawing). Examples: "1.1B-AS", "TYPE A", "2BR-ADA", "BREAKROOM", "MAIL ROOM", "COMMUNITY ROOM", "STUDIO", "1BR MIRROR", etc. Extract the EXACT and COMPLETE name as it appears — do NOT abbreviate or modify it. This is critical for grouping countertops by unit type. If no title block or type name is visible, use "".
@@ -64,111 +186,82 @@ RULES:
 Return ONLY valid JSON — no markdown fences, no explanation:
 {"unitTypeName":"1.1B-AS","countertops":[{"label":"Perimeter Left","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"}]}`;
 
-    const MODELS = [
-      { name: "gemini-3-flash-preview", retries: 3 },
-      { name: "gemini-2.5-pro", retries: 2 },
-    ];
-
-    let response: Response | null = null;
-    for (const { name: model, retries: MAX_RETRIES } of MODELS) {
-      console.log(`Trying model: ${model} (${MAX_RETRIES} attempts)`);
-      let succeeded = false;
-      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-        try {
-          response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                contents: [{ role: "user", parts: [
-                  { inlineData: { mimeType: "image/jpeg", data: pageImage } },
-                  { text: prompt },
-                ]}],
-                generationConfig: { temperature: 0.2, maxOutputTokens: 8192 },
-              }),
-            }
-          );
-        } catch (fetchErr) {
-          console.error(`AI fetch error (${model}, attempt ${attempt + 1}):`, fetchErr);
-          if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
-          response = null;
-          break;
-        }
-
-        if (response && (response.status === 503 || response.status === 500)) {
-          console.warn(`AI unavailable (${response.status}) for ${model}, attempt ${attempt + 1}/${MAX_RETRIES}`);
-          response = null;
-          if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
-          break;
-        }
-        succeeded = true;
-        break;
-      }
-      if (succeeded && response) break;
-      console.warn(`Model ${model} failed, trying next fallback...`);
-    }
-
-    if (!response) {
-      return new Response(JSON.stringify({ error: "AI model temporarily unavailable.", unitTypeName: "", countertops: [] }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("AI error:", response.status, errText);
-      if (response.status === 429) {
+    // ── Pass 1: Extraction ──
+    let extractionContent = "";
+    try {
+      extractionContent = await requestGemini(
+        GEMINI_API_KEY,
+        pageImage,
+        extractionPrompt,
+        PRIMARY_MODELS,
+        { temperature: 0.2, maxOutputTokens: 8192 },
+      );
+    } catch (err) {
+      if (err instanceof Error && err.message === "rate_limit") {
         return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      if (response.status === 402) {
+      if (err instanceof Error && err.message === "credits") {
         return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      return new Response(JSON.stringify({ error: `AI error: ${response.status}`, unitTypeName: "", countertops: [] }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    const aiData = await response.json();
-    const content: string = aiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-    console.log("AI countertop raw:", content.slice(0, 800));
-
-    let parsed: { unitTypeName?: string; countertops: any[] } = { countertops: [] };
-    try {
-      let cleaned = content.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
-      // Try to find the JSON object
-      const jsonStart = cleaned.indexOf('{"unitTypeName"');
-      if (jsonStart >= 0) {
-        cleaned = cleaned.slice(jsonStart);
-      } else {
-        const altStart = cleaned.indexOf('{"countertops"');
-        if (altStart > 0) cleaned = cleaned.slice(altStart);
+      if (err instanceof Error && err.message === "ai_unavailable") {
+        return new Response(JSON.stringify({ error: "AI model temporarily unavailable.", unitTypeName: "", countertops: [] }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      parsed = JSON.parse(cleaned);
-    } catch {
-      console.error("JSON parse failed, raw:", content.slice(0, 500));
+      throw err;
     }
 
-    const unitTypeName = String(parsed.unitTypeName || "").trim();
-    console.log("Detected unit type name:", unitTypeName);
+    console.log("AI countertop raw:", extractionContent.slice(0, 800));
+    const extracted = parseCountertopJSON(extractionContent);
+    const countertops = (extracted.countertops).map(normalizeCountertop);
 
-    const countertops = (parsed.countertops ?? []).map((ct: any) => {
-      const depth = Math.round((Number(ct.depth) || 25.5) * 2) / 2;
-      let category = String(ct.category || "").toLowerCase().trim();
-      if (!category || (category !== "kitchen" && category !== "bath")) {
-        const label = String(ct.label || "").toLowerCase();
-        if (depth <= 22 || /vanity|bath|lav|powder/.test(label)) {
-          category = "bath";
-        } else {
-          category = "kitchen";
+    // ── Pass 2: Verification ──
+    if (countertops.length > 0) {
+      console.log("Starting verification pass...");
+      const verifyPrompt = `You are verifying AI-extracted countertop data from a 2020 shop drawing.
+
+Here is the extracted data:
+${JSON.stringify({ unitTypeName: extracted.unitTypeName, countertops }, null, 2)}
+
+Look at the SAME shop drawing image and verify:
+1. Is the unitTypeName correct? If not, provide the correct one.
+2. Are there any MISSING countertop sections that were not extracted? Add them.
+3. Are the dimensions (length, depth, backsplashLength) accurate? Correct any errors.
+4. Are the categories (kitchen/bath) correct?
+5. Are there any DUPLICATE sections that should be removed?
+6. Are any sections actually NOT countertops (e.g. appliance cutouts listed separately)?
+
+Return the CORRECTED complete JSON — same format:
+{"unitTypeName":"...","countertops":[...]}
+
+If everything looks correct, return the data as-is. Return ONLY valid JSON — no markdown fences, no explanation.`;
+
+      try {
+        const verifyContent = await requestGemini(
+          GEMINI_API_KEY,
+          pageImage,
+          verifyPrompt,
+          VERIFY_MODELS,
+          { temperature: 0.1, maxOutputTokens: 8192 },
+        );
+        console.log("Verify countertop raw:", verifyContent.slice(0, 800));
+        const verified = parseCountertopJSON(verifyContent);
+
+        if (verified.countertops && verified.countertops.length > 0) {
+          const verifiedCts = verified.countertops.map(normalizeCountertop);
+          const unitTypeName = (verified.unitTypeName || extracted.unitTypeName || "").trim();
+          console.log("Verified unit type:", unitTypeName, "sections:", verifiedCts.length);
+
+          return new Response(JSON.stringify({ unitTypeName, countertops: verifiedCts }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
         }
+      } catch (verifyErr) {
+        console.warn("Verification pass failed, using extraction result:", verifyErr);
       }
+    }
 
-      return {
-        label: String(ct.label || "Section").trim(),
-        length: Math.round((Number(ct.length) || 96) * 2) / 2,
-        depth,
-        backsplashLength: Math.round((Number(ct.backsplashLength) || 0) * 2) / 2,
-        isIsland: Boolean(ct.isIsland),
-        category,
-      };
-    });
+    // Fallback: return extraction result
+    const unitTypeName = extracted.unitTypeName;
+    console.log("Detected unit type name:", unitTypeName);
 
     return new Response(JSON.stringify({ unitTypeName, countertops }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
