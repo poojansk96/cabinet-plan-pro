@@ -297,9 +297,30 @@ export default function PreFinalSummaryModule({ project }: Props) {
     });
 
     wsUnits.addRow([]);
-    const totals = store.unitTypes.map(t => unitTypeTotal(t));
-    const grandTotal = totals.reduce((s, v) => s + v, 0);
-    const totRow = wsUnits.addRow(['', '', '', `TOTAL (${store.unitNumbers.length})`, ...totals, grandTotal]);
+    // Total row with SUM formulas so manual edits auto-update
+    const dataStartRow = 5; // row 5 is first data row (after blank, title, blank, header)
+    const dataEndRow = dataStartRow + sortedUnits.length - 1;
+    const totRowValues: any[] = ['', '', '', `TOTAL (${store.unitNumbers.length})`];
+    // Placeholder values for types + grand total (will be overwritten by formulas)
+    for (let i = 0; i < store.unitTypes.length + 1; i++) totRowValues.push(0);
+    const totRow = wsUnits.addRow(totRowValues);
+    const totRowNum = totRow.number;
+
+    // Set SUM formulas for each type column (columns E, F, G, ... starting at col 5)
+    store.unitTypes.forEach((_t, idx) => {
+      const colLetter = String.fromCharCode(69 + idx); // E=69
+      const cell = totRow.getCell(5 + idx);
+      const total = unitTypeTotal(store.unitTypes[idx]);
+      cell.value = { formula: `SUM(${colLetter}${dataStartRow}:${colLetter}${dataEndRow})`, result: total } as any;
+    });
+    // Grand total column (last column) = SUM of type totals in this row
+    const grandTotalCol = 5 + store.unitTypes.length;
+    const firstTypeColLetter = 'E';
+    const lastTypeColLetter = String.fromCharCode(69 + store.unitTypes.length - 1);
+    const grandTotalCell = totRow.getCell(grandTotalCol);
+    const grandTotal = store.unitTypes.reduce((s, t) => s + unitTypeTotal(t), 0);
+    grandTotalCell.value = { formula: `SUM(${firstTypeColLetter}${totRowNum}:${lastTypeColLetter}${totRowNum})`, result: grandTotal } as any;
+
     totRow.eachCell((cell, colNumber) => {
       if (colNumber <= 1) return;
       cell.font = { bold: true };
