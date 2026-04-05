@@ -8,6 +8,14 @@ function resolveCustom(value?: string, custom?: string): string {
 }
 
 /**
+ * For Overseas Granite/Quartz: "Granite-3CM thickness-1-1/4"-(color)-Precut from overseas"
+ */
+function formatOverseasStone(material: string, color: string): string {
+  const colorPart = color || '?';
+  return `${material}-3CM thickness-1-1/4"-${colorPart}-Precut from overseas`;
+}
+
+/**
  * Combines all door-style sub-fields into a manufacturer-specific descriptive string.
  *
  * Overseas:  "Door style name" - "Color" from Overseas
