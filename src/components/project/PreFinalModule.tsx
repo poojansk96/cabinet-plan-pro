@@ -866,7 +866,7 @@ export default function PreFinalModule({ project }: Props) {
                       </th>
                       <th className="text-center" style={{ verticalAlign: 'bottom', padding: '0', minWidth: '56px' }}>
                         <div style={{
-                          background: 'hsl(280 60% 40%)',
+                          background: 'hsl(280 45% 55%)',
                           color: '#fff',
                           fontWeight: 700,
                           fontSize: '11px',
@@ -1495,7 +1495,7 @@ export default function PreFinalModule({ project }: Props) {
                 <button
                   onClick={() => setShowLaminateImport(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
-                  style={{ background: 'hsl(142 60% 35%)' }}
+                  style={{ background: 'hsl(142 50% 50%)' }}
                 >
                   <FileUp size={12} /> Upload 2020 Ctop plans
                 </button>
@@ -1567,7 +1567,7 @@ export default function PreFinalModule({ project }: Props) {
 
                         return (
                           <div key={unitType} className="mb-4">
-                            <div className="px-4 py-2 flex items-center justify-between" style={{ background: 'hsl(142 50% 30%)', color: '#fff' }}>
+                            <div className="px-4 py-2 flex items-center justify-between" style={{ background: 'hsl(142 45% 45%)', color: '#fff' }}>
                               <span className="text-xs font-bold">{unitType}</span>
                               {unitCount > 0 && (
                                 <span className="text-xs">× {unitCount} units</span>
@@ -1688,7 +1688,7 @@ export default function PreFinalModule({ project }: Props) {
       {activeSubTab === 'cmarble' && (
         <>
           {vtopImportedCount !== null && (
-            <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-white" style={{ background: 'hsl(280 50% 45%)' }}>
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-white" style={{ background: 'hsl(280 45% 58%)' }}>
               ✓ Successfully imported {vtopImportedCount} vanity top{vtopImportedCount !== 1 ? 's' : ''}
             </div>
           )}
@@ -1701,7 +1701,7 @@ export default function PreFinalModule({ project }: Props) {
                 <button
                   onClick={() => setShowVtopImport(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
-                  style={{ background: 'hsl(280 50% 45%)' }}
+                  style={{ background: 'hsl(280 45% 58%)' }}
                 >
                   <FileUp size={12} /> Upload 2020 Ctop plans
                 </button>
@@ -1742,7 +1742,7 @@ export default function PreFinalModule({ project }: Props) {
 
                         return (
                           <div key={unitType} className="mb-4">
-                            <div className="px-4 py-2 flex items-center justify-between" style={{ background: 'hsl(280 50% 40%)', color: '#fff' }}>
+                            <div className="px-4 py-2 flex items-center justify-between" style={{ background: 'hsl(280 42% 55%)', color: '#fff' }}>
                               <span className="text-xs font-bold">{unitType}</span>
                               {unitCount > 0 && (
                                 <span className="text-xs">× {unitCount} units</span>
@@ -1820,8 +1820,8 @@ export default function PreFinalModule({ project }: Props) {
                                   <td className="font-bold">{type}</td>
                                   <td className="text-right font-mono">{unitCount}</td>
                                   <td className="text-right font-mono">{vtopCount}</td>
-                                  <td className="text-right font-mono font-bold" style={{ color: 'hsl(280 50% 45%)' }}>{vtopCount * unitCount}</td>
-                                  <td className="text-right font-mono font-bold" style={{ color: 'hsl(280 50% 45%)' }}>{ssCount * unitCount}</td>
+                                  <td className="text-right font-mono font-bold" style={{ color: 'hsl(280 45% 58%)' }}>{vtopCount * unitCount}</td>
+                                  <td className="text-right font-mono font-bold" style={{ color: 'hsl(280 45% 58%)' }}>{ssCount * unitCount}</td>
                                 </tr>
                               );
                             })}
