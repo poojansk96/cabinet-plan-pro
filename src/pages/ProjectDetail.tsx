@@ -242,6 +242,7 @@ export default function ProjectDetail() {
               <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'hsl(215 28% 10%)' }}>Prefinal – 2020 Shops</span>
             </div>
             <p className="text-[9px] mb-1 leading-tight" style={{ color: 'hsl(var(--muted-foreground))' }}>Upload 2020 floorplan and ctop drawings PDF. Extract units, cabinets, top sqft, liner feet and vtop sizes.</p>
+            <p className="text-[9px] mb-1 leading-tight font-semibold" style={{ color: 'hsl(var(--section-prefinal))' }}>📊 Formula-ready Excel report</p>
             <div className="flex items-center gap-1">
               {PREFINAL_TABS.map((tab) => (
                 <button
