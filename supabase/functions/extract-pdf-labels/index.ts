@@ -534,7 +534,7 @@ serve(async (req) => {
       console.log("Skipping classification (skipClassify=true, assuming plan_view)");
       rawPageType = "plan_view";
       // Detect common area from text hints
-      const commonAreaPattern = /\b(LAUNDRY|MAIL\s*ROOM|RESTROOM|LOBBY|CLUBHOUSE|FITNESS|LEASING|BUSINESS\s*CENTER|POOL\s*BATH|TRASH|MAINTENANCE|MODEL|STORAGE|GARAGE|CORRIDOR|MECHANICAL|COMMUNITY|BREAK\s*ROOM|RECEPTION)\b/i;
+      const commonAreaPattern = /\b(LAUNDRY|MAIL\s*ROOM|RESTROOM|LOBBY|CLUBHOUSE|FITNESS|LEASING|BUSINESS\s*CENTER|POOL\s*BATH|TRASH|MAINTENANCE|MODEL|STORAGE|GARAGE|CORRIDOR|MECHANICAL|COMMUNITY|BREAK\s*ROOM|RECEPTION|OFFICE|KITCHEN\s*\(COMMON\)|COMMON\s*KITCHEN)\b/i;
       isCommonArea = commonAreaPattern.test(pageText || '');
     } else if (classificationOverride) {
       const co = classificationOverride;
@@ -551,7 +551,7 @@ PAGE TYPES (return one of these exact strings for pageType):
 - "title_page": Cover page or title page with project info, unit type name, unit numbers list. No cabinet drawings visible.
 
 COMMON AREAS (set isCommonArea to true for ANY of these):
-Laundry, Mail Room, Restroom, Lobby, Clubhouse, Fitness Center, Leasing Office, Business Center, Pool Bath, Trash Room, Maintenance, Model, Storage, Garage, Corridor, Mechanical, Community Room, Break Room, Kitchen (Common), Reception, any non-residential space.
+Laundry, Mail Room, Restroom, Lobby, Clubhouse, Fitness Center, Leasing Office, Business Center, Pool Bath, Trash Room, Maintenance, Model, Storage, Garage, Corridor, Mechanical, Community Room, Break Room, Kitchen (Common), Reception, Office, any non-residential space.
 COMMON AREA VARIANTS: If a common area page has a variant suffix like "RESTROOM-AS", "RESTROOM-MIRROR", "RESTROOM (AS)", include the FULL variant in unitTypeName (e.g., return "RESTROOM-AS" not just "RESTROOM"). Same for Reception, Laundry, etc.
 
 RESIDENTIAL (set isCommonArea to false):
@@ -604,7 +604,7 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
 
     const unitTypeDetectInstructions = skipClassify && !isStrip ? `
 UNIT TYPE NAME: Also detect the unit type name from the title block, header, or prominent text on this page.
-Look for formats like: "3BR TYPE C-MIRROR", "2BR TYPE B1", "TYPE 1 - AS", "TYPE A - MIRROR", "TYPE 2 - ADA", "TYPE B1", "TYPE C2", "1BR-A.2", "1BR-A.1", "1BR-A / TYPE A-AS", "Laundry", "Mail Room", etc.
+Look for formats like: "3BR TYPE C-MIRROR", "2BR TYPE B1", "TYPE 1 - AS", "TYPE A - MIRROR", "TYPE 2 - ADA", "TYPE B1", "TYPE C2", "1BR-A.2", "1BR-A.1", "1BR-A / TYPE A-AS", "Laundry", "Mail Room", "Office", etc.
 IMPORTANT: Return the FULL type name exactly as written, INCLUDING bedroom-count prefixes like "1BR", "2BR", "3BR", "STUDIO".
   Example: If the title says "2BR TYPE B1" → return "2BR TYPE B1" (NOT just "TYPE B1").
   Example: If the title says "3BR TYPE C-MIRROR" → return "3BR TYPE C-MIRROR".
