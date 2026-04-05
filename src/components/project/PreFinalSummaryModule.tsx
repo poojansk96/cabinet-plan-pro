@@ -1494,6 +1494,80 @@ export default function PreFinalSummaryModule({ project }: Props) {
       cell.border = allBorders;
     });
 
+    // ── Sheet 6: Slab Order ─────────────────────────────────────────
+    const wsSlab = wb.addWorksheet('6-Slab Order');
+    const slabColBldg = 2, slabColFloor = 3, slabColUnit = 4, slabColTypeName = 5;
+
+    wsSlab.columns = [
+      { width: 3 },   // A blank
+      { width: 14 },  // B BLDG
+      { width: 10 },  // C FLOOR
+      { width: 12 },  // D Unit#
+      { width: 44 },  // E UNIT TYPE NAME
+    ];
+
+    // Row 1: blank
+    wsSlab.addRow([]);
+
+    // Row 2: Job Name box
+    const slabJobRow = wsSlab.addRow([]);
+    const slabJobCell = slabJobRow.getCell(slabColBldg);
+    slabJobCell.value = `Job Name:- ${project.name}`;
+    slabJobCell.font = { bold: true, size: 11 };
+    slabJobCell.border = allBorders;
+
+    // Row 3: blank
+    wsSlab.addRow([]);
+
+    // Row 4: label
+    const slabLabelRow = wsSlab.addRow([]);
+    const slabLabelCell = slabLabelRow.getCell(slabColBldg);
+    slabLabelCell.value = 'SLAB ORDER';
+    slabLabelCell.font = { bold: true, size: 11 };
+    slabLabelCell.border = allBorders;
+
+    // Rows 5-6: blank
+    wsSlab.addRow([]);
+    wsSlab.addRow([]);
+
+    // Row 7: Column headers
+    const slabHeader = wsSlab.addRow(['', 'BLDG', 'FLOOR', 'Unit#', 'UNIT TYPE NAME']);
+    slabHeader.height = 30;
+    slabHeader.eachCell((cell, colNumber) => {
+      if (colNumber <= 1) return;
+      cell.font = { bold: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F0' } };
+      cell.border = allBorders;
+      cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: false };
+    });
+
+    wsSlab.views = [{ state: 'frozen', xSplit: 0, ySplit: 7 }];
+
+    sortedUnits.forEach(unit => {
+      const assignedTypes = Object.entries(unit.assignments || {})
+        .filter(([, v]) => v)
+        .map(([k]) => k);
+      const unitTypeName = assignedTypes.join(' / ');
+
+      const row = wsSlab.addRow(['', unit.bldg || '', unit.floor || '', unit.name, unitTypeName]);
+      row.eachCell((cell, colNumber) => {
+        if (colNumber <= 1) return;
+        cell.border = allBorders;
+      });
+    });
+
+    // Blank row then total
+    wsSlab.addRow([]);
+    const slabTotRow = wsSlab.addRow([]);
+    slabTotRow.getCell(slabColUnit).value = `TOTAL (${sortedUnits.length})`;
+    slabTotRow.getCell(slabColUnit).font = { bold: true };
+    slabTotRow.eachCell((cell, colNumber) => {
+      if (colNumber <= 1) return;
+      cell.font = { bold: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
+      cell.border = allBorders;
+    });
+
     // Download
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
