@@ -48,6 +48,7 @@ export default function PreFinalModule({ project }: Props) {
   const [importTargetType, setImportTargetType] = useState('');
   const [cabinetImportedCount, setCabinetImportedCount] = useState<number | null>(null);
   const [cabinetChecks, setCabinetChecks] = useState<Record<string, boolean>>({});
+  const [cabinetAiModel, setCabinetAiModel] = useState<'fast' | 'accu'>('fast');
 
   // ── Stone SQFT state ──────────────────────────────────────────────────
   const [showStoneImport, setShowStoneImport] = useState(false);
