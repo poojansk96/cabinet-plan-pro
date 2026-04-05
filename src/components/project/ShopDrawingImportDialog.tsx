@@ -3,6 +3,7 @@ import { FileUp, X, Loader2, CheckCircle, AlertCircle, Sparkles, Trash2, FilePlu
 import type { CabinetType, Room } from '@/types/project';
 import { extractPlanSkuCountsFromTextItems, mergePrefinalExtractionPasses } from '@/lib/prefinalCabinetMerge';
 import { toast } from 'sonner';
+import { startBackgroundExtraction, useExtractionJob, clearExtractionJob } from '@/hooks/useCabinetExtractionStore';
 
 const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-pdf-labels`;
 
@@ -463,6 +464,46 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
   const fileRef = useRef<HTMLInputElement>(null);
   const addMoreRef = useRef<HTMLInputElement>(null);
 
+  // ── Pick up background job results ──────────────────────────────────
+  const bgJob = useExtractionJob();
+  const bgPickedUpRef = useRef(false);
+
+  useEffect(() => {
+    if (!bgJob || bgPickedUpRef.current) return;
+    if (bgJob.status === 'processing') {
+      // Show processing state from background job
+      setStep('processing');
+      setProgress(bgJob.progress);
+      setProcessedPages(bgJob.processedPages);
+      setTotalPages(bgJob.totalPages);
+      setProcessingStatus(bgJob.statusText);
+    } else if (bgJob.status === 'done') {
+      // Auto-load results into review
+      bgPickedUpRef.current = true;
+      setRows(bgJob.rows);
+      setDetectedUnitType(bgJob.detectedUnitType);
+      setTypeOrder(bgJob.typeOrder);
+      setFilterSource('all');
+      setProgress(100);
+      setStep('review');
+      clearExtractionJob();
+    } else if (bgJob.status === 'error') {
+      bgPickedUpRef.current = true;
+      setError(bgJob.error);
+      setStep('upload');
+      clearExtractionJob();
+    }
+  }, [bgJob]);
+
+  // Sync ongoing background progress into local state
+  useEffect(() => {
+    if (!bgJob || bgJob.status !== 'processing' || bgPickedUpRef.current) return;
+    setProgress(bgJob.progress);
+    setProcessedPages(bgJob.processedPages);
+    setTotalPages(bgJob.totalPages);
+    setProcessingStatus(bgJob.statusText);
+  }, [bgJob?.progress, bgJob?.processedPages, bgJob?.statusText]);
+
   // Rotate quote every 4 seconds during processing
   useEffect(() => {
     if (step !== 'processing') return;
@@ -776,78 +817,15 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
     setProgress(5);
     setProcessedPages(0);
     stepsCompletedRef.current = 0;
+    bgPickedUpRef.current = false;
 
-    try {
-      setProcessingStatus('Loading PDF library…');
-      const pdfjsLib = (await import('pdfjs-dist')) as any;
-      pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
-
-      // Count total pages across all files for progress
-      let totalPagesCount = 0;
-      for (const file of files) {
-        const ab = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ab) }).promise;
-        totalPagesCount += pdf.numPages;
-      }
-      setTotalPages(totalPagesCount);
-      // 7 AI steps per page (1 full + 6 strips)
-      const totalStepsCount = totalPagesCount * 7;
-      setTotalSteps(totalStepsCount);
-      setProgress(10);
-
-      let pagesProcessed = 0;
-      let allRows: LabelRow[] = [];
-      let firstDetectedType: string | null = null;
-      const collectedTypeOrder: string[] = [];
-      for (let i = 0; i < files.length; i++) {
-        setProcessingStatus(`Processing file ${i + 1} of ${files.length}: "${files[i].name}"…`);
-        try {
-          const result = await processSingleFile(files[i], pdfjsLib, setProcessingStatus, () => {
-            pagesProcessed++;
-            setProcessedPages(pagesProcessed);
-          }, () => {
-            stepsCompletedRef.current++;
-            // Progress: 10% (setup) → 95% (processing) → 100% (done)
-            setProgress(10 + Math.round((stepsCompletedRef.current / totalStepsCount) * 85));
-          });
-          allRows = mergeRows(result.rows, allRows);
-          if (!firstDetectedType && result.detectedType) firstDetectedType = result.detectedType;
-          // Collect type order from each file, preserving page order across files
-          for (const t of result.typeOrder) {
-            if (!collectedTypeOrder.includes(t)) collectedTypeOrder.push(t);
-          }
-        } catch (err: any) {
-          if (err.message === 'rate_limit') { toast.error('AI rate limit reached. Try again shortly.'); setStep('upload'); return; }
-          if (err.message === 'credits') { toast.error('AI credits exhausted.'); setStep('upload'); return; }
-          toast.error(`Skipped "${files[i].name}": ${err.message}`);
-        }
-      }
-
-      if (allRows.length === 0 && collectedTypeOrder.length === 0) {
-        setError('No cabinet labels or unit type names found in any uploaded file.');
-        setStep('upload');
-        return;
-      }
-      setProgress(100);
-      setRows(allRows);
-      if (firstDetectedType) setDetectedUnitType(firstDetectedType);
-      setTypeOrder(collectedTypeOrder);
-      setFilterSource('all');
-      setStep('review');
-    } catch (err) {
-      console.error(err);
-      setError('Failed to process files. Please try again.');
-      setStep('upload');
-    }
+    // Kick off background extraction — processing continues even if dialog closes
+    startBackgroundExtraction(files, unitType, speedMode, skipClassify, aiModel, processSingleFile);
   };
 
   // Wrap in a Web Lock so the browser won't freeze/discard this tab while processing
   const processFiles = async (files: File[]) => {
-    if (navigator.locks) {
-      await navigator.locks.request('shop-drawing-processing', () => doProcessFiles(files));
-    } else {
-      await doProcessFiles(files);
-    }
+    doProcessFiles(files);
   };
 
   const doAddMoreFiles = async (files: File[]) => {
