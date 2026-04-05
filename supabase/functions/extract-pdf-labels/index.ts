@@ -598,6 +598,10 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
       });
     }
 
+    // Common area sub-types that are fixture-only (no cabinets expected)
+    const FIXTURE_ONLY_COMMON_AREAS = /\b(RESTROOM|LOBBY|CORRIDOR|MECHANICAL|GARAGE|STORAGE|TRASH|POOL\s*BATH|FITNESS)\b/i;
+    const isFixtureOnlyCommonArea = isCommonArea && FIXTURE_ONLY_COMMON_AREAS.test(detectedUnitType ?? pageText ?? '');
+
     // ═══════════════════════════════════════════════════════════
     // STEP 2: EXTRACT CABINET SKUs (focused, single-pass)
     // ═══════════════════════════════════════════════════════════
@@ -812,7 +816,8 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
     // ── RECOVERY: If extraction is empty but text layer has SKUs ──
     // This catches MIRROR pages and cases where the AI fails to read labels.
     // Seed with qty=1 each (text counts are unreliable due to legends/notes).
-    if (!isStrip && finalItems.length === 0 && textLayerSkus.length > 0) {
+    // SKIP for fixture-only common areas (Restroom, Lobby, etc.) — empty is correct.
+    if (!isStrip && finalItems.length === 0 && textLayerSkus.length > 0 && !isFixtureOnlyCommonArea) {
       console.log(`Extraction empty but text layer has ${textLayerSkus.length} SKUs — seeding with qty=1`);
       for (const sku of textLayerSkus) {
         if (isValidSku(sku)) {
@@ -826,7 +831,9 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
     // This catches individual labels the AI missed (common with MIRROR layouts
     // where adjacent vertical labels like W1230 next to WDC2430-R get concatenated
     // or simply overlooked by the vision model).
-    if (!isStrip && finalItems.length > 0 && textLayerSkus.length > 0) {
+    // SKIP for fixture-only common areas — any AI-detected items on these pages
+    // are likely hallucinations from dimension text, not real cabinet labels.
+    if (!isStrip && finalItems.length > 0 && textLayerSkus.length > 0 && !isFixtureOnlyCommonArea) {
       const extractedSkuSet = new Set(finalItems.map((i: any) => normalizeSkuLabel(String(i.sku || ''))));
       // Also track base SKUs (without -L/-R etc.) to avoid adding W1230 when W1230-L already exists
       const extractedBases = new Set(finalItems.map((i: any) => normalizeSkuLabel(String(i.sku || '')).replace(/[-+][A-Z0-9]+$/i, '')));
@@ -874,6 +881,15 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
     }
 
     console.log(`Final: ${finalItems.length} items`);
+
+    // ── Common area hallucination guard ──
+    // Fixture-only common areas (Restroom, Lobby, etc.) should never have cabinets.
+    // If the AI found a small number of items, they're almost certainly hallucinated
+    // from dimension text, reference markers, or fixture labels.
+    if (isFixtureOnlyCommonArea && finalItems.length > 0 && finalItems.length <= 3) {
+      console.log(`Fixture-only common area guard: clearing ${finalItems.length} likely-hallucinated items for ${detectedUnitType ?? 'unknown'}`);
+      finalItems = [];
+    }
 
     // ── Normalize and filter ──
     let items = finalItems
