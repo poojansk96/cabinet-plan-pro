@@ -306,20 +306,25 @@ export default function PreFinalSummaryModule({ project }: Props) {
     const totRow = wsUnits.addRow(totRowValues);
     const ucTotRowNum = totRow.number;
 
-    // Set SUM formulas for each type column (columns E, F, G, ... starting at col 5)
+    // Helper to convert 1-based column number to Excel letter(s)
+    const ucColLetter = (col: number) => {
+      let n = col; let s = '';
+      while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); }
+      return s;
+    };
+
+    // Set SUM formulas for each type column (columns starting at col 5 = E)
     store.unitTypes.forEach((_t, idx) => {
-      const colLetter = String.fromCharCode(69 + idx); // E=69
+      const cl = ucColLetter(5 + idx);
       const cell = totRow.getCell(5 + idx);
       const total = unitTypeTotal(store.unitTypes[idx]);
-      cell.value = { formula: `SUM(${colLetter}${dataStartRow}:${colLetter}${dataEndRow})`, result: total } as any;
+      cell.value = { formula: `SUM(${cl}${dataStartRow}:${cl}${dataEndRow})`, result: total } as any;
     });
-    // Grand total column (last column) = SUM of type totals in this row
+    // Grand total column = SUM of type totals in this row
     const grandTotalCol = 5 + store.unitTypes.length;
-    const firstTypeColLetter = 'E';
-    const lastTypeColLetter = String.fromCharCode(69 + store.unitTypes.length - 1);
     const grandTotalCell = totRow.getCell(grandTotalCol);
     const grandTotal = store.unitTypes.reduce((s, t) => s + unitTypeTotal(t), 0);
-    grandTotalCell.value = { formula: `SUM(${firstTypeColLetter}${ucTotRowNum}:${lastTypeColLetter}${ucTotRowNum})`, result: grandTotal } as any;
+    grandTotalCell.value = { formula: `SUM(${ucColLetter(5)}${ucTotRowNum}:${ucColLetter(4 + store.unitTypes.length)}${ucTotRowNum})`, result: grandTotal } as any;
 
     totRow.eachCell((cell, colNumber) => {
       if (colNumber <= 1) return;
