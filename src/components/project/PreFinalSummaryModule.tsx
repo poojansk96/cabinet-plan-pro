@@ -304,7 +304,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
     // Placeholder values for types + grand total (will be overwritten by formulas)
     for (let i = 0; i < store.unitTypes.length + 1; i++) totRowValues.push(0);
     const totRow = wsUnits.addRow(totRowValues);
-    const totRowNum = totRow.number;
+    const ucTotRowNum = totRow.number;
 
     // Set SUM formulas for each type column (columns E, F, G, ... starting at col 5)
     store.unitTypes.forEach((_t, idx) => {
@@ -319,7 +319,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
     const lastTypeColLetter = String.fromCharCode(69 + store.unitTypes.length - 1);
     const grandTotalCell = totRow.getCell(grandTotalCol);
     const grandTotal = store.unitTypes.reduce((s, t) => s + unitTypeTotal(t), 0);
-    grandTotalCell.value = { formula: `SUM(${firstTypeColLetter}${totRowNum}:${lastTypeColLetter}${totRowNum})`, result: grandTotal } as any;
+    grandTotalCell.value = { formula: `SUM(${firstTypeColLetter}${ucTotRowNum}:${lastTypeColLetter}${ucTotRowNum})`, result: grandTotal } as any;
 
     totRow.eachCell((cell, colNumber) => {
       if (colNumber <= 1) return;
