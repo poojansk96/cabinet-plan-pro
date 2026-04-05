@@ -217,7 +217,7 @@ function classifySku(sku: string): string {
   if (/^(HAV|HAVDB)\d/i.test(sku)) return "Vanity";
   if (/^(FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|TF|APPRON|UREP|REP)\d/i.test(sku)) return "Accessory";
   // HA-prefixed base variants: HAB, HADB, HAOC, HASB, etc.
-  if (/^(HAB|HADB|HAOC|HASB|HACB|HAEB|HALS|HALSB)\d/i.test(sku)) return "Base";
+  if (/^(HAB|HADB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HCDB)\d/i.test(sku)) return "Base";
   return "Base";
 }
 
@@ -622,10 +622,10 @@ ${unitTypeDetectInstructions}
 For each cabinet found, provide:
 1. sku: The SKU label exactly as written (e.g. B24, W3036, DB15, BF3, WF6X30, LS36-L, BLW36/3930-L, B09FH, APPRON59X21, DWR1). For APPRON labels with dimensions like "APPRON 59X21", combine into one string without spaces: "APPRON59X21".
 2. type: Classify by prefix:
-   - "Base" → B, DB, SB, CB, EB, LS, LSB (but NOT BLW/BRW — those are Wall, NOT HAV — those are Vanity)
-    - "Wall" → W, WDC, UB, WC, OH, BLW, BRW, HW (but NOT HAV — those are Vanity)
-    - "Tall" → T, UT, TC, PT, PTC, UC, HALC
-    - "Vanity" → V, VB, VD, VDC, HAV, HAVDB (HAV/HAVDB = Vanity, NOT Base)
+   - "Base" → B, DB, SB, CB, EB, LS, LSB, HCDB, HAB, HADB, HAOC, HASB, HACB, HAEB (but NOT BLW/BRW — those are Wall, NOT HAV — those are Vanity)
+    - "Wall" → W, WDC, UB, WC, OH, BLW, BRW, HW, HAW, HAWDC, HCW (but NOT HAV — those are Vanity, NOT HCDB — that is Base, NOT HCUC — that is Tall)
+     - "Tall" → T, UT, TC, PT, PTC, UC, HALC, HCUC (HCUC15X82 = Tall, NOT Wall)
+     - "Vanity" → V, VB, VD, VDC, HAV, HAVDB (HAV/HAVDB = Vanity, NOT Base)
    - "Accessory" → FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR, TF, APPRON
 3. room: From room labels on the plan (Kitchen, Bath, Laundry, Pantry — capitalize first letter only)
 4. quantity: Count EVERY separate label occurrence of this SKU on this page
