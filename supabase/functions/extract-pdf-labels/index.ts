@@ -217,7 +217,7 @@ function classifySku(sku: string): string {
   if (/^(HAV|HAVDB)\d/i.test(sku)) return "Vanity";
   if (/^(FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|TF|APPRON|UREP|REP)\d/i.test(sku)) return "Accessory";
   // HA-prefixed base variants: HAB, HADB, HAOC, HASB, etc.
-  if (/^(HAB|HADB|HAOC|HASB|HACB|HAEB|HALS|HALSB)\d/i.test(sku)) return "Base";
+  if (/^(HAB|HADB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HCDB)\d/i.test(sku)) return "Base";
   return "Base";
 }
 
