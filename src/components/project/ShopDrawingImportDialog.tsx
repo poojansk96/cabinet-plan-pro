@@ -3,6 +3,7 @@ import { FileUp, X, Loader2, CheckCircle, AlertCircle, Sparkles, Trash2, FilePlu
 import type { CabinetType, Room } from '@/types/project';
 import { extractPlanSkuCountsFromTextItems, mergePrefinalExtractionPasses } from '@/lib/prefinalCabinetMerge';
 import { toast } from 'sonner';
+import { startBackgroundExtraction, useExtractionJob, clearExtractionJob } from '@/hooks/useCabinetExtractionStore';
 
 const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-pdf-labels`;
 
