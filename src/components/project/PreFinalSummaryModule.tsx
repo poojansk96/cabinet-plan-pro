@@ -142,7 +142,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
     };
 
     // ── Sheet 1: Project Info ───────────────────────────────────────
-    const wsInfo = wb.addWorksheet('Project Info');
+    const wsInfo = wb.addWorksheet('1-Project Info');
     wsInfo.columns = [{ width: 22 }, { width: 40 }, { width: 30 }];
     const sp = project.specs as Record<string, any> | undefined;
 
