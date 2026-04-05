@@ -297,9 +297,35 @@ export default function PreFinalSummaryModule({ project }: Props) {
     });
 
     wsUnits.addRow([]);
-    const totals = store.unitTypes.map(t => unitTypeTotal(t));
-    const grandTotal = totals.reduce((s, v) => s + v, 0);
-    const totRow = wsUnits.addRow(['', '', '', `TOTAL (${store.unitNumbers.length})`, ...totals, grandTotal]);
+    // Total row with SUM formulas so manual edits auto-update
+    const dataStartRow = 5; // row 5 is first data row (after blank, title, blank, header)
+    const dataEndRow = dataStartRow + sortedUnits.length - 1;
+    const totRowValues: any[] = ['', '', '', `TOTAL (${store.unitNumbers.length})`];
+    // Placeholder values for types + grand total (will be overwritten by formulas)
+    for (let i = 0; i < store.unitTypes.length + 1; i++) totRowValues.push(0);
+    const totRow = wsUnits.addRow(totRowValues);
+    const ucTotRowNum = totRow.number;
+
+    // Helper to convert 1-based column number to Excel letter(s)
+    const ucColLetter = (col: number) => {
+      let n = col; let s = '';
+      while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); }
+      return s;
+    };
+
+    // Set SUM formulas for each type column (columns starting at col 5 = E)
+    store.unitTypes.forEach((_t, idx) => {
+      const cl = ucColLetter(5 + idx);
+      const cell = totRow.getCell(5 + idx);
+      const total = unitTypeTotal(store.unitTypes[idx]);
+      cell.value = { formula: `SUM(${cl}${dataStartRow}:${cl}${dataEndRow})`, result: total } as any;
+    });
+    // Grand total column = SUM of type totals in this row
+    const grandTotalCol = 5 + store.unitTypes.length;
+    const grandTotalCell = totRow.getCell(grandTotalCol);
+    const grandTotal = store.unitTypes.reduce((s, t) => s + unitTypeTotal(t), 0);
+    grandTotalCell.value = { formula: `SUM(${ucColLetter(5)}${ucTotRowNum}:${ucColLetter(4 + store.unitTypes.length)}${ucTotRowNum})`, result: grandTotal } as any;
+
     totRow.eachCell((cell, colNumber) => {
       if (colNumber <= 1) return;
       cell.font = { bold: true };
