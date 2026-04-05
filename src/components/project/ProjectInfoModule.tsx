@@ -141,7 +141,7 @@ export default function ProjectInfoModule({ project, onSave }: Props) {
             if (key === 'countertops') {
               setSpecs(s => ({ ...s, countertops: v, countertopManufacturer: '', countertopManufacturerCustom: '', countertopColor: '', countertopColorCustom: '', laminateSubstrate: '', laminateSubstrateCustom: '', laminateColor: '', laminateColorCustom: '' }));
             } else if (key === 'vanityCountertops') {
-              setSpecs(s => ({ ...s, vanityCountertops: v, vanityManufacturer: '', vanityManufacturerCustom: '', vanityColor: '', vanityColorCustom: '', vanityLaminateSubstrate: '', vanityLaminateSubstrateCustom: '', vanityLaminateColor: '', vanityLaminateColorCustom: '', vanityBowlStyle: '', vanityBowlStyleCustom: '', vanityCMColor: '', vanityCMColorCustom: '' }));
+              setSpecs(s => ({ ...s, vanityCountertops: v, vanityManufacturer: '', vanityManufacturerCustom: '', vanityColor: '', vanityColorCustom: '', vanityLaminateSubstrate: '', vanityLaminateSubstrateCustom: '', vanityLaminateColor: '', vanityLaminateColorCustom: '', vanityBowlStyle: '', vanityBowlStyleCustom: '', vanityCMColor: '', vanityCMColorCustom: '', faucetSelection: '' }));
             } else if (key === 'additionalTops') {
               setSpecs(s => ({ ...s, additionalTops: v, additionalTopsManufacturer: '', additionalTopsManufacturerCustom: '', additionalTopsColor: '', additionalTopsColorCustom: '', additionalTopsLaminateSubstrate: '', additionalTopsLaminateSubstrateCustom: '', additionalTopsLaminateColor: '', additionalTopsLaminateColorCustom: '' }));
             } else {
@@ -478,7 +478,7 @@ export default function ProjectInfoModule({ project, onSave }: Props) {
                   onChange={e => {
                     const checked = e.target.checked;
                     if (checked) {
-                      setSpecs(s => ({ ...s, vanitySameAsKitchen: true, vanityCountertops: s.countertops, vanityManufacturer: s.countertopManufacturer, vanityManufacturerCustom: s.countertopManufacturerCustom, vanityColor: s.countertopColor, vanityColorCustom: s.countertopColorCustom, vanityLaminateSubstrate: s.laminateSubstrate, vanityLaminateSubstrateCustom: s.laminateSubstrateCustom, vanityLaminateColor: s.laminateColor, vanityLaminateColorCustom: s.laminateColorCustom, vanityBowlStyle: '', vanityBowlStyleCustom: '', vanityCMColor: '', vanityCMColorCustom: '' }));
+                      setSpecs(s => ({ ...s, vanitySameAsKitchen: true, vanityCountertops: s.countertops, vanityManufacturer: s.countertopManufacturer, vanityManufacturerCustom: s.countertopManufacturerCustom, vanityColor: s.countertopColor, vanityColorCustom: s.countertopColorCustom, vanityLaminateSubstrate: s.laminateSubstrate, vanityLaminateSubstrateCustom: s.laminateSubstrateCustom, vanityLaminateColor: s.laminateColor, vanityLaminateColorCustom: s.laminateColorCustom, vanityBowlStyle: '', vanityBowlStyleCustom: '', vanityCMColor: '', vanityCMColorCustom: '', faucetSelection: '' }));
                     } else {
                       setSpecs(s => ({ ...s, vanitySameAsKitchen: false }));
                     }
