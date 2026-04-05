@@ -604,7 +604,7 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
 
     const unitTypeDetectInstructions = skipClassify && !isStrip ? `
 UNIT TYPE NAME: Also detect the unit type name from the title block, header, or prominent text on this page.
-Look for formats like: "3BR TYPE C-MIRROR", "2BR TYPE B1", "TYPE 1 - AS", "TYPE A - MIRROR", "TYPE 2 - ADA", "TYPE B1", "TYPE C2", "1BR-A.2", "1BR-A.1", "1BR-A / TYPE A-AS", "Laundry", "Mail Room", etc.
+Look for formats like: "3BR TYPE C-MIRROR", "2BR TYPE B1", "TYPE 1 - AS", "TYPE A - MIRROR", "TYPE 2 - ADA", "TYPE B1", "TYPE C2", "1BR-A.2", "1BR-A.1", "1BR-A / TYPE A-AS", "Laundry", "Mail Room", "Office", etc.
 IMPORTANT: Return the FULL type name exactly as written, INCLUDING bedroom-count prefixes like "1BR", "2BR", "3BR", "STUDIO".
   Example: If the title says "2BR TYPE B1" → return "2BR TYPE B1" (NOT just "TYPE B1").
   Example: If the title says "3BR TYPE C-MIRROR" → return "3BR TYPE C-MIRROR".
