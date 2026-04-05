@@ -288,24 +288,11 @@ export function mergePrefinalExtractionPasses(
     keysBySku.set(normalizedSku, keys);
   }
 
-  for (const [sku, keys] of keysBySku.entries()) {
-    if (keys.length !== 1) continue;
-
-    const planTextCount = planTextSkuCounts[sku] ?? 0;
-    if (planTextCount <= 0) continue;
-
-    const key = keys[0];
-    const existing = map.get(key);
-    if (!existing) continue;
-
-    const currentQty = Math.max(1, Number(existing.quantity) || 1);
-    const support = stripStats.get(key)?.support ?? 0;
-    const canPromoteByOne = planTextCount === currentQty + 1 && (currentQty >= 3 || support >= 3);
-
-    if (canPromoteByOne) {
-      existing.quantity = planTextCount;
-    }
-  }
+  // AI vision is the definitive source of truth for quantities.
+  // The text layer / plan-text counts are ONLY used as a downward CAP
+  // to prevent overcounting, never as an upward promoter.
+  // (Removed canPromoteByOne logic — it caused +1 overcounting on types
+  // where the text layer included non-physical references like legends.)
 
   return Array.from(map.values());
 }
