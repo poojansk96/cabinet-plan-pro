@@ -142,7 +142,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
     };
 
     // ── Sheet 1: Project Info ───────────────────────────────────────
-    const wsInfo = wb.addWorksheet('Project Info');
+    const wsInfo = wb.addWorksheet('1-Project Info');
     wsInfo.columns = [{ width: 22 }, { width: 40 }, { width: 30 }];
     const sp = project.specs as Record<string, any> | undefined;
 
@@ -234,7 +234,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
     });
 
     // ── Sheet 2: Unit Count ─────────────────────────────────────────
-    const wsUnits = wb.addWorksheet('Unit Count');
+    const wsUnits = wb.addWorksheet('2-Unit Count');
     const unitTypeCols = store.unitTypes.length;
     wsUnits.columns = [
       { width: 3 },   // blank col A
@@ -335,7 +335,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
     });
 
     // ── Sheet 3: Cabinet Count ──────────────────────────────────────
-    const wsCabs = wb.addWorksheet('Cabinet Count');
+    const wsCabs = wb.addWorksheet('3-Cabinet Count');
     const cabTypes = store.cabinetUnitTypes;
     const nTypes = cabTypes.length;
 
@@ -792,7 +792,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
 
     // ── Sheet 4: Costing ────────────────────────────────────────────
-    const wsCosting = wb.addWorksheet('Costing');
+    const wsCosting = wb.addWorksheet('4-Costing');
 
     // Column indices (1-based) — col 1 is blank pad
     const cc = {
@@ -978,7 +978,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
       const ucIdx = ucTypeIndexMap[normalizeTypeKey(t)];
       if (ucIdx !== undefined) {
         const ucTypeCol = ucColLetter(5 + ucIdx);
-        setFormula(row.getCell(cc.type), `'Unit Count'!${ucTypeCol}${ucHeaderRow}`, t);
+        setFormula(row.getCell(cc.type), `'2-Unit Count'!${ucTypeCol}${ucHeaderRow}`, t);
       } else {
         row.getCell(cc.type).value = t;
       }
@@ -988,20 +988,20 @@ export default function PreFinalSummaryModule({ project }: Props) {
       // QTY — reference Unit Count sheet total row
       if (ucIdx !== undefined) {
         const ucTypeCol = ucColLetter(5 + ucIdx);
-        setFormula(row.getCell(cc.qty), `'Unit Count'!${ucTypeCol}${ucTotRowNum}`, unitTypeTotal(t));
+        setFormula(row.getCell(cc.qty), `'2-Unit Count'!${ucTypeCol}${ucTotRowNum}`, unitTypeTotal(t));
       } else {
-        setFormula(row.getCell(cc.qty), `'Cabinet Count'!${ref(colTotalCabFirstType + i, unitCountRow.number)}`, 0);
+        setFormula(row.getCell(cc.qty), `'3-Cabinet Count'!${ref(colTotalCabFirstType + i, unitCountRow.number)}`, 0);
       }
 
       // CABS COST per unit
       setFormula(row.getCell(cc.cabsCost), safeMul(
-        `'Cabinet Count'!${ref(colCabFirstType + i, cabTotRow.number)}`,
-        `'Cabinet Count'!${ref(colPricingFirstType + i, totalCostRow.number)}`
+        `'3-Cabinet Count'!${ref(colCabFirstType + i, cabTotRow.number)}`,
+        `'3-Cabinet Count'!${ref(colPricingFirstType + i, totalCostRow.number)}`
       ), 0);
       row.getCell(cc.cabsCost).numFmt = '$#,##0.00';
 
       // PULLS QTY
-      setFormula(row.getCell(cc.pullsQty), `'Cabinet Count'!${ref(colPullsFirstType + i, cabTotRow.number)}`, 0);
+      setFormula(row.getCell(cc.pullsQty), `'3-Cabinet Count'!${ref(colPullsFirstType + i, cabTotRow.number)}`, 0);
 
       // PULLS COST = QTY × rate
       setFormula(row.getCell(cc.pullsCost), safeMul(ref(cc.pullsQty, r), `$${excelCol(cc.pullsCost)}$${costRateRowNum}`), 0);
@@ -1271,7 +1271,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
     // ── Sheet 5: Schedule of Values ─────────────────────────────────
     // Flat format: BLDG | FLOOR | Unit# | ADA | UNIT TYPE NAME | MATERIAL | LABOR | TAX | Total
-    const wsSov = wb.addWorksheet('Schedule of Values');
+    const wsSov = wb.addWorksheet('5-Schedule of Values');
 
     // Column layout (1-indexed, col A = 1)
     // A: blank pad | B: BLDG | C: FLOOR | D: Unit# | E: ADA | F: UNIT TYPE NAME | G: MATERIAL | H: LABOR | I: TAX | J: Total
@@ -1377,6 +1377,118 @@ export default function PreFinalSummaryModule({ project }: Props) {
     });
     sovTotRow.eachCell((cell, colNumber) => {
       if (colNumber <= 1) return;
+      cell.font = { bold: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
+      cell.border = allBorders;
+    });
+
+    // ── Sheet 5.1: SOV - Installer Payment ──────────────────────────
+    const wsInstaller = wb.addWorksheet('5.1-SOV-Installer Payment');
+    const instColBldg = 2, instColFloor = 3, instColUnit = 4, instColAda = 5;
+    const instColTypeName = 6, instColMat = 7, instColLab = 8, instColTax = 9, instColTotal = 10;
+    const instColBlank = 11, instColInstaller = 12;
+
+    wsInstaller.columns = [
+      { width: 3 },   // A blank
+      { width: 14 },  // B BLDG
+      { width: 10 },  // C FLOOR
+      { width: 12 },  // D Unit#
+      { width: 8 },   // E ADA
+      { width: 44 },  // F UNIT TYPE NAME
+      { width: 14 },  // G MATERIAL
+      { width: 10 },  // H LABOR
+      { width: 10 },  // I TAX
+      { width: 14 },  // J Total
+      { width: 4 },   // K blank spacer
+      { width: 18 },  // L Installer Payment
+    ];
+
+    // Row 1: blank
+    wsInstaller.addRow([]);
+
+    // Row 2: Job Name box
+    const instJobRow = wsInstaller.addRow([]);
+    const instJobCell = instJobRow.getCell(instColBldg);
+    instJobCell.value = `Job Name:- ${project.name}`;
+    instJobCell.font = { bold: true, size: 11 };
+    instJobCell.border = allBorders;
+
+    // Row 3: blank
+    wsInstaller.addRow([]);
+
+    // Row 4: label
+    const instLabelRow = wsInstaller.addRow([]);
+    const instLabelCell = instLabelRow.getCell(instColBldg);
+    instLabelCell.value = 'SOV - INSTALLER PAYMENT';
+    instLabelCell.font = { bold: true, size: 11 };
+    instLabelCell.border = allBorders;
+
+    // Rows 5-6: blank
+    wsInstaller.addRow([]);
+    wsInstaller.addRow([]);
+
+    // Row 7: Column headers
+    const instHeader = wsInstaller.addRow(['', 'BLDG', 'FLOOR', 'Unit#', 'ADA', 'UNIT TYPE NAME', 'MATERIAL', 'LABOR', 'TAX', 'Total', '', 'Installer Payment']);
+    instHeader.height = 30;
+    instHeader.eachCell((cell, colNumber) => {
+      if (colNumber <= 1 || colNumber === instColBlank) return;
+      cell.font = { bold: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F0' } };
+      cell.border = allBorders;
+      cell.alignment = { vertical: 'middle', horizontal: (colNumber >= instColMat) ? 'center' : 'left', wrapText: false };
+    });
+
+    wsInstaller.views = [{ state: 'frozen', xSplit: 0, ySplit: 7 }];
+
+    const instDataStart = instHeader.number + 1;
+
+    sortedUnits.forEach(unit => {
+      const assignedTypes = Object.entries(unit.assignments || {})
+        .filter(([, v]) => v)
+        .map(([k]) => k);
+      const unitTypeName = assignedTypes.join(' / ');
+
+      const row = wsInstaller.addRow([
+        '', unit.bldg || '', unit.floor || '', unit.name, '', unitTypeName, '', '', '', '', '', '',
+      ]);
+      const r = row.number;
+      row.getCell(instColTotal).value = {
+        formula: `IFERROR(${excelCol(instColMat)}${r}+${excelCol(instColLab)}${r}+${excelCol(instColTax)}${r},0)`,
+        result: 0,
+      } as any;
+      row.eachCell((cell, colNumber) => {
+        if (colNumber <= 1 || colNumber === instColBlank) return;
+        cell.border = allBorders;
+        if (colNumber >= instColMat && colNumber <= instColTotal) {
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.numFmt = '$#,##0.00';
+        }
+        if (colNumber === instColInstaller) {
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.numFmt = '$#,##0.00';
+        }
+      });
+    });
+
+    const instDataEnd = wsInstaller.lastRow?.number || instDataStart;
+
+    // Blank row then totals
+    wsInstaller.addRow([]);
+    const instTotRow = wsInstaller.addRow([]);
+    instTotRow.getCell(instColUnit).value = `TOTAL (${sortedUnits.length})`;
+    instTotRow.getCell(instColUnit).font = { bold: true };
+
+    [instColMat, instColLab, instColTax, instColTotal, instColInstaller].forEach(col => {
+      const cell = instTotRow.getCell(col);
+      cell.value = {
+        formula: `IFERROR(SUM(${excelCol(col)}${instDataStart}:${excelCol(col)}${instDataEnd}),0)`,
+        result: 0,
+      } as any;
+      cell.numFmt = '$#,##0.00';
+      cell.alignment = { horizontal: 'center' };
+    });
+    instTotRow.eachCell((cell, colNumber) => {
+      if (colNumber <= 1 || colNumber === instColBlank) return;
       cell.font = { bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
       cell.border = allBorders;
