@@ -1382,6 +1382,118 @@ export default function PreFinalSummaryModule({ project }: Props) {
       cell.border = allBorders;
     });
 
+    // ── Sheet 5.1: SOV - Installer Payment ──────────────────────────
+    const wsInstaller = wb.addWorksheet('5.1-SOV-Installer Payment');
+    const instColBldg = 2, instColFloor = 3, instColUnit = 4, instColAda = 5;
+    const instColTypeName = 6, instColMat = 7, instColLab = 8, instColTax = 9, instColTotal = 10;
+    const instColBlank = 11, instColInstaller = 12;
+
+    wsInstaller.columns = [
+      { width: 3 },   // A blank
+      { width: 14 },  // B BLDG
+      { width: 10 },  // C FLOOR
+      { width: 12 },  // D Unit#
+      { width: 8 },   // E ADA
+      { width: 44 },  // F UNIT TYPE NAME
+      { width: 14 },  // G MATERIAL
+      { width: 10 },  // H LABOR
+      { width: 10 },  // I TAX
+      { width: 14 },  // J Total
+      { width: 4 },   // K blank spacer
+      { width: 18 },  // L Installer Payment
+    ];
+
+    // Row 1: blank
+    wsInstaller.addRow([]);
+
+    // Row 2: Job Name box
+    const instJobRow = wsInstaller.addRow([]);
+    const instJobCell = instJobRow.getCell(instColBldg);
+    instJobCell.value = `Job Name:- ${project.name}`;
+    instJobCell.font = { bold: true, size: 11 };
+    instJobCell.border = allBorders;
+
+    // Row 3: blank
+    wsInstaller.addRow([]);
+
+    // Row 4: label
+    const instLabelRow = wsInstaller.addRow([]);
+    const instLabelCell = instLabelRow.getCell(instColBldg);
+    instLabelCell.value = 'SOV - INSTALLER PAYMENT';
+    instLabelCell.font = { bold: true, size: 11 };
+    instLabelCell.border = allBorders;
+
+    // Rows 5-6: blank
+    wsInstaller.addRow([]);
+    wsInstaller.addRow([]);
+
+    // Row 7: Column headers
+    const instHeader = wsInstaller.addRow(['', 'BLDG', 'FLOOR', 'Unit#', 'ADA', 'UNIT TYPE NAME', 'MATERIAL', 'LABOR', 'TAX', 'Total', '', 'Installer Payment']);
+    instHeader.height = 30;
+    instHeader.eachCell((cell, colNumber) => {
+      if (colNumber <= 1 || colNumber === instColBlank) return;
+      cell.font = { bold: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F0' } };
+      cell.border = allBorders;
+      cell.alignment = { vertical: 'middle', horizontal: (colNumber >= instColMat) ? 'center' : 'left', wrapText: false };
+    });
+
+    wsInstaller.views = [{ state: 'frozen', xSplit: 0, ySplit: 7 }];
+
+    const instDataStart = instHeader.number + 1;
+
+    sortedUnits.forEach(unit => {
+      const assignedTypes = Object.entries(unit.assignments || {})
+        .filter(([, v]) => v)
+        .map(([k]) => k);
+      const unitTypeName = assignedTypes.join(' / ');
+
+      const row = wsInstaller.addRow([
+        '', unit.bldg || '', unit.floor || '', unit.name, '', unitTypeName, '', '', '', '', '', '',
+      ]);
+      const r = row.number;
+      row.getCell(instColTotal).value = {
+        formula: `IFERROR(${excelCol(instColMat)}${r}+${excelCol(instColLab)}${r}+${excelCol(instColTax)}${r},0)`,
+        result: 0,
+      } as any;
+      row.eachCell((cell, colNumber) => {
+        if (colNumber <= 1 || colNumber === instColBlank) return;
+        cell.border = allBorders;
+        if (colNumber >= instColMat && colNumber <= instColTotal) {
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.numFmt = '$#,##0.00';
+        }
+        if (colNumber === instColInstaller) {
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.numFmt = '$#,##0.00';
+        }
+      });
+    });
+
+    const instDataEnd = wsInstaller.lastRow?.number || instDataStart;
+
+    // Blank row then totals
+    wsInstaller.addRow([]);
+    const instTotRow = wsInstaller.addRow([]);
+    instTotRow.getCell(instColUnit).value = `TOTAL (${sortedUnits.length})`;
+    instTotRow.getCell(instColUnit).font = { bold: true };
+
+    [instColMat, instColLab, instColTax, instColTotal, instColInstaller].forEach(col => {
+      const cell = instTotRow.getCell(col);
+      cell.value = {
+        formula: `IFERROR(SUM(${excelCol(col)}${instDataStart}:${excelCol(col)}${instDataEnd}),0)`,
+        result: 0,
+      } as any;
+      cell.numFmt = '$#,##0.00';
+      cell.alignment = { horizontal: 'center' };
+    });
+    instTotRow.eachCell((cell, colNumber) => {
+      if (colNumber <= 1 || colNumber === instColBlank) return;
+      cell.font = { bold: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
+      cell.border = allBorders;
+    });
+
     // Download
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
