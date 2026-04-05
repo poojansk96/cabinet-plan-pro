@@ -947,8 +947,10 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
       return { ...item, quantity: nextQty };
     });
 
-    // Cap non-accessory quantities using text-layer occurrence counts.
-    // The text layer is a reliable upper bound for plan-view labels.
+    // Reconcile non-accessory quantities using text-layer occurrence counts.
+    // Text layer is both a reliable FLOOR and CAP for plan-view labels.
+    // Each label printed on a plan view = one physical cabinet, so if the text layer
+    // sees 4 occurrences of "W2430B" but AI only counted 3, trust the text layer.
     items = items.map((item) => {
       if (ACCESSORY_FLOOR_RE.test(item.sku)) return item; // accessories handled above
       // Check exact SKU count and also base SKU (without -L/-R suffix) count
@@ -956,12 +958,28 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
       const baseSku = item.sku.replace(/-[A-Z]+$/i, '');
       const baseCount = baseSku !== item.sku ? (textLayerSkuCounts[baseSku] ?? 0) : 0;
       const textCount = Math.max(exactCount, baseCount);
-      // Allow +1 tolerance: text layer OCR can miss labels that are rotated,
-      // overlapping, or in tight corners — trust the AI vision if it's only 1 more
-      const capValue = textCount > 0 ? textCount + 1 : 0;
-      if (capValue > 0 && item.quantity > capValue) {
-        console.log(`Non-accessory qty cap: ${item.sku} ${item.quantity} → ${capValue} (text layer + tolerance)`);
-        return { ...item, quantity: capValue };
+
+      if (textCount <= 0) return item;
+
+      let qty = item.quantity;
+
+      // FLOOR: If text layer has MORE occurrences than AI detected, use text layer count.
+      // This fixes undercounting when a SKU like W2430B appears 4 times but AI only sees 3.
+      if (textCount > qty) {
+        console.log(`Non-accessory qty floor from text layer: ${item.sku} ${qty} → ${textCount}`);
+        qty = textCount;
+      }
+
+      // CAP: Allow +1 tolerance above text layer — AI vision can occasionally see
+      // a rotated or overlapping label that text OCR missed
+      const capValue = textCount + 1;
+      if (qty > capValue) {
+        console.log(`Non-accessory qty cap: ${item.sku} ${qty} → ${capValue} (text layer + tolerance)`);
+        qty = capValue;
+      }
+
+      if (qty !== item.quantity) {
+        return { ...item, quantity: qty };
       }
       return item;
     });
