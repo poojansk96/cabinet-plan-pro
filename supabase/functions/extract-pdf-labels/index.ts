@@ -440,7 +440,7 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
-    const { pageImage, unitType, pageText, speedMode, classificationOverride, isStrip, skipClassify } = await req.json();
+    const { pageImage, unitType, pageText, speedMode, classificationOverride, isStrip, skipClassify, aiModel } = await req.json();
 
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage (base64 string) required" }), {
@@ -687,10 +687,13 @@ FINAL SWEEP: After your initial scan, go back and specifically look for: B09FH, 
 ${isStrip ? '\nNOTE: This image shows a CROPPED SECTION of a larger drawing page. Extract all cabinet labels visible in this cropped section.\n' : ''}${textLayerSkus.length > 0 ? `\nTEXT LAYER CROSS-REFERENCE — the PDF text layer detected these SKUs on this page:\n${textLayerSkus.join(', ')}\nMake sure ALL of these appear in your results if they are visible as labels on the drawing. If any are missing from your results, look harder for them.\n` : ''}${unitType ? `\nUnit type context: ${unitType}` : ""}
 If no cabinet SKUs are found, return {"items":[]}`;
 
-    // ── Step 2a: Initial extraction with fast lite model ──
+    // ── Step 2a: Initial extraction ──
+    const useAccuModel = aiModel === 'accu';
+    const extractionModel = useAccuModel ? "gemini-3-flash-preview" : "gemini-3.1-flash-lite-preview";
+    console.log(`Using model: ${extractionModel} (aiModel=${aiModel})`);
     let extracted: any = { items: [] };
     try {
-      extracted = await callGemini(GEMINI_API_KEY, "gemini-3.1-flash-lite-preview", pageImage, extractPrompt, 0.2, 8192, EXTRACT_SCHEMA);
+      extracted = await callGemini(GEMINI_API_KEY, extractionModel, pageImage, extractPrompt, 0.2, 8192, EXTRACT_SCHEMA);
     } catch (e: any) {
       if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -703,7 +706,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
       detectedUnitType = extracted.unitTypeName;
     }
     let finalItems = splitMergedSkus(rawItems, textLayerSkus);
-    console.log(`Step 2a (lite): ${rawItems.length} raw → ${finalItems.length} after split`);
+    console.log(`Step 2a (${useAccuModel ? 'accu' : 'lite'}): ${rawItems.length} raw → ${finalItems.length} after split`);
 
     // ── Step 2b: Verification pass ──
     // Catches hallucinated SKUs (e.g. W1836X6-L) and recovers missed ones (kitchenette types).
