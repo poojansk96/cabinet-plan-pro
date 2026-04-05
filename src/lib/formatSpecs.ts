@@ -8,6 +8,14 @@ function resolveCustom(value?: string, custom?: string): string {
 }
 
 /**
+ * For Overseas Granite/Quartz: "Granite-3CM thickness-1-1/4"-(color)-Precut from overseas"
+ */
+function formatOverseasStone(material: string, color: string): string {
+  const colorPart = color || '?';
+  return `${material}-3CM thickness-1-1/4"-${colorPart}-Precut from overseas`;
+}
+
+/**
  * Combines all door-style sub-fields into a manufacturer-specific descriptive string.
  *
  * Overseas:  "Door style name" - "Color" from Overseas
@@ -117,6 +125,9 @@ export function formatKitchenTops(specs?: AnySpecs): string {
   } else {
     const vendor = resolveCustom(specs.countertopManufacturer, specs.countertopManufacturerCustom);
     const color = resolveCustom(specs.countertopColor, specs.countertopColorCustom);
+    if ((material === 'Granite' || material === 'Quartz') && vendor === 'Overseas') {
+      return formatOverseasStone(material, color);
+    }
     if (vendor) parts.push(vendor);
     if (color) parts.push(color);
   }
@@ -151,6 +162,9 @@ export function formatVanityTops(specs?: AnySpecs): string {
   } else {
     const vendor = resolveCustom(specs.vanityManufacturer, specs.vanityManufacturerCustom);
     const color = resolveCustom(specs.vanityColor, specs.vanityColorCustom);
+    if ((material === 'Granite' || material === 'Quartz') && vendor === 'Overseas') {
+      return formatOverseasStone(material, color);
+    }
     if (vendor) parts.push(vendor);
     if (color) parts.push(color);
   }
@@ -178,6 +192,9 @@ export function formatAdditionalTops(specs?: AnySpecs): string {
   } else {
     const vendor = resolveCustom(specs.additionalTopsManufacturer, specs.additionalTopsManufacturerCustom);
     const color = resolveCustom(specs.additionalTopsColor, specs.additionalTopsColorCustom);
+    if ((material === 'Granite' || material === 'Quartz') && vendor === 'Overseas') {
+      return `${label}: ${formatOverseasStone(material, color)}`;
+    }
     if (vendor) parts.push(vendor);
     if (color) parts.push(color);
   }
