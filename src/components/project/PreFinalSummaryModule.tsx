@@ -190,6 +190,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
         if (sp.vanityCountertops !== 'Cultured Marble' && sp.vanityCountertops !== 'Swanstone' && !sp.vanityManufacturer) pending.push('Vendor is pending');
         if ((sp.vanityCountertops === 'Quartz' || sp.vanityCountertops === 'Granite' || sp.vanityCountertops === 'Solid Surface- Corian') && !sp.vanityColor) pending.push('Color selection is pending');
         if ((sp.vanityCountertops === 'Cultured Marble' || sp.vanityCountertops === 'Swanstone') && !sp.vanityCMColor) pending.push('Color selection is pending');
+        if ((sp.vanityCountertops === 'Cultured Marble' || sp.vanityCountertops === 'Swanstone') && !sp.faucetSelection) pending.push('Faucet selection is pending');
         if (sp.vanityCountertops === 'Laminate' && !sp.vanityLaminateSubstrate) pending.push('Substrate is pending');
         if (sp.vanityCountertops === 'Laminate' && !sp.vanityLaminateColor) pending.push('Color selection is pending');
         return pending.length > 0 ? pending.join(', ') : undefined;

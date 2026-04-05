@@ -70,6 +70,7 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
     vanityBowlStyleCustom:      rawSpecs?.vanityBowlStyleCustom      ?? '',
     vanityCMColor:              rawSpecs?.vanityCMColor              ?? '',
     vanityCMColorCustom:        rawSpecs?.vanityCMColorCustom        ?? '',
+    faucetSelection:            rawSpecs?.faucetSelection            ?? '',
     vanitySameAsKitchen:        rawSpecs?.vanitySameAsKitchen === 'true' || (rawSpecs?.vanitySameAsKitchen as unknown) === true ? true : false,
     additionalTopsEnabled:      rawSpecs?.additionalTopsEnabled === 'true' || (rawSpecs?.additionalTopsEnabled as unknown) === true ? true : false,
     additionalTopsLabel:        rawSpecs?.additionalTopsLabel        ?? '',
@@ -137,7 +138,7 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
           if (key === 'countertops') {
             setSpecs(s => ({ ...s, countertops: v, countertopManufacturer: '', countertopManufacturerCustom: '', countertopColor: '', countertopColorCustom: '', laminateSubstrate: '', laminateSubstrateCustom: '', laminateColor: '', laminateColorCustom: '' }));
           } else if (key === 'vanityCountertops') {
-            setSpecs(s => ({ ...s, vanityCountertops: v, vanityManufacturer: '', vanityManufacturerCustom: '', vanityColor: '', vanityColorCustom: '', vanityLaminateSubstrate: '', vanityLaminateSubstrateCustom: '', vanityLaminateColor: '', vanityLaminateColorCustom: '', vanityBowlStyle: '', vanityBowlStyleCustom: '', vanityCMColor: '', vanityCMColorCustom: '' }));
+            setSpecs(s => ({ ...s, vanityCountertops: v, vanityManufacturer: '', vanityManufacturerCustom: '', vanityColor: '', vanityColorCustom: '', vanityLaminateSubstrate: '', vanityLaminateSubstrateCustom: '', vanityLaminateColor: '', vanityLaminateColorCustom: '', vanityBowlStyle: '', vanityBowlStyleCustom: '', vanityCMColor: '', vanityCMColorCustom: '', faucetSelection: '' }));
           } else if (key === 'additionalTops') {
             setSpecs(s => ({ ...s, additionalTops: v, additionalTopsManufacturer: '', additionalTopsManufacturerCustom: '', additionalTopsColor: '', additionalTopsColorCustom: '', additionalTopsLaminateSubstrate: '', additionalTopsLaminateSubstrateCustom: '', additionalTopsLaminateColor: '', additionalTopsLaminateColorCustom: '' }));
           } else {
@@ -605,6 +606,18 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
                           onChange={e => setSpecs(s => ({ ...s, vanityCMColorCustom: e.target.value }))}
                           placeholder="Enter color…" />
                       )}
+                    </div>
+                  )}
+                  {(specs.vanityCountertops === 'Cultured Marble' || specs.vanityCountertops === 'Swanstone') && (
+                    <div>
+                      <label className={labelCls}>Faucet Selection</label>
+                      <select value={specs.faucetSelection} className={subInputCls}
+                        onChange={e => setSpecs(s => ({ ...s, faucetSelection: e.target.value }))}>
+                        <option value="">Select faucet type…</option>
+                        <option value="Single Hole">Single Hole</option>
+                        <option value='4"CC - 3 Holes'>4"CC - 3 Holes</option>
+                        <option value='8"CC - 3 Holes'>8"CC - 3 Holes</option>
+                      </select>
                     </div>
                   )}
                     </>

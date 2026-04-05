@@ -139,8 +139,10 @@ export function formatVanityTops(specs?: AnySpecs): string {
   if (material === 'Cultured Marble' || material === 'Swanstone') {
     const bowl = resolveCustom(specs.vanityBowlStyle, specs.vanityBowlStyleCustom);
     const color = resolveCustom(specs.vanityCMColor, specs.vanityCMColorCustom);
+    const faucet = specs.faucetSelection ? String(specs.faucetSelection) : '';
     if (bowl) parts.push(bowl);
     if (color) parts.push(color);
+    if (faucet) parts.push(`Faucet: ${faucet}`);
   } else if (material === 'Laminate') {
     const substrate = resolveCustom(specs.vanityLaminateSubstrate, specs.vanityLaminateSubstrateCustom);
     const color = resolveCustom(specs.vanityLaminateColor, specs.vanityLaminateColorCustom);
