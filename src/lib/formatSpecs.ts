@@ -157,6 +157,9 @@ export function formatVanityTops(specs?: AnySpecs): string {
     if (material === 'Cultured Marble') {
       return parts.join(' - ') + ' from Rynone';
     }
+    if (material === 'Swanstone') {
+      return parts.join(' - ') + ' from EDOS';
+    }
   } else if (material === 'Laminate') {
     const substrate = resolveCustom(specs.vanityLaminateSubstrate, specs.vanityLaminateSubstrateCustom);
     const color = resolveCustom(specs.vanityLaminateColor, specs.vanityLaminateColorCustom);
