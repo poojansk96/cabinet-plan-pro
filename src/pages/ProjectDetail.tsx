@@ -13,6 +13,7 @@ import EditProjectDialog from '@/components/project/EditProjectDialog';
 import ProjectInfoModule from '@/components/project/ProjectInfoModule';
 import ApplianceModule from '@/components/project/ApplianceModule';
 import AICommandButton from '@/components/project/AICommandButton';
+import ExtractionProgressFloat from '@/components/project/ExtractionProgressFloat';
 
 type Tab = 'units' | 'cabinets' | 'countertops' | 'summary' | 'project-info' | 'prefinal-units' | 'prefinal-summary' | 'app-units' | 'app-takeoff' | 'app-summary';
 
@@ -300,6 +301,7 @@ export default function ProjectDetail() {
         deleteCountertop={store.deleteCountertop}
         updateProject={updateProject}
       />
+      <ExtractionProgressFloat />
       <footer className="text-center py-2 border-t bg-card flex-shrink-0">
         <span style={{ fontSize: '10px' }} className="text-muted-foreground">© {new Date().getFullYear()} Poojan K. All rights reserved.</span>
       </footer>
