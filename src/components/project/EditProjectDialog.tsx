@@ -608,6 +608,18 @@ export default function EditProjectDialog({ project, onSave, onClose }: Props) {
                       )}
                     </div>
                   )}
+                  {(specs.vanityCountertops === 'Cultured Marble' || specs.vanityCountertops === 'Swanstone') && (
+                    <div>
+                      <label className={labelCls}>Faucet Selection</label>
+                      <select value={specs.faucetSelection} className={subInputCls}
+                        onChange={e => setSpecs(s => ({ ...s, faucetSelection: e.target.value }))}>
+                        <option value="">Select faucet type…</option>
+                        <option value="Single Hole">Single Hole</option>
+                        <option value='4"CC - 3 Holes'>4"CC - 3 Holes</option>
+                        <option value='8"CC - 3 Holes'>8"CC - 3 Holes</option>
+                      </select>
+                    </div>
+                  )}
                     </>
                   )}
                   {specs.vanitySameAsKitchen && specs.countertops && (
