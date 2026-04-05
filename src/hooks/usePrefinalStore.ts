@@ -83,6 +83,55 @@ function normalizeTypeKeyPart(value: string): string {
     .replace(/[^A-Z0-9]/g, '');
 }
 
+function normalizeCabinetSku(value: string): string {
+  return String(value || '')
+    .toUpperCase()
+    .trim()
+    .replace(/\s*-\s*/g, '-')
+    .replace(/\s+/g, '');
+}
+
+function classifyPrefinalCabinetSku(value: string): string {
+  const sku = normalizeCabinetSku(value);
+  if (!sku) return 'Base';
+  if (/^(BLW|BRW)/i.test(sku)) return 'Wall';
+  if (/^(W|WDC|UB|WC|OH)\d/i.test(sku)) return 'Wall';
+  if (/^(HAW|HAWDC)\d/i.test(sku)) return 'Wall';
+  if (/^HCW\d/i.test(sku)) return 'Wall';
+  if (/^HW\d/i.test(sku)) return 'Wall';
+  if (/^(T|UT|TC|PT|PTC|UC)(\d|$)/i.test(sku)) return 'Tall';
+  if (/^(HALC|HCUC|HCYC)\d/i.test(sku)) return 'Tall';
+  if (/^(V|VB|VD|VDC)\d/i.test(sku)) return 'Vanity';
+  if (/^(HAV|HAVDB)\d/i.test(sku)) return 'Vanity';
+  if (/^(BP|SCRIBE)$/i.test(sku)) return 'Accessory';
+  if (/^(FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|TF|APPRON|UREP|REP)\d/i.test(sku)) return 'Accessory';
+  if (/^(HAB|HADB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HCDB|HCLS|HWSB|HWS)\d/i.test(sku)) return 'Base';
+  return 'Base';
+}
+
+function normalizeStoredCabinetRow(row: any, knownTypes: string[]): PrefinalCabinetRow {
+  const sku = normalizeCabinetSku(row?.sku);
+  return {
+    sku,
+    type: classifyPrefinalCabinetSku(sku),
+    room: String(row?.room || 'Kitchen').trim() || 'Kitchen',
+    quantity: Math.max(1, Number(row?.quantity) || 1),
+    unitType: resolveExistingTypeName(String(row?.unitType || '').trim(), knownTypes) || 'Unassigned',
+  };
+}
+
+function normalizeStoredCabinetRows(rows: any[], knownTypes: string[]): PrefinalCabinetRow[] {
+  return (rows || []).map((row) => normalizeStoredCabinetRow(row, knownTypes));
+}
+
+function cabinetRowsChanged(nextRows: PrefinalCabinetRow[], prevRows: any[]): boolean {
+  if (nextRows.length !== prevRows.length) return true;
+  return nextRows.some((row, index) => {
+    const prev = prevRows[index] || {};
+    return row.sku !== prev.sku || row.type !== prev.type || row.room !== prev.room || row.quantity !== prev.quantity || row.unitType !== prev.unitType;
+  });
+}
+
 function resolveExistingTypeName(type: string, candidates: string[]): string {
   const incomingKey = normalizeTypeKeyPart(type);
   if (!incomingKey) return type;
@@ -300,10 +349,7 @@ function loadData(projectId: string): PrefinalData {
     }
 
     // Normalize cabinetRows unitType values to canonical type names
-    const cabinetRows = (parsed.cabinetRows || []).map((r: any) => ({
-      ...r,
-      unitType: resolveExistingTypeName(String(r.unitType || '').trim(), [...dedupedCabTypes, ...dedupedUnitTypes]),
-    }));
+    const cabinetRows = normalizeStoredCabinetRows(parsed.cabinetRows || [], [...dedupedCabTypes, ...dedupedUnitTypes]);
 
     const rawUnitNumbers = (parsed.unitNumbers || []).map((u: any) => ({
       ...u,
@@ -350,6 +396,16 @@ export function usePrefinalStore(projectId: string) {
 
   useEffect(() => {
     setData(loadData(projectId));
+  }, [projectId]);
+
+  useEffect(() => {
+    setData(prev => {
+      const cabinetRows = normalizeStoredCabinetRows(prev.cabinetRows, [...prev.cabinetUnitTypes, ...prev.unitTypes]);
+      if (!cabinetRowsChanged(cabinetRows, prev.cabinetRows)) return prev;
+      const next = { ...prev, cabinetRows };
+      saveData(projectId, next);
+      return next;
+    });
   }, [projectId]);
 
   const commit = useCallback((next: PrefinalData) => {
@@ -407,8 +463,9 @@ export function usePrefinalStore(projectId: string) {
         }
         return { ...u, assignments };
       });
-      const cabinetRows = prev.cabinetRows.map(r =>
-        r.unitType === oldName ? { ...r, unitType: newName } : r
+      const cabinetRows = normalizeStoredCabinetRows(
+        prev.cabinetRows.map(r => r.unitType === oldName ? { ...r, unitType: newName } : r),
+        [...prev.cabinetUnitTypes, ...unitTypes]
       );
       const cabinetUnitTypes = prev.cabinetUnitTypes.map(t => t === oldName ? newName : t);
       const next = { ...prev, unitTypes, unitNumbers, cabinetRows, cabinetUnitTypes };
@@ -547,10 +604,7 @@ export function usePrefinalStore(projectId: string) {
         const inputKeys = new Set(resolvedInput.map(t => normalizeTypeKeyPart(t)));
         const remaining = prev.cabinetUnitTypes.filter(t => !inputKeys.has(normalizeTypeKeyPart(t)));
         const cabinetUnitTypes = [...resolvedInput, ...remaining];
-        const cabinetRows = prev.cabinetRows.map(r => ({
-          ...r,
-          unitType: resolveExistingTypeName(r.unitType, [...cabinetUnitTypes, ...prev.unitTypes]),
-        }));
+        const cabinetRows = normalizeStoredCabinetRows(prev.cabinetRows, [...cabinetUnitTypes, ...prev.unitTypes]);
         const next = { ...prev, cabinetUnitTypes, cabinetRows };
         saveData(projectId, next);
         return next;
@@ -560,10 +614,7 @@ export function usePrefinalStore(projectId: string) {
       const newTypes = resolvedInput.filter(t => !existingKeys.has(normalizeTypeKeyPart(t)));
       if (!newTypes.length) return prev;
       const cabinetUnitTypes = [...prev.cabinetUnitTypes, ...newTypes];
-      const cabinetRows = prev.cabinetRows.map(r => ({
-        ...r,
-        unitType: resolveExistingTypeName(r.unitType, [...cabinetUnitTypes, ...prev.unitTypes]),
-      }));
+      const cabinetRows = normalizeStoredCabinetRows(prev.cabinetRows, [...cabinetUnitTypes, ...prev.unitTypes]);
       const next = { ...prev, cabinetUnitTypes, cabinetRows };
       saveData(projectId, next);
       return next;
@@ -583,28 +634,28 @@ export function usePrefinalStore(projectId: string) {
   // ── Cabinet imports ───────────────────────────────────────────────────
   const addCabinetImport = useCallback((rows: Omit<PrefinalCabinetRow, never>[], unitType: string) => {
     setData(prev => {
-      const canonicalType = resolveExistingTypeName(unitType, [...prev.cabinetUnitTypes, ...prev.unitTypes]);
+      const knownTypes = [...prev.cabinetUnitTypes, ...prev.unitTypes];
+      const canonicalType = resolveExistingTypeName(unitType, knownTypes) || unitType || 'Unassigned';
       const merged: Record<string, PrefinalCabinetRow> = {};
       const isCornerLazySusan = (sku: string) => /^(LS|LSB)\d+/i.test(sku);
 
       for (const r of prev.cabinetRows) {
-        const resolvedType = resolveExistingTypeName(r.unitType, [...prev.cabinetUnitTypes, ...prev.unitTypes]);
-        const normSku = String(r.sku || '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
-        const key = `${normSku}__${r.room}__${resolvedType}`;
-        merged[key] = { ...r, sku: normSku, unitType: resolvedType };
+        const normalizedRow = normalizeStoredCabinetRow(r, knownTypes);
+        const key = `${normalizedRow.sku}__${normalizedRow.room}__${normalizedRow.unitType}`;
+        merged[key] = normalizedRow;
       }
 
       for (const r of rows) {
-        const normSku = String(r.sku || '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
-        const key = `${normSku}__${r.room}__${canonicalType}`;
-        const incomingQty = Number(r.quantity) || 1;
+        const normalizedRow = normalizeStoredCabinetRow({ ...r, unitType: canonicalType }, [canonicalType, ...knownTypes]);
+        const key = `${normalizedRow.sku}__${normalizedRow.room}__${normalizedRow.unitType}`;
+        const incomingQty = normalizedRow.quantity;
 
         if (merged[key]) {
-          merged[key].quantity = isCornerLazySusan(normSku)
+          merged[key].quantity = isCornerLazySusan(normalizedRow.sku)
             ? Math.max(merged[key].quantity, incomingQty)
             : merged[key].quantity + incomingQty;
         } else {
-          merged[key] = { ...r, sku: normSku, quantity: incomingQty, unitType: canonicalType };
+          merged[key] = normalizedRow;
         }
       }
 

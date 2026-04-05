@@ -116,7 +116,7 @@ async function callGemini(
 
 // ── SKU Helpers ──
 
-const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|WDC|UB|WC|OH|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HALC|HAL|HAB|HADB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HW|HSS|HS)\d[\w\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
+const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|WDC|UB|WC|OH|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HALC|HAL|HAB|HADB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS)\d[\w\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
 // Secondary pattern for APPRON with space before dimensions (e.g. "APPRON 59X21")
 const APPRON_DIM_PATTERN = /\bAPPRON\s+(\d+X\d+)\b/gi;
 const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
@@ -205,19 +205,19 @@ function countSkusFromText(pageText: string): Record<string, number> {
 }
 
 function classifySku(sku: string): string {
-  if (/^(BLW|BRW)/i.test(sku)) return "Wall";
-  if (/^(W|WDC|UB|WC|OH)\d/i.test(sku)) return "Wall";
-  // HC/HW/HS manufacturer prefixes: classify by the inner prefix after H
-  if (/^HW/i.test(sku)) return "Wall";   // HWSB = H + Wall variant
-  if (/^(HAW|HAWDC)\d/i.test(sku)) return "Wall"; // HA + Wall variants
-  if (/^HCW\d/i.test(sku)) return "Wall";
-  if (/^(T|UT|TC|PT|PTC|UC)(\d|$)/i.test(sku)) return "Tall";
-  if (/^(HALC|HCUC)\d/i.test(sku)) return "Tall";
-  if (/^(V|VB|VD|VDC)\d/i.test(sku)) return "Vanity";
-  if (/^(HAV|HAVDB)\d/i.test(sku)) return "Vanity";
-  if (/^(FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|TF|APPRON|UREP|REP)\d/i.test(sku)) return "Accessory";
-  // HA-prefixed base variants: HAB, HADB, HAOC, HASB, etc.
-  if (/^(HAB|HADB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HCDB)\d/i.test(sku)) return "Base";
+  const normalizedSku = normalizeSkuLabel(sku);
+  if (/^(BLW|BRW)/i.test(normalizedSku)) return "Wall";
+  if (/^(W|WDC|UB|WC|OH)\d/i.test(normalizedSku)) return "Wall";
+  if (/^(HAW|HAWDC)\d/i.test(normalizedSku)) return "Wall";
+  if (/^HCW\d/i.test(normalizedSku)) return "Wall";
+  if (/^HW\d/i.test(normalizedSku)) return "Wall";
+  if (/^(T|UT|TC|PT|PTC|UC)(\d|$)/i.test(normalizedSku)) return "Tall";
+  if (/^(HALC|HCUC|HCYC)\d/i.test(normalizedSku)) return "Tall";
+  if (/^(V|VB|VD|VDC)\d/i.test(normalizedSku)) return "Vanity";
+  if (/^(HAV|HAVDB)\d/i.test(normalizedSku)) return "Vanity";
+  if (/^(BP|SCRIBE)$/i.test(normalizedSku)) return "Accessory";
+  if (/^(FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|TF|APPRON|UREP|REP)\d/i.test(normalizedSku)) return "Accessory";
+  if (/^(HAB|HADB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HCDB|HCLS|HWSB|HWS)\d/i.test(normalizedSku)) return "Base";
   return "Base";
 }
 
@@ -267,7 +267,7 @@ function trySplitConcatenatedSku(rawSku: string, knownTextSkus: string[] = []): 
 // Known cabinet SKU prefixes for boundary detection (ordered longest-first to match greedily)
 const CABINET_PREFIXES = [
   'HAWDC','HAVDB','HALSB','HADB','HAOC','HASB','HACB','HAEB','HALS','HALC',
-  'HCBMW','HCBM','HCOC','HCUC','HCDB','HCLS','HWSB',
+  'HCBMW','HCBM','HCOC','HCUC','HCYC','HCDB','HCLS','HWSB','HWS',
   'BFFIL','WFFIL','TKRUN',
   'HAB','HAW','HAV','HAL','HCB','HSS',
   'BLW','BRW','WDC','PTC','VDC',
@@ -622,9 +622,9 @@ ${unitTypeDetectInstructions}
 For each cabinet found, provide:
 1. sku: The SKU label exactly as written (e.g. B24, W3036, DB15, BF3, WF6X30, LS36-L, BLW36/3930-L, B09FH, APPRON59X21, DWR1). For APPRON labels with dimensions like "APPRON 59X21", combine into one string without spaces: "APPRON59X21".
 2. type: Classify by prefix:
-   - "Base" → B, DB, SB, CB, EB, LS, LSB, HCDB, HAB, HADB, HAOC, HASB, HACB, HAEB (but NOT BLW/BRW — those are Wall, NOT HAV — those are Vanity)
-    - "Wall" → W, WDC, UB, WC, OH, BLW, BRW, HW, HAW, HAWDC, HCW (but NOT HAV — those are Vanity, NOT HCDB — that is Base, NOT HCUC — that is Tall)
-     - "Tall" → T, UT, TC, PT, PTC, UC, HALC, HCUC (HCUC15X82 = Tall, NOT Wall)
+   - "Base" → B, DB, SB, CB, EB, LS, LSB, HCDB, HCLS, HWS, HWSB, HAB, HADB, HAOC, HASB, HACB, HAEB (but NOT BLW/BRW — those are Wall, NOT HAV — those are Vanity)
+    - "Wall" → W, WDC, UB, WC, OH, BLW, BRW, HAW, HAWDC, HCW, HW (ONLY when the prefix is exactly HW followed immediately by digits; HWS/HWSB are Base)
+     - "Tall" → T, UT, TC, PT, PTC, UC, HALC, HCUC, HCYC (HCUC15X82 and HCYC15S82-L = Tall, NOT Wall)
      - "Vanity" → V, VB, VD, VDC, HAV, HAVDB (HAV/HAVDB = Vanity, NOT Base)
    - "Accessory" → FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR, TF, APPRON
 3. room: From room labels on the plan (Kitchen, Bath, Laundry, Pantry — capitalize first letter only)
@@ -900,12 +900,7 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
           sku = fixMergedAdjacentLabel(sku, textLayerSkuSet);
         }
         // Preserve full SKU labels exactly as written; collapse SPLIT only when not present in plan text.
-        let rawType = String(c.type ?? "Base").trim();
-        if (/^BLW|^BRW/i.test(sku)) rawType = "Wall";
-        if (/^WDC\d/i.test(sku)) rawType = "Wall";
-        if (/^HAV\d|^HAVDB\d/i.test(sku)) rawType = "Vanity";
-        if (/^HALC\d/i.test(sku)) rawType = "Tall";
-        const normalizedType = rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase();
+        const normalizedType = classifySku(sku);
         const rawRoom = String(c.room ?? "Kitchen").trim();
         const normalizedRoom = rawRoom.charAt(0).toUpperCase() + rawRoom.slice(1).toLowerCase();
         return { sku, type: normalizedType, room: normalizedRoom, quantity: Number(c.quantity) || 1 };
