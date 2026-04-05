@@ -96,6 +96,7 @@ export default function ProjectInfoModule({ project, onSave }: Props) {
     additionalTopsLaminateColorCustom: rawSpecs?.additionalTopsLaminateColorCustom ?? '',
     handlesAndHardware: rawSpecs?.handlesAndHardware ?? '',
     handlesCustom: rawSpecs?.handlesCustom ?? '',
+    faucetSelection: rawSpecs?.faucetSelection ?? '',
     tax: rawSpecs?.tax ?? '',
     taxCustom: rawSpecs?.taxCustom ?? '',
     takeoffPerson: rawSpecs?.takeoffPerson ?? '',
@@ -596,6 +597,19 @@ export default function ProjectInfoModule({ project, onSave }: Props) {
                         <input type="text" value={specs.vanityCMColorCustom} className={inputCls}
                           onChange={e => setSpecs(s => ({ ...s, vanityCMColorCustom: e.target.value }))} placeholder="Enter color…" />
                       )}
+                    </div>
+                  )}
+                  {/* Faucet Selection for Cultured Marble / Swanstone */}
+                  {(specs.vanityCountertops === 'Cultured Marble' || specs.vanityCountertops === 'Swanstone') && (
+                    <div>
+                      <label className={labelCls}>Faucet Selection</label>
+                      <select value={specs.faucetSelection} className={subInputCls}
+                        onChange={e => setSpecs(s => ({ ...s, faucetSelection: e.target.value }))}>
+                        <option value="">Select faucet type…</option>
+                        <option value="Single Hole">Single Hole</option>
+                        <option value='4"CC - 3 Holes'>4"CC - 3 Holes</option>
+                        <option value='8"CC - 3 Holes'>8"CC - 3 Holes</option>
+                      </select>
                     </div>
                   )}
                 </>
