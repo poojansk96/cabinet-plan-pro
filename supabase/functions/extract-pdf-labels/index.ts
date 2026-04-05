@@ -964,10 +964,10 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
     });
 
     // Reconcile non-accessory quantities using text-layer occurrence counts.
-    // AI vision is the definitive source of truth for quantities. The text layer
-    // is used ONLY as a CAP to prevent overcounting from duplicate detections.
-    // Text layer mentions can include legends, schedules, notes — not just physical cabinets —
-    // so we do NOT use it as a floor (that caused +1 overcounting on some types).
+    // The text layer count is used as both a FLOOR and a CAP for non-accessory
+    // cabinet quantities. If W2430 appears 4 times in the PDF text but the AI
+    // only counted 3, it gets bumped up to 4 (floor). If the AI counted 6 but
+    // text says 4, it gets capped to 5 (text + 1 tolerance).
     items = items.map((item) => {
       if (ACCESSORY_FLOOR_RE.test(item.sku)) return item; // accessories handled above
       const exactCount = textLayerSkuCounts[item.sku] ?? 0;
@@ -976,6 +976,12 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
       const textCount = Math.max(exactCount, baseCount);
 
       if (textCount <= 0) return item;
+
+      // FLOOR: If text layer has more occurrences than AI detected, bump up
+      if (item.quantity < textCount) {
+        console.log(`Non-accessory qty floor: ${item.sku} ${item.quantity} → ${textCount} (text layer floor)`);
+        return { ...item, quantity: textCount };
+      }
 
       // CAP: Allow +1 tolerance above text layer — AI vision can occasionally see
       // a rotated or overlapping label that text OCR missed
