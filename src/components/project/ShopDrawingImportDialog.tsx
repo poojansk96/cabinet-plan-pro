@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { FileUp, X, Loader2, CheckCircle, AlertCircle, Sparkles, Trash2, FilePlus, FileText } from 'lucide-react';
 import type { CabinetType, Room } from '@/types/project';
+import { extractPlanSkuCountsFromTextItems, mergePrefinalExtractionPasses } from '@/lib/prefinalCabinetMerge';
 import { toast } from 'sonner';
 
 const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-pdf-labels`;
@@ -145,118 +146,6 @@ async function renderPageStrips(
     }
   }
   return strips;
-}
-
-function mergeExtractionPasses(passes: any[][]): any[] {
-  if (!passes.length) return [];
-
-  const map = new Map<string, any>();
-  const stripOnly = new Map<string, { item: any; support: number; maxQty: number }>();
-  const normalizeSkuLabel = (value: unknown): string =>
-    String(value || '')
-      .toUpperCase()
-      .trim()
-      .replace(/\s*-\s*/g, '-')
-      .replace(/\s+/g, '');
-  const keyOf = (item: any) => `${normalizeSkuLabel(item.sku)}|${String(item.room || 'Kitchen')}`;
-  const isHavSku = (sku: string) => /^HAV\d|^HAVDB\d/i.test(normalizeSkuLabel(sku));
-  const isRoomFragileManufacturerSku = (sku: string) => /^(?:HAV\d|HAVDB\d|HC|HS|HW)/i.test(normalizeSkuLabel(sku));
-
-  const findExistingSkuKeys = (sku: string): string[] => {
-    const upper = normalizeSkuLabel(sku);
-    if (!upper) return [];
-    return Array.from(map.keys()).filter((existingKey) => existingKey.startsWith(`${upper}|`));
-  };
-
-  // Pass 1 (full page) is the primary source of truth.
-  for (const item of passes[0] ?? []) {
-    if (!item?.sku) continue;
-    const key = keyOf(item);
-    const existing = map.get(key);
-    if (existing) {
-      existing.quantity = Math.max(existing.quantity || 1, item.quantity || 1);
-    } else {
-      map.set(key, { ...item });
-    }
-  }
-
-  // Strip passes can increase qty for known SKUs and add only strongly-supported missing SKUs.
-  for (const items of passes.slice(1)) {
-    const seenInThisStrip = new Set<string>();
-    for (const item of items) {
-      if (!item?.sku) continue;
-      const key = keyOf(item);
-      const qty = Number(item.quantity) || 1;
-
-      const existing = map.get(key);
-      if (existing) {
-        existing.quantity = Math.max(existing.quantity || 1, qty);
-        continue;
-      }
-
-      // HAV vanity labels can be mis-roomed in strip crops. If full pass already has same HAV SKU,
-      // update that existing row instead of creating a duplicate row with a different room.
-      if (isHavSku(item.sku) || isRoomFragileManufacturerSku(item.sku)) {
-        const existingSkuKeys = findExistingSkuKeys(item.sku);
-        if (existingSkuKeys.length === 1) {
-          const existingSkuRow = map.get(existingSkuKeys[0]);
-          if (existingSkuRow) {
-            existingSkuRow.quantity = Math.max(existingSkuRow.quantity || 1, qty);
-            continue;
-          }
-        }
-      }
-
-      const candidate = stripOnly.get(key) ?? { item: { ...item }, support: 0, maxQty: 0 };
-      if (!seenInThisStrip.has(key)) candidate.support += 1;
-      candidate.maxQty = Math.max(candidate.maxQty, qty);
-      stripOnly.set(key, candidate);
-      seenInThisStrip.add(key);
-    }
-  }
-
-  const isStrongStripOnlySku = (sku: string): boolean => {
-    const upper = String(sku || '').toUpperCase().trim();
-    return /^(UC|BP|SCRIBE)$/.test(upper)
-      || /^(?:DWR|BF|FIL|CM|EP|FP|LR)\d(?:[A-Z0-9\-\/]*)$/.test(upper)
-      || /^[A-Z]{2,8}\d[A-Z0-9\-\/]{2,}$/.test(upper);
-  };
-
-  // Short accessory SKUs (DWR1, BF3, FIL3, etc.) are almost never false positives.
-  // Accept them from even a SINGLE strip pass unconditionally.
-  const isShortAccessorySku = (sku: string): boolean => {
-    const upper = String(sku || '').toUpperCase().trim();
-    return /^(?:DWR|BF|WF|FIL|CM|EP|FP|LR|TK|TF|APPRON)\d/i.test(upper);
-  };
-
-  for (const [key, candidate] of stripOnly.entries()) {
-    // Add strip-only SKUs when corroborated by 2 strips OR when a single strip finds a strong SKU pattern.
-    const sku = candidate.item?.sku;
-    const accepted = candidate.support >= 2
-      || (candidate.support >= 1 && isStrongStripOnlySku(sku))
-      || (candidate.support >= 1 && isShortAccessorySku(sku));
-
-    if (accepted) {
-      // Prevent duplicate HAV rows when full pass already found the same SKU under a different room label.
-      if (isHavSku(sku) || isRoomFragileManufacturerSku(sku)) {
-        const existingSkuKeys = findExistingSkuKeys(sku);
-        if (existingSkuKeys.length === 1) {
-          const existingSkuRow = map.get(existingSkuKeys[0]);
-          if (existingSkuRow) {
-            existingSkuRow.quantity = Math.max(existingSkuRow.quantity || 1, candidate.maxQty);
-            continue;
-          }
-        }
-      }
-
-      map.set(key, { ...candidate.item, quantity: Math.max(Number(candidate.item.quantity) || 1, candidate.maxQty) });
-      console.log(`Strip-only SKU accepted: ${sku} (support=${candidate.support}, qty=${candidate.maxQty})`);
-    } else {
-      console.log(`Strip-only SKU rejected: ${sku} (support=${candidate.support})`);
-    }
-  }
-
-  return Array.from(map.values());
 }
 
 function normalizeTypeKey(value: string): string {
@@ -615,12 +504,15 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
 
       // Extract text layer from the PDF page for cross-referencing
       let pageText = '';
+      let planTextSkuCounts: Record<string, number> = {};
       try {
         const textContent = await page.getTextContent();
-        pageText = textContent.items
+        const textItems = Array.isArray(textContent.items) ? textContent.items : [];
+        pageText = textItems
           .map((item: any) => item.str)
           .filter((s: string) => s.trim().length > 0)
           .join(' ');
+        planTextSkuCounts = extractPlanSkuCountsFromTextItems(textItems as Array<{ str?: string; transform?: number[] }>);
       } catch (e) {
         console.warn(`Text extraction failed for page ${p}:`, e);
       }
@@ -742,7 +634,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       }
 
       // ── Merge all passes: MAX qty per SKU+room ──
-      const merged = mergeExtractionPasses(allPassItems);
+      const merged = mergePrefinalExtractionPasses(allPassItems, planTextSkuCounts);
       console.log(`Page ${p}: ${fullItems.length} full-page + strips → ${merged.length} merged items`);
 
       return {
