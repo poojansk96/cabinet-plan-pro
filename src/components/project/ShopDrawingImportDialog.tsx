@@ -41,6 +41,7 @@ interface Props {
   prefinalPerson?: string;
   speedMode?: 'fast' | 'thorough';
   skipClassify?: boolean;
+  aiModel?: 'fast' | 'accu';
 }
 
 const PERSONAL_QUOTES = [
@@ -441,7 +442,7 @@ function resolvePageUnitType(
   return { primary: null, aliases: [] };
 }
 
-export default function ShopDrawingImportDialog({ unitType, onImport, onClose, prefinalPerson, speedMode = 'fast', skipClassify = false }: Props) {
+export default function ShopDrawingImportDialog({ unitType, onImport, onClose, prefinalPerson, speedMode = 'fast', skipClassify = false, aiModel = 'fast' }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<LabelRow[]>([]);
   const [error, setError] = useState<string | null>(null);
