@@ -978,7 +978,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
       const ucIdx = ucTypeIndexMap[normalizeTypeKey(t)];
       if (ucIdx !== undefined) {
         const ucTypeCol = ucColLetter(5 + ucIdx);
-        setFormula(row.getCell(cc.type), `'Unit Count'!${ucTypeCol}${ucHeaderRow}`, t);
+        setFormula(row.getCell(cc.type), `'2-Unit Count'!${ucTypeCol}${ucHeaderRow}`, t);
       } else {
         row.getCell(cc.type).value = t;
       }
@@ -988,20 +988,20 @@ export default function PreFinalSummaryModule({ project }: Props) {
       // QTY — reference Unit Count sheet total row
       if (ucIdx !== undefined) {
         const ucTypeCol = ucColLetter(5 + ucIdx);
-        setFormula(row.getCell(cc.qty), `'Unit Count'!${ucTypeCol}${ucTotRowNum}`, unitTypeTotal(t));
+        setFormula(row.getCell(cc.qty), `'2-Unit Count'!${ucTypeCol}${ucTotRowNum}`, unitTypeTotal(t));
       } else {
-        setFormula(row.getCell(cc.qty), `'Cabinet Count'!${ref(colTotalCabFirstType + i, unitCountRow.number)}`, 0);
+        setFormula(row.getCell(cc.qty), `'3-Cabinet Count'!${ref(colTotalCabFirstType + i, unitCountRow.number)}`, 0);
       }
 
       // CABS COST per unit
       setFormula(row.getCell(cc.cabsCost), safeMul(
-        `'Cabinet Count'!${ref(colCabFirstType + i, cabTotRow.number)}`,
-        `'Cabinet Count'!${ref(colPricingFirstType + i, totalCostRow.number)}`
+        `'3-Cabinet Count'!${ref(colCabFirstType + i, cabTotRow.number)}`,
+        `'3-Cabinet Count'!${ref(colPricingFirstType + i, totalCostRow.number)}`
       ), 0);
       row.getCell(cc.cabsCost).numFmt = '$#,##0.00';
 
       // PULLS QTY
-      setFormula(row.getCell(cc.pullsQty), `'Cabinet Count'!${ref(colPullsFirstType + i, cabTotRow.number)}`, 0);
+      setFormula(row.getCell(cc.pullsQty), `'3-Cabinet Count'!${ref(colPullsFirstType + i, cabTotRow.number)}`, 0);
 
       // PULLS COST = QTY × rate
       setFormula(row.getCell(cc.pullsCost), safeMul(ref(cc.pullsQty, r), `$${excelCol(cc.pullsCost)}$${costRateRowNum}`), 0);
