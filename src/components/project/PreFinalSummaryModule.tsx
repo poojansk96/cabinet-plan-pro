@@ -964,16 +964,34 @@ export default function PreFinalSummaryModule({ project }: Props) {
     const costRateRowNum = costRateRow.number;
     const costDataStart = costRateRowNum + 1;
 
+    // Build mapping from cabType to Unit Count sheet column index (1-based, types start at col 5)
+    const ucTypeIndexMap: Record<string, number> = {};
+    store.unitTypes.forEach((ut, idx) => { ucTypeIndexMap[normalizeTypeKey(ut)] = idx; });
+    const ucHeaderRow = 4; // Unit Count header row
+
     // Data rows per unit type
     cabTypes.forEach((t, i) => {
       const row = wsCosting.addRow([]);
       const r = row.number;
-      row.getCell(cc.type).value = t;
+
+      // TYPE NAME — reference Unit Count sheet header if possible
+      const ucIdx = ucTypeIndexMap[normalizeTypeKey(t)];
+      if (ucIdx !== undefined) {
+        const ucTypeCol = ucColLetter(5 + ucIdx);
+        setFormula(row.getCell(cc.type), `'Unit Count'!${ucTypeCol}${ucHeaderRow}`, t);
+      } else {
+        row.getCell(cc.type).value = t;
+      }
       row.getCell(cc.type).border = allBorders;
       row.getCell(cc.qty).border = allBorders;
 
-      // QTY
-      setFormula(row.getCell(cc.qty), `'Cabinet Count'!${ref(colTotalCabFirstType + i, unitCountRow.number)}`, 0);
+      // QTY — reference Unit Count sheet total row
+      if (ucIdx !== undefined) {
+        const ucTypeCol = ucColLetter(5 + ucIdx);
+        setFormula(row.getCell(cc.qty), `'Unit Count'!${ucTypeCol}${ucTotRowNum}`, unitTypeTotal(t));
+      } else {
+        setFormula(row.getCell(cc.qty), `'Cabinet Count'!${ref(colTotalCabFirstType + i, unitCountRow.number)}`, 0);
+      }
 
       // CABS COST per unit
       setFormula(row.getCell(cc.cabsCost), safeMul(
