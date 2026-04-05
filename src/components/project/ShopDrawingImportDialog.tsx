@@ -606,6 +606,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
             speedMode,
             classificationOverride,
             isStrip: true,
+            aiModel,
           }));
           if (stripResponse.ok) {
             const stripData = await stripResponse.json();
