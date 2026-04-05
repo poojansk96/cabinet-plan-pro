@@ -650,7 +650,7 @@ export default function SummaryModule({ project }: Props) {
 
     // Row 2: Column headers
     const costHeaders: Record<number, string> = {
-      [cc.type]: 'SCHEME A',
+      [cc.type]: 'Unit types',
       [cc.qty]: 'QTY',
       [cc.cabsCost]: 'CABS\nCOST',
       [cc.pullsQty]: 'PULLS\nQTY',
