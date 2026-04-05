@@ -948,12 +948,12 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
     });
 
     // Reconcile non-accessory quantities using text-layer occurrence counts.
-    // Text layer is both a reliable FLOOR and CAP for plan-view labels.
-    // Each label printed on a plan view = one physical cabinet, so if the text layer
-    // sees 4 occurrences of "W2430B" but AI only counted 3, trust the text layer.
+    // AI vision is the definitive source of truth for quantities. The text layer
+    // is used ONLY as a CAP to prevent overcounting from duplicate detections.
+    // Text layer mentions can include legends, schedules, notes — not just physical cabinets —
+    // so we do NOT use it as a floor (that caused +1 overcounting on some types).
     items = items.map((item) => {
       if (ACCESSORY_FLOOR_RE.test(item.sku)) return item; // accessories handled above
-      // Check exact SKU count and also base SKU (without -L/-R suffix) count
       const exactCount = textLayerSkuCounts[item.sku] ?? 0;
       const baseSku = item.sku.replace(/-[A-Z]+$/i, '');
       const baseCount = baseSku !== item.sku ? (textLayerSkuCounts[baseSku] ?? 0) : 0;
@@ -961,25 +961,12 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
 
       if (textCount <= 0) return item;
 
-      let qty = item.quantity;
-
-      // FLOOR: If text layer has MORE occurrences than AI detected, use text layer count.
-      // This fixes undercounting when a SKU like W2430B appears 4 times but AI only sees 3.
-      if (textCount > qty) {
-        console.log(`Non-accessory qty floor from text layer: ${item.sku} ${qty} → ${textCount}`);
-        qty = textCount;
-      }
-
       // CAP: Allow +1 tolerance above text layer — AI vision can occasionally see
       // a rotated or overlapping label that text OCR missed
       const capValue = textCount + 1;
-      if (qty > capValue) {
-        console.log(`Non-accessory qty cap: ${item.sku} ${qty} → ${capValue} (text layer + tolerance)`);
-        qty = capValue;
-      }
-
-      if (qty !== item.quantity) {
-        return { ...item, quantity: qty };
+      if (item.quantity > capValue) {
+        console.log(`Non-accessory qty cap: ${item.sku} ${item.quantity} → ${capValue} (text layer + tolerance)`);
+        return { ...item, quantity: capValue };
       }
       return item;
     });
