@@ -896,9 +896,10 @@ export default function SummaryModule({ project }: Props) {
         { totalCost: cc.deliveryTotalCost, totalRetail: cc.deliveryTotalRetail, cost: cc.deliveryCost, retail: cc.deliveryRetail },
         { totalCost: cc.ldTotalCost, totalRetail: cc.ldTotalRetail, cost: cc.ldCost, retail: cc.ldRetail },
       ];
-      totalPairs.forEach(({ totalCost, totalRetail, cost, retail, extraCost }: any) => {
-        if (extraCost) {
-          setFormula(row.getCell(totalCost), `IFERROR((N(${ref(cost, r)})+N(${ref(extraCost, r)}))*N(${ref(cc.qty, r)}),0)`, 0);
+      totalPairs.forEach(({ totalCost, totalRetail, cost, retail, extraCosts }: any) => {
+        if (extraCosts && extraCosts.length) {
+          const allCosts = [cost, ...extraCosts].map((c: number) => `N(${ref(c, r)})`).join('+');
+          setFormula(row.getCell(totalCost), `IFERROR((${allCosts})*N(${ref(cc.qty, r)}),0)`, 0);
         } else {
           setFormula(row.getCell(totalCost), safeMul(ref(cost, r), ref(cc.qty, r)), 0);
         }
@@ -945,6 +946,7 @@ export default function SummaryModule({ project }: Props) {
     const summedCols = [
       cc.qty, cc.cabsCost, cc.pullsQty, cc.pullsCost,
       cc.plamLft, cc.plamTotalLft, cc.plamCost, cc.plamSsQty, cc.plamSsCost,
+      cc.bartopLft, cc.bartopTotalLft, cc.bartopCost,
       cc.ktopSqft, cc.ktopCost, cc.kBackSplash, cc.kSinkCutout, cc.kFaucetHoles, cc.kRangeCutout,
       cc.vtopSqft, cc.vtopCost, cc.vBackSplash, cc.vSinkCutout, cc.vFaucetHoles,
       cc.stickQty, cc.stickCost, cc.dwQty, cc.dwCost, cc.laborCost,
@@ -962,7 +964,7 @@ export default function SummaryModule({ project }: Props) {
       cc.material, cc.labor, cc.tax, cc.retailPerUnit2, cc.retailExt2,
     ];
     const dollarCols = new Set([
-      cc.cabsCost, cc.pullsCost, cc.plamCost, cc.plamSsCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.laborCost,
+      cc.cabsCost, cc.pullsCost, cc.plamCost, cc.plamSsCost, cc.bartopCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.laborCost,
       cc.deliveryCost, cc.ldCost,
       cc.costPerUnit, cc.costExt,
       cc.cabsRetail, cc.pullsRetail, cc.plamRetail, cc.ktopRetail, cc.vtopRetail, cc.stickRetail, cc.dwRetail, cc.laborRetail,
