@@ -382,13 +382,21 @@ Return ONLY valid JSON — no markdown fences, no explanation:
 Here is the extracted data:
 ${JSON.stringify({ unitTypeName: extractedUnitTypeName, vtops: finalVtops }, null, 2)}
 
-Look at the SAME shop drawing image and verify:
+Look at the SAME shop drawing image and verify EACH item carefully:
 1. Is the unitTypeName correct? If not, provide the correct one.
 2. Are the dimensions (length, depth) accurate? Correct any errors.
 3. Is the bowlPosition correct? Check dimension callouts for bowl offset direction.
 4. Is the bowlOffset value accurate?
 5. Are there any MISSING vanity tops not extracted? Add them.
-6. Are there any FALSE vanity tops (actually kitchen countertops)? Remove them.
+6. Are there any FALSE vanity tops (actually kitchen countertops with depth > 22")? Remove them.
+
+7. **CRITICAL — RE-CHECK WALL DETECTION for each vanity top:**
+   - Look at EACH END of the vanity along its length axis.
+   - DOUBLE LINES at an end = WALL (sidesplash). Set leftWall/rightWall to true.
+   - SINGLE LINE at an end = OPEN (finish end). Set leftWall/rightWall to false.
+   - Most vanity tops have at least one wall. Many have BOTH walls (double lines on both ends).
+   - If the drawing shows double parallel lines at BOTH ends, set BOTH to true.
+   - Update leftWallYesConfidence and rightWallYesConfidence accordingly.
 
 Return the CORRECTED complete JSON — same format:
 {"unitTypeName":"...","vtops":[...]}
