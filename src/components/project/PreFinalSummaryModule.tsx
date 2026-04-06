@@ -633,6 +633,15 @@ export default function PreFinalSummaryModule({ project }: Props) {
       });
     });
 
+    // Cab Count Per Unit totals
+    cabTotRow.getCell(colCpuLabel).value = 'TOTAL';
+    for (let i = 0; i < nTypes; i++) {
+      setFormula(
+        cabTotRow.getCell(colCpuFirstType + i),
+        safeSumColRange(excelCol(colCpuFirstType + i), dataRangeStartRow, dataRangeEndRow),
+        0
+      );
+    }
 
     const dataRangeEndRow = wsCabs.lastRow?.number || dataRangeStartRow;
 
