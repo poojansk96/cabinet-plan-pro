@@ -156,17 +156,86 @@ export default function PreFinalModule({ project }: Props) {
       );
     }
 
-    // ── Auto-add TK8 with qty 1 for every type that has cabinets ──
+    // ── Auto-add TK8 based on Base+Tall width sum / 96, separate Kitchen vs each Vanity ──
     const typesWithCabinets = Array.from(rowsByType.keys()).filter(t => {
       const typeRows = rowsByType.get(t);
       return t !== 'Unassigned' && typeRows && typeRows.length > 0;
     });
+
+    // Extract width from SKU: e.g. B36 → 36, UC18X90 → 18, VDB12 → 12, W3036 → 30
+    const parseWidthFromSku = (sku: string): number => {
+      const upper = sku.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      // Match first number sequence after letters
+      const m = upper.match(/^[A-Z]+(\d+)/);
+      if (!m) return 0;
+      return parseInt(m[1], 10) || 0;
+    };
+
+    // Determine if a cabinet is Base or Tall type (contributes to TK8)
+    const isBaseOrTall = (row: { type: string; sku: string }): boolean => {
+      const t = row.type?.toLowerCase() || '';
+      if (t === 'base' || t === 'tall') return true;
+      // Fallback: check SKU prefix
+      const s = row.sku.toUpperCase();
+      if (/^(B|DB|SB|CB|EB|LSB?|LS)\d/.test(s)) return true;
+      if (/^(T|UT|TC|PT|PTC|UC)\d/.test(s)) return true;
+      if (/^(V|VB|VD|VDB)\d/.test(s)) return true; // vanity base counts too
+      return false;
+    };
+
+    const isVanityRow = (row: { type: string; sku: string; room: string }): boolean => {
+      if (row.type?.toLowerCase() === 'vanity') return true;
+      const s = row.sku.toUpperCase();
+      if (/^(V|VB|VD|VDB)\d/.test(s)) return true;
+      if (row.room?.toLowerCase().includes('vanity') || row.room?.toLowerCase().includes('bath')) return true;
+      return false;
+    };
+
     if (typesWithCabinets.length > 0) {
       for (const unitType of typesWithCabinets) {
-        store.addCabinetImport(
-          [{ sku: 'TK8', type: 'Base', room: 'Kitchen', quantity: 1, unitType }],
-          unitType
-        );
+        const typeRows = rowsByType.get(unitType) || [];
+        const baseTallRows = typeRows.filter(r => isBaseOrTall(r));
+
+        // Split into kitchen (non-vanity) and vanity groups
+        const kitchenRows = baseTallRows.filter(r => !isVanityRow(r));
+        const vanityRows = baseTallRows.filter(r => isVanityRow(r));
+
+        // Group vanity rows by room for separate TK8 counts
+        const vanityByRoom = new Map<string, typeof vanityRows>();
+        for (const r of vanityRows) {
+          const roomKey = r.room?.toLowerCase() || 'vanity';
+          if (!vanityByRoom.has(roomKey)) vanityByRoom.set(roomKey, []);
+          vanityByRoom.get(roomKey)!.push(r);
+        }
+
+        let totalTk8 = 0;
+
+        // Kitchen TK8: sum of widths of all kitchen base+tall, /96, round up
+        if (kitchenRows.length > 0) {
+          const kitchenWidthSum = kitchenRows.reduce((sum, r) => {
+            return sum + parseWidthFromSku(r.sku) * r.quantity;
+          }, 0);
+          if (kitchenWidthSum > 0) {
+            totalTk8 += Math.ceil(kitchenWidthSum / 96);
+          }
+        }
+
+        // Each vanity room: separate width sum /96 round up
+        for (const [, vRows] of vanityByRoom) {
+          const vanityWidthSum = vRows.reduce((sum, r) => {
+            return sum + parseWidthFromSku(r.sku) * r.quantity;
+          }, 0);
+          if (vanityWidthSum > 0) {
+            totalTk8 += Math.ceil(vanityWidthSum / 96);
+          }
+        }
+
+        if (totalTk8 > 0) {
+          store.addCabinetImport(
+            [{ sku: 'TK8', type: 'Base', room: 'Kitchen', quantity: totalTk8, unitType }],
+            unitType
+          );
+        }
       }
     }
 
