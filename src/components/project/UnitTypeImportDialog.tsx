@@ -127,6 +127,36 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
   const [personalQuoteIndex, setPersonalQuoteIndex] = useState(() => Math.floor(Math.random() * PERSONAL_QUOTES.length));
   const [quoteVisible, setQuoteVisible] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
+  const bgPickedUpRef = useRef(false);
+
+  // ── Pick up background job results ──────────────────────────────────
+  const bgJob = useExtractionJobByType('unit');
+
+  useEffect(() => {
+    if (!bgJob || bgPickedUpRef.current) return;
+    if (bgJob.status === 'processing') {
+      setStep('processing');
+      setProgress(bgJob.progress);
+    } else if (bgJob.status === 'done') {
+      bgPickedUpRef.current = true;
+      const r = bgJob.results as { rows: UnitMappingRow[]; typeOrder: string[] } | null;
+      setRows(r?.rows ?? []);
+      setTypeOrder(r?.typeOrder ?? []);
+      setProgress(100);
+      setStep('review');
+      clearExtractionJob('unit');
+    } else if (bgJob.status === 'error') {
+      bgPickedUpRef.current = true;
+      setError(bgJob.error);
+      setStep('upload');
+      clearExtractionJob('unit');
+    }
+  }, [bgJob]);
+
+  useEffect(() => {
+    if (!bgJob || bgJob.status !== 'processing' || bgPickedUpRef.current) return;
+    setProgress(bgJob.progress);
+  }, [bgJob?.progress]);
 
   // Rotate quotes every 4s during processing
   useEffect(() => {
@@ -147,9 +177,11 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
     if (nonPdfs.length) { setError(`Only PDF files supported.`); return; }
     setError(null);
     setStep('processing');
+    bgPickedUpRef.current = false;
 
+    startExtraction('unit', files.map(f => f.name), async (update) => {
     try {
-      setProgress(8);
+      update({ progress: 8, statusText: 'Loading PDF library…' });
       const pdfjsLib = (await import('pdfjs-dist')) as any;
       pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 
