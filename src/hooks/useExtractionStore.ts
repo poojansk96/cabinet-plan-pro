@@ -63,7 +63,7 @@ function subscribe(listener: Listener): () => void {
 }
 
 function getSnapshot(): ExtractionJob[] {
-  return Array.from(jobs.values());
+  return snapshotCache;
 }
 
 /**
