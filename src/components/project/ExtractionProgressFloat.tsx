@@ -1,17 +1,13 @@
-import { useExtractionJob, clearExtractionJob } from '@/hooks/useCabinetExtractionStore';
+import { useAllExtractionJobs, clearExtractionJob, type ExtractionJob } from '@/hooks/useExtractionStore';
 import { Loader2, CheckCircle, AlertCircle, X, Sparkles } from 'lucide-react';
 
-export default function ExtractionProgressFloat() {
-  const job = useExtractionJob();
-
-  if (!job) return null;
-
+function JobCard({ job }: { job: ExtractionJob }) {
   const isDone = job.status === 'done';
   const isError = job.status === 'error';
   const isProcessing = job.status === 'processing';
 
   return (
-    <div className="fixed bottom-4 right-4 z-[60] w-72 bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-fade-in">
+    <div className="bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-secondary/50">
         <div className="flex items-center gap-1.5">
@@ -19,11 +15,11 @@ export default function ExtractionProgressFloat() {
           {isDone && <CheckCircle size={13} className="text-green-500" />}
           {isError && <AlertCircle size={13} className="text-destructive" />}
           <span className="text-xs font-semibold text-foreground">
-            {isProcessing ? 'Extracting Cabinets…' : isDone ? 'Extraction Complete' : 'Extraction Failed'}
+            {isProcessing ? `Extracting ${job.label}…` : isDone ? `${job.label} Complete` : `${job.label} Failed`}
           </span>
         </div>
         {(isDone || isError) && (
-          <button onClick={clearExtractionJob} className="text-muted-foreground hover:text-foreground p-0.5">
+          <button onClick={() => clearExtractionJob(job.type)} className="text-muted-foreground hover:text-foreground p-0.5">
             <X size={12} />
           </button>
         )}
@@ -59,9 +55,7 @@ export default function ExtractionProgressFloat() {
 
         {isDone && (
           <p className="text-xs text-muted-foreground">
-            <strong className="text-foreground">{job.rows.length}</strong> labels extracted
-            {job.typeOrder.length > 0 && <> · <strong className="text-foreground">{job.typeOrder.length}</strong> types</>}
-            {' '}— open the import dialog to review.
+            Extraction complete — open the import dialog to review.
           </p>
         )}
 
@@ -69,6 +63,20 @@ export default function ExtractionProgressFloat() {
           <p className="text-xs text-destructive">{job.error}</p>
         )}
       </div>
+    </div>
+  );
+}
+
+export default function ExtractionProgressFloat() {
+  const jobs = useAllExtractionJobs();
+
+  if (jobs.length === 0) return null;
+
+  return (
+    <div className="fixed bottom-4 right-4 z-[60] w-72 space-y-2">
+      {jobs.map(job => (
+        <JobCard key={job.id} job={job} />
+      ))}
     </div>
   );
 }
