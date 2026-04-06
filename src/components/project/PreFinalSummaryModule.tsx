@@ -369,8 +369,10 @@ export default function PreFinalSummaryModule({ project }: Props) {
       `IFERROR(SUM(${colRef}${startRow}:${colRef}${endRow}),0)`;
 
     // Column layout (1-indexed)
-    const colSku = 1;
-    const colCabFirstType = 2;
+    const colBlank0 = 1;
+    const colSku = 2;
+    const colModNote = 3;
+    const colCabFirstType = 4;
     const colCabTotal = colCabFirstType + nTypes;
     const colSpacer1 = colCabTotal + 1;
 
@@ -400,7 +402,9 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
     // Column widths (kept consistent with existing layout)
     const colWidths: { width: number }[] = [];
-    colWidths.push({ width: 22 });
+    colWidths.push({ width: 3 });  // blank column before SKU
+    colWidths.push({ width: 22 }); // SKU Name
+    colWidths.push({ width: 18 }); // Modification Note
     for (let i = 0; i < nTypes; i++) colWidths.push({ width: 6 });
     colWidths.push({ width: 8 });
     colWidths.push({ width: 3 });
@@ -456,7 +460,9 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
     // Header row
     const headerValues: (string | number)[] = [];
+    headerValues.push(''); // blank col
     headerValues.push('SKU Name');
+    headerValues.push('Modification Note');
     cabTypes.forEach(t => headerValues.push(t));
     headerValues.push('Total');
     headerValues.push('');
@@ -485,18 +491,18 @@ export default function PreFinalSummaryModule({ project }: Props) {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F0' } };
       cell.border = { bottom: { style: 'thin', color: { argb: 'FF999999' } } };
       cell.alignment = { vertical: 'bottom', wrapText: false };
-      const idx = colNumber - 1;
-      if ((idx >= 1 && idx <= nTypes) ||
-          (idx >= colPullsFirstType - 1 && idx <= colPullsFirstType - 2 + nTypes) ||
-          (idx >= colPricingFirstType - 1 && idx <= colPricingFirstType - 2 + nTypes) ||
-          (idx >= colTotalCabFirstType - 1 && idx <= colTotalCabFirstType - 2 + nTypes) ||
-          (idx >= colCpuFirstType - 1 && idx <= colCpuFirstType - 2 + nTypes)) {
+      const idx = colNumber;
+      if ((idx >= colCabFirstType && idx <= colCabFirstType + nTypes - 1) ||
+          (idx >= colPullsFirstType && idx <= colPullsFirstType + nTypes - 1) ||
+          (idx >= colPricingFirstType && idx <= colPricingFirstType + nTypes - 1) ||
+          (idx >= colTotalCabFirstType && idx <= colTotalCabFirstType + nTypes - 1) ||
+          (idx >= colCpuFirstType && idx <= colCpuFirstType + nTypes - 1)) {
         cell.alignment = { textRotation: 90, vertical: 'bottom', horizontal: 'center' };
       }
     });
 
     // Freeze: top 3 rows (section headers + unit count ref + column headers) AND first column (SKU Name)
-    wsCabs.views = [{ state: 'frozen', xSplit: 1, ySplit: 3 }];
+    wsCabs.views = [{ state: 'frozen', xSplit: 3, ySplit: 3 }];
 
     const dataRangeStartRow = cabHeader.number + 1;
 
@@ -504,7 +510,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
     // Data rows
     groupedSkus.forEach(({ group, skus }) => {
-      const groupRow = wsCabs.addRow([`${group} (${skus.length})`]);
+      const groupRow = wsCabs.addRow(['', `${group} (${skus.length})`]);
       groupRow.eachCell(cell => {
         cell.font = { bold: true };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAEAEA' } };
@@ -517,7 +523,9 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
         // Build row with only the editable inputs + base quantities; everything else becomes formulas
         const rowValues: (string | number)[] = [];
+        rowValues.push(''); // blank col
         rowValues.push(sku);
+        rowValues.push(''); // modification note (blank)
 
         // Cabinet quantities per type
         cabTypes.forEach(t => {
@@ -614,10 +622,19 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
         // Pricing (uses per-type Bid/Additional rows written after totals; formulas patched later)
         row.eachCell((cell, colNumber) => {
-          if (colNumber > 1) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          if (colNumber > 3) cell.alignment = { horizontal: 'center', vertical: 'middle' };
         });
       });
     });
+
+    // Add note if any molding SKUs (CM8, Scribe, TF3X96-Molding, LR8) are present
+    const moldingNote = ['CM8', 'LR8', 'TF3X96-MOLDING', 'SCRIBE'];
+    const hasMoldingSku = allSkus.some(s => moldingNote.includes(s.toUpperCase()));
+    if (hasMoldingSku) {
+      const noteRow = wsCabs.addRow([]);
+      noteRow.getCell(colSku).value = 'Note: Add inches of depth for exposed wall cabinet areas';
+      noteRow.getCell(colSku).font = { bold: true, italic: true, size: 8, color: { argb: 'FFFF0000' } };
+    }
 
     const dataRangeEndRow = wsCabs.lastRow?.number || dataRangeStartRow;
 
@@ -702,7 +719,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
     cabTotRow.eachCell((cell, colNumber) => {
       cell.font = { bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
-      if (colNumber > 1) cell.alignment = { horizontal: 'center' };
+      if (colNumber > 3) cell.alignment = { horizontal: 'center' };
     });
 
     // Pricing inputs (editable) + per-type total cost (formula)
@@ -745,7 +762,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
     for (let r = dataRangeStartRow; r <= dataRangeEndRow; r++) {
       // Skip group rows (they have text in SKU column and no numbers elsewhere)
       const skuVal = wsCabs.getRow(r).getCell(colSku).value;
-      if (typeof skuVal !== 'string' || skuVal.includes('(')) continue;
+      if (typeof skuVal !== 'string' || skuVal.includes('(') || skuVal.startsWith('Note:')) continue;
 
        const partsBid: string[] = [];
        const partsAdd: string[] = [];
