@@ -491,12 +491,12 @@ export default function PreFinalSummaryModule({ project }: Props) {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F0' } };
       cell.border = { bottom: { style: 'thin', color: { argb: 'FF999999' } } };
       cell.alignment = { vertical: 'bottom', wrapText: false };
-      const idx = colNumber - 1;
-      if ((idx >= 1 && idx <= nTypes) ||
-          (idx >= colPullsFirstType - 1 && idx <= colPullsFirstType - 2 + nTypes) ||
-          (idx >= colPricingFirstType - 1 && idx <= colPricingFirstType - 2 + nTypes) ||
-          (idx >= colTotalCabFirstType - 1 && idx <= colTotalCabFirstType - 2 + nTypes) ||
-          (idx >= colCpuFirstType - 1 && idx <= colCpuFirstType - 2 + nTypes)) {
+      const idx = colNumber;
+      if ((idx >= colCabFirstType && idx <= colCabFirstType + nTypes - 1) ||
+          (idx >= colPullsFirstType && idx <= colPullsFirstType + nTypes - 1) ||
+          (idx >= colPricingFirstType && idx <= colPricingFirstType + nTypes - 1) ||
+          (idx >= colTotalCabFirstType && idx <= colTotalCabFirstType + nTypes - 1) ||
+          (idx >= colCpuFirstType && idx <= colCpuFirstType + nTypes - 1)) {
         cell.alignment = { textRotation: 90, vertical: 'bottom', horizontal: 'center' };
       }
     });
