@@ -3,7 +3,7 @@ import { FileUp, X, Loader2, CheckCircle, AlertCircle, Sparkles, Trash2, FilePlu
 import type { CabinetType, Room } from '@/types/project';
 import { extractPlanSkuCountsFromTextItems, mergePrefinalExtractionPasses } from '@/lib/prefinalCabinetMerge';
 import { toast } from 'sonner';
-import { startBackgroundExtraction, useExtractionJob, clearExtractionJob } from '@/hooks/useCabinetExtractionStore';
+import { startExtraction, useExtractionJobByType, clearExtractionJob } from '@/hooks/useExtractionStore';
 
 const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-pdf-labels`;
 
@@ -465,7 +465,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
   const addMoreRef = useRef<HTMLInputElement>(null);
 
   // ── Pick up background job results ──────────────────────────────────
-  const bgJob = useExtractionJob();
+  const bgJob = useExtractionJobByType('cabinet');
   const bgPickedUpRef = useRef(false);
 
   useEffect(() => {
@@ -486,12 +486,12 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       setFilterSource('all');
       setProgress(100);
       setStep('review');
-      clearExtractionJob();
+      clearExtractionJob('cabinet');
     } else if (bgJob.status === 'error') {
       bgPickedUpRef.current = true;
       setError(bgJob.error);
       setStep('upload');
-      clearExtractionJob();
+      clearExtractionJob('cabinet');
     }
   }, [bgJob]);
 
