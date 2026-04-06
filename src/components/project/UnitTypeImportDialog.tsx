@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { FileUp, X, Loader2, CheckCircle, AlertCircle, Sparkles, Trash2, LayoutGrid, FileText, Search, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { startExtraction, useExtractionJobByType, clearExtractionJob } from '@/hooks/useExtractionStore';
 
 const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-pdf-unit-types`;
 
@@ -126,6 +127,36 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
   const [personalQuoteIndex, setPersonalQuoteIndex] = useState(() => Math.floor(Math.random() * PERSONAL_QUOTES.length));
   const [quoteVisible, setQuoteVisible] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
+  const bgPickedUpRef = useRef(false);
+
+  // ── Pick up background job results ──────────────────────────────────
+  const bgJob = useExtractionJobByType('unit');
+
+  useEffect(() => {
+    if (!bgJob || bgPickedUpRef.current) return;
+    if (bgJob.status === 'processing') {
+      setStep('processing');
+      setProgress(bgJob.progress);
+    } else if (bgJob.status === 'done') {
+      bgPickedUpRef.current = true;
+      const r = bgJob.results as { rows: UnitMappingRow[]; typeOrder: string[] } | null;
+      setRows(r?.rows ?? []);
+      setTypeOrder(r?.typeOrder ?? []);
+      setProgress(100);
+      setStep('review');
+      clearExtractionJob('unit');
+    } else if (bgJob.status === 'error') {
+      bgPickedUpRef.current = true;
+      setError(bgJob.error);
+      setStep('upload');
+      clearExtractionJob('unit');
+    }
+  }, [bgJob]);
+
+  useEffect(() => {
+    if (!bgJob || bgJob.status !== 'processing' || bgPickedUpRef.current) return;
+    setProgress(bgJob.progress);
+  }, [bgJob?.progress]);
 
   // Rotate quotes every 4s during processing
   useEffect(() => {
@@ -146,9 +177,11 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
     if (nonPdfs.length) { setError(`Only PDF files supported.`); return; }
     setError(null);
     setStep('processing');
+    bgPickedUpRef.current = false;
 
+    startExtraction('unit', files.map(f => f.name), async (update) => {
     try {
-      setProgress(8);
+      update({ progress: 8, statusText: 'Loading PDF library…' });
       const pdfjsLib = (await import('pdfjs-dist')) as any;
       pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 
@@ -168,7 +201,7 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
         pdfs.push({ file, pdf });
         totalPages += pdf.numPages; // Process ALL pages to find title pages
       }
-      setProgress(10);
+      update({ progress: 10, totalPages, statusText: 'Processing pages…' });
 
       // Build flat list of page tasks for parallel processing
       const pageTasks: { file: File; pdf: any; pageNum: number; globalIdx: number }[] = [];
@@ -260,8 +293,8 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
           const result = results[j];
           const task = batch[j];
           if (result.status === 'fulfilled') {
-            if (result.value.error === 'rate_limit') { toast.error('AI rate limit reached. Try again shortly.'); setStep('upload'); return; }
-            if (result.value.error === 'credits') { toast.error('AI credits exhausted.'); setStep('upload'); return; }
+            if (result.value.error === 'rate_limit') { update({ status: 'error', error: 'AI rate limit reached. Try again shortly.' }); return; }
+            if (result.value.error === 'credits') { update({ status: 'error', error: 'AI credits exhausted.' }); return; }
 
             for (const unit of result.value.units) {
               // Track first page each unit type appears on (for PDF-order column sorting)
@@ -286,7 +319,7 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
           }
           pagesProcessed++;
         }
-        setProgress(10 + Math.round((pagesProcessed / totalPages) * 85));
+        update({ progress: 10 + Math.round((pagesProcessed / totalPages) * 85), processedPages: pagesProcessed, statusText: `Processed ${pagesProcessed}/${totalPages} pages…` });
       }
 
       const keyPart = (v: string) => v.toUpperCase().replace(/\s+/g, '').trim();
@@ -357,13 +390,12 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
       result.sort((a, b) => a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true }));
 
       if (result.length === 0) {
-        setError('No unit numbers or types detected. The drawing may not contain unit schedules or labels.');
-        setStep('upload');
+        update({ status: 'error', error: 'No unit numbers or types detected. The drawing may not contain unit schedules or labels.' });
         return;
       }
 
       // Build type order sorted by first PDF page appearance
-      const seenTypes = new Map<string, string>(); // normalizedKey -> original display name
+      const seenTypes = new Map<string, string>();
       for (const r of result) {
         const key = r.unitType.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').trim();
         if (!seenTypes.has(key)) seenTypes.set(key, r.unitType);
@@ -373,14 +405,16 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
         .map(([key]) => seenTypes.get(key))
         .filter((t): t is string => !!t);
 
-      setTypeOrder(pdfTypeOrder);
-      setRows(result);
-      setStep('review');
+      update({
+        status: 'done',
+        progress: 100,
+        results: { rows: result, typeOrder: pdfTypeOrder },
+      });
     } catch (err) {
       console.error(err);
-      setError('Failed to process files. Please try again.');
-      setStep('upload');
+      update({ status: 'error', error: 'Failed to process files. Please try again.' });
     }
+    });
   };
 
   const handleDrop = useCallback((e: React.DragEvent) => {

@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { X, Upload, Loader2, Sparkles, Trash2, AlertTriangle, Eye, EyeOff } from 'lucide-react';
+import { startExtraction, useExtractionJobByType, clearExtractionJob } from '@/hooks/useExtractionStore';
 import type { PrefinalVtopRow } from '@/hooks/usePrefinalStore';
 
 // ─── Extended import row with new detection fields ───
@@ -394,9 +395,38 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
   const [showDebug, setShowDebug] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const processingRef = useRef(false);
+  const bgPickedUpRef = useRef(false);
 
   const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
   const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+  // ── Pick up background job results ──────────────────────────────────
+  const bgJob = useExtractionJobByType('vtop');
+
+  useEffect(() => {
+    if (!bgJob || bgPickedUpRef.current) return;
+    if (bgJob.status === 'processing') {
+      setStep('processing');
+      setProgress(bgJob.progress);
+    } else if (bgJob.status === 'done') {
+      bgPickedUpRef.current = true;
+      const r = bgJob.results as { rows: VtopImportRow[] } | null;
+      setRows(r?.rows ?? []);
+      setProgress(100);
+      setStep('review');
+      clearExtractionJob('vtop');
+    } else if (bgJob.status === 'error') {
+      bgPickedUpRef.current = true;
+      setError(bgJob.error || 'Failed');
+      setStep('upload');
+      clearExtractionJob('vtop');
+    }
+  }, [bgJob]);
+
+  useEffect(() => {
+    if (!bgJob || bgJob.status !== 'processing' || bgPickedUpRef.current) return;
+    setProgress(bgJob.progress);
+  }, [bgJob?.progress]);
 
   async function processFiles(files: File[]) {
     if (processingRef.current) return;
@@ -404,6 +434,7 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
     setStep('processing');
     setError('');
     setProgress(0);
+    bgPickedUpRef.current = false;
 
     const quoteInterval = setInterval(() => {
       setQuoteVisible(false);
@@ -414,6 +445,7 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
       }, 400);
     }, 4000);
 
+    startExtraction('vtop', files.map(f => f.name), async (update) => {
     try {
       const pdfjsLib = await import('pdfjs-dist');
       pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
@@ -428,12 +460,14 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
         const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
         pagesTotal += pdf.numPages;
       }
+      update({ totalPages: pagesTotal, statusText: 'Processing pages…' });
 
       for (const file of files) {
         const buf = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
 
         for (let p = 1; p <= pdf.numPages; p++) {
+          update({ statusText: `Processing ${file.name} — page ${p}/${pdf.numPages}` });
           const page = await pdf.getPage(p);
 
           // High-res canvas for deterministic bbox crops (kept at 3200px)
@@ -464,8 +498,8 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
               });
               clearTimeout(timeout);
 
-              if (resp.status === 429) { setError('Rate limit reached. Please wait and try again.'); break; }
-              if (resp.status === 402) { setError('AI credits exhausted.'); break; }
+              if (resp.status === 429) { update({ status: 'error', error: 'Rate limit reached.' }); clearInterval(quoteInterval); processingRef.current = false; return; }
+              if (resp.status === 402) { update({ status: 'error', error: 'AI credits exhausted.' }); clearInterval(quoteInterval); processingRef.current = false; return; }
 
               if (resp.ok) {
                 const data = await resp.json();
@@ -494,11 +528,9 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
                   };
 
                   // ── MIRROR type fix: flip bowl position ──
-                  // "-MIRROR" suffix means the vanity layout is horizontally mirrored
                   const unitUpper = (pageUnitType || '').toUpperCase();
                   if (unitUpper.includes('MIRROR') && importRow.bowlPosition !== 'center') {
                     importRow.bowlPosition = importRow.bowlPosition === 'offset-left' ? 'offset-right' : 'offset-left';
-                    // Also swap wall hints since the layout is mirrored
                     const tmpWall = importRow.leftWall;
                     importRow.leftWall = importRow.rightWall;
                     importRow.rightWall = tmpWall;
@@ -510,18 +542,14 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
                   // ── Deterministic wall detection using bbox crops ──
                   if (vt.bbox && vt.bbox.width > 0.01 && vt.bbox.height > 0.01) {
                     try {
-                      // Crop vanity area
                       const { base64: vanityCropB64 } = cropNormalizedRegion(
                         canvas, canvasW, canvasH, vt.bbox,
                       );
-                      // Analyze left and right ends
                       const leftDet = analyzeEndCrop(canvas, canvasW, canvasH, vt.bbox, 'left');
                       const rightDet = analyzeEndCrop(canvas, canvasW, canvasH, vt.bbox, 'right');
 
-                      // Finalize wall decision (deterministic + full-page AI fallback)
                       importRow = finalizeWallDecision(importRow, leftDet, rightDet, vanityCropB64);
 
-                      // Fix 2: If still ambiguous, do ONE focused AI call with end crops
                       if (importRow.reviewRequired && importRow.debugImages?.leftEndCrop && importRow.debugImages?.rightEndCrop) {
                         const focused = await focusedWallAICall(
                           SUPABASE_URL, SUPABASE_KEY,
@@ -529,7 +557,6 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
                           importRow.debugImages.rightEndCrop,
                         );
                         if (focused) {
-                          // Re-score with focused AI confidence (much more reliable than full-page)
                           const leftFocused = scoreWallEvidence(leftDet.confidence, focused.leftWallYesConfidence, Boolean(importRow.leftWall));
                           const rightFocused = scoreWallEvidence(rightDet.confidence, focused.rightWallYesConfidence, Boolean(importRow.rightWall));
                           
@@ -551,7 +578,6 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
                       importRow.reviewReason = (importRow.reviewReason || '') + ' Deterministic detection failed.';
                     }
                   } else {
-                    // No bbox — can't do deterministic detection
                     importRow.reviewRequired = true;
                     importRow.reviewReason = 'No bounding box — wall detection is AI-only.';
                   }
@@ -571,22 +597,24 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
             console.warn(`⚠️ Page ${p} of ${file.name} could not be processed after ${MAX_CLIENT_RETRIES} attempts`);
           }
           pagesDone++;
-          setProgress(Math.round((pagesDone / pagesTotal) * 100));
+          update({ progress: Math.round((pagesDone / pagesTotal) * 100), processedPages: pagesDone });
         }
       }
 
-      setRows(allRows);
-      setStep('review');
+      update({
+        status: 'done',
+        progress: 100,
+        results: { rows: allRows },
+      });
     } catch (err) {
       console.error('PDF processing error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to process PDF');
-      setStep('upload');
+      update({ status: 'error', error: err instanceof Error ? err.message : 'Failed to process PDF' });
     } finally {
       clearInterval(quoteInterval);
       processingRef.current = false;
     }
+    });
   }
-
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     const files = Array.from(e.dataTransfer.files).filter(f => f.type === 'application/pdf');

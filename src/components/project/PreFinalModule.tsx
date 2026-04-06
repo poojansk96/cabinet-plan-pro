@@ -417,6 +417,7 @@ export default function PreFinalModule({ project }: Props) {
           onImport={(rows, detectedTypes) => handleStoneImport(rows, detectedTypes)}
           onClose={() => setShowStoneImport(false)}
           prefinalPerson={project.specs?.takeoffPerson}
+          extractionType="stone"
         />
       )}
 
@@ -426,6 +427,7 @@ export default function PreFinalModule({ project }: Props) {
           onImport={(rows, detectedTypes) => handleLaminateImport(rows, detectedTypes)}
           onClose={() => setShowLaminateImport(false)}
           prefinalPerson={project.specs?.takeoffPerson}
+          extractionType="laminate"
         />
       )}
 
