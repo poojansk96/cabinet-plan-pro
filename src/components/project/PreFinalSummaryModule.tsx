@@ -4,7 +4,7 @@ import ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Project } from '@/types/project';
-import { usePrefinalStore, type PrefinalUnitNumber, type PrefinalCabinetRow } from '@/hooks/usePrefinalStore';
+import { usePrefinalStore, type PrefinalUnitNumber, type PrefinalCabinetRow, type PrefinalVtopRow } from '@/hooks/usePrefinalStore';
 import { formatDoorStyle, formatKitchenTops, formatVanityTops, formatAdditionalTops, getDoorStylePendingFields } from '@/lib/formatSpecs';
 interface Props {
   project: Project;
@@ -797,7 +797,137 @@ export default function PreFinalSummaryModule({ project }: Props) {
        typeTotCell.numFmt = '$#,##0.00';
     }
 
+    // ── VTOP section (Swanstone / Cultured Marble) at bottom of Cabinet Count tab ──
+    if (store.vtopRows.length > 0) {
+      const vanityMaterial = project.specs?.vanityCountertops || '';
+      const vtopLabel = vanityMaterial === 'Swanstone' ? 'SWANSTONE VTOPS'
+        : vanityMaterial === 'Cultured Marble' ? 'CULTURED MARBLE VTOPS'
+        : 'CMARBLE/SWAN VTOPS';
 
+      // Get vtop unit types that actually have data
+      const vtopTypes = store.vtopUnitTypes.filter(t =>
+        store.vtopRows.some(r => r.unitType === t)
+      );
+      const nVtopTypes = vtopTypes.length;
+
+      if (nVtopTypes > 0) {
+        // 2 blank rows
+        wsCabs.addRow([]);
+        wsCabs.addRow([]);
+
+        // Vtop section header
+        const vtopSectionRow = wsCabs.addRow([]);
+        vtopSectionRow.getCell(colSku).value = vtopLabel;
+        vtopSectionRow.getCell(colSku).font = { bold: true, size: 9 };
+
+        // Build unique vtop SKU descriptions
+        type VtopSkuKey = string;
+        interface VtopSkuInfo {
+          label: string;       // e.g. "31"X22"D (Center Bowl,One end finish)"
+          modNote: string;     // e.g. "EV1B2231" — left blank for user to fill
+          typeQty: Record<string, number>;
+        }
+
+        const formatVtopLabel = (row: PrefinalVtopRow): string => {
+          const size = `${row.length}"X${row.depth}"D`;
+          const bowl = row.bowlPosition === 'center'
+            ? '(Center Bowl'
+            : `(${row.bowlPosition === 'offset-left' ? 'Offset Left' : 'Offset Right'} Bowl`;
+          let endFinish: string;
+          if (row.leftWall && row.rightWall) {
+            endFinish = 'No end finish';
+          } else if (row.leftWall && !row.rightWall) {
+            endFinish = 'Right end finish';
+          } else if (!row.leftWall && row.rightWall) {
+            endFinish = 'Left end finish';
+          } else {
+            endFinish = 'Both end finish';
+          }
+          return `${size} ${bowl},${endFinish})`;
+        };
+
+        const vtopSkuKey = (row: PrefinalVtopRow): string =>
+          `${row.length}|${row.depth}|${row.bowlPosition}|${row.bowlOffset ?? 'null'}|${row.leftWall}|${row.rightWall}`;
+
+        const vtopSkuMap = new Map<VtopSkuKey, VtopSkuInfo>();
+        // Track sidesplash needs per type
+        const sidesplashByType: Record<string, number> = {};
+        const vtopDepth = store.vtopRows[0]?.depth || 22;
+
+        for (const row of store.vtopRows) {
+          const key = vtopSkuKey(row);
+          if (!vtopSkuMap.has(key)) {
+            vtopSkuMap.set(key, {
+              label: formatVtopLabel(row),
+              modNote: '',
+              typeQty: {},
+            });
+          }
+          const info = vtopSkuMap.get(key)!;
+          info.typeQty[row.unitType] = (info.typeQty[row.unitType] || 0) + 1;
+
+          // Count sidesplashes per type
+          const ssCount = (row.leftWall ? 1 : 0) + (row.rightWall ? 1 : 0);
+          if (ssCount > 0) {
+            sidesplashByType[row.unitType] = (sidesplashByType[row.unitType] || 0) + ssCount;
+          }
+        }
+
+        // Vtop header row with rotated type names
+        const vtopHeaderValues: (string | number)[] = [];
+        vtopHeaderValues.push('ITEM LIST');
+        vtopHeaderValues.push('MODIFICATION NOTE');
+        vtopTypes.forEach(t => vtopHeaderValues.push(t));
+
+        const vtopHeader = wsCabs.addRow(vtopHeaderValues);
+        vtopHeader.height = 120;
+        vtopHeader.eachCell((cell, colNumber) => {
+          cell.font = { bold: true };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F0' } };
+          cell.border = { bottom: { style: 'thin', color: { argb: 'FF999999' } } };
+          cell.alignment = { vertical: 'bottom', wrapText: false };
+          // Rotate type name columns
+          if (colNumber >= 3 && colNumber <= 2 + nVtopTypes) {
+            cell.alignment = { textRotation: 90, vertical: 'bottom', horizontal: 'center' };
+          }
+        });
+
+        // Vtop SKU rows
+        for (const [, info] of vtopSkuMap) {
+          const rowValues: (string | number)[] = [];
+          rowValues.push(info.label);
+          rowValues.push(info.modNote); // empty for user to fill in product code
+          vtopTypes.forEach(t => {
+            const qty = info.typeQty[t] || 0;
+            rowValues.push(qty > 0 ? qty : '');
+          });
+          const row = wsCabs.addRow(rowValues);
+          row.getCell(1).font = { size: 9 };
+          row.getCell(1).border = { left: { style: 'thin', color: { argb: 'FF4472C4' } }, bottom: { style: 'thin', color: { argb: 'FF4472C4' } } };
+          row.getCell(2).font = { size: 9 };
+          for (let i = 0; i < nVtopTypes; i++) {
+            row.getCell(3 + i).alignment = { horizontal: 'center' };
+          }
+        }
+
+        // Sidesplash row
+        const hasSidesplash = Object.values(sidesplashByType).some(v => v > 0);
+        if (hasSidesplash) {
+          const ssValues: (string | number)[] = [];
+          ssValues.push(`${vtopDepth}"D SIDE SPLASH`);
+          ssValues.push('');
+          vtopTypes.forEach(t => {
+            const qty = sidesplashByType[t] || 0;
+            ssValues.push(qty > 0 ? qty : '');
+          });
+          const ssRow = wsCabs.addRow(ssValues);
+          ssRow.getCell(1).font = { size: 9 };
+          for (let i = 0; i < nVtopTypes; i++) {
+            ssRow.getCell(3 + i).alignment = { horizontal: 'center' };
+          }
+        }
+      }
+    }
 
 
     // ── Sheet 4: Costing ────────────────────────────────────────────
