@@ -1294,8 +1294,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
     const summedCols = [
       cc.qty, cc.cabsCost, cc.pullsQty, cc.pullsCost,
       cc.plamLft, cc.plamTotalLft, cc.plamCost,
-      cc.ktopSqft, cc.ktopCost, cc.kBackSplash, cc.kSinkCutout, cc.kFaucetHoles, cc.kRangeCutout,
-      cc.vtopSqft, cc.vtopCost, cc.vBackSplash, cc.vSinkCutout, cc.vFaucetHoles,
+      cc.ktopSqft, cc.ktopCost, cc.kTopSqftOnly, cc.kBackSplash, cc.kSinkCutout, cc.kFaucetHoles, cc.kRangeCutout,
+      cc.vtopSqft, cc.vtopCost, cc.vTopSqftOnly, cc.vBackSplash, cc.vSinkCutout, cc.vFaucetHoles,
       cc.stickQty, cc.stickCost, cc.dwQty, cc.dwCost, cc.laborCost,
       cc.deliveryCost, cc.ldCost,
       cc.costPerUnit, cc.costExt,
