@@ -306,6 +306,24 @@ TASK:
       - "offset-right" if bowl center is closer to the RIGHT end of the length axis
       - "center" if bowl is centered along the length axis
    d. **bowlOffset** — if offset, measure the distance in inches from the CLOSER end to the center of the bowl. If center, set to null.
+   e. **leftWall** and **rightWall** — CRITICAL: Detect whether each end of the vanity top touches a wall.
+
+RULES FOR WALL DETECTION (leftWall / rightWall):
+- Look at EACH END of the vanity top along its LENGTH axis.
+- WALL (true) indicators — any of these means the end has a wall:
+  * DOUBLE PARALLEL LINES at the end edge (two lines close together = sidesplash/wall return)
+  * A WALL LINE drawn adjacent to and touching the vanity end
+  * The vanity end butts against a wall line in the floor plan
+  * A sidesplash or backsplash return is shown at that end
+  * Text labels like "SS" (sidesplash), "WALL", or hatching at the end
+- OPEN / NO WALL (false) indicators:
+  * SINGLE LINE at the end edge (just the vanity outline = finish end / open end)
+  * The vanity end is free-standing with no wall nearby
+  * Text labels like "FE" (finish end) or "OPEN"
+- MOST vanity tops in residential projects have at least ONE wall. Many have BOTH walls.
+- If you see double lines at BOTH ends, set BOTH leftWall and rightWall to true.
+- Set leftWallYesConfidence and rightWallYesConfidence to reflect your certainty (0.0=definitely no wall, 1.0=definitely wall).
+- When in doubt, lean toward true (wall) rather than false — sidesplashes are more common than open ends.
 
 RULES FOR BOWL POSITION:
 - ALWAYS use dimension callout lines to determine offset — do not guess from visual position alone.
@@ -322,7 +340,7 @@ IMPORTANT:
 - The bbox coordinates MUST be normalized 0..1 relative to the full page.
 
 Return ONLY valid JSON — no markdown fences, no explanation:
-{"unitTypeName":"TYPE 1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"bowlPosition":"offset-right","bowlOffset":17.75,"leftWall":true,"rightWall":false,"leftWallYesConfidence":0.85,"rightWallYesConfidence":0.1,"bbox":{"x":0.05,"y":0.3,"width":0.35,"height":0.2}}]}`;
+{"unitTypeName":"TYPE 1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"bowlPosition":"offset-right","bowlOffset":17.75,"leftWall":true,"rightWall":true,"leftWallYesConfidence":0.9,"rightWallYesConfidence":0.85,"bbox":{"x":0.05,"y":0.3,"width":0.35,"height":0.2}}]}`;
 
     // ── Pass 1: Extraction ──
     let fullContent = "";
