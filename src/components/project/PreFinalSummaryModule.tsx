@@ -913,30 +913,32 @@ export default function PreFinalSummaryModule({ project }: Props) {
       kTopSqftOnly: 19, kBackSplash: 20, kSinkCutout: 21, kFaucetHoles: 22, kRangeCutout: 23,
       vtopSqft: 24, vtopCost: 25,
       vTopSqftOnly: 26, vBackSplash: 27, vSinkCutout: 28, vFaucetHoles: 29,
-      stickQty: 30, stickCost: 31,
-      dwQty: 32, dwCost: 33,
-      laborCost: 34, deliveryCost: 35, ldCost: 36,
-      costPerUnit: 37, costExt: 38,
-      spacer: 39,
-      cabsRetail: 40, pullsRetail: 41, plamRetail: 42, ktopRetail: 43, vtopRetail: 44,
-      stickRetail: 45, dwRetail: 46, laborRetail: 47, deliveryRetail: 48, ldRetail: 49,
-      retailPerUnit: 50, retailExt: 51,
-      spacer2: 52,
-      cabsTotalCost: 53, cabsTotalRetail: 54,
-      pullsTotalCost: 55, pullsTotalRetail: 56,
-      plamTotalCostCol: 57, plamTotalRetailCol: 58,
-      ktopTotalCost: 59, ktopTotalRetail: 60,
-      vtopTotalCost: 61, vtopTotalRetail: 62,
-      stickTotalCost: 63, stickTotalRetail: 64,
-      dwTotalCost: 65, dwTotalRetail: 66,
-      laborTotalCost: 67, laborTotalRetail: 68,
-      deliveryTotalCost: 69, deliveryTotalRetail: 70,
-      ldTotalCost: 71, ldTotalRetail: 72,
-      material: 73, labor: 74, tax: 75,
-      retailPerUnit2: 76, retailExt2: 77,
-      spacer3: 78,
-      sumLabel: 79, sumRetail: 80, sumMargin: 81,
-      spacer4: 82, sumCost: 83,
+      cmVtopCost: 30,
+      stickQty: 31, stickCost: 32,
+      dwQty: 33, dwCost: 34,
+      laborCost: 35, deliveryCost: 36, ldCost: 37,
+      costPerUnit: 38, costExt: 39,
+      spacer: 40,
+      cabsRetail: 41, pullsRetail: 42, plamRetail: 43, ktopRetail: 44, vtopRetail: 45, cmVtopRetail: 46,
+      stickRetail: 47, dwRetail: 48, laborRetail: 49, deliveryRetail: 50, ldRetail: 51,
+      retailPerUnit: 52, retailExt: 53,
+      spacer2: 54,
+      cabsTotalCost: 55, cabsTotalRetail: 56,
+      pullsTotalCost: 57, pullsTotalRetail: 58,
+      plamTotalCostCol: 59, plamTotalRetailCol: 60,
+      ktopTotalCost: 61, ktopTotalRetail: 62,
+      vtopTotalCost: 63, vtopTotalRetail: 64,
+      cmVtopTotalCost: 65, cmVtopTotalRetail: 66,
+      stickTotalCost: 67, stickTotalRetail: 68,
+      dwTotalCost: 69, dwTotalRetail: 70,
+      laborTotalCost: 71, laborTotalRetail: 72,
+      deliveryTotalCost: 73, deliveryTotalRetail: 74,
+      ldTotalCost: 75, ldTotalRetail: 76,
+      material: 77, labor: 78, tax: 79,
+      retailPerUnit2: 80, retailExt2: 81,
+      spacer3: 82,
+      sumLabel: 83, sumRetail: 84, sumMargin: 85,
+      spacer4: 86, sumCost: 87,
     };
 
     const SAFFRON = 'FFFFF2CC';
@@ -952,15 +954,17 @@ export default function PreFinalSummaryModule({ project }: Props) {
       { width: 10 }, { width: 14 }, { width: 14 }, { width: 12 }, { width: 14 },
       { width: 10 }, { width: 14 },
       { width: 10 }, { width: 14 }, { width: 14 }, { width: 12 },
+      { width: 14 }, // CMARBLE/SWAN VTOP COST
       { width: 10 }, { width: 12 },
       { width: 10 }, { width: 12 },
       { width: 12 }, { width: 12 }, { width: 12 },
       { width: 14 }, { width: 14 },
       { width: 3 },
-      { width: 12 }, { width: 12 }, { width: 14 }, { width: 14 }, { width: 14 },
+      { width: 12 }, { width: 12 }, { width: 14 }, { width: 14 }, { width: 14 }, { width: 14 },
       { width: 12 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 12 },
       { width: 14 }, { width: 14 },
       { width: 3 },
+      { width: 14 }, { width: 14 },
       { width: 14 }, { width: 14 },
       { width: 14 }, { width: 14 },
       { width: 14 }, { width: 14 },
@@ -1020,6 +1024,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
       [cc.vBackSplash]: 'BACK &\nSIDESPLASH\nSQFT',
       [cc.vSinkCutout]: 'UNDERMOUNT\nVANITY SINK\nCUTOUT',
       [cc.vFaucetHoles]: 'FAUCET HOLES\nfor each sink\n(select)',
+      [cc.cmVtopCost]: 'CMARBLE/SWAN\nVTOP COST',
       [cc.stickQty]: '2X3X8\nSTICK QTY',
       [cc.stickCost]: '2X3X8\nSTICK COST',
       [cc.dwQty]: 'DW\nBRACKETS\nQTY',
@@ -1034,6 +1039,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
       [cc.plamRetail]: 'PLAM KTOP\nRETAIL',
       [cc.ktopRetail]: 'QUARTZ KTOP\nGRP1 RETAIL',
       [cc.vtopRetail]: 'QUARTZ VTOP\nGRP1 RETAIL',
+      [cc.cmVtopRetail]: 'CMARBLE/SWAN\nVTOP RETAIL',
       [cc.stickRetail]: '2X3X8\nRETAIL',
       [cc.dwRetail]: 'DW BRACKETS\nRETAIL',
       [cc.laborRetail]: 'LABOR\nRETAIL',
@@ -1051,6 +1057,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
       [cc.ktopTotalRetail]: 'QUARTZ GRP1\nKTOP\nTOTAL RETAIL',
       [cc.vtopTotalCost]: 'QUARTZ GRP1\nVTOP\nTOTAL COST',
       [cc.vtopTotalRetail]: 'QUARTZ GRP1\nVTOP\nTOTAL RETAIL',
+      [cc.cmVtopTotalCost]: 'CMARBLE/SWAN\nVTOP\nTOTAL COST',
+      [cc.cmVtopTotalRetail]: 'CMARBLE/SWAN\nVTOP\nTOTAL RETAIL',
       [cc.stickTotalCost]: '2X3X8\nTOTAL COST',
       [cc.stickTotalRetail]: '2X3X8\nTOTAL RETAIL',
       [cc.dwTotalCost]: 'DW BRACKETS\nTOTAL COST',
@@ -1083,7 +1091,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
     // Row 3: Saffron rate/multiplier row (user-editable rates)
     const costRateRow = wsCosting.addRow([]);
     const saffronCostCols = [cc.pullsCost, cc.plamCost, cc.plamSsCost, cc.bartopCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.deliveryCost, cc.ldCost];
-    const saffronRetailCols = [cc.cabsRetail, cc.pullsRetail, cc.plamRetail, cc.ktopRetail, cc.vtopRetail, cc.stickRetail, cc.dwRetail, cc.laborRetail, cc.deliveryRetail, cc.ldRetail];
+    const saffronRetailCols = [cc.cabsRetail, cc.pullsRetail, cc.plamRetail, cc.ktopRetail, cc.vtopRetail, cc.cmVtopRetail, cc.stickRetail, cc.dwRetail, cc.laborRetail, cc.deliveryRetail, cc.ldRetail];
     const saffronTotalCols = [cc.tax]; // tax multiplier
     [...saffronCostCols, ...saffronRetailCols, ...saffronTotalCols].forEach(col => {
       const cell = costRateRow.getCell(col);
@@ -1170,6 +1178,10 @@ export default function PreFinalSummaryModule({ project }: Props) {
       setFormula(row.getCell(cc.vtopCost), safeMul(ref(cc.vtopSqft, r), `$${excelCol(cc.vtopCost)}$${costRateRowNum}`), 0);
       row.getCell(cc.vtopCost).numFmt = '$#,##0.00';
 
+      // CMARBLE/SWAN VTOP COST — blank for user
+      row.getCell(cc.cmVtopCost).border = allBorders;
+      row.getCell(cc.cmVtopCost).numFmt = '$#,##0.00';
+
       // 2X3X8 STICK COST
       setFormula(row.getCell(cc.stickCost), safeMul(ref(cc.stickQty, r), `$${excelCol(cc.stickCost)}$${costRateRowNum}`), 0);
       row.getCell(cc.stickCost).numFmt = '$#,##0.00';
@@ -1187,7 +1199,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
       row.getCell(cc.ldCost).numFmt = '$#,##0.00';
 
       // COST PER UNIT = sum of all cost columns (including plamCost + plamSsCost)
-      const costCols = [cc.cabsCost, cc.pullsCost, cc.plamCost, cc.plamSsCost, cc.bartopCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.laborCost, cc.deliveryCost, cc.ldCost];
+      const costCols = [cc.cabsCost, cc.pullsCost, cc.plamCost, cc.plamSsCost, cc.bartopCost, cc.ktopCost, cc.vtopCost, cc.cmVtopCost, cc.stickCost, cc.dwCost, cc.laborCost, cc.deliveryCost, cc.ldCost];
       setFormula(row.getCell(cc.costPerUnit), `ROUND(IFERROR(${costCols.map(c => `N(${ref(c, r)})`).join('+')},0),2)`, 0);
       row.getCell(cc.costPerUnit).numFmt = '$#,##0.00';
 
@@ -1201,6 +1213,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
         { retail: cc.pullsRetail, cost: cc.pullsCost },
         { retail: cc.ktopRetail, cost: cc.ktopCost },
         { retail: cc.vtopRetail, cost: cc.vtopCost },
+        { retail: cc.cmVtopRetail, cost: cc.cmVtopCost },
         { retail: cc.stickRetail, cost: cc.stickCost },
         { retail: cc.dwRetail, cost: cc.dwCost },
         { retail: cc.laborRetail, cost: cc.laborCost },
@@ -1231,6 +1244,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
         { totalCost: cc.plamTotalCostCol, totalRetail: cc.plamTotalRetailCol, cost: cc.plamCost, retail: cc.plamRetail, extraCosts: [cc.plamSsCost, cc.bartopCost] },
         { totalCost: cc.ktopTotalCost, totalRetail: cc.ktopTotalRetail, cost: cc.ktopCost, retail: cc.ktopRetail },
         { totalCost: cc.vtopTotalCost, totalRetail: cc.vtopTotalRetail, cost: cc.vtopCost, retail: cc.vtopRetail },
+        { totalCost: cc.cmVtopTotalCost, totalRetail: cc.cmVtopTotalRetail, cost: cc.cmVtopCost, retail: cc.cmVtopRetail },
         { totalCost: cc.stickTotalCost, totalRetail: cc.stickTotalRetail, cost: cc.stickCost, retail: cc.stickRetail },
         { totalCost: cc.dwTotalCost, totalRetail: cc.dwTotalRetail, cost: cc.dwCost, retail: cc.dwRetail },
         { totalCost: cc.laborTotalCost, totalRetail: cc.laborTotalRetail, cost: cc.laborCost, retail: cc.laborRetail },
@@ -1250,7 +1264,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
       });
 
       // MATERIAL = sum of all total retail EXCEPT labor, delivery, L&D
-      const matRetailCols = [cc.cabsTotalRetail, cc.pullsTotalRetail, cc.plamTotalRetailCol, cc.ktopTotalRetail, cc.vtopTotalRetail, cc.stickTotalRetail, cc.dwTotalRetail];
+      const matRetailCols = [cc.cabsTotalRetail, cc.pullsTotalRetail, cc.plamTotalRetailCol, cc.ktopTotalRetail, cc.vtopTotalRetail, cc.cmVtopTotalRetail, cc.stickTotalRetail, cc.dwTotalRetail];
       setFormula(row.getCell(cc.material), `ROUND(IFERROR(${matRetailCols.map(c => `N(${ref(c, r)})`).join('+')},0),2)`, 0);
       row.getCell(cc.material).numFmt = '$#,##0.00';
 
@@ -1292,30 +1306,33 @@ export default function PreFinalSummaryModule({ project }: Props) {
       cc.bartopLft, cc.bartopTotalLft, cc.bartopCost,
       cc.ktopSqft, cc.ktopCost, cc.kTopSqftOnly, cc.kBackSplash, cc.kSinkCutout, cc.kFaucetHoles, cc.kRangeCutout,
       cc.vtopSqft, cc.vtopCost, cc.vTopSqftOnly, cc.vBackSplash, cc.vSinkCutout, cc.vFaucetHoles,
+      cc.cmVtopCost,
       cc.stickQty, cc.stickCost, cc.dwQty, cc.dwCost, cc.laborCost,
       cc.deliveryCost, cc.ldCost,
       cc.costPerUnit, cc.costExt,
-      cc.cabsRetail, cc.pullsRetail, cc.plamRetail, cc.ktopRetail, cc.vtopRetail, cc.stickRetail, cc.dwRetail, cc.laborRetail,
+      cc.cabsRetail, cc.pullsRetail, cc.plamRetail, cc.ktopRetail, cc.vtopRetail, cc.cmVtopRetail, cc.stickRetail, cc.dwRetail, cc.laborRetail,
       cc.deliveryRetail, cc.ldRetail,
       cc.retailPerUnit, cc.retailExt,
       cc.cabsTotalCost, cc.cabsTotalRetail, cc.pullsTotalCost, cc.pullsTotalRetail,
       cc.plamTotalCostCol, cc.plamTotalRetailCol,
       cc.ktopTotalCost, cc.ktopTotalRetail, cc.vtopTotalCost, cc.vtopTotalRetail,
+      cc.cmVtopTotalCost, cc.cmVtopTotalRetail,
       cc.stickTotalCost, cc.stickTotalRetail, cc.dwTotalCost, cc.dwTotalRetail,
       cc.laborTotalCost, cc.laborTotalRetail,
       cc.deliveryTotalCost, cc.deliveryTotalRetail, cc.ldTotalCost, cc.ldTotalRetail,
       cc.material, cc.labor, cc.tax, cc.retailPerUnit2, cc.retailExt2,
     ];
     const dollarCols = new Set([
-      cc.cabsCost, cc.pullsCost, cc.plamCost, cc.plamSsCost, cc.bartopCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.laborCost,
+      cc.cabsCost, cc.pullsCost, cc.plamCost, cc.plamSsCost, cc.bartopCost, cc.ktopCost, cc.vtopCost, cc.cmVtopCost, cc.stickCost, cc.dwCost, cc.laborCost,
       cc.deliveryCost, cc.ldCost,
       cc.costPerUnit, cc.costExt,
-      cc.cabsRetail, cc.pullsRetail, cc.plamRetail, cc.ktopRetail, cc.vtopRetail, cc.stickRetail, cc.dwRetail, cc.laborRetail,
+      cc.cabsRetail, cc.pullsRetail, cc.plamRetail, cc.ktopRetail, cc.vtopRetail, cc.cmVtopRetail, cc.stickRetail, cc.dwRetail, cc.laborRetail,
       cc.deliveryRetail, cc.ldRetail,
       cc.retailPerUnit, cc.retailExt,
       cc.cabsTotalCost, cc.cabsTotalRetail, cc.pullsTotalCost, cc.pullsTotalRetail,
       cc.plamTotalCostCol, cc.plamTotalRetailCol,
       cc.ktopTotalCost, cc.ktopTotalRetail, cc.vtopTotalCost, cc.vtopTotalRetail,
+      cc.cmVtopTotalCost, cc.cmVtopTotalRetail,
       cc.stickTotalCost, cc.stickTotalRetail, cc.dwTotalCost, cc.dwTotalRetail,
       cc.laborTotalCost, cc.laborTotalRetail,
       cc.deliveryTotalCost, cc.deliveryTotalRetail, cc.ldTotalCost, cc.ldTotalRetail,
@@ -1532,6 +1549,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
       { label: 'PLAM KTOP TOTAL RETAIL', retailCol: cc.plamTotalRetailCol, costCol: cc.plamTotalCostCol, showMargin: true },
       { label: 'QUARTZ GRP1 KTOP TOTAL RETAIL', retailCol: cc.ktopTotalRetail, costCol: cc.ktopTotalCost, showMargin: true },
       { label: 'QUARTZ GRP1 VTOP TOTAL RETAIL', retailCol: cc.vtopTotalRetail, costCol: cc.vtopTotalCost, showMargin: true },
+      { label: 'CMARBLE/SWAN VTOP TOTAL RETAIL', retailCol: cc.cmVtopTotalRetail, costCol: cc.cmVtopTotalCost, showMargin: true },
       { label: 'LABOR TOTAL RETAIL', retailCol: cc.laborTotalRetail, costCol: cc.laborTotalCost, showMargin: true },
       { label: 'Delivery charges', retailCol: cc.deliveryTotalRetail, costCol: cc.deliveryTotalCost, showMargin: false },
       { label: 'Load & Distubution charges', retailCol: cc.ldTotalRetail, costCol: cc.ldTotalCost, showMargin: false },
