@@ -1024,6 +1024,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
       [cc.vBackSplash]: 'BACK &\nSIDESPLASH\nSQFT',
       [cc.vSinkCutout]: 'UNDERMOUNT\nVANITY SINK\nCUTOUT',
       [cc.vFaucetHoles]: 'FAUCET HOLES\nfor each sink\n(select)',
+      [cc.cmVtopCost]: 'CMARBLE/SWAN\nVTOP COST',
       [cc.stickQty]: '2X3X8\nSTICK QTY',
       [cc.stickCost]: '2X3X8\nSTICK COST',
       [cc.dwQty]: 'DW\nBRACKETS\nQTY',
