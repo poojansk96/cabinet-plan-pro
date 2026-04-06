@@ -575,15 +575,17 @@ export default function SummaryModule({ project }: Props) {
       { width: 12 }, { width: 14 }, { width: 14 }, { width: 14 }, // BARTOP LFT, SLAB, TOTAL LFT, COST
       { width: 14 }, // KTOP COST
       { width: 14 }, // VTOP COST
+      { width: 14 }, // CMARBLE/SWAN VTOP COST
       { width: 10 }, { width: 12 },
       { width: 10 }, { width: 12 },
       { width: 12 }, { width: 12 }, { width: 12 },
       { width: 14 }, { width: 14 },
       { width: 3 },
-      { width: 12 }, { width: 12 }, { width: 14 }, { width: 14 }, { width: 14 },
+      { width: 12 }, { width: 12 }, { width: 14 }, { width: 14 }, { width: 14 }, { width: 14 },
       { width: 12 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 12 },
       { width: 14 }, { width: 14 },
       { width: 3 },
+      { width: 14 }, { width: 14 },
       { width: 14 }, { width: 14 },
       { width: 14 }, { width: 14 },
       { width: 14 }, { width: 14 },
