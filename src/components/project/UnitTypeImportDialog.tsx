@@ -319,7 +319,7 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
           }
           pagesProcessed++;
         }
-        setProgress(10 + Math.round((pagesProcessed / totalPages) * 85));
+        update({ progress: 10 + Math.round((pagesProcessed / totalPages) * 85), processedPages: pagesProcessed, statusText: `Processed ${pagesProcessed}/${totalPages} pages…` });
       }
 
       const keyPart = (v: string) => v.toUpperCase().replace(/\s+/g, '').trim();
@@ -390,13 +390,12 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
       result.sort((a, b) => a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true }));
 
       if (result.length === 0) {
-        setError('No unit numbers or types detected. The drawing may not contain unit schedules or labels.');
-        setStep('upload');
+        update({ status: 'error', error: 'No unit numbers or types detected. The drawing may not contain unit schedules or labels.' });
         return;
       }
 
       // Build type order sorted by first PDF page appearance
-      const seenTypes = new Map<string, string>(); // normalizedKey -> original display name
+      const seenTypes = new Map<string, string>();
       for (const r of result) {
         const key = r.unitType.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').trim();
         if (!seenTypes.has(key)) seenTypes.set(key, r.unitType);
@@ -406,14 +405,16 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
         .map(([key]) => seenTypes.get(key))
         .filter((t): t is string => !!t);
 
-      setTypeOrder(pdfTypeOrder);
-      setRows(result);
-      setStep('review');
+      update({
+        status: 'done',
+        progress: 100,
+        results: { rows: result, typeOrder: pdfTypeOrder },
+      });
     } catch (err) {
       console.error(err);
-      setError('Failed to process files. Please try again.');
-      setStep('upload');
+      update({ status: 'error', error: 'Failed to process files. Please try again.' });
     }
+    });
   };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
