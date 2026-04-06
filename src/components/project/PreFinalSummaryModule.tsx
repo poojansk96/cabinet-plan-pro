@@ -369,8 +369,10 @@ export default function PreFinalSummaryModule({ project }: Props) {
       `IFERROR(SUM(${colRef}${startRow}:${colRef}${endRow}),0)`;
 
     // Column layout (1-indexed)
-    const colSku = 1;
-    const colCabFirstType = 2;
+    const colBlank0 = 1;
+    const colSku = 2;
+    const colModNote = 3;
+    const colCabFirstType = 4;
     const colCabTotal = colCabFirstType + nTypes;
     const colSpacer1 = colCabTotal + 1;
 
