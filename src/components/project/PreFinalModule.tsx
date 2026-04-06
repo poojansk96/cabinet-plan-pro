@@ -162,13 +162,16 @@ export default function PreFinalModule({ project }: Props) {
       return t !== 'Unassigned' && typeRows && typeRows.length > 0;
     });
 
-    // Extract width from SKU: e.g. B36 → 36, UC18X90 → 18, VDB12 → 12, W3036 → 30
+    // Extract width from SKU: e.g. B36 → 36, UC18X90 → 18, VDB12 → 12, W3030 → 30
     const parseWidthFromSku = (sku: string): number => {
-      const upper = sku.toUpperCase().replace(/[^A-Z0-9]/g, '');
-      // Match first number sequence after letters
-      const m = upper.match(/^[A-Z]+(\d+)/);
+      const cleaned = sku.replace(/\s/g, '');
+      const m = cleaned.match(/^[A-Za-z]+(\d+)/);
       if (!m) return 0;
-      return parseInt(m[1], 10) || 0;
+      const digits = m[1];
+      // 4 digits = WxH (e.g. W3030 → width 30), 3 digits = WxH (e.g. W930 → width 9)
+      if (digits.length === 4) return Number(digits.slice(0, 2));
+      if (digits.length === 3) return Number(digits.slice(0, 1));
+      return Number(digits) || 0;
     };
 
     // Determine if a cabinet is Base or Tall type (contributes to TK8)
@@ -894,8 +897,13 @@ export default function PreFinalModule({ project }: Props) {
                           if (checked) {
                             // Calculate qty from wall cabinet widths per type
                             const parseWidth = (sku: string): number => {
-                              const m = sku.toUpperCase().replace(/[^A-Z0-9]/g, '').match(/^[A-Z]+(\d+)/);
-                              return m ? (parseInt(m[1], 10) || 0) : 0;
+                              const cleaned = sku.replace(/\s/g, '');
+                              const m = cleaned.match(/^[A-Za-z]+(\d+)/);
+                              if (!m) return 0;
+                              const digits = m[1];
+                              if (digits.length === 4) return Number(digits.slice(0, 2));
+                              if (digits.length === 3) return Number(digits.slice(0, 1));
+                              return Number(digits) || 0;
                             };
                             const isWall = (r: { type: string; sku: string }) => {
                               if (r.type?.toLowerCase() === 'wall') return true;
