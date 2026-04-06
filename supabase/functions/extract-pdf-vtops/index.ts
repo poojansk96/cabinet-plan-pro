@@ -294,21 +294,27 @@ TASK:
 3. For EACH vanity top, extract:
    a. **length** — total length in inches (e.g., 47.5, 31, 25)
    b. **depth** — depth in inches (usually 22")
-   c. **bowlPosition** — examine the bowl cutout location relative to the vanity's LENGTH (long dimension):
-      CRITICAL ORIENTATION NOTE: Vanity tops may be drawn VERTICALLY on the page (rotated 90°).
-      If the vanity rectangle is taller than wide on the page, it is rotated — "left" and "right" refer to the vanity's own long-axis ends, NOT page-left/page-right.
-      To determine left vs right:
-        1. Identify the vanity's LENGTH axis (the longer dimension, e.g., 47.5").
-        2. Look at dimension callouts that show the distance from each end of the LENGTH axis to the bowl center.
-        3. The end with the SHORTER dimension is the side the bowl is offset toward.
-        4. Use the vanity's installed orientation: typically the LENGTH runs left-to-right as viewed in the plan. If the vanity is drawn vertically, the TOP of the drawing = LEFT end, BOTTOM = RIGHT end (standard drafting convention).
-      - "offset-left" if bowl center is closer to the LEFT end of the length axis
-      - "offset-right" if bowl center is closer to the RIGHT end of the length axis
+   c. **bowlPosition** — determine left vs right FROM THE PERSPECTIVE OF A PERSON STANDING IN FRONT OF THE VANITY, FACING IT.
+      CRITICAL PERSPECTIVE RULE:
+        1. The BACKSPLASH / WALL (double line along the long edge) is BEHIND the vanity — this is the BACK.
+        2. Imagine a person standing in FRONT of the vanity (opposite the backsplash), facing toward it.
+        3. LEFT and RIGHT are from THIS person's perspective.
+        4. Find the dimension callouts showing distance from each end of the LENGTH axis to the bowl center.
+        5. The end with the SHORTER dimension is the side the bowl is offset toward.
+        6. Determine if that shorter-dimension end is on the person's LEFT or RIGHT.
+      ORIENTATION HANDLING:
+        - If the vanity is drawn HORIZONTALLY (wider than tall on page): backsplash is usually at top. Person stands at bottom facing up. Person's left = page left, right = page right.
+        - If the vanity is drawn VERTICALLY (taller than wide on page): backsplash is usually on one side. Person stands on the opposite side facing the backsplash. Determine left/right accordingly.
+        - ALWAYS check where the backsplash/wall double-line is to establish the "back" first.
+      - "offset-left" if bowl is closer to the person's LEFT end
+      - "offset-right" if bowl is closer to the person's RIGHT end
       - "center" if bowl is centered along the length axis
    d. **bowlOffset** — if offset, measure the distance in inches from the CLOSER end to the center of the bowl. If center, set to null.
-   e. **leftWall** and **rightWall** — CRITICAL: Detect whether each end of the vanity top touches a wall.
+   e. **leftWall** and **rightWall** — CRITICAL: Detect whether each end of the vanity top has a wall, using the SAME "person standing in front" perspective.
+      leftWall = wall on the person's LEFT end. rightWall = wall on the person's RIGHT end.
 
 RULES FOR WALL DETECTION (leftWall / rightWall):
+- Use the SAME "person standing in front" perspective as bowlPosition.
 - Look at EACH END of the vanity top along its LENGTH axis.
 - WALL (true) indicators — any of these means the end has a wall:
   * DOUBLE PARALLEL LINES at the end edge (two lines close together = sidesplash/wall return)
