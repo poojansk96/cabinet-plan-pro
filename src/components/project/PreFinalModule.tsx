@@ -162,16 +162,13 @@ export default function PreFinalModule({ project }: Props) {
       return t !== 'Unassigned' && typeRows && typeRows.length > 0;
     });
 
-    // Extract width from SKU: e.g. B36 → 36, UC18X90 → 18, VDB12 → 12, W3030 → 30
+    // Extract width from SKU: ALWAYS first 2 digits after letter prefix
+    // W3030→30, W1830→18, UC18X90→18, UX1890→18, UC1221X90→12, B36→36, VDB12→12
     const parseWidthFromSku = (sku: string): number => {
       const cleaned = sku.replace(/\s/g, '');
-      const m = cleaned.match(/^[A-Za-z]+(\d+)/);
+      const m = cleaned.match(/^[A-Za-z]+(\d{2})/);
       if (!m) return 0;
-      const digits = m[1];
-      // 4 digits = WxH (e.g. W3030 → width 30), 3 digits = WxH (e.g. W930 → width 9)
-      if (digits.length === 4) return Number(digits.slice(0, 2));
-      if (digits.length === 3) return Number(digits.slice(0, 1));
-      return Number(digits) || 0;
+      return Number(m[1]) || 0;
     };
 
     // Determine if a cabinet is Base or Tall type (contributes to TK8)
@@ -896,14 +893,10 @@ export default function PreFinalModule({ project }: Props) {
                           setCabinetChecks(prev => ({ ...prev, [item]: checked }));
                           if (checked) {
                             // Calculate qty from wall cabinet widths per type
+                            // ALWAYS first 2 digits after letter prefix = width
                             const parseWidth = (sku: string): number => {
-                              const cleaned = sku.replace(/\s/g, '');
-                              const m = cleaned.match(/^[A-Za-z]+(\d+)/);
-                              if (!m) return 0;
-                              const digits = m[1];
-                              if (digits.length === 4) return Number(digits.slice(0, 2));
-                              if (digits.length === 3) return Number(digits.slice(0, 1));
-                              return Number(digits) || 0;
+                              const m = sku.replace(/\s/g, '').match(/^[A-Za-z]+(\d{2})/);
+                              return m ? (Number(m[1]) || 0) : 0;
                             };
                             const isWall = (r: { type: string; sku: string }) => {
                               if (r.type?.toLowerCase() === 'wall') return true;
