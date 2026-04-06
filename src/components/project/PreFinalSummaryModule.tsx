@@ -1244,6 +1244,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
         { totalCost: cc.plamTotalCostCol, totalRetail: cc.plamTotalRetailCol, cost: cc.plamCost, retail: cc.plamRetail, extraCosts: [cc.plamSsCost, cc.bartopCost] },
         { totalCost: cc.ktopTotalCost, totalRetail: cc.ktopTotalRetail, cost: cc.ktopCost, retail: cc.ktopRetail },
         { totalCost: cc.vtopTotalCost, totalRetail: cc.vtopTotalRetail, cost: cc.vtopCost, retail: cc.vtopRetail },
+        { totalCost: cc.cmVtopTotalCost, totalRetail: cc.cmVtopTotalRetail, cost: cc.cmVtopCost, retail: cc.cmVtopRetail },
         { totalCost: cc.stickTotalCost, totalRetail: cc.stickTotalRetail, cost: cc.stickCost, retail: cc.stickRetail },
         { totalCost: cc.dwTotalCost, totalRetail: cc.dwTotalRetail, cost: cc.dwCost, retail: cc.dwRetail },
         { totalCost: cc.laborTotalCost, totalRetail: cc.laborTotalRetail, cost: cc.laborCost, retail: cc.laborRetail },
@@ -1263,7 +1264,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
       });
 
       // MATERIAL = sum of all total retail EXCEPT labor, delivery, L&D
-      const matRetailCols = [cc.cabsTotalRetail, cc.pullsTotalRetail, cc.plamTotalRetailCol, cc.ktopTotalRetail, cc.vtopTotalRetail, cc.stickTotalRetail, cc.dwTotalRetail];
+      const matRetailCols = [cc.cabsTotalRetail, cc.pullsTotalRetail, cc.plamTotalRetailCol, cc.ktopTotalRetail, cc.vtopTotalRetail, cc.cmVtopTotalRetail, cc.stickTotalRetail, cc.dwTotalRetail];
       setFormula(row.getCell(cc.material), `ROUND(IFERROR(${matRetailCols.map(c => `N(${ref(c, r)})`).join('+')},0),2)`, 0);
       row.getCell(cc.material).numFmt = '$#,##0.00';
 
