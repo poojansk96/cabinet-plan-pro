@@ -1189,6 +1189,15 @@ export default function PreFinalSummaryModule({ project }: Props) {
       setFormula(row.getCell(cc.plamSsCost), safeMul(ref(cc.plamSsQty, r), `$${excelCol(cc.plamSsCost)}$${costRateRowNum}`), 0);
       row.getCell(cc.plamSsCost).numFmt = '$#,##0.00';
 
+      // BARTOP LFT, SLAB, TOTAL LFT — blank for user
+      row.getCell(cc.bartopLft).border = allBorders;
+      row.getCell(cc.bartopSlab).border = allBorders;
+      row.getCell(cc.bartopTotalLft).border = allBorders;
+
+      // BARTOP COST = TOTAL BARTOP LFT × rate
+      setFormula(row.getCell(cc.bartopCost), safeMul(ref(cc.bartopTotalLft, r), `$${excelCol(cc.bartopCost)}$${costRateRowNum}`), 0);
+      row.getCell(cc.bartopCost).numFmt = '$#,##0.00';
+
       // KTOP COST
       setFormula(row.getCell(cc.ktopCost), safeMul(ref(cc.ktopSqft, r), `$${excelCol(cc.ktopCost)}$${costRateRowNum}`), 0);
       row.getCell(cc.ktopCost).numFmt = '$#,##0.00';
