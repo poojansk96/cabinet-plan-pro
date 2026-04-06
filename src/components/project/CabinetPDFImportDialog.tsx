@@ -164,27 +164,28 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
 
     setError(null);
     setStep('processing');
+    bgPickedUpRef.current = false;
 
     const scaleLabel = COMMON_SCALES[selectedScaleIdx].factor !== -1
       ? COMMON_SCALES[selectedScaleIdx].label
       : `1:${scaleFactor}`;
 
+    startExtraction('takeoff-cabinet', files.map(f => f.name), async (update) => {
     try {
-      setProcessingStatus('Loading PDF library…');
+      update({ statusText: 'Loading PDF library…', progress: 5 });
       const pdfjsLib = (await import('pdfjs-dist')) as any;
       pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
         'pdfjs-dist/build/pdf.worker.min.mjs',
         import.meta.url
       ).toString();
 
-      // Merge cabinets by key across all files
       const allCabinets: Record<string, CabinetRow> = {};
       let filesProcessed = 0;
 
       for (const file of files) {
-        setProcessingStatus(`Processing file ${filesProcessed + 1} of ${files.length}: "${file.name}"…`);
+        update({ statusText: `Processing file ${filesProcessed + 1} of ${files.length}: "${file.name}"…`, progress: Math.round(((filesProcessed) / files.length) * 90) + 5 });
         try {
-          const cabinets = await processSingleFile(file, scaleFactor, scaleLabel, pdfjsLib, setProcessingStatus);
+          const cabinets = await processSingleFile(file, scaleFactor, scaleLabel, pdfjsLib, (msg) => update({ statusText: msg }));
           for (const cab of cabinets) {
             const key = `${cab.sku}__${cab.type}__${cab.room}__${cab.width}__${cab.height}__${cab.depth}__${cab.sourceFile}`;
             if (allCabinets[key]) {
@@ -195,8 +196,8 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
           }
           filesProcessed++;
         } catch (err: any) {
-          if (err.message === 'rate_limit') { toast.error('AI rate limit reached. Try again shortly.'); setStep('upload'); return; }
-          if (err.message === 'credits') { toast.error('AI credits exhausted.'); setStep('upload'); return; }
+          if (err.message === 'rate_limit') { update({ status: 'error', error: 'AI rate limit reached. Try again shortly.' }); return; }
+          if (err.message === 'credits') { update({ status: 'error', error: 'AI credits exhausted.' }); return; }
           toast.error(`Skipped "${file.name}": ${err.message}`);
           filesProcessed++;
         }
@@ -207,19 +208,16 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
       );
 
       if (merged.length === 0) {
-        setError('No cabinet schedules detected in any of the uploaded files.');
-        setStep('upload');
+        update({ status: 'error', error: 'No cabinet schedules detected in any of the uploaded files.' });
         return;
       }
 
-      setRows(merged);
-      setFilterSource('all');
-      setStep('review');
+      update({ status: 'done', progress: 100, results: { rows: merged } });
     } catch (err) {
       console.error(err);
-      setError('Failed to process files. Please try again.');
-      setStep('upload');
+      update({ status: 'error', error: 'Failed to process files. Please try again.' });
     }
+    });
   };
 
   const addMoreFiles = async (newFiles: File[]) => {
