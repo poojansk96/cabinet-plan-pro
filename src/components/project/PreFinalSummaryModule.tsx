@@ -981,9 +981,9 @@ export default function PreFinalSummaryModule({ project }: Props) {
       { width: 10 }, { width: 12 },
       { width: 12 }, { width: 14 }, { width: 14 }, { width: 14 }, // PLAM LFT, SLAB, TOTAL LFT, COST
       { width: 10 }, { width: 14 },
-      { width: 14 }, { width: 14 }, { width: 12 }, { width: 14 },
+      { width: 10 }, { width: 14 }, { width: 14 }, { width: 12 }, { width: 14 },
       { width: 10 }, { width: 14 },
-      { width: 14 }, { width: 14 }, { width: 12 },
+      { width: 10 }, { width: 14 }, { width: 14 }, { width: 12 },
       { width: 10 }, { width: 12 },
       { width: 10 }, { width: 12 },
       { width: 12 }, { width: 12 }, { width: 12 },
