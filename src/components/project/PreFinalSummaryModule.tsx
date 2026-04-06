@@ -622,7 +622,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
         // Pricing (uses per-type Bid/Additional rows written after totals; formulas patched later)
         row.eachCell((cell, colNumber) => {
-          if (colNumber > 1) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          if (colNumber > 3) cell.alignment = { horizontal: 'center', vertical: 'middle' };
         });
       });
     });
