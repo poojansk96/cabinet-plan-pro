@@ -5,14 +5,17 @@
 
 import { useSyncExternalStore } from 'react';
 
-export type ExtractionType = 'cabinet' | 'unit' | 'stone' | 'laminate' | 'vtop';
+export type ExtractionType = 'cabinet' | 'unit' | 'stone' | 'laminate' | 'vtop' | 'takeoff-unit' | 'takeoff-cabinet' | 'takeoff-countertop';
 
 const LABELS: Record<ExtractionType, string> = {
-  cabinet: 'Cabinets',
-  unit: 'Unit Count',
+  cabinet: 'Pre-Final Cabinets',
+  unit: 'Pre-Final Unit Count',
   stone: 'Stone SQFT',
   laminate: 'Laminate LFT',
   vtop: 'Cmarble/Swan Vtop',
+  'takeoff-unit': 'Takeoff Unit Count',
+  'takeoff-cabinet': 'Takeoff Cabinets',
+  'takeoff-countertop': 'Takeoff Countertops',
 };
 
 export interface ExtractionJob {
