@@ -320,10 +320,12 @@ RULES FOR WALL DETECTION (leftWall / rightWall):
   * SINGLE LINE at the end edge (just the vanity outline = finish end / open end)
   * The vanity end is free-standing with no wall nearby
   * Text labels like "FE" (finish end) or "OPEN"
-- MOST vanity tops in residential projects have at least ONE wall. Many have BOTH walls.
+- MOST vanity tops in residential projects have BOTH walls (leftWall=true AND rightWall=true). This is the DEFAULT expectation.
+- Only set a wall to false if you see a CLEAR single line with NO adjacent wall structure.
 - If you see double lines at BOTH ends, set BOTH leftWall and rightWall to true.
+- In 2020 shop drawings, vanity tops between two walls in a bathroom alcove will have wall indicators (double lines or sidesplash marks) at BOTH ends.
 - Set leftWallYesConfidence and rightWallYesConfidence to reflect your certainty (0.0=definitely no wall, 1.0=definitely wall).
-- When in doubt, lean toward true (wall) rather than false — sidesplashes are more common than open ends.
+- BIAS: Default to true (wall). Only set false when you are VERY confident there is no wall. Most vanities are installed in alcoves with walls on both sides.
 
 RULES FOR BOWL POSITION:
 - ALWAYS use dimension callout lines to determine offset — do not guess from visual position alone.
@@ -394,8 +396,10 @@ Look at the SAME shop drawing image and verify EACH item carefully:
    - Look at EACH END of the vanity along its length axis.
    - DOUBLE LINES at an end = WALL (sidesplash). Set leftWall/rightWall to true.
    - SINGLE LINE at an end = OPEN (finish end). Set leftWall/rightWall to false.
-   - Most vanity tops have at least one wall. Many have BOTH walls (double lines on both ends).
+   - MOST vanity tops have BOTH walls (leftWall=true AND rightWall=true). This is the DEFAULT.
+   - Only set false when you see a CLEAR single line with no wall structure nearby.
    - If the drawing shows double parallel lines at BOTH ends, set BOTH to true.
+   - BIAS toward true (wall) — false negatives are worse than false positives.
    - Update leftWallYesConfidence and rightWallYesConfidence accordingly.
 
 Return the CORRECTED complete JSON — same format:
