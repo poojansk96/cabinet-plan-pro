@@ -565,6 +565,14 @@ export default function PreFinalSummaryModule({ project }: Props) {
         const row = wsCabs.addRow(rowValues);
         const r = row.number;
 
+        // Yellow background for TK8 quantity cells (user will manually enter qty)
+        if (sku.toUpperCase() === 'TK8') {
+          const yellowFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFFFFF00' } };
+          for (let i = 0; i < nTypes; i++) {
+            row.getCell(colCabFirstType + i).fill = yellowFill;
+          }
+        }
+
         // Cabinet Total = SUM(cab type cols)
         setFormula(
           row.getCell(colCabTotal),

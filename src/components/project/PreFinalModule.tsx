@@ -156,6 +156,20 @@ export default function PreFinalModule({ project }: Props) {
       );
     }
 
+    // ── Auto-add TK8 with qty 1 for every type that has cabinets ──
+    const typesWithCabinets = Array.from(rowsByType.keys()).filter(t => {
+      const typeRows = rowsByType.get(t);
+      return t !== 'Unassigned' && typeRows && typeRows.length > 0;
+    });
+    if (typesWithCabinets.length > 0) {
+      for (const unitType of typesWithCabinets) {
+        store.addCabinetImport(
+          [{ sku: 'TK8', type: 'Base', room: 'Kitchen', quantity: 1, unitType }],
+          unitType
+        );
+      }
+    }
+
     setCabinetImportedCount(rows.length);
     setShowCabinetImport(false);
     const firstType = Array.from(rowsByType.keys()).find(t => t !== 'Unassigned');
