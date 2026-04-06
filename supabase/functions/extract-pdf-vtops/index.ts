@@ -7,6 +7,8 @@ const corsHeaders = {
 };
 
 type VtopBbox = { x: number; y: number; width: number; height: number };
+type PageSide = "top" | "bottom" | "left" | "right";
+type CloserEndOnPage = PageSide | "center";
 
 type VtopRow = {
   length: number;
@@ -20,6 +22,8 @@ type VtopRow = {
   aiRightWallHint?: boolean;
   leftWallYesConfidence?: number;
   rightWallYesConfidence?: number;
+  backSideOnPage?: PageSide;
+  closerEndOnPage?: CloserEndOnPage;
 };
 
 type ParsedExtraction = {
@@ -45,12 +49,54 @@ function clampNorm(v: number): number {
   return Math.max(0, Math.min(1, Number(v) || 0));
 }
 
+function normalizePageSide(value: unknown): PageSide | undefined {
+  const v = String(value || "").trim().toLowerCase();
+  if (v === "top" || v === "bottom" || v === "left" || v === "right") return v;
+  return undefined;
+}
+
+function normalizeCloserEnd(value: unknown): CloserEndOnPage | undefined {
+  const v = String(value || "").trim().toLowerCase();
+  if (v === "center") return "center";
+  return normalizePageSide(v);
+}
+
+function resolveBowlPositionFromPageSides(
+  backSideOnPage?: PageSide,
+  closerEndOnPage?: CloserEndOnPage,
+): "offset-left" | "offset-right" | "center" | undefined {
+  if (!backSideOnPage || !closerEndOnPage) return undefined;
+  if (closerEndOnPage === "center") return "center";
+
+  if (backSideOnPage === "top") {
+    if (closerEndOnPage === "left") return "offset-left";
+    if (closerEndOnPage === "right") return "offset-right";
+  }
+  if (backSideOnPage === "bottom") {
+    if (closerEndOnPage === "left") return "offset-right";
+    if (closerEndOnPage === "right") return "offset-left";
+  }
+  if (backSideOnPage === "left") {
+    if (closerEndOnPage === "top") return "offset-right";
+    if (closerEndOnPage === "bottom") return "offset-left";
+  }
+  if (backSideOnPage === "right") {
+    if (closerEndOnPage === "top") return "offset-left";
+    if (closerEndOnPage === "bottom") return "offset-right";
+  }
+
+  return undefined;
+}
+
 function normalizeVtop(vt: any): VtopRow {
   const length = Math.round((Number(vt?.length) || 31) * 4) / 4;
   const depth = Math.round((Number(vt?.depth) || 22) * 4) / 4;
-  const bowlPosition = ["offset-left", "offset-right", "center"].includes(vt?.bowlPosition)
+  const backSideOnPage = normalizePageSide(vt?.backSideOnPage);
+  const closerEndOnPage = normalizeCloserEnd(vt?.closerEndOnPage);
+  const resolvedBowlPosition = resolveBowlPositionFromPageSides(backSideOnPage, closerEndOnPage);
+  const bowlPosition = resolvedBowlPosition || (["offset-left", "offset-right", "center"].includes(vt?.bowlPosition)
     ? vt.bowlPosition
-    : "center";
+    : "center");
   const bowlOffset = bowlPosition !== "center"
     ? Math.round((Number(vt?.bowlOffset) || 0) * 4) / 4
     : null;
@@ -69,6 +115,8 @@ function normalizeVtop(vt: any): VtopRow {
     aiRightWallHint: aiRight,
     leftWallYesConfidence: Math.max(0, Math.min(1, Number(vt?.leftWallYesConfidence) || 0.5)),
     rightWallYesConfidence: Math.max(0, Math.min(1, Number(vt?.rightWallYesConfidence) || 0.5)),
+    backSideOnPage,
+    closerEndOnPage,
   };
 
   if (vt?.bbox && typeof vt.bbox === "object") {
@@ -294,23 +342,27 @@ TASK:
 3. For EACH vanity top, extract:
    a. **length** — total length in inches (e.g., 47.5, 31, 25)
    b. **depth** — depth in inches (usually 22")
-   c. **bowlPosition** — determine left vs right FROM THE PERSPECTIVE OF A PERSON STANDING IN FRONT OF THE VANITY, FACING IT.
+   c. **backSideOnPage** — which PAGE SIDE contains the backsplash / back edge (double line along the long edge). Must be exactly one of: "top", "bottom", "left", "right".
+   d. **closerEndOnPage** — which PAGE SIDE contains the SHORTER bowl-center dimension along the LENGTH axis. Must be exactly one of: "top", "bottom", "left", "right", or "center".
+   e. **bowlPosition** — determine left vs right FROM THE PERSPECTIVE OF A PERSON STANDING IN FRONT OF THE VANITY, FACING IT.
       CRITICAL PERSPECTIVE RULE:
         1. The BACKSPLASH / WALL (double line along the long edge) is BEHIND the vanity — this is the BACK.
         2. Imagine a person standing in FRONT of the vanity (opposite the backsplash), facing toward it.
         3. LEFT and RIGHT are from THIS person's perspective.
         4. Find the dimension callouts showing distance from each end of the LENGTH axis to the bowl center.
         5. The end with the SHORTER dimension is the side the bowl is offset toward.
-        6. Determine if that shorter-dimension end is on the person's LEFT or RIGHT.
+        6. Use backSideOnPage + closerEndOnPage consistently to determine bowlPosition.
       ORIENTATION HANDLING:
         - If the vanity is drawn HORIZONTALLY (wider than tall on page): backsplash is usually at top. Person stands at bottom facing up. Person's left = page left, right = page right.
-        - If the vanity is drawn VERTICALLY (taller than wide on page): backsplash is usually on one side. Person stands on the opposite side facing the backsplash. Determine left/right accordingly.
+        - If the vanity is drawn VERTICALLY (taller than wide on page): backsplash is usually on one side. Person stands on the opposite side facing the backsplash.
+        - IMPORTANT vertical rule: if the backsplash/back is on PAGE RIGHT, the person stands on PAGE LEFT; then PERSON LEFT = PAGE TOP and PERSON RIGHT = PAGE BOTTOM.
+        - IMPORTANT vertical rule: if the backsplash/back is on PAGE LEFT, the person stands on PAGE RIGHT; then PERSON LEFT = PAGE BOTTOM and PERSON RIGHT = PAGE TOP.
         - ALWAYS check where the backsplash/wall double-line is to establish the "back" first.
       - "offset-left" if bowl is closer to the person's LEFT end
       - "offset-right" if bowl is closer to the person's RIGHT end
       - "center" if bowl is centered along the length axis
-   d. **bowlOffset** — if offset, measure the distance in inches from the CLOSER end to the center of the bowl. If center, set to null.
-   e. **leftWall** and **rightWall** — CRITICAL: Detect whether each end of the vanity top has a wall, using the SAME "person standing in front" perspective.
+   f. **bowlOffset** — if offset, measure the distance in inches from the CLOSER end to the center of the bowl. If center, set to null.
+   g. **leftWall** and **rightWall** — CRITICAL: Detect whether each end of the vanity top has a wall, using the SAME "person standing in front" perspective.
       leftWall = wall on the person's LEFT end. rightWall = wall on the person's RIGHT end.
 
 RULES FOR WALL DETECTION (leftWall / rightWall):
@@ -337,9 +389,10 @@ RULES FOR BOWL POSITION:
 - ALWAYS use dimension callout lines to determine offset — do not guess from visual position alone.
 - Look for dimension lines showing the distance from the vanity edge to the bowl centerline.
 - The SMALLER dimension value indicates which end the bowl is offset toward.
-- If the drawing shows a measurement like "17 3/4"" from one side and "29 3/4"" from the other, the bowl is offset toward the 17 3/4" side.
+- If the drawing shows a measurement like "17 3/4\"" from one side and "29 3/4\"" from the other, the bowl is offset toward the 17 3/4" side.
 - If both sides have equal dimensions to the bowl center, it's "center".
 - Convert fractions to decimals: 3/4 = 0.75, 1/2 = 0.5, 1/4 = 0.25, 3/8 = 0.375
+- For TYPE 1.1B-AS style vertical views: if the backsplash double-line is on PAGE LEFT and the shorter offset dimension (17.75") is from PAGE BOTTOM, the correct answer is backSideOnPage="left", closerEndOnPage="bottom", bowlPosition="offset-left".
 
 IMPORTANT:
 - Only extract vanity/bathroom tops. Skip ALL kitchen countertops (depth > 22").
@@ -348,7 +401,7 @@ IMPORTANT:
 - The bbox coordinates MUST be normalized 0..1 relative to the full page.
 
 Return ONLY valid JSON — no markdown fences, no explanation:
-{"unitTypeName":"TYPE 1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true,"leftWallYesConfidence":0.9,"rightWallYesConfidence":0.85,"bbox":{"x":0.05,"y":0.3,"width":0.35,"height":0.2}}]}`;
+{"unitTypeName":"TYPE 1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"backSideOnPage":"left","closerEndOnPage":"bottom","bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true,"leftWallYesConfidence":0.9,"rightWallYesConfidence":0.85,"bbox":{"x":0.05,"y":0.3,"width":0.35,"height":0.2}}]}`;
 
     // ── Pass 1: Extraction ──
     let fullContent = "";
@@ -385,7 +438,7 @@ Return ONLY valid JSON — no markdown fences, no explanation:
     // ── Pass 2: Verification ──
     if (finalVtops.length > 0) {
       console.log("Starting vtop verification pass...");
-      const verifyPrompt = `You are verifying AI-extracted vanity top data from a 2020 shop drawing.
+        const verifyPrompt = `You are verifying AI-extracted vanity top data from a 2020 shop drawing.
 
 Here is the extracted data:
 ${JSON.stringify({ unitTypeName: extractedUnitTypeName, vtops: finalVtops }, null, 2)}
@@ -395,10 +448,11 @@ Look at the SAME shop drawing image and verify EACH item carefully:
 2. Are the dimensions (length, depth) accurate? Correct any errors.
 3. **CRITICAL — RE-CHECK bowlPosition using "person standing in front" perspective:**
    - Find the BACKSPLASH (double line along long edge) — that is the BACK of the vanity.
-   - Imagine standing IN FRONT of the vanity (opposite the backsplash), facing it.
-   - LEFT and RIGHT are from THIS person's perspective.
-   - The end with the SHORTER dimension callout to the bowl center = the offset side.
-   - Is it the person's LEFT or RIGHT?
+   - Return that as backSideOnPage = "top" | "bottom" | "left" | "right".
+   - Find which PAGE SIDE has the SHORTER bowl-center dimension along the LENGTH axis.
+   - Return that as closerEndOnPage = "top" | "bottom" | "left" | "right" | "center".
+   - Then make bowlPosition consistent with those fields.
+   - IMPORTANT vertical rule: if backSideOnPage="right" and closerEndOnPage="top", bowlPosition MUST be "offset-left".
 4. Is the bowlOffset value accurate?
 5. Are there any MISSING vanity tops not extracted? Add them.
 6. Are there any FALSE vanity tops (actually kitchen countertops with depth > 22")? Remove them.
