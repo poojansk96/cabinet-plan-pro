@@ -719,7 +719,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
     cabTotRow.eachCell((cell, colNumber) => {
       cell.font = { bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
-      if (colNumber > 1) cell.alignment = { horizontal: 'center' };
+      if (colNumber > 3) cell.alignment = { horizontal: 'center' };
     });
 
     // Pricing inputs (editable) + per-type total cost (formula)
