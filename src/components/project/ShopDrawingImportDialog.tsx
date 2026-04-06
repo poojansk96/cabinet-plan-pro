@@ -480,9 +480,10 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
     } else if (bgJob.status === 'done') {
       // Auto-load results into review
       bgPickedUpRef.current = true;
-      setRows(bgJob.rows);
-      setDetectedUnitType(bgJob.detectedUnitType);
-      setTypeOrder(bgJob.typeOrder);
+      const r = bgJob.results as { rows: any[]; detectedUnitType: string | null; typeOrder: string[] } | null;
+      setRows(r?.rows ?? []);
+      setDetectedUnitType(r?.detectedUnitType ?? null);
+      setTypeOrder(r?.typeOrder ?? []);
       setFilterSource('all');
       setProgress(100);
       setStep('review');
@@ -820,7 +821,89 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
     bgPickedUpRef.current = false;
 
     // Kick off background extraction — processing continues even if dialog closes
-    startBackgroundExtraction(files, unitType, speedMode, skipClassify, aiModel, processSingleFile);
+    startExtraction('cabinet', files.map(f => f.name), async (update) => {
+      try {
+        update({ statusText: 'Loading PDF library…' });
+        const pdfjsLib = (await import('pdfjs-dist')) as any;
+        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
+
+        let totalPagesCount = 0;
+        for (const file of files) {
+          const ab = await file.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ab) }).promise;
+          totalPagesCount += pdf.numPages;
+        }
+        const totalStepsCount = totalPagesCount * 7;
+        let stepsCompleted = 0;
+        let pagesProcessed = 0;
+
+        update({ totalPages: totalPagesCount, progress: 10 });
+
+        let allRows: any[] = [];
+        let firstDetectedType: string | null = null;
+        const collectedTypeOrder: string[] = [];
+
+        for (let i = 0; i < files.length; i++) {
+          update({ statusText: `Processing file ${i + 1} of ${files.length}: "${files[i].name}"…` });
+          try {
+            const result = await processSingleFile(
+              files[i],
+              pdfjsLib,
+              (msg) => update({ statusText: msg }),
+              () => {
+                pagesProcessed++;
+                update({ processedPages: pagesProcessed });
+              },
+              () => {
+                stepsCompleted++;
+                update({ progress: 10 + Math.round((stepsCompleted / totalStepsCount) * 85) });
+              },
+            );
+            // merge rows
+            const merged: Record<string, any> = {};
+            for (const r of [...allRows, ...result.rows]) {
+              const normSku = r.sku.toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '').replace(/B?-\d+D$/i, '');
+              const unitTypeKey = r.detectedUnitType || '__none__';
+              const key = `${normSku}__${r.room}__${unitTypeKey}`;
+              if (merged[key]) {
+                merged[key].quantity = Math.max(merged[key].quantity, r.quantity);
+              } else {
+                merged[key] = { ...r, sku: normSku };
+              }
+            }
+            allRows = Object.values(merged);
+            if (!firstDetectedType && result.detectedType) firstDetectedType = result.detectedType;
+            for (const t of result.typeOrder) {
+              if (!collectedTypeOrder.includes(t)) collectedTypeOrder.push(t);
+            }
+          } catch (err: any) {
+            if (err.message === 'rate_limit') {
+              update({ status: 'error', error: 'AI rate limit reached. Try again shortly.' });
+              return;
+            }
+            if (err.message === 'credits') {
+              update({ status: 'error', error: 'AI credits exhausted.' });
+              return;
+            }
+            console.warn(`Skipped "${files[i].name}": ${err.message}`);
+          }
+        }
+
+        if (allRows.length === 0 && collectedTypeOrder.length === 0) {
+          update({ status: 'error', error: 'No cabinet labels or unit type names found in any uploaded file.' });
+          return;
+        }
+
+        update({
+          status: 'done',
+          progress: 100,
+          results: { rows: allRows, detectedUnitType: firstDetectedType, typeOrder: collectedTypeOrder },
+        });
+      } catch (err: any) {
+        console.error('Background extraction error:', err);
+        update({ status: 'error', error: 'Failed to process files. Please try again.' });
+      }
+    });
   };
 
   // Wrap in a Web Lock so the browser won't freeze/discard this tab while processing
