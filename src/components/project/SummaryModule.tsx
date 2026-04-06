@@ -608,10 +608,8 @@ export default function SummaryModule({ project }: Props) {
       { width: 12 }, { width: 14 }, { width: 14 }, { width: 14 },
       { width: 10 }, { width: 14 }, // PLAM SS QTY, PLAM SS COST
       { width: 12 }, { width: 14 }, { width: 14 }, { width: 14 }, // BARTOP LFT, SLAB, TOTAL LFT, COST
-      { width: 10 }, { width: 14 },
-      { width: 14 }, { width: 14 }, { width: 12 }, { width: 14 },
-      { width: 10 }, { width: 14 },
-      { width: 14 }, { width: 14 }, { width: 12 },
+      { width: 14 }, // KTOP COST
+      { width: 14 }, // VTOP COST
       { width: 10 }, { width: 12 },
       { width: 10 }, { width: 12 },
       { width: 12 }, { width: 12 }, { width: 12 },
@@ -621,7 +619,6 @@ export default function SummaryModule({ project }: Props) {
       { width: 12 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 12 },
       { width: 14 }, { width: 14 },
       { width: 3 },
-      { width: 14 }, { width: 14 },
       { width: 14 }, { width: 14 },
       { width: 14 }, { width: 14 },
       { width: 14 }, { width: 14 },
@@ -641,10 +638,10 @@ export default function SummaryModule({ project }: Props) {
     const secTitleRow = wsCosting.addRow([]);
     secTitleRow.getCell(cc.plamLft).value = 'PLAM KTOP';
     secTitleRow.getCell(cc.plamLft).font = { bold: true, size: 9 };
-    secTitleRow.getCell(cc.ktopSqft).value = 'STONE / SOLID SURFACE K-TOPS';
-    secTitleRow.getCell(cc.ktopSqft).font = { bold: true, size: 9 };
-    secTitleRow.getCell(cc.vtopSqft).value = 'STONE / SOLID SURFACE V-TOPS';
-    secTitleRow.getCell(cc.vtopSqft).font = { bold: true, size: 9 };
+    secTitleRow.getCell(cc.ktopCost).value = 'STONE / SOLID SURFACE K-TOPS';
+    secTitleRow.getCell(cc.ktopCost).font = { bold: true, size: 9 };
+    secTitleRow.getCell(cc.vtopCost).value = 'STONE / SOLID SURFACE V-TOPS';
+    secTitleRow.getCell(cc.vtopCost).font = { bold: true, size: 9 };
     secTitleRow.getCell(cc.cabsRetail).value = 'RETAIL';
     secTitleRow.getCell(cc.cabsRetail).font = { bold: true, size: 9 };
     secTitleRow.getCell(cc.cabsTotalCost).value = 'TOTAL COST & TOTAL RETAIL';
@@ -667,17 +664,8 @@ export default function SummaryModule({ project }: Props) {
       [cc.bartopSlab]: 'BARTOP\nSLAB',
       [cc.bartopTotalLft]: 'TOTAL\nBARTOP LFT',
       [cc.bartopCost]: 'PLAM\nBARTOP COST',
-      [cc.ktopSqft]: 'KTOP\nSQFT',
       [cc.ktopCost]: 'QUARTZ GRP1\nKTOP COST',
-      [cc.kBackSplash]: 'BACK &\nSIDESPLASH\nSQFT',
-      [cc.kSinkCutout]: 'UNDERMOUNT\nKITCHEN SINK\nCUTOUT',
-      [cc.kFaucetHoles]: 'FAUCET\nHOLES\n(select upto 3)',
-      [cc.kRangeCutout]: 'FREE STANDING\nRANGE CUTOUT\nQTY',
-      [cc.vtopSqft]: 'VTOP\nSQFT',
       [cc.vtopCost]: 'QUARTZ GRP1\nVTOP COST',
-      [cc.vBackSplash]: 'BACK &\nSIDESPLASH\nSQFT',
-      [cc.vSinkCutout]: 'UNDERMOUNT\nVANITY SINK\nCUTOUT',
-      [cc.vFaucetHoles]: 'FAUCET HOLES\nfor each sink\n(select)',
       [cc.stickQty]: '2X3X8\nSTICK QTY',
       [cc.stickCost]: '2X3X8\nSTICK COST',
       [cc.dwQty]: 'DW\nBRACKETS\nQTY',
@@ -819,12 +807,12 @@ export default function SummaryModule({ project }: Props) {
       setFormula(row.getCell(cc.bartopCost), safeMul(ref(cc.bartopTotalLft, r), `$${excelCol(cc.bartopCost)}$${costRateRowNum}`), 0);
       row.getCell(cc.bartopCost).numFmt = '$#,##0.00';
 
-      // KTOP COST
-      setFormula(row.getCell(cc.ktopCost), safeMul(ref(cc.ktopSqft, r), `$${excelCol(cc.ktopCost)}$${costRateRowNum}`), 0);
+      // KTOP COST — user-entered
+      row.getCell(cc.ktopCost).border = allBorders;
       row.getCell(cc.ktopCost).numFmt = '$#,##0.00';
 
-      // VTOP COST
-      setFormula(row.getCell(cc.vtopCost), safeMul(ref(cc.vtopSqft, r), `$${excelCol(cc.vtopCost)}$${costRateRowNum}`), 0);
+      // VTOP COST — user-entered
+      row.getCell(cc.vtopCost).border = allBorders;
       row.getCell(cc.vtopCost).numFmt = '$#,##0.00';
 
       // STICK COST
@@ -945,8 +933,8 @@ export default function SummaryModule({ project }: Props) {
       cc.qty, cc.cabsCost, cc.pullsQty, cc.pullsCost,
       cc.plamLft, cc.plamTotalLft, cc.plamCost, cc.plamSsQty, cc.plamSsCost,
       cc.bartopLft, cc.bartopTotalLft, cc.bartopCost,
-      cc.ktopSqft, cc.ktopCost, cc.kBackSplash, cc.kSinkCutout, cc.kFaucetHoles, cc.kRangeCutout,
-      cc.vtopSqft, cc.vtopCost, cc.vBackSplash, cc.vSinkCutout, cc.vFaucetHoles,
+      cc.ktopCost,
+      cc.vtopCost,
       cc.stickQty, cc.stickCost, cc.dwQty, cc.dwCost, cc.laborCost,
       cc.deliveryCost, cc.ldCost,
       cc.costPerUnit, cc.costExt,
