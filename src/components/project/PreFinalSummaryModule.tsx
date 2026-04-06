@@ -523,7 +523,9 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
         // Build row with only the editable inputs + base quantities; everything else becomes formulas
         const rowValues: (string | number)[] = [];
+        rowValues.push(''); // blank col
         rowValues.push(sku);
+        rowValues.push(''); // modification note (blank)
 
         // Cabinet quantities per type
         cabTypes.forEach(t => {
