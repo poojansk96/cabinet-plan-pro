@@ -1325,6 +1325,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
     const summedCols = [
       cc.qty, cc.cabsCost, cc.pullsQty, cc.pullsCost,
       cc.plamLft, cc.plamTotalLft, cc.plamCost, cc.plamSsQty, cc.plamSsCost,
+      cc.bartopLft, cc.bartopTotalLft, cc.bartopCost,
       cc.ktopSqft, cc.ktopCost, cc.kTopSqftOnly, cc.kBackSplash, cc.kSinkCutout, cc.kFaucetHoles, cc.kRangeCutout,
       cc.vtopSqft, cc.vtopCost, cc.vTopSqftOnly, cc.vBackSplash, cc.vSinkCutout, cc.vFaucetHoles,
       cc.stickQty, cc.stickCost, cc.dwQty, cc.dwCost, cc.laborCost,
@@ -1342,7 +1343,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
       cc.material, cc.labor, cc.tax, cc.retailPerUnit2, cc.retailExt2,
     ];
     const dollarCols = new Set([
-      cc.cabsCost, cc.pullsCost, cc.plamCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.laborCost,
+      cc.cabsCost, cc.pullsCost, cc.plamCost, cc.plamSsCost, cc.bartopCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.laborCost,
       cc.deliveryCost, cc.ldCost,
       cc.costPerUnit, cc.costExt,
       cc.cabsRetail, cc.pullsRetail, cc.plamRetail, cc.ktopRetail, cc.vtopRetail, cc.stickRetail, cc.dwRetail, cc.laborRetail,
