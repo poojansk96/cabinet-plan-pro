@@ -7,6 +7,8 @@ const corsHeaders = {
 };
 
 type VtopBbox = { x: number; y: number; width: number; height: number };
+type PageSide = "top" | "bottom" | "left" | "right";
+type CloserEndOnPage = PageSide | "center";
 
 type VtopRow = {
   length: number;
@@ -20,6 +22,8 @@ type VtopRow = {
   aiRightWallHint?: boolean;
   leftWallYesConfidence?: number;
   rightWallYesConfidence?: number;
+  backSideOnPage?: PageSide;
+  closerEndOnPage?: CloserEndOnPage;
 };
 
 type ParsedExtraction = {
