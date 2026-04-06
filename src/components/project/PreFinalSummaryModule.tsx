@@ -627,6 +627,15 @@ export default function PreFinalSummaryModule({ project }: Props) {
       });
     });
 
+    // Add note if any molding SKUs (CM8, Scribe, TF3X96-Molding, LR8) are present
+    const moldingNote = ['CM8', 'LR8', 'TF3X96-MOLDING', 'SCRIBE'];
+    const hasMoldingSku = allSkus.some(s => moldingNote.includes(s.toUpperCase()));
+    if (hasMoldingSku) {
+      const noteRow = wsCabs.addRow([]);
+      noteRow.getCell(colSku).value = 'Note: Add inches of depth for exposed wall cabinet areas';
+      noteRow.getCell(colSku).font = { bold: true, italic: true, size: 8, color: { argb: 'FFFF0000' } };
+    }
+
     const dataRangeEndRow = wsCabs.lastRow?.number || dataRangeStartRow;
 
     // Totals row (all formulas so Excel recalculates after edits)
