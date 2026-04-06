@@ -1236,8 +1236,9 @@ export default function PreFinalSummaryModule({ project }: Props) {
       setFormula(row.getCell(cc.plamRetail), `IFERROR((N(${ref(cc.plamCost, r)})+N(${ref(cc.plamSsCost, r)}))*N($${excelCol(cc.plamRetail)}$${costRateRowNum}),0)`, 0);
       row.getCell(cc.plamRetail).numFmt = '$#,##0.00';
 
-      // RETAIL PER UNIT
-      setFormula(row.getCell(cc.retailPerUnit), `IFERROR(${retailMap.map(m => `N(${ref(m.retail, r)})`).join('+')},0)`, 0);
+      // RETAIL PER UNIT (includes plamRetail separately since it combines plamCost+plamSsCost)
+      const allRetailRefs = [...retailMap.map(m => `N(${ref(m.retail, r)})`), `N(${ref(cc.plamRetail, r)})`];
+      setFormula(row.getCell(cc.retailPerUnit), `IFERROR(${allRetailRefs.join('+')},0)`, 0);
       row.getCell(cc.retailPerUnit).numFmt = '$#,##0.00';
 
       // RETAIL EXT = RETAIL PER UNIT × QTY
