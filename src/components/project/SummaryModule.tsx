@@ -947,7 +947,7 @@ export default function SummaryModule({ project }: Props) {
       cc.material, cc.labor, cc.tax, cc.retailPerUnit2, cc.retailExt2,
     ];
     const dollarCols = new Set([
-      cc.cabsCost, cc.pullsCost, cc.plamCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.laborCost,
+      cc.cabsCost, cc.pullsCost, cc.plamCost, cc.plamSsCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.laborCost,
       cc.deliveryCost, cc.ldCost,
       cc.costPerUnit, cc.costExt,
       cc.cabsRetail, cc.pullsRetail, cc.plamRetail, cc.ktopRetail, cc.vtopRetail, cc.stickRetail, cc.dwRetail, cc.laborRetail,
