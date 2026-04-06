@@ -866,10 +866,12 @@ export default function PreFinalSummaryModule({ project }: Props) {
           const info = vtopSkuMap.get(key)!;
           info.typeQty[row.unitType] = (info.typeQty[row.unitType] || 0) + 1;
 
-          // Count sidesplashes per type
-          const ssCount = (row.leftWall ? 1 : 0) + (row.rightWall ? 1 : 0);
-          if (ssCount > 0) {
-            sidesplashByType[row.unitType] = (sidesplashByType[row.unitType] || 0) + ssCount;
+          // Count left/right sidesplashes separately per type
+          if (row.leftWall) {
+            leftSsByType[row.unitType] = (leftSsByType[row.unitType] || 0) + 1;
+          }
+          if (row.rightWall) {
+            rightSsByType[row.unitType] = (rightSsByType[row.unitType] || 0) + 1;
           }
         }
 
@@ -886,7 +888,6 @@ export default function PreFinalSummaryModule({ project }: Props) {
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F0' } };
           cell.border = { bottom: { style: 'thin', color: { argb: 'FF999999' } } };
           cell.alignment = { vertical: 'bottom', wrapText: false };
-          // Rotate type name columns
           if (colNumber >= 3 && colNumber <= 2 + nVtopTypes) {
             cell.alignment = { textRotation: 90, vertical: 'bottom', horizontal: 'center' };
           }
@@ -896,7 +897,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
         for (const [, info] of vtopSkuMap) {
           const rowValues: (string | number)[] = [];
           rowValues.push(info.label);
-          rowValues.push(info.modNote); // empty for user to fill in product code
+          rowValues.push(info.modNote);
           vtopTypes.forEach(t => {
             const qty = info.typeQty[t] || 0;
             rowValues.push(qty > 0 ? qty : '');
@@ -910,21 +911,24 @@ export default function PreFinalSummaryModule({ project }: Props) {
           }
         }
 
-        // Sidesplash row
-        const hasSidesplash = Object.values(sidesplashByType).some(v => v > 0);
-        if (hasSidesplash) {
-          const ssValues: (string | number)[] = [];
-          ssValues.push(`${vtopDepth}"D SIDE SPLASH`);
-          ssValues.push('');
-          vtopTypes.forEach(t => {
-            const qty = sidesplashByType[t] || 0;
-            ssValues.push(qty > 0 ? qty : '');
-          });
-          const ssRow = wsCabs.addRow(ssValues);
-          ssRow.getCell(1).font = { size: 9 };
-          for (let i = 0; i < nVtopTypes; i++) {
-            ssRow.getCell(3 + i).alignment = { horizontal: 'center' };
-          }
+        // Left end sidesplash row
+        const hasLeftSs = Object.values(leftSsByType).some(v => v > 0);
+        if (hasLeftSs) {
+          const vals: (string | number)[] = [`${vtopDepth}"D Left end sidesplash`, ''];
+          vtopTypes.forEach(t => { const q = leftSsByType[t] || 0; vals.push(q > 0 ? q : ''); });
+          const row = wsCabs.addRow(vals);
+          row.getCell(1).font = { size: 9 };
+          for (let i = 0; i < nVtopTypes; i++) row.getCell(3 + i).alignment = { horizontal: 'center' };
+        }
+
+        // Right end sidesplash row
+        const hasRightSs = Object.values(rightSsByType).some(v => v > 0);
+        if (hasRightSs) {
+          const vals: (string | number)[] = [`${vtopDepth}"D Right end sidesplash`, ''];
+          vtopTypes.forEach(t => { const q = rightSsByType[t] || 0; vals.push(q > 0 ? q : ''); });
+          const row = wsCabs.addRow(vals);
+          row.getCell(1).font = { size: 9 };
+          for (let i = 0; i < nVtopTypes; i++) row.getCell(3 + i).alignment = { horizontal: 'center' };
         }
       }
     }
