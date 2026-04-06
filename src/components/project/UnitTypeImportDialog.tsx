@@ -201,7 +201,7 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
         pdfs.push({ file, pdf });
         totalPages += pdf.numPages; // Process ALL pages to find title pages
       }
-      setProgress(10);
+      update({ progress: 10, totalPages, statusText: 'Processing pages…' });
 
       // Build flat list of page tasks for parallel processing
       const pageTasks: { file: File; pdf: any; pageNum: number; globalIdx: number }[] = [];
@@ -293,6 +293,8 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
           const result = results[j];
           const task = batch[j];
           if (result.status === 'fulfilled') {
+            if (result.value.error === 'rate_limit') { update({ status: 'error', error: 'AI rate limit reached. Try again shortly.' }); return; }
+            if (result.value.error === 'credits') { update({ status: 'error', error: 'AI credits exhausted.' }); return; }
             if (result.value.error === 'rate_limit') { toast.error('AI rate limit reached. Try again shortly.'); setStep('upload'); return; }
             if (result.value.error === 'credits') { toast.error('AI credits exhausted.'); setStep('upload'); return; }
 
