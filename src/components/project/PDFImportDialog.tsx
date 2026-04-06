@@ -82,6 +82,43 @@ export default function PDFImportDialog({ onImport, onClose, takeoffPerson }: Pr
   const [quoteVisible, setQuoteVisible] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const bgPickedUpRef = useRef(false);
+
+  // ── Pick up background job results ──
+  const bgJob = useExtractionJobByType('takeoff-unit');
+
+  useEffect(() => {
+    if (!bgJob || bgPickedUpRef.current) return;
+    if (bgJob.status === 'processing') {
+      setStep('processing');
+      setProgress(bgJob.progress);
+      setProgressLabel(bgJob.statusText);
+    } else if (bgJob.status === 'done') {
+      bgPickedUpRef.current = true;
+      const r = bgJob.results as { rows: UnitRow[]; result: PDFExtractionResult | null; usedAI: boolean; bulkBldg: string } | null;
+      if (r) {
+        setRows(r.rows);
+        setResult(r.result);
+        setUsedAI(r.usedAI);
+        if (r.bulkBldg) setBulkBldg(r.bulkBldg);
+      }
+      setProgress(100);
+      setStep('review');
+      clearExtractionJob('takeoff-unit');
+    } else if (bgJob.status === 'error') {
+      bgPickedUpRef.current = true;
+      setError(bgJob.error || 'Failed');
+      setStep('upload');
+      clearExtractionJob('takeoff-unit');
+    }
+  }, [bgJob]);
+
+  useEffect(() => {
+    if (!bgJob || bgJob.status !== 'processing' || bgPickedUpRef.current) return;
+    setProgress(bgJob.progress);
+    setProgressLabel(bgJob.statusText);
+  }, [bgJob?.progress, bgJob?.statusText]);
+
   // Rotate quote every 4 seconds during processing
   useEffect(() => {
     if (step !== 'processing') return;
