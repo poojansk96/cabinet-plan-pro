@@ -883,7 +883,7 @@ export default function PreFinalModule({ project }: Props) {
                   </button>
                 )}
                 <div className="flex items-center gap-3 border border-border rounded px-3 py-1.5 bg-background">
-                  {['CM8', 'LR8', 'TK8', 'TF3X96-Molding', 'Scribe', 'OCM8'].map(item => (
+                  {['CM8', 'LR8', 'TF3X96-Molding', 'Scribe', 'OCM8'].map(item => (
                     <label key={item} className="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-foreground select-none">
                       <input
                         type="checkbox"
