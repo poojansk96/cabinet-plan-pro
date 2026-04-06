@@ -405,6 +405,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
     colWidths.push({ width: 3 });  // blank column before SKU
     colWidths.push({ width: 22 }); // SKU Name
     colWidths.push({ width: 18 }); // Modification Note
+    for (let i = 0; i < nTypes; i++) colWidths.push({ width: 6 });
     colWidths.push({ width: 8 });
     colWidths.push({ width: 3 });
     colWidths.push({ width: 10 });
