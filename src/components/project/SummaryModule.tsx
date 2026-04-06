@@ -728,7 +728,7 @@ export default function SummaryModule({ project }: Props) {
 
     // Row 3: Saffron rate/multiplier row
     const costRateRow = wsCosting.addRow([]);
-    const saffronCostCols = [cc.pullsCost, cc.plamCost, cc.plamSsCost, cc.bartopCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.deliveryCost, cc.ldCost];
+    const saffronCostCols = [cc.pullsCost, cc.plamCost, cc.plamSsCost, cc.bartopCost, cc.stickCost, cc.dwCost, cc.deliveryCost, cc.ldCost];
     const saffronRetailCols = [cc.cabsRetail, cc.pullsRetail, cc.plamRetail, cc.ktopRetail, cc.vtopRetail, cc.stickRetail, cc.dwRetail, cc.laborRetail, cc.deliveryRetail, cc.ldRetail];
     const saffronTotalCols = [cc.tax];
     [...saffronCostCols, ...saffronRetailCols, ...saffronTotalCols].forEach(col => {
