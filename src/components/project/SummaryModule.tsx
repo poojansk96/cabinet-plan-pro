@@ -508,7 +508,7 @@ export default function SummaryModule({ project }: Props) {
       for (let i = 0; i < nTypes; i++) {
         const typeCell = rowObj.getCell(colPricingFirstType + i);
         // Per-type pricing = Total Cost × cab qty for that type
-        setFormula(typeCell, safeMul(ref(colPricingTotal, r), ref(colCabFirstType + i, r)), 0);
+        setFormula(typeCell, `ROUND(${safeMul(ref(colPricingTotal, r), ref(colCabFirstType + i, r))},2)`, 0);
         typeCell.numFmt = '$#,##0.00';
         pricingTypeRefs.push(ref(colPricingFirstType + i, r));
       }
