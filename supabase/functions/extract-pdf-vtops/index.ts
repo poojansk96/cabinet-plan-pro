@@ -393,18 +393,22 @@ ${JSON.stringify({ unitTypeName: extractedUnitTypeName, vtops: finalVtops }, nul
 Look at the SAME shop drawing image and verify EACH item carefully:
 1. Is the unitTypeName correct? If not, provide the correct one.
 2. Are the dimensions (length, depth) accurate? Correct any errors.
-3. Is the bowlPosition correct? Check dimension callouts for bowl offset direction.
+3. **CRITICAL — RE-CHECK bowlPosition using "person standing in front" perspective:**
+   - Find the BACKSPLASH (double line along long edge) — that is the BACK of the vanity.
+   - Imagine standing IN FRONT of the vanity (opposite the backsplash), facing it.
+   - LEFT and RIGHT are from THIS person's perspective.
+   - The end with the SHORTER dimension callout to the bowl center = the offset side.
+   - Is it the person's LEFT or RIGHT?
 4. Is the bowlOffset value accurate?
 5. Are there any MISSING vanity tops not extracted? Add them.
 6. Are there any FALSE vanity tops (actually kitchen countertops with depth > 22")? Remove them.
 
-7. **CRITICAL — RE-CHECK WALL DETECTION for each vanity top:**
-   - Look at EACH END of the vanity along its length axis.
+7. **CRITICAL — RE-CHECK WALL DETECTION using the SAME "person standing in front" perspective:**
+   - leftWall = wall on the person's LEFT end. rightWall = wall on the person's RIGHT end.
    - DOUBLE LINES at an end = WALL (sidesplash). Set leftWall/rightWall to true.
    - SINGLE LINE at an end = OPEN (finish end). Set leftWall/rightWall to false.
    - MOST vanity tops have BOTH walls (leftWall=true AND rightWall=true). This is the DEFAULT.
    - Only set false when you see a CLEAR single line with no wall structure nearby.
-   - If the drawing shows double parallel lines at BOTH ends, set BOTH to true.
    - BIAS toward true (wall) — false negatives are worse than false positives.
    - Update leftWallYesConfidence and rightWallYesConfidence accordingly.
 
