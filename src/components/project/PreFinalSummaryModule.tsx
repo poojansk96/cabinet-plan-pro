@@ -1213,6 +1213,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
         { retail: cc.pullsRetail, cost: cc.pullsCost },
         { retail: cc.ktopRetail, cost: cc.ktopCost },
         { retail: cc.vtopRetail, cost: cc.vtopCost },
+        { retail: cc.cmVtopRetail, cost: cc.cmVtopCost },
         { retail: cc.stickRetail, cost: cc.stickCost },
         { retail: cc.dwRetail, cost: cc.dwCost },
         { retail: cc.laborRetail, cost: cc.laborCost },
