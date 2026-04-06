@@ -49,12 +49,54 @@ function clampNorm(v: number): number {
   return Math.max(0, Math.min(1, Number(v) || 0));
 }
 
+function normalizePageSide(value: unknown): PageSide | undefined {
+  const v = String(value || "").trim().toLowerCase();
+  if (v === "top" || v === "bottom" || v === "left" || v === "right") return v;
+  return undefined;
+}
+
+function normalizeCloserEnd(value: unknown): CloserEndOnPage | undefined {
+  const v = String(value || "").trim().toLowerCase();
+  if (v === "center") return "center";
+  return normalizePageSide(v);
+}
+
+function resolveBowlPositionFromPageSides(
+  backSideOnPage?: PageSide,
+  closerEndOnPage?: CloserEndOnPage,
+): "offset-left" | "offset-right" | "center" | undefined {
+  if (!backSideOnPage || !closerEndOnPage) return undefined;
+  if (closerEndOnPage === "center") return "center";
+
+  if (backSideOnPage === "top") {
+    if (closerEndOnPage === "left") return "offset-left";
+    if (closerEndOnPage === "right") return "offset-right";
+  }
+  if (backSideOnPage === "bottom") {
+    if (closerEndOnPage === "left") return "offset-right";
+    if (closerEndOnPage === "right") return "offset-left";
+  }
+  if (backSideOnPage === "left") {
+    if (closerEndOnPage === "top") return "offset-right";
+    if (closerEndOnPage === "bottom") return "offset-left";
+  }
+  if (backSideOnPage === "right") {
+    if (closerEndOnPage === "top") return "offset-left";
+    if (closerEndOnPage === "bottom") return "offset-right";
+  }
+
+  return undefined;
+}
+
 function normalizeVtop(vt: any): VtopRow {
   const length = Math.round((Number(vt?.length) || 31) * 4) / 4;
   const depth = Math.round((Number(vt?.depth) || 22) * 4) / 4;
-  const bowlPosition = ["offset-left", "offset-right", "center"].includes(vt?.bowlPosition)
+  const backSideOnPage = normalizePageSide(vt?.backSideOnPage);
+  const closerEndOnPage = normalizeCloserEnd(vt?.closerEndOnPage);
+  const resolvedBowlPosition = resolveBowlPositionFromPageSides(backSideOnPage, closerEndOnPage);
+  const bowlPosition = resolvedBowlPosition || (["offset-left", "offset-right", "center"].includes(vt?.bowlPosition)
     ? vt.bowlPosition
-    : "center";
+    : "center");
   const bowlOffset = bowlPosition !== "center"
     ? Math.round((Number(vt?.bowlOffset) || 0) * 4) / 4
     : null;
@@ -73,6 +115,8 @@ function normalizeVtop(vt: any): VtopRow {
     aiRightWallHint: aiRight,
     leftWallYesConfidence: Math.max(0, Math.min(1, Number(vt?.leftWallYesConfidence) || 0.5)),
     rightWallYesConfidence: Math.max(0, Math.min(1, Number(vt?.rightWallYesConfidence) || 0.5)),
+    backSideOnPage,
+    closerEndOnPage,
   };
 
   if (vt?.bbox && typeof vt.bbox === "object") {
@@ -389,7 +433,7 @@ Return ONLY valid JSON — no markdown fences, no explanation:
     // ── Pass 2: Verification ──
     if (finalVtops.length > 0) {
       console.log("Starting vtop verification pass...");
-      const verifyPrompt = `You are verifying AI-extracted vanity top data from a 2020 shop drawing.
+        const verifyPrompt = `You are verifying AI-extracted vanity top data from a 2020 shop drawing.
 
 Here is the extracted data:
 ${JSON.stringify({ unitTypeName: extractedUnitTypeName, vtops: finalVtops }, null, 2)}
@@ -399,10 +443,11 @@ Look at the SAME shop drawing image and verify EACH item carefully:
 2. Are the dimensions (length, depth) accurate? Correct any errors.
 3. **CRITICAL — RE-CHECK bowlPosition using "person standing in front" perspective:**
    - Find the BACKSPLASH (double line along long edge) — that is the BACK of the vanity.
-   - Imagine standing IN FRONT of the vanity (opposite the backsplash), facing it.
-   - LEFT and RIGHT are from THIS person's perspective.
-   - The end with the SHORTER dimension callout to the bowl center = the offset side.
-   - Is it the person's LEFT or RIGHT?
+   - Return that as backSideOnPage = "top" | "bottom" | "left" | "right".
+   - Find which PAGE SIDE has the SHORTER bowl-center dimension along the LENGTH axis.
+   - Return that as closerEndOnPage = "top" | "bottom" | "left" | "right" | "center".
+   - Then make bowlPosition consistent with those fields.
+   - IMPORTANT vertical rule: if backSideOnPage="right" and closerEndOnPage="top", bowlPosition MUST be "offset-left".
 4. Is the bowlOffset value accurate?
 5. Are there any MISSING vanity tops not extracted? Add them.
 6. Are there any FALSE vanity tops (actually kitchen countertops with depth > 22")? Remove them.
