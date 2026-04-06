@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { startExtraction, useExtractionJobByType, clearExtractionJob, type ExtractionType } from '@/hooks/useExtractionStore';
 import { X, Upload, Loader2, Check, Trash2, Sparkles } from 'lucide-react';
 
 export interface StoneExtractedRow {
@@ -17,6 +18,7 @@ interface Props {
   onImport: (rows: StoneExtractedRow[], detectedTypes?: string[]) => void;
   onClose: () => void;
   prefinalPerson?: string;
+  extractionType?: ExtractionType;
 }
 
 const PERSONAL_QUOTES = [
