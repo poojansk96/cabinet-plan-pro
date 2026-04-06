@@ -795,12 +795,18 @@ export default function SummaryModule({ project }: Props) {
       setFormula(row.getCell(cc.bartopCost), safeMul(ref(cc.bartopTotalLft, r), `$${excelCol(cc.bartopCost)}$${costRateRowNum}`), 0);
       row.getCell(cc.bartopCost).numFmt = '$#,##0.00';
 
-      // KTOP COST — user-entered
-      row.getCell(cc.ktopCost).border = allBorders;
+      // KTOP SQFT — user-entered
+      row.getCell(cc.ktopSqft).border = allBorders;
+
+      // KTOP COST = KTOP SQFT × saffron rate
+      setFormula(row.getCell(cc.ktopCost), safeMul(ref(cc.ktopSqft, r), `$${excelCol(cc.ktopCost)}$${costRateRowNum}`), 0);
       row.getCell(cc.ktopCost).numFmt = '$#,##0.00';
 
-      // VTOP COST — user-entered
-      row.getCell(cc.vtopCost).border = allBorders;
+      // VTOP SQFT — user-entered
+      row.getCell(cc.vtopSqft).border = allBorders;
+
+      // VTOP COST = VTOP SQFT × saffron rate
+      setFormula(row.getCell(cc.vtopCost), safeMul(ref(cc.vtopSqft, r), `$${excelCol(cc.vtopCost)}$${costRateRowNum}`), 0);
       row.getCell(cc.vtopCost).numFmt = '$#,##0.00';
 
       // CMARBLE/SWAN VTOP COST — user-entered (blank)
