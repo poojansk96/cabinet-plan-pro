@@ -731,9 +731,22 @@ export default function SummaryModule({ project }: Props) {
     const saffronCostCols = [cc.pullsCost, cc.plamCost, cc.plamSsCost, cc.bartopCost, cc.stickCost, cc.dwCost, cc.deliveryCost, cc.ldCost];
     const saffronRetailCols = [cc.cabsRetail, cc.pullsRetail, cc.plamRetail, cc.ktopRetail, cc.vtopRetail, cc.stickRetail, cc.dwRetail, cc.laborRetail, cc.deliveryRetail, cc.ldRetail];
     const saffronTotalCols = [cc.tax];
+    const retailDefaults: Record<number, number> = {
+      [cc.cabsRetail]: 1.67,
+      [cc.laborRetail]: 1.40,
+      [cc.deliveryRetail]: 1,
+      [cc.ldRetail]: 1,
+    };
+    const defaultRetailMultiplier = 1.25;
     [...saffronCostCols, ...saffronRetailCols, ...saffronTotalCols].forEach(col => {
       const cell = costRateRow.getCell(col);
-      cell.value = (col === cc.deliveryCost || col === cc.ldCost) ? 100 : 0;
+      if (col === cc.deliveryCost || col === cc.ldCost) {
+        cell.value = 100;
+      } else if (saffronRetailCols.includes(col)) {
+        cell.value = retailDefaults[col] ?? defaultRetailMultiplier;
+      } else {
+        cell.value = 0;
+      }
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: SAFFRON } };
       cell.font = { bold: true };
       cell.alignment = { horizontal: 'center' };
