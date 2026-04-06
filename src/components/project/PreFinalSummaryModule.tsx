@@ -621,6 +621,11 @@ export default function PreFinalSummaryModule({ project }: Props) {
           0
         );
 
+        // Cab Count Per Unit = reference cabinet qty from front section
+        for (let i = 0; i < nTypes; i++) {
+          setFormula(row.getCell(colCpuFirstType + i), `N(${ref(colCabFirstType + i, r)})`, 0);
+        }
+
         // Pricing (uses per-type Bid/Additional rows written after totals; formulas patched later)
         row.eachCell((cell, colNumber) => {
           if (colNumber > 3) cell.alignment = { horizontal: 'center', vertical: 'middle' };
