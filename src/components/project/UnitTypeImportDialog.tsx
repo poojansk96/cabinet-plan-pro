@@ -295,8 +295,6 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
           if (result.status === 'fulfilled') {
             if (result.value.error === 'rate_limit') { update({ status: 'error', error: 'AI rate limit reached. Try again shortly.' }); return; }
             if (result.value.error === 'credits') { update({ status: 'error', error: 'AI credits exhausted.' }); return; }
-            if (result.value.error === 'rate_limit') { toast.error('AI rate limit reached. Try again shortly.'); setStep('upload'); return; }
-            if (result.value.error === 'credits') { toast.error('AI credits exhausted.'); setStep('upload'); return; }
 
             for (const unit of result.value.units) {
               // Track first page each unit type appears on (for PDF-order column sorting)
