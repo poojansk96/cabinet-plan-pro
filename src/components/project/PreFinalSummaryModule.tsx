@@ -558,17 +558,10 @@ export default function PreFinalSummaryModule({ project }: Props) {
         cabTypes.forEach(() => rowValues.push(''));
         rowValues.push('');
 
-        // Cabinet Count Per Unit (spacer + label + types)
+        // Cabinet Count Per Unit (spacer + label + types) — formulas referencing cab qty
         rowValues.push('');
         rowValues.push(''); // label col stays blank for data rows
-        cabTypes.forEach(t => {
-          if (isCabinetBox) {
-            const qty = skuTypeQty[sku]?.[t] || 0;
-            rowValues.push(qty > 0 ? qty : '');
-          } else {
-            rowValues.push(''); // accessories left blank
-          }
-        });
+        cabTypes.forEach(() => rowValues.push('')); // placeholder, formula set after row creation
 
         const row = wsCabs.addRow(rowValues);
         const r = row.number;
@@ -628,13 +621,17 @@ export default function PreFinalSummaryModule({ project }: Props) {
           0
         );
 
+        // Cab Count Per Unit = reference cabinet qty from front section
+        for (let i = 0; i < nTypes; i++) {
+          setFormula(row.getCell(colCpuFirstType + i), `N(${ref(colCabFirstType + i, r)})`, 0);
+        }
+
         // Pricing (uses per-type Bid/Additional rows written after totals; formulas patched later)
         row.eachCell((cell, colNumber) => {
           if (colNumber > 3) cell.alignment = { horizontal: 'center', vertical: 'middle' };
         });
       });
     });
-
 
     const dataRangeEndRow = wsCabs.lastRow?.number || dataRangeStartRow;
 
@@ -714,6 +711,16 @@ export default function PreFinalSummaryModule({ project }: Props) {
        safeSumColRange(excelCol(colTotalCabGrand), dataRangeStartRow, dataRangeEndRow),
        0
      );
+
+    // Cab Count Per Unit totals
+    cabTotRow.getCell(colCpuLabel).value = 'TOTAL';
+    for (let i = 0; i < nTypes; i++) {
+      setFormula(
+        cabTotRow.getCell(colCpuFirstType + i),
+        safeSumColRange(excelCol(colCpuFirstType + i), dataRangeStartRow, dataRangeEndRow),
+        0
+      );
+    }
 
     // Style totals row
     cabTotRow.eachCell((cell, colNumber) => {

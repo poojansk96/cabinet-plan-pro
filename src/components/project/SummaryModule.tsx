@@ -450,6 +450,11 @@ export default function SummaryModule({ project }: Props) {
         setFormula(row.getCell(colTotalCabGrand), safeSum(ref(colTotalCabFirstType, r), ref(colTotalCabFirstType + nTypes - 1, r)), 0);
       }
 
+      // Cab Count Per Unit = reference cabinet qty from front section
+      for (let i = 0; i < nTypes; i++) {
+        setFormula(row.getCell(colCpuFirstType + i), `N(${ref(colCabFirstType + i, r)})`, 0);
+      }
+
       row.eachCell((cell, colNumber) => {
         if (colNumber > 3) cell.alignment = { horizontal: 'center', vertical: 'middle' };
       });
@@ -482,6 +487,12 @@ export default function SummaryModule({ project }: Props) {
       setFormula(cabTotRow.getCell(colTotalCabFirstType + i), safeSumColRange(excelCol(colTotalCabFirstType + i), dataRangeStartRow, dataRangeEndRow), 0);
     }
     setFormula(cabTotRow.getCell(colTotalCabGrand), safeSumColRange(excelCol(colTotalCabGrand), dataRangeStartRow, dataRangeEndRow), 0);
+
+    // Cab Count Per Unit totals
+    cabTotRow.getCell(colCpuLabel).value = 'TOTAL';
+    for (let i = 0; i < nTypes; i++) {
+      setFormula(cabTotRow.getCell(colCpuFirstType + i), safeSumColRange(excelCol(colCpuFirstType + i), dataRangeStartRow, dataRangeEndRow), 0);
+    }
 
     cabTotRow.eachCell((cell, colNumber) => {
       cell.font = { bold: true };
