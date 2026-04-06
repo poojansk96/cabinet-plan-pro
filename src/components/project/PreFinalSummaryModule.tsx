@@ -1188,7 +1188,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
       // COST PER UNIT = sum of all cost columns (including plamCost + plamSsCost)
       const costCols = [cc.cabsCost, cc.pullsCost, cc.plamCost, cc.plamSsCost, cc.bartopCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.laborCost, cc.deliveryCost, cc.ldCost];
-      setFormula(row.getCell(cc.costPerUnit), `IFERROR(${costCols.map(c => `N(${ref(c, r)})`).join('+')},0)`, 0);
+      setFormula(row.getCell(cc.costPerUnit), `ROUND(IFERROR(${costCols.map(c => `N(${ref(c, r)})`).join('+')},0),2)`, 0);
       row.getCell(cc.costPerUnit).numFmt = '$#,##0.00';
 
       // COST EXT = COST PER UNIT × QTY
@@ -1208,20 +1208,20 @@ export default function PreFinalSummaryModule({ project }: Props) {
         { retail: cc.ldRetail, cost: cc.ldCost },
       ];
       retailMap.forEach(({ retail, cost }) => {
-        setFormula(row.getCell(retail), safeMul(ref(cost, r), `$${excelCol(retail)}$${costRateRowNum}`), 0);
+        setFormula(row.getCell(retail), `ROUND(${safeMul(ref(cost, r), `$${excelCol(retail)}$${costRateRowNum}`)},2)`, 0);
         row.getCell(retail).numFmt = '$#,##0.00';
       });
       // PLAM RETAIL = (plamCost + plamSsCost + bartopCost) × multiplier
-      setFormula(row.getCell(cc.plamRetail), `IFERROR((N(${ref(cc.plamCost, r)})+N(${ref(cc.plamSsCost, r)})+N(${ref(cc.bartopCost, r)}))*N($${excelCol(cc.plamRetail)}$${costRateRowNum}),0)`, 0);
+      setFormula(row.getCell(cc.plamRetail), `ROUND(IFERROR((N(${ref(cc.plamCost, r)})+N(${ref(cc.plamSsCost, r)})+N(${ref(cc.bartopCost, r)}))*N($${excelCol(cc.plamRetail)}$${costRateRowNum}),0),2)`, 0);
       row.getCell(cc.plamRetail).numFmt = '$#,##0.00';
 
       // RETAIL PER UNIT (includes plamRetail separately since it combines plamCost+plamSsCost)
       const allRetailRefs = [...retailMap.map(m => `N(${ref(m.retail, r)})`), `N(${ref(cc.plamRetail, r)})`];
-      setFormula(row.getCell(cc.retailPerUnit), `IFERROR(${allRetailRefs.join('+')},0)`, 0);
+      setFormula(row.getCell(cc.retailPerUnit), `ROUND(IFERROR(${allRetailRefs.join('+')},0),2)`, 0);
       row.getCell(cc.retailPerUnit).numFmt = '$#,##0.00';
 
       // RETAIL EXT = RETAIL PER UNIT × QTY
-      setFormula(row.getCell(cc.retailExt), safeMul(ref(cc.retailPerUnit, r), ref(cc.qty, r)), 0);
+      setFormula(row.getCell(cc.retailExt), `ROUND(${safeMul(ref(cc.retailPerUnit, r), ref(cc.qty, r))},2)`, 0);
       row.getCell(cc.retailExt).numFmt = '$#,##0.00';
 
       // ── TOTAL COST & TOTAL RETAIL section ──
@@ -1251,24 +1251,24 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
       // MATERIAL = sum of all total retail EXCEPT labor, delivery, L&D
       const matRetailCols = [cc.cabsTotalRetail, cc.pullsTotalRetail, cc.plamTotalRetailCol, cc.ktopTotalRetail, cc.vtopTotalRetail, cc.stickTotalRetail, cc.dwTotalRetail];
-      setFormula(row.getCell(cc.material), `IFERROR(${matRetailCols.map(c => `N(${ref(c, r)})`).join('+')},0)`, 0);
+      setFormula(row.getCell(cc.material), `ROUND(IFERROR(${matRetailCols.map(c => `N(${ref(c, r)})`).join('+')},0),2)`, 0);
       row.getCell(cc.material).numFmt = '$#,##0.00';
 
       // LABOR = labor total retail
-      setFormula(row.getCell(cc.labor), `N(${ref(cc.laborTotalRetail, r)})`, 0);
+      setFormula(row.getCell(cc.labor), `ROUND(N(${ref(cc.laborTotalRetail, r)}),2)`, 0);
       row.getCell(cc.labor).numFmt = '$#,##0.00';
 
       // TAX = material × saffron tax rate
       const taxRateAbs = `$${excelCol(cc.tax)}$${costRateRowNum}`;
-      setFormula(row.getCell(cc.tax), safeMul(ref(cc.material, r), taxRateAbs), 0);
+      setFormula(row.getCell(cc.tax), `ROUND(${safeMul(ref(cc.material, r), taxRateAbs)},2)`, 0);
       row.getCell(cc.tax).numFmt = '$#,##0.00';
 
       // RETAIL PER UNIT 2 = material + labor + tax
-      setFormula(row.getCell(cc.retailPerUnit2), `IFERROR(N(${ref(cc.material, r)})+N(${ref(cc.labor, r)})+N(${ref(cc.tax, r)}),0)`, 0);
+      setFormula(row.getCell(cc.retailPerUnit2), `ROUND(IFERROR(N(${ref(cc.material, r)})+N(${ref(cc.labor, r)})+N(${ref(cc.tax, r)}),0),2)`, 0);
       row.getCell(cc.retailPerUnit2).numFmt = '$#,##0.00';
 
       // RETAIL EXT 2 = retail per unit 2 × qty
-      setFormula(row.getCell(cc.retailExt2), safeMul(ref(cc.retailPerUnit2, r), ref(cc.qty, r)), 0);
+      setFormula(row.getCell(cc.retailExt2), `ROUND(${safeMul(ref(cc.retailPerUnit2, r), ref(cc.qty, r))},2)`, 0);
       row.getCell(cc.retailExt2).numFmt = '$#,##0.00';
 
       // Center-align all numeric cells
