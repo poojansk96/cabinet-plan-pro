@@ -261,7 +261,7 @@ rightWallYesConfidence: probability 0.0-1.0 that the RIGHT end has a wall`;
             { mimeType: "image/png", data: rightEndCrop },
           ],
           focusedPrompt,
-          [{ name: "gemini-3.1-flash-lite-preview", retries: 2 }],
+          [{ name: "gemini-3-flash-preview", retries: 2 }],
           { temperature: 0.1, maxOutputTokens: 256 },
         );
         console.log("Focused wall raw:", content);
