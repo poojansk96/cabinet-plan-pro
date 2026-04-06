@@ -529,17 +529,7 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
                     reviewReason: vt.reviewReason,
                   };
 
-                  // ── MIRROR type fix: flip bowl position ──
-                  const unitUpper = (pageUnitType || '').toUpperCase();
-                  if (unitUpper.includes('MIRROR') && importRow.bowlPosition !== 'center') {
-                    importRow.bowlPosition = importRow.bowlPosition === 'offset-left' ? 'offset-right' : 'offset-left';
-                    const tmpWall = importRow.leftWall;
-                    importRow.leftWall = importRow.rightWall;
-                    importRow.rightWall = tmpWall;
-                    const tmpConf = importRow.leftWallConfidence;
-                    importRow.leftWallConfidence = importRow.rightWallConfidence;
-                    importRow.rightWallConfidence = tmpConf;
-                  }
+                  // Keep extractor orientation as-is; mirror types should not be flipped client-side.
 
                   // ── Deterministic wall detection using bbox crops ──
                   if (vt.bbox && vt.bbox.width > 0.01 && vt.bbox.height > 0.01) {
