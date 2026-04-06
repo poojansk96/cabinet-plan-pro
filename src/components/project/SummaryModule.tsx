@@ -253,8 +253,10 @@ export default function SummaryModule({ project }: Props) {
     const ucHeaderRow = 4; // Unit Count header row (row 4)
 
     // Column layout (1-indexed)
-    const colSku = 1;
-    const colCabFirstType = 2;
+    const colBlank0 = 1;
+    const colSku = 2;
+    const colModNote = 3;
+    const colCabFirstType = 4;
     const colCabTotal = colCabFirstType + nTypes;
     const colSpacer1 = colCabTotal + 1;
 
@@ -280,7 +282,9 @@ export default function SummaryModule({ project }: Props) {
 
     // Column widths
     const colWidths: { width: number }[] = [];
-    colWidths.push({ width: 22 });
+    colWidths.push({ width: 3 });  // blank column before SKU
+    colWidths.push({ width: 22 }); // SKU Name
+    colWidths.push({ width: 18 }); // Modification Note
     for (let i = 0; i < nTypes; i++) colWidths.push({ width: 6 });
     colWidths.push({ width: 8 });
     colWidths.push({ width: 3 });
@@ -336,7 +340,9 @@ export default function SummaryModule({ project }: Props) {
 
     // Header row — unit type names reference Unit Count sheet via formula
     const headerValues: (string | number)[] = [];
+    headerValues.push(''); // blank col
     headerValues.push('SKU Name');
+    headerValues.push('Modification Note');
     cabTypes.forEach(() => headerValues.push('')); // placeholder, formula set below
     headerValues.push('Total');
     headerValues.push('');
@@ -364,12 +370,12 @@ export default function SummaryModule({ project }: Props) {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F0' } };
       cell.border = { bottom: { style: 'thin', color: { argb: 'FF999999' } } };
       cell.alignment = { vertical: 'bottom', wrapText: false };
-      const idx = colNumber - 1;
-      if ((idx >= 1 && idx <= nTypes) ||
-          (idx >= colPullsFirstType - 1 && idx <= colPullsFirstType - 2 + nTypes) ||
-          (idx >= colPricingFirstType - 1 && idx <= colPricingFirstType - 2 + nTypes) ||
-          (idx >= colTotalCabFirstType - 1 && idx <= colTotalCabFirstType - 2 + nTypes) ||
-          (idx >= colCpuFirstType - 1 && idx <= colCpuFirstType - 2 + nTypes)) {
+      const idx = colNumber;
+      if ((idx >= colCabFirstType && idx <= colCabFirstType + nTypes - 1) ||
+          (idx >= colPullsFirstType && idx <= colPullsFirstType + nTypes - 1) ||
+          (idx >= colPricingFirstType && idx <= colPricingFirstType + nTypes - 1) ||
+          (idx >= colTotalCabFirstType && idx <= colTotalCabFirstType + nTypes - 1) ||
+          (idx >= colCpuFirstType && idx <= colCpuFirstType + nTypes - 1)) {
         cell.alignment = { textRotation: 90, vertical: 'bottom', horizontal: 'center' };
       }
     });
@@ -389,14 +395,16 @@ export default function SummaryModule({ project }: Props) {
       setFormula(cabHeader.getCell(colCpuFirstType + i), `'2-Unit Count'!${ucTypeCol}${ucHeaderRow}`, cabTypes[i]);
     }
 
-    wsCabs.views = [{ state: 'frozen', xSplit: 1, ySplit: 3 }];
+    wsCabs.views = [{ state: 'frozen', xSplit: 3, ySplit: 3 }];
 
     const dataRangeStartRow = cabHeader.number + 1;
 
     // 50 blank rows for user to fill in cabinet SKUs
     for (let rowIdx = 0; rowIdx < 50; rowIdx++) {
       const rowValues: (string | number)[] = [];
+      rowValues.push(''); // blank col
       rowValues.push(''); // SKU blank
+      rowValues.push(''); // modification note
       for (let i = 0; i < nTypes; i++) rowValues.push(''); // cab qty
       rowValues.push(''); // cab total
       rowValues.push(''); // spacer
@@ -443,7 +451,7 @@ export default function SummaryModule({ project }: Props) {
       }
 
       row.eachCell((cell, colNumber) => {
-        if (colNumber > 1) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        if (colNumber > 3) cell.alignment = { horizontal: 'center', vertical: 'middle' };
       });
     }
 
@@ -478,7 +486,7 @@ export default function SummaryModule({ project }: Props) {
     cabTotRow.eachCell((cell, colNumber) => {
       cell.font = { bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
-      if (colNumber > 1) cell.alignment = { horizontal: 'center' };
+      if (colNumber > 3) cell.alignment = { horizontal: 'center' };
     });
 
     // Patch pricing formulas onto each blank row
