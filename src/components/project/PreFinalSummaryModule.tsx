@@ -1112,7 +1112,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
     // Row 3: Saffron rate/multiplier row (user-editable rates)
     const costRateRow = wsCosting.addRow([]);
-    const saffronCostCols = [cc.pullsCost, cc.plamCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.deliveryCost, cc.ldCost];
+    const saffronCostCols = [cc.pullsCost, cc.plamCost, cc.plamSsCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.deliveryCost, cc.ldCost];
     const saffronRetailCols = [cc.cabsRetail, cc.pullsRetail, cc.plamRetail, cc.ktopRetail, cc.vtopRetail, cc.stickRetail, cc.dwRetail, cc.laborRetail, cc.deliveryRetail, cc.ldRetail];
     const saffronTotalCols = [cc.tax]; // tax multiplier
     [...saffronCostCols, ...saffronRetailCols, ...saffronTotalCols].forEach(col => {
