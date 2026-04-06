@@ -294,21 +294,27 @@ TASK:
 3. For EACH vanity top, extract:
    a. **length** — total length in inches (e.g., 47.5, 31, 25)
    b. **depth** — depth in inches (usually 22")
-   c. **bowlPosition** — examine the bowl cutout location relative to the vanity's LENGTH (long dimension):
-      CRITICAL ORIENTATION NOTE: Vanity tops may be drawn VERTICALLY on the page (rotated 90°).
-      If the vanity rectangle is taller than wide on the page, it is rotated — "left" and "right" refer to the vanity's own long-axis ends, NOT page-left/page-right.
-      To determine left vs right:
-        1. Identify the vanity's LENGTH axis (the longer dimension, e.g., 47.5").
-        2. Look at dimension callouts that show the distance from each end of the LENGTH axis to the bowl center.
-        3. The end with the SHORTER dimension is the side the bowl is offset toward.
-        4. Use the vanity's installed orientation: typically the LENGTH runs left-to-right as viewed in the plan. If the vanity is drawn vertically, the TOP of the drawing = LEFT end, BOTTOM = RIGHT end (standard drafting convention).
-      - "offset-left" if bowl center is closer to the LEFT end of the length axis
-      - "offset-right" if bowl center is closer to the RIGHT end of the length axis
+   c. **bowlPosition** — determine left vs right FROM THE PERSPECTIVE OF A PERSON STANDING IN FRONT OF THE VANITY, FACING IT.
+      CRITICAL PERSPECTIVE RULE:
+        1. The BACKSPLASH / WALL (double line along the long edge) is BEHIND the vanity — this is the BACK.
+        2. Imagine a person standing in FRONT of the vanity (opposite the backsplash), facing toward it.
+        3. LEFT and RIGHT are from THIS person's perspective.
+        4. Find the dimension callouts showing distance from each end of the LENGTH axis to the bowl center.
+        5. The end with the SHORTER dimension is the side the bowl is offset toward.
+        6. Determine if that shorter-dimension end is on the person's LEFT or RIGHT.
+      ORIENTATION HANDLING:
+        - If the vanity is drawn HORIZONTALLY (wider than tall on page): backsplash is usually at top. Person stands at bottom facing up. Person's left = page left, right = page right.
+        - If the vanity is drawn VERTICALLY (taller than wide on page): backsplash is usually on one side. Person stands on the opposite side facing the backsplash. Determine left/right accordingly.
+        - ALWAYS check where the backsplash/wall double-line is to establish the "back" first.
+      - "offset-left" if bowl is closer to the person's LEFT end
+      - "offset-right" if bowl is closer to the person's RIGHT end
       - "center" if bowl is centered along the length axis
    d. **bowlOffset** — if offset, measure the distance in inches from the CLOSER end to the center of the bowl. If center, set to null.
-   e. **leftWall** and **rightWall** — CRITICAL: Detect whether each end of the vanity top touches a wall.
+   e. **leftWall** and **rightWall** — CRITICAL: Detect whether each end of the vanity top has a wall, using the SAME "person standing in front" perspective.
+      leftWall = wall on the person's LEFT end. rightWall = wall on the person's RIGHT end.
 
 RULES FOR WALL DETECTION (leftWall / rightWall):
+- Use the SAME "person standing in front" perspective as bowlPosition.
 - Look at EACH END of the vanity top along its LENGTH axis.
 - WALL (true) indicators — any of these means the end has a wall:
   * DOUBLE PARALLEL LINES at the end edge (two lines close together = sidesplash/wall return)
@@ -342,7 +348,7 @@ IMPORTANT:
 - The bbox coordinates MUST be normalized 0..1 relative to the full page.
 
 Return ONLY valid JSON — no markdown fences, no explanation:
-{"unitTypeName":"TYPE 1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"bowlPosition":"offset-right","bowlOffset":17.75,"leftWall":true,"rightWall":true,"leftWallYesConfidence":0.9,"rightWallYesConfidence":0.85,"bbox":{"x":0.05,"y":0.3,"width":0.35,"height":0.2}}]}`;
+{"unitTypeName":"TYPE 1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true,"leftWallYesConfidence":0.9,"rightWallYesConfidence":0.85,"bbox":{"x":0.05,"y":0.3,"width":0.35,"height":0.2}}]}`;
 
     // ── Pass 1: Extraction ──
     let fullContent = "";
@@ -387,18 +393,22 @@ ${JSON.stringify({ unitTypeName: extractedUnitTypeName, vtops: finalVtops }, nul
 Look at the SAME shop drawing image and verify EACH item carefully:
 1. Is the unitTypeName correct? If not, provide the correct one.
 2. Are the dimensions (length, depth) accurate? Correct any errors.
-3. Is the bowlPosition correct? Check dimension callouts for bowl offset direction.
+3. **CRITICAL — RE-CHECK bowlPosition using "person standing in front" perspective:**
+   - Find the BACKSPLASH (double line along long edge) — that is the BACK of the vanity.
+   - Imagine standing IN FRONT of the vanity (opposite the backsplash), facing it.
+   - LEFT and RIGHT are from THIS person's perspective.
+   - The end with the SHORTER dimension callout to the bowl center = the offset side.
+   - Is it the person's LEFT or RIGHT?
 4. Is the bowlOffset value accurate?
 5. Are there any MISSING vanity tops not extracted? Add them.
 6. Are there any FALSE vanity tops (actually kitchen countertops with depth > 22")? Remove them.
 
-7. **CRITICAL — RE-CHECK WALL DETECTION for each vanity top:**
-   - Look at EACH END of the vanity along its length axis.
+7. **CRITICAL — RE-CHECK WALL DETECTION using the SAME "person standing in front" perspective:**
+   - leftWall = wall on the person's LEFT end. rightWall = wall on the person's RIGHT end.
    - DOUBLE LINES at an end = WALL (sidesplash). Set leftWall/rightWall to true.
    - SINGLE LINE at an end = OPEN (finish end). Set leftWall/rightWall to false.
    - MOST vanity tops have BOTH walls (leftWall=true AND rightWall=true). This is the DEFAULT.
    - Only set false when you see a CLEAR single line with no wall structure nearby.
-   - If the drawing shows double parallel lines at BOTH ends, set BOTH to true.
    - BIAS toward true (wall) — false negatives are worse than false positives.
    - Update leftWallYesConfidence and rightWallYesConfidence accordingly.
 
