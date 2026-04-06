@@ -1035,6 +1035,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
       [cc.plamSlab]: 'KTOP\nSLAB',
       [cc.plamTotalLft]: 'TOTAL\nKTOP LFT',
       [cc.plamCost]: 'PLAM\nKTOP COST',
+      [cc.plamSsQty]: 'PLAM KTOP\nSS',
+      [cc.plamSsCost]: 'PLAM KTOP\nSS COST',
       [cc.ktopSqft]: 'KTOP\nSQFT',
       [cc.ktopCost]: 'QUARTZ GRP1\nKTOP COST',
       [cc.kTopSqftOnly]: 'TOP\nSQFT',
