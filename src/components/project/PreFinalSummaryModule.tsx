@@ -1057,6 +1057,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
       [cc.ktopTotalRetail]: 'QUARTZ GRP1\nKTOP\nTOTAL RETAIL',
       [cc.vtopTotalCost]: 'QUARTZ GRP1\nVTOP\nTOTAL COST',
       [cc.vtopTotalRetail]: 'QUARTZ GRP1\nVTOP\nTOTAL RETAIL',
+      [cc.cmVtopTotalCost]: 'CMARBLE/SWAN\nVTOP\nTOTAL COST',
+      [cc.cmVtopTotalRetail]: 'CMARBLE/SWAN\nVTOP\nTOTAL RETAIL',
       [cc.stickTotalCost]: '2X3X8\nTOTAL COST',
       [cc.stickTotalRetail]: '2X3X8\nTOTAL RETAIL',
       [cc.dwTotalCost]: 'DW BRACKETS\nTOTAL COST',
