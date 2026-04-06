@@ -253,8 +253,10 @@ export default function SummaryModule({ project }: Props) {
     const ucHeaderRow = 4; // Unit Count header row (row 4)
 
     // Column layout (1-indexed)
-    const colSku = 1;
-    const colCabFirstType = 2;
+    const colBlank0 = 1;
+    const colSku = 2;
+    const colModNote = 3;
+    const colCabFirstType = 4;
     const colCabTotal = colCabFirstType + nTypes;
     const colSpacer1 = colCabTotal + 1;
 
@@ -280,7 +282,9 @@ export default function SummaryModule({ project }: Props) {
 
     // Column widths
     const colWidths: { width: number }[] = [];
-    colWidths.push({ width: 22 });
+    colWidths.push({ width: 3 });  // blank column before SKU
+    colWidths.push({ width: 22 }); // SKU Name
+    colWidths.push({ width: 18 }); // Modification Note
     for (let i = 0; i < nTypes; i++) colWidths.push({ width: 6 });
     colWidths.push({ width: 8 });
     colWidths.push({ width: 3 });
