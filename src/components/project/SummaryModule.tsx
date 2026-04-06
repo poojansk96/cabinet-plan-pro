@@ -739,11 +739,11 @@ export default function SummaryModule({ project }: Props) {
         row.getCell(cc.qty).value = project.units.filter(u => u.type === t).length;
       }
 
-      // CABS COST per unit
-      setFormula(row.getCell(cc.cabsCost), safeMul(
-        `'3-Cabinet Count'!${ref(colCabFirstType + i, cabTotRow.number)}`,
-        `'3-Cabinet Count'!${ref(colPricingFirstType + i, totalCostRow.number)}`
-      ), 0);
+      // CABS COST per unit = sum of pricing type column for this type
+      setFormula(row.getCell(cc.cabsCost),
+        `'3-Cabinet Count'!${ref(colPricingFirstType + i, cabTotRow.number)}`,
+      0);
+
       row.getCell(cc.cabsCost).numFmt = '$#,##0.00';
 
       // PULLS QTY
