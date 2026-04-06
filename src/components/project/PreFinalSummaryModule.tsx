@@ -762,7 +762,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
     for (let r = dataRangeStartRow; r <= dataRangeEndRow; r++) {
       // Skip group rows (they have text in SKU column and no numbers elsewhere)
       const skuVal = wsCabs.getRow(r).getCell(colSku).value;
-      if (typeof skuVal !== 'string' || skuVal.includes('(')) continue;
+      if (typeof skuVal !== 'string' || skuVal.includes('(') || skuVal.startsWith('Note:')) continue;
 
        const partsBid: string[] = [];
        const partsAdd: string[] = [];
