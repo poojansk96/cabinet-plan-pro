@@ -1039,6 +1039,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
       [cc.plamRetail]: 'PLAM KTOP\nRETAIL',
       [cc.ktopRetail]: 'QUARTZ KTOP\nGRP1 RETAIL',
       [cc.vtopRetail]: 'QUARTZ VTOP\nGRP1 RETAIL',
+      [cc.cmVtopRetail]: 'CMARBLE/SWAN\nVTOP RETAIL',
       [cc.stickRetail]: '2X3X8\nRETAIL',
       [cc.dwRetail]: 'DW BRACKETS\nRETAIL',
       [cc.laborRetail]: 'LABOR\nRETAIL',
