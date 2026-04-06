@@ -1337,7 +1337,86 @@ export default function PreFinalSummaryModule({ project }: Props) {
       cell.alignment = { horizontal: 'center' };
     });
 
-    // ── Summary table (to the right of retailExt) ──────────────────
+    // ── Stone SQFT section below TOTAL row ──────────────────────────
+    if (store.stoneRows.length > 0) {
+      wsCosting.addRow([]); // blank row 1
+      wsCosting.addRow([]); // blank row 2
+
+      // Compute per-type stone sqft: total, top-only, backsplash
+      const kitchenTypes: string[] = [];
+      const stoneByType: Record<string, { totalSqft: number; topSqft: number; bsSqft: number }> = {};
+
+      for (const row of store.stoneRows) {
+        if (row.category !== 'kitchen') continue;
+        const t = row.unitType;
+        if (!stoneByType[t]) {
+          stoneByType[t] = { totalSqft: 0, topSqft: 0, bsSqft: 0 };
+          kitchenTypes.push(t);
+        }
+        const topArea = (row.length * row.depth) / 144; // sq inches to sqft
+        const bsHeight = store.getTypeBsHeight(t, 'kitchen');
+        const bsArea = (row.backsplashLength * bsHeight) / 144;
+        stoneByType[t].topSqft += topArea;
+        stoneByType[t].bsSqft += bsArea;
+        stoneByType[t].totalSqft += topArea + bsArea;
+      }
+
+      // Write type rows
+      for (const t of kitchenTypes) {
+        const r = wsCosting.addRow([]);
+        r.getCell(cc.type).value = t;
+        r.getCell(cc.type).font = { bold: true, size: 9 };
+        r.getCell(cc.type).border = allBorders;
+        r.getCell(cc.ktopSqft).value = Math.ceil(stoneByType[t].totalSqft);
+        r.getCell(cc.ktopSqft).alignment = { horizontal: 'center' };
+        r.getCell(cc.ktopSqft).border = allBorders;
+        r.getCell(cc.kTopSqftOnly).value = Math.ceil(stoneByType[t].topSqft);
+        r.getCell(cc.kTopSqftOnly).alignment = { horizontal: 'center' };
+        r.getCell(cc.kTopSqftOnly).border = allBorders;
+        r.getCell(cc.kBackSplash).value = Math.ceil(stoneByType[t].bsSqft);
+        r.getCell(cc.kBackSplash).alignment = { horizontal: 'center' };
+        r.getCell(cc.kBackSplash).border = allBorders;
+      }
+
+      // Vanity/bath stone
+      const bathTypes: string[] = [];
+      const stoneBathByType: Record<string, { totalSqft: number; topSqft: number; bsSqft: number }> = {};
+
+      for (const row of store.stoneRows) {
+        if (row.category !== 'bath') continue;
+        const t = row.unitType;
+        if (!stoneBathByType[t]) {
+          stoneBathByType[t] = { totalSqft: 0, topSqft: 0, bsSqft: 0 };
+          bathTypes.push(t);
+        }
+        const topArea = (row.length * row.depth) / 144;
+        const bsHeight = store.getTypeBsHeight(t, 'bath');
+        const bsArea = (row.backsplashLength * bsHeight) / 144;
+        stoneBathByType[t].topSqft += topArea;
+        stoneBathByType[t].bsSqft += bsArea;
+        stoneBathByType[t].totalSqft += topArea + bsArea;
+      }
+
+      if (bathTypes.length > 0) {
+        wsCosting.addRow([]); // blank separator
+        for (const t of bathTypes) {
+          const r = wsCosting.addRow([]);
+          r.getCell(cc.type).value = t;
+          r.getCell(cc.type).font = { bold: true, size: 9 };
+          r.getCell(cc.type).border = allBorders;
+          r.getCell(cc.vtopSqft).value = Math.ceil(stoneBathByType[t].totalSqft);
+          r.getCell(cc.vtopSqft).alignment = { horizontal: 'center' };
+          r.getCell(cc.vtopSqft).border = allBorders;
+          r.getCell(cc.vTopSqftOnly).value = Math.ceil(stoneBathByType[t].topSqft);
+          r.getCell(cc.vTopSqftOnly).alignment = { horizontal: 'center' };
+          r.getCell(cc.vTopSqftOnly).border = allBorders;
+          r.getCell(cc.vBackSplash).value = Math.ceil(stoneBathByType[t].bsSqft);
+          r.getCell(cc.vBackSplash).alignment = { horizontal: 'center' };
+          r.getCell(cc.vBackSplash).border = allBorders;
+        }
+      }
+    }
+
     // Position summary at header row level
     const sumHeaderRowNum = costHeaderRow2.number;
     const sumStartRow = sumHeaderRowNum;
