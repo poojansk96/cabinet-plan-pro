@@ -722,96 +722,43 @@ export default function PreFinalSummaryModule({ project }: Props) {
       if (colNumber > 3) cell.alignment = { horizontal: 'center' };
     });
 
-    // Pricing inputs (editable) + per-type total cost (formula)
-    const bidCostRow = wsCabs.addRow([]);
-    bidCostRow.getCell(colPricingBid).value = 'Bid Cost/Type';
-    bidCostRow.getCell(colPricingBid).font = { bold: true, italic: true, size: 8 };
-    for (let i = 0; i < nTypes; i++) {
-      const cell = bidCostRow.getCell(colPricingFirstType + i);
-      cell.value = store.bidCostPerType[cabTypes[i]] || 0;
-      cell.numFmt = '$#,##0.00';
-      cell.alignment = { horizontal: 'center' };
-      cell.font = { italic: true, size: 8 };
-    }
-
-    const addCostRow = wsCabs.addRow([]);
-    addCostRow.getCell(colPricingAdditional).value = 'Additional/Type';
-    addCostRow.getCell(colPricingAdditional).font = { bold: true, italic: true, size: 8 };
-    for (let i = 0; i < nTypes; i++) {
-      const cell = addCostRow.getCell(colPricingFirstType + i);
-      cell.value = store.additionalCostPerType[cabTypes[i]] || 0;
-      cell.numFmt = '$#,##0.00';
-      cell.alignment = { horizontal: 'center' };
-      cell.font = { italic: true, size: 8 };
-    }
-
-     const totalCostRow = wsCabs.addRow([]);
-     totalCostRow.getCell(colPricingTotal).value = 'Total/Type';
-     totalCostRow.getCell(colPricingTotal).font = { bold: true, italic: true, size: 8 };
-     for (let i = 0; i < nTypes; i++) {
-       const cell = totalCostRow.getCell(colPricingFirstType + i);
-       const bidAbs = `$${excelCol(colPricingFirstType + i)}$${bidCostRow.number}`;
-       const addAbs = `$${excelCol(colPricingFirstType + i)}$${addCostRow.number}`;
-       setFormula(cell, safeAdd(bidAbs, addAbs), 0);
-       cell.numFmt = '$#,##0.00';
-       cell.alignment = { horizontal: 'center' };
-       cell.font = { italic: true, size: 8 };
-     }
-
-    // Patch pricing formulas onto each SKU row now that we know the pricing input row numbers
+    // Patch pricing formulas onto each SKU row
+    // Bid Cost and Additional are blank for manual entry; Total Cost = Bid + Additional
+    // Per-type pricing = Total Cost × cab qty for that type
     for (let r = dataRangeStartRow; r <= dataRangeEndRow; r++) {
-      // Skip group rows (they have text in SKU column and no numbers elsewhere)
       const skuVal = wsCabs.getRow(r).getCell(colSku).value;
       if (typeof skuVal !== 'string' || skuVal.includes('(') || skuVal.startsWith('Note:')) continue;
 
-       const partsBid: string[] = [];
-       const partsAdd: string[] = [];
-       const pricingTypeRefs: string[] = [];
+      const rowObj = wsCabs.getRow(r);
+      const bidCell = rowObj.getCell(colPricingBid);
+      const addCell = rowObj.getCell(colPricingAdditional);
+      const totCell = rowObj.getCell(colPricingTotal);
+      const typeTotCell = rowObj.getCell(colPricingTypeTotal);
 
-       const rowObj = wsCabs.getRow(r);
-       const bidCell = rowObj.getCell(colPricingBid);
-       const addCell = rowObj.getCell(colPricingAdditional);
-       const totCell = rowObj.getCell(colPricingTotal);
-       const typeTotCell = rowObj.getCell(colPricingTypeTotal);
+      // Bid Cost and Additional left blank for manual entry
+      bidCell.numFmt = '$#,##0.00';
+      addCell.numFmt = '$#,##0.00';
 
-       // If there are no cabinet unit types yet, keep pricing as 0s (prevents invalid SUM ranges)
-       if (nTypes === 0) {
-         setFormula(bidCell, '0', 0);
-         setFormula(addCell, '0', 0);
-         setFormula(totCell, '0', 0);
-         setFormula(typeTotCell, '0', 0);
-         continue;
-       }
+      // Total Cost = Bid + Additional
+      setFormula(totCell, safeAdd(ref(colPricingBid, r), ref(colPricingAdditional, r)), 0);
+      totCell.numFmt = '$#,##0.00';
 
-       for (let i = 0; i < nTypes; i++) {
-         const totalCabRef = ref(colTotalCabFirstType + i, r);
-         const bidAbs = `$${excelCol(colPricingFirstType + i)}$${bidCostRow.number}`;
-         const addAbs = `$${excelCol(colPricingFirstType + i)}$${addCostRow.number}`;
-         const totAbs = `$${excelCol(colPricingFirstType + i)}$${totalCostRow.number}`;
+      if (nTypes === 0) {
+        setFormula(typeTotCell, '0', 0);
+        continue;
+      }
 
-         partsBid.push(safeMul(totalCabRef, bidAbs));
-         partsAdd.push(safeMul(totalCabRef, addAbs));
+      const pricingTypeRefs: string[] = [];
+      for (let i = 0; i < nTypes; i++) {
+        const typeCell = rowObj.getCell(colPricingFirstType + i);
+        // Per-type pricing = Total Cost × cab qty for that type
+        setFormula(typeCell, safeMul(ref(colPricingTotal, r), ref(colCabFirstType + i, r)), 0);
+        typeCell.numFmt = '$#,##0.00';
+        pricingTypeRefs.push(ref(colPricingFirstType + i, r));
+      }
 
-         const typeCell = rowObj.getCell(colPricingFirstType + i);
-         setFormula(typeCell, safeMul(totalCabRef, totAbs), 0);
-         typeCell.numFmt = '$#,##0.00';
-
-         pricingTypeRefs.push(ref(colPricingFirstType + i, r));
-       }
-
-       setFormula(bidCell, partsBid.length ? partsBid.join('+') : '0', 0);
-       setFormula(addCell, partsAdd.length ? partsAdd.join('+') : '0', 0);
-       setFormula(totCell, safeAdd(ref(colPricingBid, r), ref(colPricingAdditional, r)), 0);
-       setFormula(
-         typeTotCell,
-         pricingTypeRefs.length ? safeSum(pricingTypeRefs[0], pricingTypeRefs[pricingTypeRefs.length - 1]) : '0',
-         0
-       );
-
-       bidCell.numFmt = '$#,##0.00';
-       addCell.numFmt = '$#,##0.00';
-       totCell.numFmt = '$#,##0.00';
-       typeTotCell.numFmt = '$#,##0.00';
+      setFormula(typeTotCell, safeSum(pricingTypeRefs[0], pricingTypeRefs[pricingTypeRefs.length - 1]), 0);
+      typeTotCell.numFmt = '$#,##0.00';
     }
 
     // ── VTOP section (Swanstone / Cultured Marble) at bottom of Cabinet Count tab ──

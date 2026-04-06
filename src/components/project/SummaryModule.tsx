@@ -481,41 +481,9 @@ export default function SummaryModule({ project }: Props) {
       if (colNumber > 1) cell.alignment = { horizontal: 'center' };
     });
 
-    // Pricing input rows
-    const bidCostRow = wsCabs.addRow([]);
-    bidCostRow.getCell(colPricingBid).value = 'Bid Cost/Type';
-    bidCostRow.getCell(colPricingBid).font = { bold: true, italic: true, size: 8 };
-    for (let i = 0; i < nTypes; i++) {
-      const cell = bidCostRow.getCell(colPricingFirstType + i);
-      cell.value = 0;
-      cell.numFmt = '$#,##0.00';
-      cell.alignment = { horizontal: 'center' };
-      cell.font = { italic: true, size: 8 };
-    }
-
-    const addCostRow = wsCabs.addRow([]);
-    addCostRow.getCell(colPricingAdditional).value = 'Additional/Type';
-    addCostRow.getCell(colPricingAdditional).font = { bold: true, italic: true, size: 8 };
-    for (let i = 0; i < nTypes; i++) {
-      const cell = addCostRow.getCell(colPricingFirstType + i);
-      cell.value = 0;
-      cell.numFmt = '$#,##0.00';
-      cell.alignment = { horizontal: 'center' };
-      cell.font = { italic: true, size: 8 };
-    }
-
-    const totalCostRow = wsCabs.addRow([]);
-    totalCostRow.getCell(colPricingTotal).value = 'Total/Type';
-    totalCostRow.getCell(colPricingTotal).font = { bold: true, italic: true, size: 8 };
-    for (let i = 0; i < nTypes; i++) {
-      const cell = totalCostRow.getCell(colPricingFirstType + i);
-      setFormula(cell, safeAdd(`$${excelCol(colPricingFirstType + i)}$${bidCostRow.number}`, `$${excelCol(colPricingFirstType + i)}$${addCostRow.number}`), 0);
-      cell.numFmt = '$#,##0.00';
-      cell.alignment = { horizontal: 'center' };
-      cell.font = { italic: true, size: 8 };
-    }
-
     // Patch pricing formulas onto each blank row
+    // Bid Cost and Additional are blank for manual entry; Total Cost = Bid + Additional
+    // Per-type pricing = Total Cost × cab qty for that type
     for (let r = dataRangeStartRow; r <= dataRangeEndRow; r++) {
       const rowObj = wsCabs.getRow(r);
       const bidCell = rowObj.getCell(colPricingBid);
@@ -523,42 +491,29 @@ export default function SummaryModule({ project }: Props) {
       const totCell = rowObj.getCell(colPricingTotal);
       const typeTotCell = rowObj.getCell(colPricingTypeTotal);
 
+      // Bid Cost and Additional left blank for manual entry
+      bidCell.numFmt = '$#,##0.00';
+      addCell.numFmt = '$#,##0.00';
+
+      // Total Cost = Bid + Additional
+      setFormula(totCell, safeAdd(ref(colPricingBid, r), ref(colPricingAdditional, r)), 0);
+      totCell.numFmt = '$#,##0.00';
+
       if (nTypes === 0) {
-        setFormula(bidCell, '0', 0);
-        setFormula(addCell, '0', 0);
-        setFormula(totCell, '0', 0);
         setFormula(typeTotCell, '0', 0);
         continue;
       }
 
-      const partsBid: string[] = [];
-      const partsAdd: string[] = [];
       const pricingTypeRefs: string[] = [];
-
       for (let i = 0; i < nTypes; i++) {
-        const totalCabRef = ref(colTotalCabFirstType + i, r);
-        const bidAbs = `$${excelCol(colPricingFirstType + i)}$${bidCostRow.number}`;
-        const addAbs = `$${excelCol(colPricingFirstType + i)}$${addCostRow.number}`;
-        const totAbs = `$${excelCol(colPricingFirstType + i)}$${totalCostRow.number}`;
-
-        partsBid.push(safeMul(totalCabRef, bidAbs));
-        partsAdd.push(safeMul(totalCabRef, addAbs));
-
         const typeCell = rowObj.getCell(colPricingFirstType + i);
-        setFormula(typeCell, safeMul(totalCabRef, totAbs), 0);
+        // Per-type pricing = Total Cost × cab qty for that type
+        setFormula(typeCell, safeMul(ref(colPricingTotal, r), ref(colCabFirstType + i, r)), 0);
         typeCell.numFmt = '$#,##0.00';
-
         pricingTypeRefs.push(ref(colPricingFirstType + i, r));
       }
 
-      setFormula(bidCell, partsBid.join('+'), 0);
-      setFormula(addCell, partsAdd.join('+'), 0);
-      setFormula(totCell, safeAdd(ref(colPricingBid, r), ref(colPricingAdditional, r)), 0);
       setFormula(typeTotCell, safeSum(pricingTypeRefs[0], pricingTypeRefs[pricingTypeRefs.length - 1]), 0);
-
-      bidCell.numFmt = '$#,##0.00';
-      addCell.numFmt = '$#,##0.00';
-      totCell.numFmt = '$#,##0.00';
       typeTotCell.numFmt = '$#,##0.00';
     }
 
