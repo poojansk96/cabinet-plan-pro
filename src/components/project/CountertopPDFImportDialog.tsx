@@ -66,9 +66,40 @@ export default function CountertopPDFImportDialog({ onImport, onClose }: Props) 
   const [quoteIdx, setQuoteIdx] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const processingRef = useRef(false);
+  const bgPickedUpRef = useRef(false);
 
   const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
   const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+  // ── Pick up background job results ──
+  const bgJob = useExtractionJobByType('takeoff-countertop');
+
+  useEffect(() => {
+    if (!bgJob || bgPickedUpRef.current) return;
+    if (bgJob.status === 'processing') {
+      setStep('processing');
+      setProgress(bgJob.progress);
+      setStatusMsg(bgJob.statusText);
+    } else if (bgJob.status === 'done') {
+      bgPickedUpRef.current = true;
+      const r = bgJob.results as { rows: CountertopRow[] } | null;
+      if (r) setRows(r.rows);
+      setProgress(100);
+      setStep('review');
+      clearExtractionJob('takeoff-countertop');
+    } else if (bgJob.status === 'error') {
+      bgPickedUpRef.current = true;
+      setError(bgJob.error || 'Failed');
+      setStep('upload');
+      clearExtractionJob('takeoff-countertop');
+    }
+  }, [bgJob]);
+
+  useEffect(() => {
+    if (!bgJob || bgJob.status !== 'processing' || bgPickedUpRef.current) return;
+    setProgress(bgJob.progress);
+    setStatusMsg(bgJob.statusText);
+  }, [bgJob?.progress, bgJob?.statusText]);
 
   async function processFiles(files: File[]) {
     if (processingRef.current) return;
@@ -76,9 +107,11 @@ export default function CountertopPDFImportDialog({ onImport, onClose }: Props) 
     setStep('processing');
     setError('');
     setProgress(0);
+    bgPickedUpRef.current = false;
 
     const quoteInterval = setInterval(() => setQuoteIdx(i => (i + 1) % QUOTES.length), 4000);
 
+    startExtraction('takeoff-countertop', files.map(f => f.name), async (update) => {
     try {
       const pdfjsLib = await import('pdfjs-dist');
       pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
@@ -87,20 +120,19 @@ export default function CountertopPDFImportDialog({ onImport, onClose }: Props) 
       let pagesDone = 0;
       let pagesTotal = 0;
 
-      // Count total pages
       for (const file of files) {
         const buf = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
         pagesTotal += pdf.numPages;
       }
-      setTotalPages(pagesTotal);
+      update({ totalPages: pagesTotal, statusText: 'Processing pages…' });
 
       for (const file of files) {
         const buf = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
 
         for (let p = 1; p <= pdf.numPages; p++) {
-          setStatusMsg(`Processing ${file.name} — page ${p}/${pdf.numPages}`);
+          update({ statusText: `Processing ${file.name} — page ${p}/${pdf.numPages}` });
           const page = await pdf.getPage(p);
           const pageImage = await renderPageToBase64(page);
 
@@ -115,12 +147,16 @@ export default function CountertopPDFImportDialog({ onImport, onClose }: Props) 
             });
 
             if (resp.status === 429) {
-              setError('Rate limit reached. Please wait and try again.');
-              break;
+              update({ status: 'error', error: 'Rate limit reached. Please wait and try again.' });
+              clearInterval(quoteInterval);
+              processingRef.current = false;
+              return;
             }
             if (resp.status === 402) {
-              setError('AI credits exhausted. Please add credits.');
-              break;
+              update({ status: 'error', error: 'AI credits exhausted. Please add credits.' });
+              clearInterval(quoteInterval);
+              processingRef.current = false;
+              return;
             }
 
             if (resp.ok) {
@@ -144,20 +180,19 @@ export default function CountertopPDFImportDialog({ onImport, onClose }: Props) 
           }
 
           pagesDone++;
-          setProgress(Math.round((pagesDone / pagesTotal) * 100));
+          update({ progress: Math.round((pagesDone / pagesTotal) * 100), processedPages: pagesDone });
         }
       }
 
-      setRows(allRows);
-      setStep('review');
+      update({ status: 'done', progress: 100, results: { rows: allRows } });
     } catch (err) {
       console.error('PDF processing error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to process PDF');
-      setStep('upload');
+      update({ status: 'error', error: err instanceof Error ? err.message : 'Failed to process PDF' });
     } finally {
       clearInterval(quoteInterval);
       processingRef.current = false;
     }
+    });
   }
 
   const handleDrop = (e: React.DragEvent) => {
