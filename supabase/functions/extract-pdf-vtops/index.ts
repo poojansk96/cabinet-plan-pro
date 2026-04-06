@@ -351,7 +351,7 @@ TASK:
         3. LEFT and RIGHT are from THIS person's perspective.
         4. Find the dimension callouts showing distance from each end of the LENGTH axis to the bowl center.
         5. The end with the SHORTER dimension is the side the bowl is offset toward.
-        6. Use `backSideOnPage` + `closerEndOnPage` consistently to determine bowlPosition.
+        6. Use backSideOnPage + closerEndOnPage consistently to determine bowlPosition.
       ORIENTATION HANDLING:
         - If the vanity is drawn HORIZONTALLY (wider than tall on page): backsplash is usually at top. Person stands at bottom facing up. Person's left = page left, right = page right.
         - If the vanity is drawn VERTICALLY (taller than wide on page): backsplash is usually on one side. Person stands on the opposite side facing the backsplash.
