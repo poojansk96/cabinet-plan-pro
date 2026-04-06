@@ -450,6 +450,11 @@ export default function SummaryModule({ project }: Props) {
         setFormula(row.getCell(colTotalCabGrand), safeSum(ref(colTotalCabFirstType, r), ref(colTotalCabFirstType + nTypes - 1, r)), 0);
       }
 
+      // Cab Count Per Unit = reference cabinet qty from front section
+      for (let i = 0; i < nTypes; i++) {
+        setFormula(row.getCell(colCpuFirstType + i), `N(${ref(colCabFirstType + i, r)})`, 0);
+      }
+
       row.eachCell((cell, colNumber) => {
         if (colNumber > 3) cell.alignment = { horizontal: 'center', vertical: 'middle' };
       });
