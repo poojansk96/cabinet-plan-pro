@@ -1273,10 +1273,10 @@ export default function PreFinalSummaryModule({ project }: Props) {
         { totalCost: cc.deliveryTotalCost, totalRetail: cc.deliveryTotalRetail, cost: cc.deliveryCost, retail: cc.deliveryRetail },
         { totalCost: cc.ldTotalCost, totalRetail: cc.ldTotalRetail, cost: cc.ldCost, retail: cc.ldRetail },
       ];
-      totalPairs.forEach(({ totalCost, totalRetail, cost, retail, extraCost }: any) => {
-        if (extraCost) {
-          // PLAM TOTAL COST = (plamCost + plamSsCost) × QTY
-          setFormula(row.getCell(totalCost), `IFERROR((N(${ref(cost, r)})+N(${ref(extraCost, r)}))*N(${ref(cc.qty, r)}),0)`, 0);
+      totalPairs.forEach(({ totalCost, totalRetail, cost, retail, extraCosts }: any) => {
+        if (extraCosts && extraCosts.length) {
+          const allCosts = [cost, ...extraCosts].map((c: number) => `N(${ref(c, r)})`).join('+');
+          setFormula(row.getCell(totalCost), `IFERROR((${allCosts})*N(${ref(cc.qty, r)}),0)`, 0);
         } else {
           setFormula(row.getCell(totalCost), safeMul(ref(cost, r), ref(cc.qty, r)), 0);
         }
