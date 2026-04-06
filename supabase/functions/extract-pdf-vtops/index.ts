@@ -396,8 +396,10 @@ Look at the SAME shop drawing image and verify EACH item carefully:
    - Look at EACH END of the vanity along its length axis.
    - DOUBLE LINES at an end = WALL (sidesplash). Set leftWall/rightWall to true.
    - SINGLE LINE at an end = OPEN (finish end). Set leftWall/rightWall to false.
-   - Most vanity tops have at least one wall. Many have BOTH walls (double lines on both ends).
+   - MOST vanity tops have BOTH walls (leftWall=true AND rightWall=true). This is the DEFAULT.
+   - Only set false when you see a CLEAR single line with no wall structure nearby.
    - If the drawing shows double parallel lines at BOTH ends, set BOTH to true.
+   - BIAS toward true (wall) — false negatives are worse than false positives.
    - Update leftWallYesConfidence and rightWallYesConfidence accordingly.
 
 Return the CORRECTED complete JSON — same format:
