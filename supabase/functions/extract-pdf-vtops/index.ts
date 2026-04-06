@@ -342,23 +342,27 @@ TASK:
 3. For EACH vanity top, extract:
    a. **length** — total length in inches (e.g., 47.5, 31, 25)
    b. **depth** — depth in inches (usually 22")
-   c. **bowlPosition** — determine left vs right FROM THE PERSPECTIVE OF A PERSON STANDING IN FRONT OF THE VANITY, FACING IT.
+   c. **backSideOnPage** — which PAGE SIDE contains the backsplash / back edge (double line along the long edge). Must be exactly one of: "top", "bottom", "left", "right".
+   d. **closerEndOnPage** — which PAGE SIDE contains the SHORTER bowl-center dimension along the LENGTH axis. Must be exactly one of: "top", "bottom", "left", "right", or "center".
+   e. **bowlPosition** — determine left vs right FROM THE PERSPECTIVE OF A PERSON STANDING IN FRONT OF THE VANITY, FACING IT.
       CRITICAL PERSPECTIVE RULE:
         1. The BACKSPLASH / WALL (double line along the long edge) is BEHIND the vanity — this is the BACK.
         2. Imagine a person standing in FRONT of the vanity (opposite the backsplash), facing toward it.
         3. LEFT and RIGHT are from THIS person's perspective.
         4. Find the dimension callouts showing distance from each end of the LENGTH axis to the bowl center.
         5. The end with the SHORTER dimension is the side the bowl is offset toward.
-        6. Determine if that shorter-dimension end is on the person's LEFT or RIGHT.
+        6. Use `backSideOnPage` + `closerEndOnPage` consistently to determine bowlPosition.
       ORIENTATION HANDLING:
         - If the vanity is drawn HORIZONTALLY (wider than tall on page): backsplash is usually at top. Person stands at bottom facing up. Person's left = page left, right = page right.
-        - If the vanity is drawn VERTICALLY (taller than wide on page): backsplash is usually on one side. Person stands on the opposite side facing the backsplash. Determine left/right accordingly.
+        - If the vanity is drawn VERTICALLY (taller than wide on page): backsplash is usually on one side. Person stands on the opposite side facing the backsplash.
+        - IMPORTANT vertical rule: if the backsplash/back is on PAGE RIGHT, the person stands on PAGE LEFT; then PERSON LEFT = PAGE TOP and PERSON RIGHT = PAGE BOTTOM.
+        - IMPORTANT vertical rule: if the backsplash/back is on PAGE LEFT, the person stands on PAGE RIGHT; then PERSON LEFT = PAGE BOTTOM and PERSON RIGHT = PAGE TOP.
         - ALWAYS check where the backsplash/wall double-line is to establish the "back" first.
       - "offset-left" if bowl is closer to the person's LEFT end
       - "offset-right" if bowl is closer to the person's RIGHT end
       - "center" if bowl is centered along the length axis
-   d. **bowlOffset** — if offset, measure the distance in inches from the CLOSER end to the center of the bowl. If center, set to null.
-   e. **leftWall** and **rightWall** — CRITICAL: Detect whether each end of the vanity top has a wall, using the SAME "person standing in front" perspective.
+   f. **bowlOffset** — if offset, measure the distance in inches from the CLOSER end to the center of the bowl. If center, set to null.
+   g. **leftWall** and **rightWall** — CRITICAL: Detect whether each end of the vanity top has a wall, using the SAME "person standing in front" perspective.
       leftWall = wall on the person's LEFT end. rightWall = wall on the person's RIGHT end.
 
 RULES FOR WALL DETECTION (leftWall / rightWall):
@@ -385,9 +389,10 @@ RULES FOR BOWL POSITION:
 - ALWAYS use dimension callout lines to determine offset — do not guess from visual position alone.
 - Look for dimension lines showing the distance from the vanity edge to the bowl centerline.
 - The SMALLER dimension value indicates which end the bowl is offset toward.
-- If the drawing shows a measurement like "17 3/4"" from one side and "29 3/4"" from the other, the bowl is offset toward the 17 3/4" side.
+- If the drawing shows a measurement like "17 3/4\"" from one side and "29 3/4\"" from the other, the bowl is offset toward the 17 3/4" side.
 - If both sides have equal dimensions to the bowl center, it's "center".
 - Convert fractions to decimals: 3/4 = 0.75, 1/2 = 0.5, 1/4 = 0.25, 3/8 = 0.375
+- For TYPE 1.1B-AS style vertical views: if the backsplash double-line is on PAGE LEFT and the shorter offset dimension (17.75") is from PAGE BOTTOM, the correct answer is backSideOnPage="left", closerEndOnPage="bottom", bowlPosition="offset-left".
 
 IMPORTANT:
 - Only extract vanity/bathroom tops. Skip ALL kitchen countertops (depth > 22").
@@ -396,7 +401,7 @@ IMPORTANT:
 - The bbox coordinates MUST be normalized 0..1 relative to the full page.
 
 Return ONLY valid JSON — no markdown fences, no explanation:
-{"unitTypeName":"TYPE 1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true,"leftWallYesConfidence":0.9,"rightWallYesConfidence":0.85,"bbox":{"x":0.05,"y":0.3,"width":0.35,"height":0.2}}]}`;
+{"unitTypeName":"TYPE 1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"backSideOnPage":"left","closerEndOnPage":"bottom","bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true,"leftWallYesConfidence":0.9,"rightWallYesConfidence":0.85,"bbox":{"x":0.05,"y":0.3,"width":0.35,"height":0.2}}]}`;
 
     // ── Pass 1: Extraction ──
     let fullContent = "";
