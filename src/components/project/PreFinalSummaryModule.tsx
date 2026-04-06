@@ -1223,7 +1223,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
       row.getCell(cc.ldCost).numFmt = '$#,##0.00';
 
       // COST PER UNIT = sum of all cost columns (including plamCost + plamSsCost)
-      const costCols = [cc.cabsCost, cc.pullsCost, cc.plamCost, cc.plamSsCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.laborCost, cc.deliveryCost, cc.ldCost];
+      const costCols = [cc.cabsCost, cc.pullsCost, cc.plamCost, cc.plamSsCost, cc.bartopCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.laborCost, cc.deliveryCost, cc.ldCost];
       setFormula(row.getCell(cc.costPerUnit), `IFERROR(${costCols.map(c => `N(${ref(c, r)})`).join('+')},0)`, 0);
       row.getCell(cc.costPerUnit).numFmt = '$#,##0.00';
 
@@ -1247,8 +1247,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
         setFormula(row.getCell(retail), safeMul(ref(cost, r), `$${excelCol(retail)}$${costRateRowNum}`), 0);
         row.getCell(retail).numFmt = '$#,##0.00';
       });
-      // PLAM RETAIL = (plamCost + plamSsCost) × multiplier
-      setFormula(row.getCell(cc.plamRetail), `IFERROR((N(${ref(cc.plamCost, r)})+N(${ref(cc.plamSsCost, r)}))*N($${excelCol(cc.plamRetail)}$${costRateRowNum}),0)`, 0);
+      // PLAM RETAIL = (plamCost + plamSsCost + bartopCost) × multiplier
+      setFormula(row.getCell(cc.plamRetail), `IFERROR((N(${ref(cc.plamCost, r)})+N(${ref(cc.plamSsCost, r)})+N(${ref(cc.bartopCost, r)}))*N($${excelCol(cc.plamRetail)}$${costRateRowNum}),0)`, 0);
       row.getCell(cc.plamRetail).numFmt = '$#,##0.00';
 
       // RETAIL PER UNIT (includes plamRetail separately since it combines plamCost+plamSsCost)
@@ -1264,7 +1264,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
       const totalPairs = [
         { totalCost: cc.cabsTotalCost, totalRetail: cc.cabsTotalRetail, cost: cc.cabsCost, retail: cc.cabsRetail },
         { totalCost: cc.pullsTotalCost, totalRetail: cc.pullsTotalRetail, cost: cc.pullsCost, retail: cc.pullsRetail },
-        { totalCost: cc.plamTotalCostCol, totalRetail: cc.plamTotalRetailCol, cost: cc.plamCost, retail: cc.plamRetail, extraCost: cc.plamSsCost },
+        { totalCost: cc.plamTotalCostCol, totalRetail: cc.plamTotalRetailCol, cost: cc.plamCost, retail: cc.plamRetail, extraCosts: [cc.plamSsCost, cc.bartopCost] },
         { totalCost: cc.ktopTotalCost, totalRetail: cc.ktopTotalRetail, cost: cc.ktopCost, retail: cc.ktopRetail },
         { totalCost: cc.vtopTotalCost, totalRetail: cc.vtopTotalRetail, cost: cc.vtopCost, retail: cc.vtopRetail },
         { totalCost: cc.stickTotalCost, totalRetail: cc.stickTotalRetail, cost: cc.stickCost, retail: cc.stickRetail },
