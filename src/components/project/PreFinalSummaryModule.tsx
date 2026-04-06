@@ -1179,6 +1179,10 @@ export default function PreFinalSummaryModule({ project }: Props) {
       setFormula(row.getCell(cc.plamCost), safeMul(ref(cc.plamTotalLft, r), `$${excelCol(cc.plamCost)}$${costRateRowNum}`), 0);
       row.getCell(cc.plamCost).numFmt = '$#,##0.00';
 
+      // PLAM SS COST = SS QTY × rate
+      setFormula(row.getCell(cc.plamSsCost), safeMul(ref(cc.plamSsQty, r), `$${excelCol(cc.plamSsCost)}$${costRateRowNum}`), 0);
+      row.getCell(cc.plamSsCost).numFmt = '$#,##0.00';
+
       // KTOP COST
       setFormula(row.getCell(cc.ktopCost), safeMul(ref(cc.ktopSqft, r), `$${excelCol(cc.ktopCost)}$${costRateRowNum}`), 0);
       row.getCell(cc.ktopCost).numFmt = '$#,##0.00';
