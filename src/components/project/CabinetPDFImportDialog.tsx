@@ -55,6 +55,37 @@ export default function CabinetPDFImportDialog({ unitType, onImport, onClose }: 
   const [queuedFiles, setQueuedFiles] = useState<File[]>([]);
   const [filterSource, setFilterSource] = useState<string>('all');
   const fileRef = useRef<HTMLInputElement>(null);
+  const bgPickedUpRef = useRef(false);
+
+  // ── Pick up background job results ──
+  const bgJob = useExtractionJobByType('takeoff-cabinet');
+
+  useEffect(() => {
+    if (!bgJob || bgPickedUpRef.current) return;
+    if (bgJob.status === 'processing') {
+      setStep('processing');
+      setProcessingStatus(bgJob.statusText);
+    } else if (bgJob.status === 'done') {
+      bgPickedUpRef.current = true;
+      const r = bgJob.results as { rows: CabinetRow[] } | null;
+      if (r) {
+        setRows(r.rows);
+        setFilterSource('all');
+      }
+      setStep('review');
+      clearExtractionJob('takeoff-cabinet');
+    } else if (bgJob.status === 'error') {
+      bgPickedUpRef.current = true;
+      setError(bgJob.error || 'Failed');
+      setStep('upload');
+      clearExtractionJob('takeoff-cabinet');
+    }
+  }, [bgJob]);
+
+  useEffect(() => {
+    if (!bgJob || bgJob.status !== 'processing' || bgPickedUpRef.current) return;
+    setProcessingStatus(bgJob.statusText);
+  }, [bgJob?.statusText]);
 
   const getScaleFactor = (): number | null => {
     const sel = COMMON_SCALES[selectedScaleIdx];
