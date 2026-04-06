@@ -558,17 +558,10 @@ export default function PreFinalSummaryModule({ project }: Props) {
         cabTypes.forEach(() => rowValues.push(''));
         rowValues.push('');
 
-        // Cabinet Count Per Unit (spacer + label + types)
+        // Cabinet Count Per Unit (spacer + label + types) — formulas referencing cab qty
         rowValues.push('');
         rowValues.push(''); // label col stays blank for data rows
-        cabTypes.forEach(t => {
-          if (isCabinetBox) {
-            const qty = skuTypeQty[sku]?.[t] || 0;
-            rowValues.push(qty > 0 ? qty : '');
-          } else {
-            rowValues.push(''); // accessories left blank
-          }
-        });
+        cabTypes.forEach(() => rowValues.push('')); // placeholder, formula set after row creation
 
         const row = wsCabs.addRow(rowValues);
         const r = row.number;
