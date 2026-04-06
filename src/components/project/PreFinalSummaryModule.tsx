@@ -1449,6 +1449,105 @@ export default function PreFinalSummaryModule({ project }: Props) {
       }
     }
 
+    // ── Laminate LFT section below stone (or below TOTAL if no stone) ──
+    if (store.laminateRows.length > 0) {
+      // Add blank rows separator (only if stone didn't already add them)
+      if (store.stoneRows.length === 0) {
+        wsCosting.addRow([]);
+        wsCosting.addRow([]);
+      } else {
+        wsCosting.addRow([]); // one more blank after stone
+      }
+
+      // Slab usage calc (same logic as PreFinalModule)
+      const SLAB_SIZES = [8, 10, 12];
+      const calcSlabUsage = (totalLft: number): { size: number; qty: number; totalSlabLft: number } => {
+        if (totalLft <= 0) return { size: 8, qty: 0, totalSlabLft: 0 };
+        let best = { size: 8, qty: Math.ceil(totalLft / 8), totalSlabLft: Math.ceil(totalLft / 8) * 8 };
+        for (const sz of SLAB_SIZES) {
+          const q = Math.ceil(totalLft / sz);
+          const tot = q * sz;
+          if (tot < best.totalSlabLft || (tot === best.totalSlabLft && sz < best.size)) {
+            best = { size: sz, qty: q, totalSlabLft: tot };
+          }
+        }
+        return best;
+      };
+
+      // Gather laminate types in order
+      const lamTypes: string[] = [];
+      const lamByType: Record<string, { ktopLfts: number[]; bartopLfts: number[] }> = {};
+      for (const row of store.laminateRows) {
+        const t = row.unitType;
+        if (!lamByType[t]) {
+          lamByType[t] = { ktopLfts: [], bartopLfts: [] };
+          lamTypes.push(t);
+        }
+        const lft = Math.ceil(row.length / 12);
+        if (row.isIsland) {
+          lamByType[t].bartopLfts.push(lft);
+        } else {
+          lamByType[t].ktopLfts.push(lft);
+        }
+      }
+
+      for (const t of lamTypes) {
+        const d = lamByType[t];
+        const ktopTotalLft = d.ktopLfts.reduce((s, v) => s + v, 0);
+        const bartopTotalLft = d.bartopLfts.reduce((s, v) => s + v, 0);
+        const kSlab = calcSlabUsage(ktopTotalLft);
+        const bSlab = calcSlabUsage(bartopTotalLft);
+
+        const r = wsCosting.addRow([]);
+        // Type name
+        r.getCell(cc.type).value = t;
+        r.getCell(cc.type).font = { bold: true, size: 9 };
+        r.getCell(cc.type).border = allBorders;
+
+        // KTOP LFT calc string (e.g. "3+4+5")
+        if (d.ktopLfts.length > 0) {
+          r.getCell(cc.plamLft).value = d.ktopLfts.join('+');
+          r.getCell(cc.plamLft).alignment = { horizontal: 'center' };
+          r.getCell(cc.plamLft).border = allBorders;
+        }
+
+        // KTOP SLAB usage string (e.g. "12X1")
+        if (kSlab.qty > 0) {
+          r.getCell(cc.plamSlab).value = `${kSlab.size}X${kSlab.qty}`;
+          r.getCell(cc.plamSlab).alignment = { horizontal: 'center' };
+          r.getCell(cc.plamSlab).border = allBorders;
+        }
+
+        // TOTAL KTOP LFT (number)
+        if (kSlab.totalSlabLft > 0) {
+          r.getCell(cc.plamTotalLft).value = kSlab.totalSlabLft;
+          r.getCell(cc.plamTotalLft).alignment = { horizontal: 'center' };
+          r.getCell(cc.plamTotalLft).border = allBorders;
+        }
+
+        // BARTOP LFT calc string
+        if (d.bartopLfts.length > 0) {
+          r.getCell(cc.bartopLft).value = d.bartopLfts.join('+');
+          r.getCell(cc.bartopLft).alignment = { horizontal: 'center' };
+          r.getCell(cc.bartopLft).border = allBorders;
+        }
+
+        // BARTOP SLAB usage string
+        if (bSlab.qty > 0) {
+          r.getCell(cc.bartopSlab).value = `${bSlab.size}X${bSlab.qty}`;
+          r.getCell(cc.bartopSlab).alignment = { horizontal: 'center' };
+          r.getCell(cc.bartopSlab).border = allBorders;
+        }
+
+        // TOTAL BARTOP LFT (number)
+        if (bSlab.totalSlabLft > 0) {
+          r.getCell(cc.bartopTotalLft).value = bSlab.totalSlabLft;
+          r.getCell(cc.bartopTotalLft).alignment = { horizontal: 'center' };
+          r.getCell(cc.bartopTotalLft).border = allBorders;
+        }
+      }
+    }
+
     // Position summary at header row level
     const sumHeaderRowNum = costHeaderRow2.number;
     const sumStartRow = sumHeaderRowNum;
