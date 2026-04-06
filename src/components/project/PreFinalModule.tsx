@@ -883,12 +883,41 @@ export default function PreFinalModule({ project }: Props) {
                   </button>
                 )}
                 <div className="flex items-center gap-3 border border-border rounded px-3 py-1.5 bg-background">
-                  {['CM8', 'LR8', 'TF3X96-Molding', 'Scribe', 'OCM8'].map(item => (
+                  {['CM8', 'LR8', 'TF3X96-Molding', 'Scribe'].map(item => (
                     <label key={item} className="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-foreground select-none">
                       <input
                         type="checkbox"
                         checked={cabinetChecks[item] || false}
-                        onChange={e => setCabinetChecks(prev => ({ ...prev, [item]: e.target.checked }))}
+                        onChange={e => {
+                          const checked = e.target.checked;
+                          setCabinetChecks(prev => ({ ...prev, [item]: checked }));
+                          if (checked) {
+                            // Calculate qty from wall cabinet widths per type
+                            const parseWidth = (sku: string): number => {
+                              const m = sku.toUpperCase().replace(/[^A-Z0-9]/g, '').match(/^[A-Z]+(\d+)/);
+                              return m ? (parseInt(m[1], 10) || 0) : 0;
+                            };
+                            const isWall = (r: { type: string; sku: string }) => {
+                              if (r.type?.toLowerCase() === 'wall') return true;
+                              return /^(W|UB|OH|WC)\d/i.test(r.sku);
+                            };
+                            const types = store.cabinetUnitTypes;
+                            for (const unitType of types) {
+                              const typeRows = store.cabinetRows.filter(r => r.unitType === unitType && r.sku.toUpperCase() !== item.toUpperCase());
+                              const wallRows = typeRows.filter(r => isWall(r));
+                              if (wallRows.length === 0) continue;
+                              const widthSum = wallRows.reduce((s, r) => s + parseWidth(r.sku) * r.quantity, 0);
+                              if (widthSum <= 0) continue;
+                              const qty = Math.ceil(widthSum / 96);
+                              store.addCabinetImport(
+                                [{ sku: item, type: 'Accessory', room: 'Kitchen', quantity: qty, unitType }],
+                                unitType
+                              );
+                            }
+                          } else {
+                            store.deleteCabinetRow(item);
+                          }
+                        }}
                         className="h-3.5 w-3.5 rounded border-border accent-primary"
                       />
                       {item}

@@ -565,8 +565,9 @@ export default function PreFinalSummaryModule({ project }: Props) {
         const row = wsCabs.addRow(rowValues);
         const r = row.number;
 
-        // Yellow background for TK8 quantity cells (user will manually enter qty)
-        if (sku.toUpperCase() === 'TK8') {
+        // Yellow background for TK8, CM8, LR8, TF3X96-Molding, Scribe quantity cells
+        const yellowSkus = ['TK8', 'CM8', 'LR8', 'TF3X96-MOLDING', 'SCRIBE'];
+        if (yellowSkus.includes(sku.toUpperCase())) {
           const yellowFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFFFFF00' } };
           for (let i = 0; i < nTypes; i++) {
             row.getCell(colCabFirstType + i).fill = yellowFill;
