@@ -1178,6 +1178,10 @@ export default function PreFinalSummaryModule({ project }: Props) {
       setFormula(row.getCell(cc.vtopCost), safeMul(ref(cc.vtopSqft, r), `$${excelCol(cc.vtopCost)}$${costRateRowNum}`), 0);
       row.getCell(cc.vtopCost).numFmt = '$#,##0.00';
 
+      // CMARBLE/SWAN VTOP COST — blank for user
+      row.getCell(cc.cmVtopCost).border = allBorders;
+      row.getCell(cc.cmVtopCost).numFmt = '$#,##0.00';
+
       // 2X3X8 STICK COST
       setFormula(row.getCell(cc.stickCost), safeMul(ref(cc.stickQty, r), `$${excelCol(cc.stickCost)}$${costRateRowNum}`), 0);
       row.getCell(cc.stickCost).numFmt = '$#,##0.00';
