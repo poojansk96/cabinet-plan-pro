@@ -402,8 +402,9 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
     // Column widths (kept consistent with existing layout)
     const colWidths: { width: number }[] = [];
-    colWidths.push({ width: 22 });
-    for (let i = 0; i < nTypes; i++) colWidths.push({ width: 6 });
+    colWidths.push({ width: 3 });  // blank column before SKU
+    colWidths.push({ width: 22 }); // SKU Name
+    colWidths.push({ width: 18 }); // Modification Note
     colWidths.push({ width: 8 });
     colWidths.push({ width: 3 });
     colWidths.push({ width: 10 });
