@@ -4,7 +4,7 @@ import ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Project } from '@/types/project';
-import { usePrefinalStore, type PrefinalUnitNumber, type PrefinalCabinetRow } from '@/hooks/usePrefinalStore';
+import { usePrefinalStore, type PrefinalUnitNumber, type PrefinalCabinetRow, type PrefinalVtopRow } from '@/hooks/usePrefinalStore';
 import { formatDoorStyle, formatKitchenTops, formatVanityTops, formatAdditionalTops, getDoorStylePendingFields } from '@/lib/formatSpecs';
 interface Props {
   project: Project;
