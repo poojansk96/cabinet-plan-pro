@@ -850,8 +850,9 @@ export default function PreFinalSummaryModule({ project }: Props) {
           `${row.length}|${row.depth}|${row.bowlPosition}|${row.bowlOffset ?? 'null'}|${row.leftWall}|${row.rightWall}`;
 
         const vtopSkuMap = new Map<VtopSkuKey, VtopSkuInfo>();
-        // Track sidesplash needs per type
-        const sidesplashByType: Record<string, number> = {};
+        // Track left/right sidesplash separately per type
+        const leftSsByType: Record<string, number> = {};
+        const rightSsByType: Record<string, number> = {};
         const vtopDepth = store.vtopRows[0]?.depth || 22;
 
         for (const row of store.vtopRows) {
