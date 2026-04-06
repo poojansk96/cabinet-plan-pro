@@ -502,7 +502,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
     });
 
     // Freeze: top 3 rows (section headers + unit count ref + column headers) AND first column (SKU Name)
-    wsCabs.views = [{ state: 'frozen', xSplit: 1, ySplit: 3 }];
+    wsCabs.views = [{ state: 'frozen', xSplit: 3, ySplit: 3 }];
 
     const dataRangeStartRow = cabHeader.number + 1;
 
