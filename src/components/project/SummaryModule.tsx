@@ -802,6 +802,10 @@ export default function SummaryModule({ project }: Props) {
       setFormula(row.getCell(cc.plamCost), safeMul(ref(cc.plamTotalLft, r), `$${excelCol(cc.plamCost)}$${costRateRowNum}`), 0);
       row.getCell(cc.plamCost).numFmt = '$#,##0.00';
 
+      // PLAM SS COST = SS QTY × rate
+      setFormula(row.getCell(cc.plamSsCost), safeMul(ref(cc.plamSsQty, r), `$${excelCol(cc.plamSsCost)}$${costRateRowNum}`), 0);
+      row.getCell(cc.plamSsCost).numFmt = '$#,##0.00';
+
       // KTOP COST
       setFormula(row.getCell(cc.ktopCost), safeMul(ref(cc.ktopSqft, r), `$${excelCol(cc.ktopCost)}$${costRateRowNum}`), 0);
       row.getCell(cc.ktopCost).numFmt = '$#,##0.00';
@@ -827,7 +831,7 @@ export default function SummaryModule({ project }: Props) {
       row.getCell(cc.ldCost).numFmt = '$#,##0.00';
 
       // COST PER UNIT
-      const costCols = [cc.cabsCost, cc.pullsCost, cc.plamCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.laborCost, cc.deliveryCost, cc.ldCost];
+      const costCols = [cc.cabsCost, cc.pullsCost, cc.plamCost, cc.plamSsCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.laborCost, cc.deliveryCost, cc.ldCost];
       setFormula(row.getCell(cc.costPerUnit), `IFERROR(${costCols.map(c => `N(${ref(c, r)})`).join('+')},0)`, 0);
       row.getCell(cc.costPerUnit).numFmt = '$#,##0.00';
 
