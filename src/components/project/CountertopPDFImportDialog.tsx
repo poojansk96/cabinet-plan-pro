@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { X, Upload, FileText, Loader2, Check, Trash2 } from 'lucide-react';
+import { startExtraction, useExtractionJobByType, clearExtractionJob } from '@/hooks/useExtractionStore';
 import type { CountertopSection } from '@/types/project';
 
 interface CountertopRow {

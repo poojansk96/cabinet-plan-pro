@@ -3,6 +3,7 @@ import { FileUp, X, Loader2, CheckCircle, AlertCircle, ChevronDown, ChevronUp, F
 import type { DetectedUnit, PDFExtractionResult } from '@/lib/pdfExtractor';
 import type { UnitType } from '@/types/project';
 import { toast } from 'sonner';
+import { startExtraction, useExtractionJobByType, clearExtractionJob } from '@/hooks/useExtractionStore';
 
 const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-pdf-units`;
 
