@@ -582,6 +582,14 @@ export default function PreFinalSummaryModule({ project }: Props) {
           }
         }
 
+        // Add note in Modification Note column for molding SKUs
+        const moldingNoteSkus = ['CM8', 'LR8', 'TF3X96-MOLDING', 'SCRIBE'];
+        if (moldingNoteSkus.includes(sku.toUpperCase())) {
+          const noteCell = row.getCell(colModNote);
+          noteCell.value = 'Add inches of depth for exposed wall cabinet areas';
+          noteCell.font = { italic: true, size: 8 };
+        }
+
         // Cabinet Total = SUM(cab type cols)
         setFormula(
           row.getCell(colCabTotal),
