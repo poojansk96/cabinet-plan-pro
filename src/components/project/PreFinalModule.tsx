@@ -1682,7 +1682,7 @@ export default function PreFinalModule({ project }: Props) {
 
                         return (
                           <div key={unitType} className="mb-4">
-                            <div className="px-4 py-2 flex items-center justify-between" style={{ background: 'hsl(142 45% 45%)', color: '#fff' }}>
+                            <div className="px-4 py-2 flex items-center justify-between" style={{ background: 'hsl(142 40% 75%)', color: '#1a3a2a' }}>
                               <span className="text-xs font-bold">{unitType}</span>
                               {unitCount > 0 && (
                                 <span className="text-xs">× {unitCount} units</span>
@@ -1857,7 +1857,7 @@ export default function PreFinalModule({ project }: Props) {
 
                         return (
                           <div key={unitType} className="mb-4">
-                            <div className="px-4 py-2 flex items-center justify-between" style={{ background: 'hsl(280 42% 55%)', color: '#fff' }}>
+                            <div className="px-4 py-2 flex items-center justify-between" style={{ background: 'hsl(280 40% 80%)', color: '#3a1a4a' }}>
                               <span className="text-xs font-bold">{unitType}</span>
                               {unitCount > 0 && (
                                 <span className="text-xs">× {unitCount} units</span>
