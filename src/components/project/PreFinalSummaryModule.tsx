@@ -510,7 +510,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
     // Data rows
     groupedSkus.forEach(({ group, skus }) => {
-      const groupRow = wsCabs.addRow([`${group} (${skus.length})`]);
+      const groupRow = wsCabs.addRow(['', `${group} (${skus.length})`]);
       groupRow.eachCell(cell => {
         cell.font = { bold: true };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAEAEA' } };
