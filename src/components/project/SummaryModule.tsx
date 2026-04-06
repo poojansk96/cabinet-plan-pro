@@ -887,7 +887,7 @@ export default function SummaryModule({ project }: Props) {
       const totalPairs = [
         { totalCost: cc.cabsTotalCost, totalRetail: cc.cabsTotalRetail, cost: cc.cabsCost, retail: cc.cabsRetail },
         { totalCost: cc.pullsTotalCost, totalRetail: cc.pullsTotalRetail, cost: cc.pullsCost, retail: cc.pullsRetail },
-        { totalCost: cc.plamTotalCostCol, totalRetail: cc.plamTotalRetailCol, cost: cc.plamCost, retail: cc.plamRetail, extraCost: cc.plamSsCost },
+        { totalCost: cc.plamTotalCostCol, totalRetail: cc.plamTotalRetailCol, cost: cc.plamCost, retail: cc.plamRetail, extraCosts: [cc.plamSsCost, cc.bartopCost] },
         { totalCost: cc.ktopTotalCost, totalRetail: cc.ktopTotalRetail, cost: cc.ktopCost, retail: cc.ktopRetail },
         { totalCost: cc.vtopTotalCost, totalRetail: cc.vtopTotalRetail, cost: cc.vtopCost, retail: cc.vtopRetail },
         { totalCost: cc.stickTotalCost, totalRetail: cc.stickTotalRetail, cost: cc.stickCost, retail: cc.stickRetail },
