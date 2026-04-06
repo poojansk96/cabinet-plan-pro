@@ -82,7 +82,7 @@ const QUOTES = [
   "Calculating surface areas...",
 ];
 
-export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson }: Props) {
+export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson, extractionType = 'stone' }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<StoneExtractedRow[]>([]);
   const [error, setError] = useState('');
@@ -95,9 +95,41 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
   const [detectedType, setDetectedType] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const processingRef = useRef(false);
+  const bgPickedUpRef = useRef(false);
 
   const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
   const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+  // ── Pick up background job results ──────────────────────────────────
+  const bgJob = useExtractionJobByType(extractionType);
+
+  useEffect(() => {
+    if (!bgJob || bgPickedUpRef.current) return;
+    if (bgJob.status === 'processing') {
+      setStep('processing');
+      setProgress(bgJob.progress);
+      setStatusMsg(bgJob.statusText);
+    } else if (bgJob.status === 'done') {
+      bgPickedUpRef.current = true;
+      const r = bgJob.results as { rows: StoneExtractedRow[]; detectedType: string | null } | null;
+      setRows(r?.rows ?? []);
+      if (r?.detectedType) setDetectedType(r.detectedType);
+      setProgress(100);
+      setStep('review');
+      clearExtractionJob(extractionType);
+    } else if (bgJob.status === 'error') {
+      bgPickedUpRef.current = true;
+      setError(bgJob.error || 'Failed');
+      setStep('upload');
+      clearExtractionJob(extractionType);
+    }
+  }, [bgJob, extractionType]);
+
+  useEffect(() => {
+    if (!bgJob || bgJob.status !== 'processing' || bgPickedUpRef.current) return;
+    setProgress(bgJob.progress);
+    setStatusMsg(bgJob.statusText);
+  }, [bgJob?.progress, bgJob?.statusText]);
 
   async function processFiles(files: File[]) {
     if (processingRef.current) return;
@@ -105,6 +137,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
     setStep('processing');
     setError('');
     setProgress(0);
+    bgPickedUpRef.current = false;
 
     const quoteInterval = setInterval(() => {
       setQuoteVisible(false);
@@ -115,6 +148,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
       }, 400);
     }, 4000);
 
+    startExtraction(extractionType, files.map(f => f.name), async (update) => {
     try {
       const pdfjsLib = await import('pdfjs-dist');
       pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
@@ -128,9 +162,8 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
         const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
         pagesTotal += pdf.numPages;
       }
-      setTotalPages(pagesTotal);
+      update({ totalPages: pagesTotal, statusText: 'Processing pages…' });
 
-      // Track detected types in order
       const detectedTypesOrder: string[] = [];
 
       for (const file of files) {
@@ -138,7 +171,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
         const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
 
         for (let p = 1; p <= pdf.numPages; p++) {
-          setStatusMsg(`Processing ${file.name} — page ${p}/${pdf.numPages}`);
+          update({ statusText: `Processing ${file.name} — page ${p}/${pdf.numPages}` });
           const page = await pdf.getPage(p);
           const pageImage = await renderPageToBase64(page);
 
@@ -148,11 +181,11 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
             try {
               if (attempt > 0) {
                 const delay = Math.min(3000 * attempt, 15000);
-                setStatusMsg(`Retrying ${file.name} — page ${p}/${pdf.numPages} (attempt ${attempt + 1}/${MAX_CLIENT_RETRIES})`);
+                update({ statusText: `Retrying ${file.name} — page ${p}/${pdf.numPages} (attempt ${attempt + 1}/${MAX_CLIENT_RETRIES})` });
                 await new Promise(r => setTimeout(r, delay));
               }
               const controller = new AbortController();
-              const timeout = setTimeout(() => controller.abort(), 180000); // 3 min timeout
+              const timeout = setTimeout(() => controller.abort(), 180000);
               const resp = await fetch(`${SUPABASE_URL}/functions/v1/extract-pdf-countertops`, {
                 method: 'POST',
                 headers: {
@@ -164,8 +197,8 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
               });
               clearTimeout(timeout);
 
-              if (resp.status === 429) { setError('Rate limit reached. Please wait and try again.'); break; }
-              if (resp.status === 402) { setError('AI credits exhausted.'); break; }
+              if (resp.status === 429) { update({ status: 'error', error: 'Rate limit reached. Please wait and try again.' }); clearInterval(quoteInterval); processingRef.current = false; return; }
+              if (resp.status === 402) { update({ status: 'error', error: 'AI credits exhausted.' }); clearInterval(quoteInterval); processingRef.current = false; return; }
 
               if (resp.ok) {
                 const data = await resp.json();
@@ -199,27 +232,29 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
             }
           }
           if (!pageSuccess) {
-            console.warn(`⚠️ Page ${p} of ${file.name} could not be processed after ${MAX_CLIENT_RETRIES} attempts — AI temporarily unavailable`);
+            console.warn(`⚠️ Page ${p} of ${file.name} could not be processed after ${MAX_CLIENT_RETRIES} attempts`);
           }
 
           pagesDone++;
-          setProgress(Math.round((pagesDone / pagesTotal) * 100));
+          update({ progress: Math.round((pagesDone / pagesTotal) * 100), processedPages: pagesDone });
         }
       }
 
-      setRows(allRows);
-      if (detectedTypesOrder.length > 0) setDetectedType(detectedTypesOrder.join(', '));
-      setStep('review');
+      const detectedTypeStr = detectedTypesOrder.length > 0 ? detectedTypesOrder.join(', ') : null;
+      update({
+        status: 'done',
+        progress: 100,
+        results: { rows: allRows, detectedType: detectedTypeStr },
+      });
     } catch (err) {
       console.error('PDF processing error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to process PDF');
-      setStep('upload');
+      update({ status: 'error', error: err instanceof Error ? err.message : 'Failed to process PDF' });
     } finally {
       clearInterval(quoteInterval);
       processingRef.current = false;
     }
+    });
   }
-
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     const files = Array.from(e.dataTransfer.files).filter(f => f.type === 'application/pdf');
