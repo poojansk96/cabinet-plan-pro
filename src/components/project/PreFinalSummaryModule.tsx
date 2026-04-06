@@ -1258,8 +1258,13 @@ export default function PreFinalSummaryModule({ project }: Props) {
         { totalCost: cc.deliveryTotalCost, totalRetail: cc.deliveryTotalRetail, cost: cc.deliveryCost, retail: cc.deliveryRetail },
         { totalCost: cc.ldTotalCost, totalRetail: cc.ldTotalRetail, cost: cc.ldCost, retail: cc.ldRetail },
       ];
-      totalPairs.forEach(({ totalCost, totalRetail, cost, retail }) => {
-        setFormula(row.getCell(totalCost), safeMul(ref(cost, r), ref(cc.qty, r)), 0);
+      totalPairs.forEach(({ totalCost, totalRetail, cost, retail, extraCost }: any) => {
+        if (extraCost) {
+          // PLAM TOTAL COST = (plamCost + plamSsCost) × QTY
+          setFormula(row.getCell(totalCost), `IFERROR((N(${ref(cost, r)})+N(${ref(extraCost, r)}))*N(${ref(cc.qty, r)}),0)`, 0);
+        } else {
+          setFormula(row.getCell(totalCost), safeMul(ref(cost, r), ref(cc.qty, r)), 0);
+        }
         row.getCell(totalCost).numFmt = '$#,##0.00';
         setFormula(row.getCell(totalRetail), safeMul(ref(retail, r), ref(cc.qty, r)), 0);
         row.getCell(totalRetail).numFmt = '$#,##0.00';
