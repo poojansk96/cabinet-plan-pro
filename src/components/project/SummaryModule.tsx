@@ -488,6 +488,12 @@ export default function SummaryModule({ project }: Props) {
     }
     setFormula(cabTotRow.getCell(colTotalCabGrand), safeSumColRange(excelCol(colTotalCabGrand), dataRangeStartRow, dataRangeEndRow), 0);
 
+    // Cab Count Per Unit totals
+    cabTotRow.getCell(colCpuLabel).value = 'TOTAL';
+    for (let i = 0; i < nTypes; i++) {
+      setFormula(cabTotRow.getCell(colCpuFirstType + i), safeSumColRange(excelCol(colCpuFirstType + i), dataRangeStartRow, dataRangeEndRow), 0);
+    }
+
     cabTotRow.eachCell((cell, colNumber) => {
       cell.font = { bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
