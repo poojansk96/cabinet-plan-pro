@@ -143,19 +143,18 @@ export default function PDFImportDialog({ onImport, onClose, takeoffPerson }: Pr
     setUsedAI(false);
     setProgress(0);
     setProgressLabel('');
+    bgPickedUpRef.current = false;
 
+    startExtraction('takeoff-unit', [file.name], async (update) => {
     try {
       // Step 1: Extract raw text from PDF using pdfjs locally
-      setProcessingStatus('Extracting text from PDF…');
-      setProgress(5);
-      setProgressLabel('Reading PDF…');
+      update({ statusText: 'Extracting text from PDF…', progress: 5 });
       const { extractUnitsFromPDF } = await import('@/lib/pdfExtractor');
       const res = await extractUnitsFromPDF(file);
-      setResult(res);
-      setProgress(10);
+      update({ progress: 10 });
 
       // Step 2: Re-extract page texts AND render page images for AI
-      setProcessingStatus('Preparing pages for AI analysis…');
+      update({ statusText: 'Preparing pages for AI analysis…' });
       const arrayBuffer = await file.arrayBuffer();
       const pdfjsLib = (await import('pdfjs-dist')) as any;
       pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -164,6 +163,7 @@ export default function PDFImportDialog({ onImport, onClose, takeoffPerson }: Pr
       ).toString();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       const totalPages = pdf.numPages;
+      update({ totalPages });
       const pageTexts: string[] = [];
       const pageImages: string[] = [];
       
@@ -202,23 +202,19 @@ export default function PDFImportDialog({ onImport, onClose, takeoffPerson }: Pr
         canvas.width = 0;
         canvas.height = 0;
         
-        setProgress(10 + Math.round((p / totalPages) * 30));
-        setProgressLabel(`Reading page ${p} of ${totalPages}`);
+        update({ progress: 10 + Math.round((p / totalPages) * 30), statusText: `Reading page ${p} of ${totalPages}`, processedPages: p });
       }
 
       // Step 3: Call AI per page (avoid edge function timeout)
-      setProcessingStatus('AI is analyzing floor plans…');
-      setProgress(45);
-      setProgressLabel('AI analyzing…');
+      update({ statusText: 'AI is analyzing floor plans…', progress: 45 });
       
-      const CONCURRENCY = 2; // Reduced from 3 since images are larger
+      const CONCURRENCY = 2;
       const allUnits = new Map<string, any>();
       let pagesProcessed = 0;
       
       const processPage = async (pageIndex: number): Promise<void> => {
         const pageText = pageTexts[pageIndex];
         const pageImage = pageImages[pageIndex];
-        // Skip only if no text AND no image
         if ((!pageText || pageText.trim().length < 20) && !pageImage) {
           pagesProcessed++;
           return;
@@ -270,8 +266,6 @@ export default function PDFImportDialog({ onImport, onClose, takeoffPerson }: Pr
                 const unitNumber = String(unit.unitNumber ?? '').trim().toUpperCase();
                 if (!unitNumber) continue;
 
-                // Takeoff Unit Count rule: unit number is unique within a building.
-                // Ignore type differences and keep only ONE row on the lowest floor.
                 const bldgKey = normalizeUnitKey(String(unit.detectedBldg ?? ''));
                 const key = `${bldgKey}__${normalizeUnitKey(unitNumber)}`;
                 const candidate = {
@@ -311,8 +305,7 @@ export default function PDFImportDialog({ onImport, onClose, takeoffPerson }: Pr
           }
         }
         pagesProcessed++;
-        setProgress(45 + Math.round((pagesProcessed / totalPages) * 45));
-        setProgressLabel(`AI analyzed page ${pagesProcessed} of ${totalPages}`);
+        update({ progress: 45 + Math.round((pagesProcessed / totalPages) * 45), statusText: `AI analyzed page ${pagesProcessed} of ${totalPages}`, processedPages: pagesProcessed });
       };
       
       // Process pages in batches of CONCURRENCY
@@ -324,7 +317,7 @@ export default function PDFImportDialog({ onImport, onClose, takeoffPerson }: Pr
         await Promise.all(batch);
       }
       
-      // Normalize building names: unify variations of the same building name
+      // Normalize building names
       const normalizeBldgKey = (b: string) =>
         b.toUpperCase().replace(/\b(BLDG|BUILDING|BLD)\b\.?\s*/g, '').replace(/[^A-Z0-9]/g, '').trim();
 
@@ -337,13 +330,11 @@ export default function PDFImportDialog({ onImport, onClose, takeoffPerson }: Pr
         if (!bldgCounts[key]) bldgCounts[key] = {};
         bldgCounts[key][raw] = (bldgCounts[key][raw] || 0) + 1;
       }
-      // For each normalized key, pick the most common variant
       const bldgCanonical: Record<string, string> = {};
       for (const [key, variants] of Object.entries(bldgCounts)) {
         const best = Object.entries(variants).sort((a, b) => b[1] - a[1])[0][0];
         bldgCanonical[key] = best;
       }
-      // Apply canonical building names
       for (const u of Array.from(allUnits.values()) as any[]) {
         const raw = (u.detectedBldg ?? '').trim();
         if (!raw) continue;
@@ -356,15 +347,6 @@ export default function PDFImportDialog({ onImport, onClose, takeoffPerson }: Pr
       const detectedUnits = Array.from(allUnits.values()).sort((a: any, b: any) =>
         a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true })
       );
-      
-      if (detectedUnits.length > 0) {
-        setUsedAI(true);
-      } else {
-        toast.warning('AI could not detect units on these pages. Check if this is a floor plan PDF.');
-      }
-
-      setProgress(95);
-      setProgressLabel('Building unit list…');
 
       const initialRows: UnitRow[] = detectedUnits.map(u => ({
         unitNumber: u.unitNumber,
@@ -384,34 +366,28 @@ export default function PDFImportDialog({ onImport, onClose, takeoffPerson }: Pr
       }));
 
       const sortedRows = [...initialRows].sort((a, b) => {
-        // Floor ascending (numeric first, then alpha)
         const fa = parseFloat(a.floor) || 0;
         const fb = parseFloat(b.floor) || 0;
         if (fa !== fb) return fa - fb;
         const floorCmp = a.floor.localeCompare(b.floor, undefined, { numeric: true });
         if (floorCmp !== 0) return floorCmp;
-        // Unit number ascending within same floor
         return a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true });
       });
-      setRows(sortedRows);
 
-      // Auto-populate bulkBldg if all units share the same detected building
       const bldgValues = initialRows.map(r => r.bldg).filter(Boolean);
       const uniqueBldgs = Array.from(new Set(bldgValues));
-      if (uniqueBldgs.length === 1) {
-        setBulkBldg(uniqueBldgs[0]);
-      } else if (uniqueBldgs.length === 0) {
-        setBulkBldg('');
-      }
+      const computedBulkBldg = uniqueBldgs.length === 1 ? uniqueBldgs[0] : '';
 
-      setProgress(100);
-      setProgressLabel('Done!');
-      setStep('review');
+      update({
+        status: 'done',
+        progress: 100,
+        results: { rows: sortedRows, result: res, usedAI: detectedUnits.length > 0, bulkBldg: computedBulkBldg },
+      });
     } catch (err) {
       console.error(err);
-      setError('Failed to process PDF. The file may be encrypted, scanned (image-only), or unsupported.');
-      setStep('upload');
+      update({ status: 'error', error: 'Failed to process PDF. The file may be encrypted, scanned (image-only), or unsupported.' });
     }
+    });
   };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
