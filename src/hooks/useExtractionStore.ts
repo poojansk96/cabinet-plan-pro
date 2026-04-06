@@ -36,7 +36,11 @@ type Listener = () => void;
 const jobs = new Map<ExtractionType, ExtractionJob>();
 const listeners = new Set<Listener>();
 
+// Cached snapshot array — only replaced when jobs actually change
+let snapshotCache: ExtractionJob[] = [];
+
 function notify() {
+  snapshotCache = Array.from(jobs.values());
   listeners.forEach(fn => fn());
 }
 
