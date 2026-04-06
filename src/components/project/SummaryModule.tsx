@@ -742,7 +742,7 @@ export default function SummaryModule({ project }: Props) {
 
     // Row 3: Saffron rate/multiplier row
     const costRateRow = wsCosting.addRow([]);
-    const saffronCostCols = [cc.pullsCost, cc.plamCost, cc.plamSsCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.deliveryCost, cc.ldCost];
+    const saffronCostCols = [cc.pullsCost, cc.plamCost, cc.plamSsCost, cc.bartopCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.deliveryCost, cc.ldCost];
     const saffronRetailCols = [cc.cabsRetail, cc.pullsRetail, cc.plamRetail, cc.ktopRetail, cc.vtopRetail, cc.stickRetail, cc.dwRetail, cc.laborRetail, cc.deliveryRetail, cc.ldRetail];
     const saffronTotalCols = [cc.tax];
     [...saffronCostCols, ...saffronRetailCols, ...saffronTotalCols].forEach(col => {
@@ -812,6 +812,15 @@ export default function SummaryModule({ project }: Props) {
       setFormula(row.getCell(cc.plamSsCost), safeMul(ref(cc.plamSsQty, r), `$${excelCol(cc.plamSsCost)}$${costRateRowNum}`), 0);
       row.getCell(cc.plamSsCost).numFmt = '$#,##0.00';
 
+      // BARTOP LFT, SLAB, TOTAL LFT — blank for user
+      row.getCell(cc.bartopLft).border = allBorders;
+      row.getCell(cc.bartopSlab).border = allBorders;
+      row.getCell(cc.bartopTotalLft).border = allBorders;
+
+      // BARTOP COST = TOTAL BARTOP LFT × rate
+      setFormula(row.getCell(cc.bartopCost), safeMul(ref(cc.bartopTotalLft, r), `$${excelCol(cc.bartopCost)}$${costRateRowNum}`), 0);
+      row.getCell(cc.bartopCost).numFmt = '$#,##0.00';
+
       // KTOP COST
       setFormula(row.getCell(cc.ktopCost), safeMul(ref(cc.ktopSqft, r), `$${excelCol(cc.ktopCost)}$${costRateRowNum}`), 0);
       row.getCell(cc.ktopCost).numFmt = '$#,##0.00';
@@ -837,7 +846,7 @@ export default function SummaryModule({ project }: Props) {
       row.getCell(cc.ldCost).numFmt = '$#,##0.00';
 
       // COST PER UNIT
-      const costCols = [cc.cabsCost, cc.pullsCost, cc.plamCost, cc.plamSsCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.laborCost, cc.deliveryCost, cc.ldCost];
+      const costCols = [cc.cabsCost, cc.pullsCost, cc.plamCost, cc.plamSsCost, cc.bartopCost, cc.ktopCost, cc.vtopCost, cc.stickCost, cc.dwCost, cc.laborCost, cc.deliveryCost, cc.ldCost];
       setFormula(row.getCell(cc.costPerUnit), `IFERROR(${costCols.map(c => `N(${ref(c, r)})`).join('+')},0)`, 0);
       row.getCell(cc.costPerUnit).numFmt = '$#,##0.00';
 
@@ -861,8 +870,8 @@ export default function SummaryModule({ project }: Props) {
         setFormula(row.getCell(retail), safeMul(ref(cost, r), `$${excelCol(retail)}$${costRateRowNum}`), 0);
         row.getCell(retail).numFmt = '$#,##0.00';
       });
-      // PLAM RETAIL = (plamCost + plamSsCost) × multiplier
-      setFormula(row.getCell(cc.plamRetail), `IFERROR((N(${ref(cc.plamCost, r)})+N(${ref(cc.plamSsCost, r)}))*N($${excelCol(cc.plamRetail)}$${costRateRowNum}),0)`, 0);
+      // PLAM RETAIL = (plamCost + plamSsCost + bartopCost) × multiplier
+      setFormula(row.getCell(cc.plamRetail), `IFERROR((N(${ref(cc.plamCost, r)})+N(${ref(cc.plamSsCost, r)})+N(${ref(cc.bartopCost, r)}))*N($${excelCol(cc.plamRetail)}$${costRateRowNum}),0)`, 0);
       row.getCell(cc.plamRetail).numFmt = '$#,##0.00';
 
       // RETAIL PER UNIT (includes plamRetail separately)
