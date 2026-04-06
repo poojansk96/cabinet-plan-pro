@@ -573,7 +573,9 @@ export default function SummaryModule({ project }: Props) {
       { width: 12 }, { width: 14 }, { width: 14 }, { width: 14 },
       { width: 10 }, { width: 14 }, // PLAM SS QTY, PLAM SS COST
       { width: 12 }, { width: 14 }, { width: 14 }, { width: 14 }, // BARTOP LFT, SLAB, TOTAL LFT, COST
+      { width: 10 }, // KTOP SQFT
       { width: 14 }, // KTOP COST
+      { width: 10 }, // VTOP SQFT
       { width: 14 }, // VTOP COST
       { width: 14 }, // CMARBLE/SWAN VTOP COST
       { width: 10 }, { width: 12 },
