@@ -607,6 +607,7 @@ export default function SummaryModule({ project }: Props) {
       { width: 30 }, { width: 8 }, { width: 14 },
       { width: 10 }, { width: 12 },
       { width: 12 }, { width: 14 }, { width: 14 }, { width: 14 },
+      { width: 10 }, { width: 14 }, // PLAM SS QTY, PLAM SS COST
       { width: 10 }, { width: 14 },
       { width: 14 }, { width: 14 }, { width: 12 }, { width: 14 },
       { width: 10 }, { width: 14 },
