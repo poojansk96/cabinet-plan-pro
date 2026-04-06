@@ -1220,7 +1220,6 @@ export default function PreFinalSummaryModule({ project }: Props) {
       const retailMap = [
         { retail: cc.cabsRetail, cost: cc.cabsCost },
         { retail: cc.pullsRetail, cost: cc.pullsCost },
-        { retail: cc.plamRetail, cost: cc.plamCost },
         { retail: cc.ktopRetail, cost: cc.ktopCost },
         { retail: cc.vtopRetail, cost: cc.vtopCost },
         { retail: cc.stickRetail, cost: cc.stickCost },
@@ -1233,6 +1232,9 @@ export default function PreFinalSummaryModule({ project }: Props) {
         setFormula(row.getCell(retail), safeMul(ref(cost, r), `$${excelCol(retail)}$${costRateRowNum}`), 0);
         row.getCell(retail).numFmt = '$#,##0.00';
       });
+      // PLAM RETAIL = (plamCost + plamSsCost) × multiplier
+      setFormula(row.getCell(cc.plamRetail), `IFERROR((N(${ref(cc.plamCost, r)})+N(${ref(cc.plamSsCost, r)}))*N($${excelCol(cc.plamRetail)}$${costRateRowNum}),0)`, 0);
+      row.getCell(cc.plamRetail).numFmt = '$#,##0.00';
 
       // RETAIL PER UNIT
       setFormula(row.getCell(cc.retailPerUnit), `IFERROR(${retailMap.map(m => `N(${ref(m.retail, r)})`).join('+')},0)`, 0);
