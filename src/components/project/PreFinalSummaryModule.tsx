@@ -460,7 +460,9 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
     // Header row
     const headerValues: (string | number)[] = [];
+    headerValues.push(''); // blank col
     headerValues.push('SKU Name');
+    headerValues.push('Modification Note');
     cabTypes.forEach(t => headerValues.push(t));
     headerValues.push('Total');
     headerValues.push('');
