@@ -9,11 +9,13 @@ const corsHeaders = {
 type ModelAttempt = { name: string; retries: number };
 
 const PRIMARY_MODELS: ModelAttempt[] = [
+  { name: "gemini-3.1-flash-preview", retries: 2 },
   { name: "gemini-3-flash-preview", retries: 3 },
   { name: "gemini-2.5-flash", retries: 2 },
 ];
 
 const VERIFY_MODELS: ModelAttempt[] = [
+  { name: "gemini-3.1-flash-preview", retries: 2 },
   { name: "gemini-3-flash-preview", retries: 2 },
 ];
 
@@ -216,6 +218,60 @@ async function requestGemini(
   throw new Error("ai_unavailable");
 }
 
+function extractBalancedObjectsFromNamedArray(content: string, key: string): string[] {
+  const keyIndex = content.indexOf(`"${key}"`);
+  if (keyIndex < 0) return [];
+
+  const arrayStart = content.indexOf("[", keyIndex);
+  if (arrayStart < 0) return [];
+
+  const objects: string[] = [];
+  let depth = 0;
+  let objectStart = -1;
+  let inString = false;
+  let escapeNext = false;
+
+  for (let index = arrayStart + 1; index < content.length; index++) {
+    const char = content[index];
+
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === "\" && inString) {
+      escapeNext = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    if (char === "{") {
+      if (depth === 0) objectStart = index;
+      depth += 1;
+      continue;
+    }
+
+    if (char === "}") {
+      if (depth > 0) depth -= 1;
+      if (depth === 0 && objectStart >= 0) {
+        objects.push(content.slice(objectStart, index + 1));
+        objectStart = -1;
+      }
+      continue;
+    }
+
+    if (char === "]" && depth === 0) break;
+  }
+
+  return objects;
+}
+
 function parseCountertopJSON(content: string): { unitTypeName: string; countertops: any[] } {
   let parsed: { unitTypeName?: string; countertops?: any[] } = { countertops: [] };
   try {
@@ -231,6 +287,25 @@ function parseCountertopJSON(content: string): { unitTypeName: string; counterto
     if (end >= 0) cleaned = cleaned.slice(0, end + 1);
     parsed = JSON.parse(cleaned);
   } catch {
+    const cleaned = content.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
+    const recoveredType = cleaned.match(/"unitTypeName"\s*:\s*"([^"]*)"/i)?.[1] ?? "";
+    const recoveredCountertops = extractBalancedObjectsFromNamedArray(cleaned, "countertops")
+      .map((entry) => {
+        try {
+          return JSON.parse(entry);
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+
+    if (recoveredCountertops.length > 0 || recoveredType) {
+      return {
+        unitTypeName: String(recoveredType).trim(),
+        countertops: recoveredCountertops,
+      };
+    }
+
     console.error("JSON parse failed, raw:", content.slice(0, 500));
   }
   return {
@@ -290,6 +365,7 @@ TASK:
    - CRITICAL: Never use building labels or unit numbers as the unitTypeName.
 
 2. Then extract every countertop section visible. For each section extract:
+   - CRITICAL: Return EVERY countertop/top run on the page. Missing a run is worse than returning a duplicate. Include short legs, small vanity tops, and corner segments.
 
 a. **label** — a short descriptive name based on its location (e.g. "Perimeter Left", "Perimeter Right", "Island", "Peninsula", "Bar Top", "Vanity", "L-Section", "U-Section"). If the drawing has text labels, use those.
 b. **length** — total linear length in inches. Read dimension labels first. If no label, estimate from the drawing.
@@ -352,7 +428,7 @@ Return ONLY valid JSON — no markdown fences, no explanation:
     const countertops = (extracted.countertops).map(normalizeCountertop);
 
     // ── Pass 2: Verification ──
-    if (countertops.length > 0) {
+    if (countertops.length > 0 || !!pageTextSnippet || !!extracted.unitTypeName) {
       console.log("Starting verification pass...");
       const verifyPrompt = `You are verifying AI-extracted countertop data from a 2020 shop drawing.
 
@@ -362,10 +438,12 @@ ${JSON.stringify({ unitTypeName: extracted.unitTypeName, countertops }, null, 2)
 Look at the SAME shop drawing image and verify:
 1. Is the unitTypeName correct? If not, provide the correct one.
 2. Are there any MISSING countertop sections that were not extracted? Add them.
+2a. If the extracted list is empty or incomplete, do a fresh full extraction from scratch and return the COMPLETE list.
 3. Are the dimensions (length, depth, backsplashLength) accurate? Correct any errors.
 4. Are the categories (kitchen/bath) correct?
 5. Are there any DUPLICATE sections that should be removed?
 6. Are any sections actually NOT countertops (e.g. appliance cutouts listed separately)?
+7. Re-scan the full page carefully and make sure no countertop run is missed, including short segments, bath tops, and small vanity runs.
 
 Return the CORRECTED complete JSON — same format:
 {"unitTypeName":"...","countertops":[...]}
