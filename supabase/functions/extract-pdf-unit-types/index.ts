@@ -423,7 +423,7 @@ serve(async (req) => {
     }
 
     let content = "";
-    const MODELS = ["gemini-2.5-flash", "gemini-2.5-pro"];
+    const MODELS = ["gemini-3.1-flash-lite", "gemini-3-flash"];
     const MAX_RETRIES = 3;
 
     for (const model of MODELS) {
@@ -524,7 +524,7 @@ Return the corrected JSON (same format), no other text. Each entry MUST have a "
         });
 
         const verifyRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
           { method: "POST", headers: { "Content-Type": "application/json" }, body: verifyBody }
         );
 

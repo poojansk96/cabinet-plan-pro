@@ -18,7 +18,7 @@ async function callGemini(
   responseSchema?: any,
 ): Promise<any> {
   // Model fallback: try primary model 3 times, then fallback model 3 times
-  const MODELS = [model, "gemini-2.5-pro"];
+  const MODELS = [model, "gemini-3-flash"];
   const MAX_RETRIES = 3;
   let response: Response | null = null;
 
@@ -570,7 +570,7 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
 
       let classification: any = { pageType: "plan_view", unitTypeName: null, isCommonArea: false };
       try {
-        classification = await callGemini(GEMINI_API_KEY, "gemini-2.5-flash", pageImage, classifyPrompt, 0.1, 1024, CLASSIFY_SCHEMA);
+        classification = await callGemini(GEMINI_API_KEY, "gemini-3.1-flash-lite", pageImage, classifyPrompt, 0.1, 1024, CLASSIFY_SCHEMA);
       } catch (e: any) {
         if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -689,7 +689,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
 
     // ── Step 2a: Initial extraction ──
     const useAccuModel = aiModel === 'accu';
-    const extractionModel = useAccuModel ? "gemini-2.5-pro" : "gemini-2.5-flash";
+    const extractionModel = useAccuModel ? "gemini-3-flash" : "gemini-3.1-flash-lite";
     console.log(`Using model: ${extractionModel} (aiModel=${aiModel})`);
     let extracted: any = { items: [] };
     try {
@@ -737,7 +737,7 @@ ${isStrip ? '\nNOTE: This is a CROPPED SECTION of a larger page. Only report wha
 Return ALL valid cabinet SKUs (kept from original + newly found). If the original list was correct, return it unchanged.`;
 
       try {
-        const verified: any = await callGemini(GEMINI_API_KEY, "gemini-2.5-flash", pageImage, verifyPrompt, 0.1, 8192, EXTRACT_SCHEMA);
+        const verified: any = await callGemini(GEMINI_API_KEY, "gemini-3.1-flash-lite", pageImage, verifyPrompt, 0.1, 8192, EXTRACT_SCHEMA);
         const verifiedItems = verified.items ?? [];
         if (verifiedItems.length > 0) {
           // Use verification results but never let it drop count below 50% of original
