@@ -48,11 +48,8 @@ function normalizeSpacing(value: string): string {
 function normalizePageTextLines(value: string): string[] {
   return String(value || '')
     .replace(/[|]+/g, ' ')
-    .replace(/
-?/g, '
-')
-    .split('
-')
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
     .map((line) => normalizeSpacing(line))
     .filter(Boolean);
 }
