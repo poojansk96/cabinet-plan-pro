@@ -155,7 +155,8 @@ function collectCandidatesFromChunk(source: string, lineIndex: number, lineCount
 
   for (const pattern of TYPE_PATTERNS) {
     pattern.lastIndex = 0;
-    for (const match of source.matchAll(pattern)) {
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(source)) !== null) {
       const resolved = normalizeResolvedUnitType(stripLeadingTypeDecorators(match[0]));
       if (!resolved || isSuspiciousUnitTypeCandidate(resolved)) continue;
 
