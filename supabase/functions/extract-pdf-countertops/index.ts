@@ -9,12 +9,14 @@ const corsHeaders = {
 type ModelAttempt = { name: string; retries: number };
 
 const PRIMARY_MODELS: ModelAttempt[] = [
-  { name: "gemini-2.5-flash", retries: 3 },
-  { name: "gemini-2.5-pro", retries: 2 },
+  { name: "gemini-3.1-flash-lite", retries: 3 },
+  { name: "gemini-2.5-flash", retries: 2 },
+  { name: "gemini-2.5-pro", retries: 1 },
 ];
 
 const VERIFY_MODELS: ModelAttempt[] = [
-  { name: "gemini-2.5-flash", retries: 2 },
+  { name: "gemini-3.1-flash-lite", retries: 2 },
+  { name: "gemini-2.5-flash", retries: 1 },
   { name: "gemini-2.5-pro", retries: 1 },
 ];
 
@@ -198,8 +200,9 @@ async function requestGemini(
 
       if (!response.ok) {
         const errText = await response.text();
-        console.error("AI error:", response.status, errText);
-        throw new Error(`AI error: ${response.status}`);
+        console.error(`AI error for ${model}:`, response.status, errText);
+        response = null;
+        break;
       }
 
       succeeded = true;
