@@ -239,7 +239,7 @@ function extractBalancedObjectsFromNamedArray(content: string, key: string): str
       continue;
     }
 
-    if (char === "\" && inString) {
+    if (char === "\\" && inString) {
       escapeNext = true;
       continue;
     }
