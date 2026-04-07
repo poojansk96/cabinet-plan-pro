@@ -529,15 +529,7 @@ serve(async (req) => {
     let detectedUnitType: string | null = null;
     let isCommonArea = false;
 
-    if (skipClassify && aiModel !== 'accu') {
-      // Skip classification entirely — assume plan_view, detect unit type from extraction
-      // (accu mode still classifies even when skipClassify is set)
-      console.log("Skipping classification (skipClassify=true, assuming plan_view)");
-      rawPageType = "plan_view";
-      // Detect common area from text hints
-      const commonAreaPattern = /\b(LAUNDRY|MAIL\s*ROOM|RESTROOM|LOBBY|CLUBHOUSE|FITNESS|LEASING|BUSINESS\s*CENTER|POOL\s*BATH|TRASH|MAINTENANCE|MODEL|STORAGE|GARAGE|CORRIDOR|MECHANICAL|COMMUNITY|BREAK\s*ROOM|RECEPTION|OFFICE|KITCHEN\s*\(COMMON\)|COMMON\s*KITCHEN)\b/i;
-      isCommonArea = commonAreaPattern.test(pageText || '');
-    } else if (classificationOverride) {
+    if (classificationOverride) {
       const co = classificationOverride;
       rawPageType = String(co.pageType ?? "plan_view").toLowerCase().replace(/[\s_-]+/g, '_');
       detectedUnitType = co.unitTypeName ?? null;
