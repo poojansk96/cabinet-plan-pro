@@ -529,7 +529,7 @@ serve(async (req) => {
     let detectedUnitType: string | null = null;
     let isCommonArea = false;
 
-    if (skipClassify && !useAccuModel) {
+    if (skipClassify && aiModel !== 'accu') {
       // Skip classification entirely — assume plan_view, detect unit type from extraction
       // (accu mode still classifies even when skipClassify is set)
       console.log("Skipping classification (skipClassify=true, assuming plan_view)");
