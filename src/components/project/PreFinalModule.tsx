@@ -382,7 +382,7 @@ export default function PreFinalModule({ project }: Props) {
   const stoneUnitTypes = (() => {
     const seen = new Set<string>();
     return store.stoneUnitTypes.filter(t => {
-      const key = t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '').trim();
+      const key = t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').trim();
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -401,7 +401,7 @@ export default function PreFinalModule({ project }: Props) {
   const cabUnitTypes = (() => {
     const seen = new Set<string>();
     return store.cabinetUnitTypes.filter(t => {
-      const key = t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '').trim();
+      const key = t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').trim();
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -1635,7 +1635,7 @@ export default function PreFinalModule({ project }: Props) {
                   const lamUnitTypes = (() => {
                     const seen = new Set<string>();
                     return store.laminateUnitTypes.filter(t => {
-                      const key = t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '').trim();
+                      const key = t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').trim();
                       if (seen.has(key)) return false;
                       seen.add(key);
                       return true;
@@ -1841,7 +1841,7 @@ export default function PreFinalModule({ project }: Props) {
                   const vtopUnitTypes = (() => {
                     const seen = new Set<string>();
                     return store.vtopUnitTypes.filter(t => {
-                      const key = t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '').trim();
+                      const key = t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').trim();
                       if (seen.has(key)) return false;
                       seen.add(key);
                       return true;
