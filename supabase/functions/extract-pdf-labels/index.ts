@@ -529,8 +529,9 @@ serve(async (req) => {
     let detectedUnitType: string | null = null;
     let isCommonArea = false;
 
-    if (skipClassify) {
+    if (skipClassify && aiModel !== 'accu') {
       // Skip classification entirely — assume plan_view, detect unit type from extraction
+      // (accu mode still classifies even when skipClassify is set)
       console.log("Skipping classification (skipClassify=true, assuming plan_view)");
       rawPageType = "plan_view";
       // Detect common area from text hints
