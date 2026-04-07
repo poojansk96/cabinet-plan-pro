@@ -321,8 +321,7 @@ export async function extractPageTextForTypeDetection(page: any): Promise<string
     }
 
     if (currentParts.length) lines.push(normalizeSpacing(currentParts.join(' ')));
-    return lines.join('
-').trim();
+    return lines.join('\n').trim();
   } catch {
     return '';
   }
