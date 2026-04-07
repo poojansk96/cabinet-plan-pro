@@ -171,7 +171,7 @@ serve(async (req) => {
     const userPrompt = `Analyze this floor plan page (page ${pageIndex + 1}).\n\nSHEET TITLE / HEADER AREA (check here first for building name):\n${titleBlock}\n\nFOOTER / TITLE BLOCK:\n${tailBlock}\n\nFULL PAGE TEXT:\n${(pageText ?? "").slice(0, 8000)}`;
 
     // Models to try: primary first, then fallback
-    const MODELS = ["gemini-2.5-flash", "gemini-2.5-pro"];
+    const MODELS = ["gemini-3-flash", "gemini-2.5-pro"];
     const MAX_RETRIES = 3;
     let response: Response | null = null;
 
@@ -289,7 +289,7 @@ Return the corrected list as JSON:
 
         const base64Data = pageImage.replace(/^data:image\/\w+;base64,/, "");
         const verifyRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent?key=${GEMINI_API_KEY}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
