@@ -17,6 +17,138 @@ const VERIFY_MODELS: ModelAttempt[] = [
   { name: "gemini-3-flash-preview", retries: 2 },
 ];
 
+const COMMON_AREA_LABELS: Array<{ label: string; re: RegExp }> = [
+  { label: "Kitchenette", re: /\bKITCHENETTE\b/i },
+  { label: "Mail Room", re: /\bMAIL\s*ROOM\b/i },
+  { label: "Break Room", re: /\bBREAK\s*ROOM\b/i },
+  { label: "Business Center", re: /\bBUSINESS\s*CENTER\b/i },
+  { label: "Community Room", re: /\bCOMMUNITY\s*ROOM\b/i },
+  { label: "Pool Bath", re: /\bPOOL\s*BATH\b/i },
+  { label: "Leasing", re: /\bLEASING\b/i },
+  { label: "Clubhouse", re: /\bCLUBHOUSE\b/i },
+  { label: "Fitness", re: /\bFITNESS\b/i },
+  { label: "Laundry", re: /\bLAUNDRY\b/i },
+  { label: "Restroom", re: /\bRESTROOM\b/i },
+  { label: "Lobby", re: /\bLOBBY\b/i },
+  { label: "Office", re: /\bOFFICE\b/i },
+  { label: "Reception", re: /\bRECEPTION\b/i },
+  { label: "Storage", re: /\bSTORAGE\b/i },
+  { label: "Garage", re: /\bGARAGE\b/i },
+  { label: "Corridor", re: /\bCORRIDOR\b/i },
+  { label: "Mechanical", re: /\bMECHANICAL\b/i },
+  { label: "Maintenance", re: /\bMAINTENANCE\b/i },
+  { label: "Trash", re: /\bTRASH\b/i },
+];
+
+function normalizeTypeText(value: string): string {
+  return String(value || "")
+    .replace(/[\u2010-\u2015]/g, "-")
+    .replace(/\u00A0/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/\s*-\s*/g, "-")
+    .replace(/\s*\(\s*/g, " (")
+    .replace(/\s*\)\s*/g, ")")
+    .trim();
+}
+
+function detectCommonAreaLabel(value: string): string | null {
+  for (const entry of COMMON_AREA_LABELS) {
+    if (entry.re.test(value)) return entry.label;
+  }
+  return null;
+}
+
+function normalizeResolvedTypeLabel(value: string): string {
+  const clean = normalizeTypeText(value);
+  if (!clean) return "";
+  if (/^(?:PLAN|ELEVATION|SECTION|DETAIL|SHEET|DRAWING|LEGEND)\b/i.test(clean)) return "";
+  const commonArea = detectCommonAreaLabel(clean);
+  if (commonArea) return commonArea;
+  return clean.toUpperCase();
+}
+
+function hasStrongTypeStructure(value: string): boolean {
+  const text = normalizeResolvedTypeLabel(value).toUpperCase();
+  if (!text) return false;
+  return /\bTYPE\b/.test(text)
+    || /\b(?:STUDIO|\d+BR)\b/.test(text)
+    || /(?:^|[-\s])(?:AS|MIRROR|ADA|REV|ALT|OPTION)\b/.test(text)
+    || Boolean(detectCommonAreaLabel(text));
+}
+
+function isSuspiciousTypeLabel(value: string): boolean {
+  const text = normalizeResolvedTypeLabel(value);
+  if (!text) return true;
+  if (hasStrongTypeStructure(text)) return false;
+  if (/^(?:BLDG|BUILDING|FLOOR|LEVEL|UNIT)\b/i.test(text)) return true;
+  return /^[A-Z]?\d{1,4}[A-Z]?(?:-\d{1,4}[A-Z]?)?$/.test(text.toUpperCase().replace(/\s+/g, ""));
+}
+
+function canonicalTypeBase(value: string): string {
+  const text = normalizeResolvedTypeLabel(value).toUpperCase();
+  if (!text) return "";
+  const commonArea = detectCommonAreaLabel(text);
+  if (commonArea) return commonArea.toUpperCase().replace(/\s+/g, "");
+  return text
+    .replace(/\s+\((AS|MIRROR|ADA|REV|ALT|OPTION)\)$/g, "")
+    .replace(/-(AS|MIRROR|ADA|REV|ALT|OPTION)\b/g, "")
+    .replace(/^TYPE\s+/, "")
+    .replace(/\s+/g, "")
+    .trim();
+}
+
+function typeSpecificityScore(value: string): number {
+  const text = normalizeResolvedTypeLabel(value).toUpperCase();
+  if (!text) return 0;
+  let score = text.replace(/\s+/g, "").length;
+  if (/\bTYPE\b/.test(text)) score += 25;
+  if (/\b(?:STUDIO|\d+BR)\b/.test(text)) score += 20;
+  if (/(?:^|[-\s])(?:AS|MIRROR|ADA|REV|ALT|OPTION)\b/.test(text)) score += 30;
+  if (/\(|\)|\./.test(text)) score += 10;
+  if (detectCommonAreaLabel(text)) score += 30;
+  return score;
+}
+
+function trimPageText(value: string, limit = 12000): string {
+  const text = normalizeTypeText(value);
+  return text.length > limit ? text.slice(0, limit) : text;
+}
+
+function extractTypeFromPageText(pageText: string): string | null {
+  const text = trimPageText(pageText).replace(/[|]+/g, " ");
+  if (!text) return null;
+
+  const patterns = [
+    /\b(?:STUDIO|\d+\s*BR)\s+TYPE\s+[A-Z0-9][A-Z0-9._]*(?:\s*-\s*[A-Z0-9._]+)*(?:\s+\([A-Z0-9 ._-]+\))?/i,
+    /\bTYPE\s+[A-Z0-9][A-Z0-9._]*(?:\s*-\s*[A-Z0-9._]+)*(?:\s+\([A-Z0-9 ._-]+\))?/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern)?.[0];
+    if (!match) continue;
+    const resolved = normalizeResolvedTypeLabel(match);
+    if (resolved && !isSuspiciousTypeLabel(resolved)) return resolved;
+  }
+
+  return detectCommonAreaLabel(text);
+}
+
+function pickPreferredUnitType(aiType: string, pageText: string): string {
+  const resolvedAi = normalizeResolvedTypeLabel(aiType);
+  const resolvedFromText = extractTypeFromPageText(pageText) || "";
+  if (!resolvedAi) return resolvedFromText;
+  if (!resolvedFromText) return resolvedAi;
+  if (isSuspiciousTypeLabel(resolvedAi)) return resolvedFromText;
+
+  const aiBase = canonicalTypeBase(resolvedAi);
+  const textBase = canonicalTypeBase(resolvedFromText);
+  if (aiBase && textBase && aiBase === textBase && typeSpecificityScore(resolvedFromText) > typeSpecificityScore(resolvedAi)) {
+    return resolvedFromText;
+  }
+
+  return resolvedAi;
+}
+
 async function requestGemini(
   apiKey: string,
   imageData: string,
@@ -137,7 +269,8 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
-    const { pageImage } = await req.json();
+    const { pageImage, pageText = "" } = await req.json();
+    const pageTextSnippet = trimPageText(String(pageText || ""));
 
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage (base64 string) required" }), {
@@ -148,8 +281,13 @@ serve(async (req) => {
 
     const extractionPrompt = `You are an expert millwork estimator analyzing a 2020 countertop shop drawing.
 
+PDF TEXT LAYER (use this to recover exact type names when the image text is small):
+${pageTextSnippet || "(not available)"}
+
 TASK:
 1. First, find the UNIT TYPE NAME from the drawing's title block. This is the architectural unit/plan type shown in the title block area (usually bottom-right or top of the drawing). Examples: "1.1B-AS", "TYPE A", "2BR-ADA", "BREAKROOM", "MAIL ROOM", "COMMUNITY ROOM", "STUDIO", "1BR MIRROR", etc. Extract the EXACT and COMPLETE name as it appears — do NOT abbreviate or modify it. This is critical for grouping countertops by unit type. If no title block or type name is visible, use "".
+   - CRITICAL: Preserve suffixes like -AS, -MIRROR, -ADA, and trailing digits.
+   - CRITICAL: Never use building labels or unit numbers as the unitTypeName.
 
 2. Then extract every countertop section visible. For each section extract:
 
@@ -247,7 +385,7 @@ If everything looks correct, return the data as-is. Return ONLY valid JSON — n
 
         if (verified.countertops && verified.countertops.length > 0) {
           const verifiedCts = verified.countertops.map(normalizeCountertop);
-          const unitTypeName = (verified.unitTypeName || extracted.unitTypeName || "").trim();
+          const unitTypeName = pickPreferredUnitType(verified.unitTypeName || extracted.unitTypeName || "", pageTextSnippet);
           console.log("Verified unit type:", unitTypeName, "sections:", verifiedCts.length);
 
           return new Response(JSON.stringify({ unitTypeName, countertops: verifiedCts }), {
@@ -260,7 +398,7 @@ If everything looks correct, return the data as-is. Return ONLY valid JSON — n
     }
 
     // Fallback: return extraction result
-    const unitTypeName = extracted.unitTypeName;
+    const unitTypeName = pickPreferredUnitType(extracted.unitTypeName, pageTextSnippet);
     console.log("Detected unit type name:", unitTypeName);
 
     return new Response(JSON.stringify({ unitTypeName, countertops }), {
