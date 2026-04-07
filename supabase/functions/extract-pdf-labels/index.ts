@@ -18,7 +18,7 @@ async function callGemini(
   responseSchema?: any,
 ): Promise<any> {
   // Model fallback: try primary model 3 times, then fallback model 3 times
-  const MODELS = [model, "gemini-3-flash"];
+  const MODELS = [model, "gemini-3.0-flash-preview"];
   const MAX_RETRIES = 3;
   let response: Response | null = null;
 
@@ -682,7 +682,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
 
     // ── Step 2a: Initial extraction ──
     const useAccuModel = aiModel === 'accu';
-    const extractionModel = useAccuModel ? "gemini-3-flash" : "gemini-3.1-flash-lite";
+    const extractionModel = useAccuModel ? "gemini-3.0-flash-preview" : "gemini-3.1-flash-lite";
     console.log(`Using model: ${extractionModel} (aiModel=${aiModel})`);
     let extracted: any = { items: [] };
     try {
@@ -702,7 +702,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
     console.log(`Step 2a (${useAccuModel ? 'accu' : 'lite'}): ${rawItems.length} raw → ${finalItems.length} after split`);
 
     // ── Step 2b: Verification pass (only for fast/lite model) ──
-    // Skipped for accu model (gemini-3-flash is a thinking model, verification is redundant).
+    // Skipped for accu model (gemini-3.0-flash-preview is a thinking model, verification is redundant).
     if (!useAccuModel) {
       const liteSkuList = finalItems.map((i: any) => `${i.sku} (qty ${i.quantity}, ${i.room})`).join(', ');
       const verifyPrompt = `You are verifying cabinet SKU extraction results from a fast AI model on this 2020 Design shop drawing.
