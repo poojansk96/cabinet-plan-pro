@@ -240,6 +240,13 @@ async function requestGemini(
         break;
       }
 
+      if (response.status === 404) {
+        const errText = await response.text();
+        console.error(`AI error for ${model}:`, response.status, errText);
+        response = null;
+        break; // Try next model in fallback list
+      }
+
       if (!response.ok) {
         const errText = await response.text();
         console.error("AI error:", response.status, errText);
