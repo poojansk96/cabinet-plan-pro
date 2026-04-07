@@ -58,13 +58,13 @@ function stripLeadingTypeDecorators(value: string): string {
   const clean = normalizeSpacing(value);
   if (!clean) return '';
 
-  const hadExplicitTypePrefix = /^(?:UNIT|PLAN)\s+TYPE/i.test(clean);
+  const hadExplicitTypePrefix = /^(?:UNIT|PLAN)\s+TYPE\b/i.test(clean);
   const stripped = clean
     .replace(/^(?:UNIT|PLAN)\s+TYPE\s*[:\-]?\s*/i, '')
     .trim();
 
   if (!stripped) return '';
-  if (hadExplicitTypePrefix && !/TYPE/i.test(stripped) && !/(?:STUDIO|\d+BR)/i.test(stripped) && !detectCommonAreaLabel(stripped)) {
+  if (hadExplicitTypePrefix && !/\bTYPE\b/i.test(stripped) && !/\b(?:STUDIO|\d+BR)\b/i.test(stripped) && !detectCommonAreaLabel(stripped)) {
     return `TYPE ${stripped}`;
   }
 
@@ -81,9 +81,9 @@ function detectCommonAreaLabel(value: string): string | null {
 function hasStrongTypeStructure(value: string): boolean {
   const text = normalizeSpacing(value).toUpperCase();
   if (!text) return false;
-  return /TYPE/.test(text)
-    || /(?:STUDIO|\d+BR)/.test(text)
-    || /(?:^|[-\s])(?:AS|MIRROR|ADA|REV|ALT|OPTION)/.test(text)
+  return /\bTYPE\b/.test(text)
+    || /\b(?:STUDIO|\d+BR)\b/.test(text)
+    || /(?:^|[-\s])(?:AS|MIRROR|ADA|REV|ALT|OPTION)\b/.test(text)
     || Boolean(detectCommonAreaLabel(text));
 }
 
@@ -95,7 +95,7 @@ function canonicalTypeBase(value: string): string {
 
   return text
     .replace(/\s+\((AS|MIRROR|ADA|REV|ALT|OPTION)\)$/g, '')
-    .replace(/-(AS|MIRROR|ADA|REV|ALT|OPTION)/g, '')
+    .replace(/-(AS|MIRROR|ADA|REV|ALT|OPTION)\b/g, '')
     .replace(/^TYPE\s+/, '')
     .replace(/\s+/g, '')
     .trim();
@@ -124,9 +124,9 @@ function typeSpecificityScore(value: string): number {
   if (!text) return 0;
 
   let score = text.replace(/\s+/g, '').length;
-  if (/TYPE/.test(text)) score += 25;
-  if (/(?:STUDIO|\d+BR)/.test(text)) score += 20;
-  if (/(?:^|[-\s])(?:AS|MIRROR|ADA|REV|ALT|OPTION)/.test(text)) score += 30;
+  if (/\bTYPE\b/.test(text)) score += 25;
+  if (/\b(?:STUDIO|\d+BR)\b/.test(text)) score += 20;
+  if (/(?:^|[-\s])(?:AS|MIRROR|ADA|REV|ALT|OPTION)\b/.test(text)) score += 30;
   if (/\(|\)|\./.test(text)) score += 10;
   if (detectCommonAreaLabel(text)) score += 30;
   return score;
@@ -139,14 +139,14 @@ function scoreTextCandidate(candidate: string, source: string, lineIndex: number
   let score = typeSpecificityScore(normalizedCandidate);
   if (!normalizedCandidate) return 0;
   if (normalizedSource === normalizedCandidate) score += 80;
-  if (/UNIT\s+TYPE/i.test(source)) score += 50;
-  else if (/TYPE/i.test(source)) score += 25;
+  if (/\bUNIT\s+TYPE\b/i.test(source)) score += 50;
+  else if (/\bTYPE\b/i.test(source)) score += 25;
   if (source.length <= candidate.length + 10) score += 30;
   else if (source.length <= candidate.length + 24) score += 10;
   if (lineIndex >= Math.floor(lineCount * 0.6)) score += 10;
-  if (/-(AS|MIRROR|ADA|REV|ALT|OPTION)/i.test(candidate)) score += 10;
+  if (/-(AS|MIRROR|ADA|REV|ALT|OPTION)\b/i.test(candidate)) score += 10;
   if (/\d/.test(candidate)) score += 8;
-  if (/(?:BLDG|BUILDING|UNIT\s*#?|FLOOR|LEVEL)/i.test(source) && !/UNIT\s+TYPE/i.test(source)) score -= 20;
+  if (/\b(?:BLDG|BUILDING|UNIT\s*#?|FLOOR|LEVEL)\b/i.test(source) && !/\bUNIT\s+TYPE\b/i.test(source)) score -= 20;
   return score;
 }
 
@@ -200,7 +200,7 @@ function extractPreferredUnitTypeCandidate(pageText: string): UnitTypeCandidate 
 
     const nextLine = lines[lineIndex + 1];
     if (nextLine) {
-      const likelySplitType = /(?:UNIT\s+TYPE|TYPE|STUDIO|\d+\s*BR)/i.test(line)
+      const likelySplitType = /\b(?:UNIT\s+TYPE|TYPE|STUDIO|\d+\s*BR)\b/i.test(line)
         || /^[-(A-Z0-9]/i.test(nextLine);
       if (likelySplitType) pushChunk(`${line} ${nextLine}`, lineIndex);
     }
@@ -226,7 +226,7 @@ function extractPreferredUnitTypeCandidate(pageText: string): UnitTypeCandidate 
 export function normalizeResolvedUnitType(value: string): string {
   const clean = stripLeadingTypeDecorators(value);
   if (!clean) return '';
-  if (/^(?:PLAN|ELEVATION|SECTION|DETAIL|SHEET|DRAWING|LEGEND)/i.test(clean)) return '';
+  if (/^(?:PLAN|ELEVATION|SECTION|DETAIL|SHEET|DRAWING|LEGEND)\b/i.test(clean)) return '';
   const commonArea = detectCommonAreaLabel(clean);
   if (commonArea) return commonArea;
   return clean.toUpperCase();
@@ -239,7 +239,7 @@ export function isSuspiciousUnitTypeCandidate(value: string, unitNumber = ''): b
   if (!text) return true;
   if (normalizedUnit && text.toUpperCase() === normalizedUnit) return true;
   if (hasStrongTypeStructure(text)) return false;
-  if (/^(?:BLDG|BUILDING|FLOOR|LEVEL|UNIT)/i.test(text)) return true;
+  if (/^(?:BLDG|BUILDING|FLOOR|LEVEL|UNIT)\b/i.test(text)) return true;
 
   const compact = text.toUpperCase().replace(/\s+/g, '');
   return /^[A-Z]?\d{1,4}[A-Z]?(?:-\d{1,4}[A-Z]?)?$/.test(compact);
