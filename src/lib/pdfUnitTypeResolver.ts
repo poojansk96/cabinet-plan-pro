@@ -48,11 +48,8 @@ function normalizeSpacing(value: string): string {
 function normalizePageTextLines(value: string): string[] {
   return String(value || '')
     .replace(/[|]+/g, ' ')
-    .replace(/
-?/g, '
-')
-    .split('
-')
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
     .map((line) => normalizeSpacing(line))
     .filter(Boolean);
 }
@@ -158,7 +155,8 @@ function collectCandidatesFromChunk(source: string, lineIndex: number, lineCount
 
   for (const pattern of TYPE_PATTERNS) {
     pattern.lastIndex = 0;
-    for (const match of source.matchAll(pattern)) {
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(source)) !== null) {
       const resolved = normalizeResolvedUnitType(stripLeadingTypeDecorators(match[0]));
       if (!resolved || isSuspiciousUnitTypeCandidate(resolved)) continue;
 
@@ -324,8 +322,7 @@ export async function extractPageTextForTypeDetection(page: any): Promise<string
     }
 
     if (currentParts.length) lines.push(normalizeSpacing(currentParts.join(' ')));
-    return lines.join('
-').trim();
+    return lines.join('\n').trim();
   } catch {
     return '';
   }
