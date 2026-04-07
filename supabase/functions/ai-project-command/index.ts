@@ -112,7 +112,7 @@ User command: "${command}"`;
     }
 
     const aiData = await response.json();
-    const content = aiData.choices?.[0]?.message?.content ?? "[]";
+    const content = aiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "[]";
 
     // Parse the JSON array from AI response
     let actions: any[] = [];
