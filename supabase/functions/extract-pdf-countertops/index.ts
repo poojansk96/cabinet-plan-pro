@@ -200,8 +200,9 @@ async function requestGemini(
 
       if (!response.ok) {
         const errText = await response.text();
-        console.error("AI error:", response.status, errText);
-        throw new Error(`AI error: ${response.status}`);
+        console.error(`AI error for ${model}:`, response.status, errText);
+        response = null;
+        break;
       }
 
       succeeded = true;
