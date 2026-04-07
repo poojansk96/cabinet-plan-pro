@@ -9,6 +9,10 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    environmentMatchGlobs: [
+      ["src/test/pdfUnitTypeResolver.test.ts", "node"],
+      ["src/test/prefinalCabinetMerge.test.ts", "node"],
+    ],
   },
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
