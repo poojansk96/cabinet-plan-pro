@@ -529,15 +529,7 @@ serve(async (req) => {
     let detectedUnitType: string | null = null;
     let isCommonArea = false;
 
-    if (skipClassify) {
-      // Even when skipClassify is set (prefinal), still run classification for both fast and accu modes
-      // but skip the AI call only for strip passes (classificationOverride handles those)
-      console.log("skipClassify set but still running AI classification for prefinal");
-    }
-    if (false) {
-      // Classification skip disabled — both modes now classify
-      const _unused = null;
-    } else if (classificationOverride) {
+    if (classificationOverride) {
       const co = classificationOverride;
       rawPageType = String(co.pageType ?? "plan_view").toLowerCase().replace(/[\s_-]+/g, '_');
       detectedUnitType = co.unitTypeName ?? null;
