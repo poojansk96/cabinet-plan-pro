@@ -456,14 +456,12 @@ Look at the SAME shop drawing image and verify EACH item carefully:
 5. Are there any MISSING vanity tops not extracted? Add them.
 6. Are there any FALSE vanity tops (actually kitchen countertops with depth > 22")? Remove them.
 
-7. **CRITICAL — RE-CHECK WALL DETECTION using the SAME "person standing in front" perspective:**
-   - leftWall = wall on the person's LEFT end. rightWall = wall on the person's RIGHT end.
-   - DOUBLE LINES at an end = WALL (sidesplash). Set leftWall/rightWall to true.
-   - SINGLE LINE at an end = OPEN (finish end). Set leftWall/rightWall to false.
-   - MOST vanity tops have BOTH walls (leftWall=true AND rightWall=true). This is the DEFAULT.
-   - Only set false when you see a CLEAR single line with no wall structure nearby.
-   - BIAS toward true (wall) — false negatives are worse than false positives.
-   - Update leftWallYesConfidence and rightWallYesConfidence accordingly.
+ 7. **CRITICAL — RE-CHECK WALL DETECTION using the SAME "person standing in front" perspective:**
+    - leftWall = wall on the person's LEFT end. rightWall = wall on the person's RIGHT end.
+    - COUNT THE LINES at each end: DOUBLE LINES = WALL (sidesplash). SINGLE LINE = OPEN (finish end).
+    - Many vanity tops have ONE wall and ONE open end. Do NOT assume both sides are the same.
+    - Be ACCURATE — report what you see. If one end clearly has a single line, set that side to false.
+    - Update leftWallYesConfidence and rightWallYesConfidence accordingly.
 
 Return the CORRECTED complete JSON — same format:
 {"unitTypeName":"...","vtops":[...]}
