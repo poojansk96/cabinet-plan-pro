@@ -253,8 +253,7 @@ function analyzeEndCrop(
 
 /**
  * Dead-zone scoring: deterministic first, then AI, then uncertain.
- * Biased toward wall=true because false negatives (missing sidesplash)
- * are more costly than false positives in practice.
+ * Balanced approach — trusts AI signal when deterministic is uncertain.
  */
 function scoreWallEvidence(
   det: number,
@@ -265,15 +264,15 @@ function scoreWallEvidence(
   if (det >= 0.82) return { wall: true, confidence: det, reviewRequired: false };
   if (det <= 0.18) return { wall: false, confidence: 1 - det, reviewRequired: false };
 
-  // AI leans wall (lowered threshold — most vanities DO have walls)
-  if (ai >= 0.6) return { wall: true, confidence: ai, reviewRequired: true };
-  // AI clearly says no wall
-  if (ai <= 0.2) return { wall: false, confidence: 1 - ai, reviewRequired: true };
+  // AI leans wall
+  if (ai >= 0.65) return { wall: true, confidence: ai, reviewRequired: false };
+  // AI leans no wall — trust it more readily (threshold raised from 0.2 to 0.4)
+  if (ai <= 0.4) return { wall: false, confidence: 1 - ai, reviewRequired: ai > 0.25 };
 
-  // Dead zone: bias toward wall=true (sidesplashes are more common than open ends)
+  // Dead zone: use AI hint direction but flag for review
   return {
-    wall: true,
-    confidence: 0.5,
+    wall: ai >= 0.5,
+    confidence: Math.max(ai, 1 - ai),
     reviewRequired: true,
   };
 }

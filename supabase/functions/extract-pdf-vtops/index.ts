@@ -378,12 +378,11 @@ RULES FOR WALL DETECTION (leftWall / rightWall):
   * SINGLE LINE at the end edge (just the vanity outline = finish end / open end)
   * The vanity end is free-standing with no wall nearby
   * Text labels like "FE" (finish end) or "OPEN"
-- MOST vanity tops in residential projects have BOTH walls (leftWall=true AND rightWall=true). This is the DEFAULT expectation.
-- Only set a wall to false if you see a CLEAR single line with NO adjacent wall structure.
-- If you see double lines at BOTH ends, set BOTH leftWall and rightWall to true.
-- In 2020 shop drawings, vanity tops between two walls in a bathroom alcove will have wall indicators (double lines or sidesplash marks) at BOTH ends.
+  * No second parallel line near the end — just the box outline
+- CAREFULLY EXAMINE EACH END INDEPENDENTLY. Many vanity tops have ONE wall and ONE open end (e.g., vanity against a side wall but open on the other side). Do NOT assume both ends are the same.
+- COUNT THE LINES at each end: TWO parallel lines = wall, ONE line = open. This is the most reliable indicator.
 - Set leftWallYesConfidence and rightWallYesConfidence to reflect your certainty (0.0=definitely no wall, 1.0=definitely wall).
-- BIAS: Default to true (wall). Only set false when you are VERY confident there is no wall. Most vanities are installed in alcoves with walls on both sides.
+- Be ACCURATE rather than biased — report what you actually see in the drawing. Do not default to wall if you only see a single line.
 
 RULES FOR BOWL POSITION:
 - ALWAYS use dimension callout lines to determine offset — do not guess from visual position alone.
@@ -457,14 +456,12 @@ Look at the SAME shop drawing image and verify EACH item carefully:
 5. Are there any MISSING vanity tops not extracted? Add them.
 6. Are there any FALSE vanity tops (actually kitchen countertops with depth > 22")? Remove them.
 
-7. **CRITICAL — RE-CHECK WALL DETECTION using the SAME "person standing in front" perspective:**
-   - leftWall = wall on the person's LEFT end. rightWall = wall on the person's RIGHT end.
-   - DOUBLE LINES at an end = WALL (sidesplash). Set leftWall/rightWall to true.
-   - SINGLE LINE at an end = OPEN (finish end). Set leftWall/rightWall to false.
-   - MOST vanity tops have BOTH walls (leftWall=true AND rightWall=true). This is the DEFAULT.
-   - Only set false when you see a CLEAR single line with no wall structure nearby.
-   - BIAS toward true (wall) — false negatives are worse than false positives.
-   - Update leftWallYesConfidence and rightWallYesConfidence accordingly.
+ 7. **CRITICAL — RE-CHECK WALL DETECTION using the SAME "person standing in front" perspective:**
+    - leftWall = wall on the person's LEFT end. rightWall = wall on the person's RIGHT end.
+    - COUNT THE LINES at each end: DOUBLE LINES = WALL (sidesplash). SINGLE LINE = OPEN (finish end).
+    - Many vanity tops have ONE wall and ONE open end. Do NOT assume both sides are the same.
+    - Be ACCURATE — report what you see. If one end clearly has a single line, set that side to false.
+    - Update leftWallYesConfidence and rightWallYesConfidence accordingly.
 
 Return the CORRECTED complete JSON — same format:
 {"unitTypeName":"...","vtops":[...]}
