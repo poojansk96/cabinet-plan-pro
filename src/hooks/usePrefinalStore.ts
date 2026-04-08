@@ -875,7 +875,8 @@ export function usePrefinalStore(projectId: string) {
   // ── Vtop (Cmarble/Swan) ──────────────────────────────────────────────
   const addVtopUnitTypes = useCallback((types: string[]) => {
     setData(prev => {
-      const normalizeKey = (t: string) => t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '').trim();
+      // Keep hyphens to preserve suffixes like -AS, -MIRROR; only strip "TYPE " prefix and collapse spaces
+      const normalizeKey = (t: string) => t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, ' ').trim();
       const existingKeys = new Set(prev.vtopUnitTypes.map(t => normalizeKey(t)));
       const newTypes = types.filter(t => {
         const key = normalizeKey(t);
