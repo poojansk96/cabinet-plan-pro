@@ -196,6 +196,12 @@ async function requestGemini(
         break;
       }
 
+      if (response.status === 404) {
+        console.warn(`Model not found (404) for ${model}, skipping to next model`);
+        response = null;
+        break;
+      }
+
       if (!response.ok) {
         const errText = await response.text();
         console.error(`AI error for ${model}:`, response.status, errText);

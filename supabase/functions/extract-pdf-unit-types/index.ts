@@ -454,7 +454,11 @@ serve(async (req) => {
             if ((status === 503 || status === 500) && attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
             if (status === 503 || status === 500) {
               console.warn(`${model} unavailable (${status}) after ${MAX_RETRIES} attempts, trying next model`);
-              break; // break inner loop to try next model
+              break;
+            }
+            if (status === 404) {
+              console.warn(`${model} not found (404), skipping to next model`);
+              break;
             }
             throw new Error(`AI error ${status}`);
           }
