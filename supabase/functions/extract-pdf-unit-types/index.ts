@@ -423,7 +423,7 @@ serve(async (req) => {
     }
 
     let content = "";
-    const MODELS = ["gemini-3.1-flash-lite", "gemini-3.0-flash-preview"];
+    const MODELS = ["gemini-3.1-flash-lite", "gemini-3-flash-preview"];
     const MAX_RETRIES = 3;
 
     for (const model of MODELS) {
