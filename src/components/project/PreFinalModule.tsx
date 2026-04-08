@@ -119,7 +119,7 @@ export default function PreFinalModule({ project }: Props) {
       const hasStructure = /\b(\d+BR|STUDIO)\b/i.test(normalizedIncoming) ||
         /\bTYPE\b/i.test(normalizedIncoming) ||
         /_/.test(normalizedIncoming) ||
-        /\bKITCHENETTE\b/i.test(normalizedIncoming);
+        /\b(KITCHENETTE|LAUNDRY|MAIL\s*ROOM|RESTROOM|LOBBY|OFFICE|RECEPTION|COMMUNITY\s*ROOM|BREAK\s*ROOM|CLUBHOUSE|FITNESS|POOL\s*BATH|BUSINESS\s*CENTER|LEASING|STORAGE|GARAGE|CORRIDOR|MECHANICAL|MAINTENANCE|TRASH)\b/i.test(normalizedIncoming);
       const canPromoteIncomingType = Boolean(incomingKey) && hasStructure;
 
       const finalType = knownResolved || (canPromoteIncomingType ? normalizedIncoming : 'Unassigned');
