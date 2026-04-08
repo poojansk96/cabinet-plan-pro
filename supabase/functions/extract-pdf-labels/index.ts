@@ -59,6 +59,11 @@ async function callGemini(
         if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 8000 * (attempt + 1))); continue; }
         throw new Error("rate_limit"); // Rate limit affects all models, don't fallback
       }
+      if (response.status === 404) {
+        console.warn(`Model not found (404) [${currentModel}], attempt ${attempt + 1}/${MAX_RETRIES} — trying next model`);
+        response = null;
+        break; // 404 = model doesn't exist, skip retries and try fallback
+      }
       if (response.status === 503 || response.status === 500) {
         console.warn(`AI unavailable (${response.status}) [${currentModel}], attempt ${attempt + 1}/${MAX_RETRIES}`);
         response = null;
