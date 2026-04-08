@@ -228,7 +228,14 @@ export function normalizeResolvedUnitType(value: string): string {
   if (!clean) return '';
   if (/^(?:PLAN|ELEVATION|SECTION|DETAIL|SHEET|DRAWING|LEGEND)\b/i.test(clean)) return '';
   const commonArea = detectCommonAreaLabel(clean);
-  if (commonArea) return commonArea;
+  if (commonArea) {
+    // Preserve variant suffixes like -AS, -MIRROR, -ADA after the common area label
+    const suffixMatch = clean.match(/[-\s]+(AS|MIRROR|ADA|REV|ALT|OPTION)\b/i);
+    if (suffixMatch) {
+      return `${commonArea}-${suffixMatch[1].toUpperCase()}`;
+    }
+    return commonArea;
+  }
   return clean.toUpperCase();
 }
 
