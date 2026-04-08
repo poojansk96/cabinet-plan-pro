@@ -9,12 +9,12 @@ const corsHeaders = {
 type ModelAttempt = { name: string; retries: number };
 
 const PRIMARY_MODELS: ModelAttempt[] = [
-  { name: "gemini-3.0-flash-preview", retries: 3 },
+  { name: "gemini-3-flash-preview", retries: 3 },
   { name: "gemini-2.5-pro", retries: 2 },
 ];
 
 const VERIFY_MODELS: ModelAttempt[] = [
-  { name: "gemini-3.0-flash-preview", retries: 2 },
+  { name: "gemini-3-flash-preview", retries: 2 },
   { name: "gemini-2.5-pro", retries: 1 },
 ];
 
