@@ -77,21 +77,19 @@ ${JSON.stringify(unitsSummary, null, 1)}
 
 User command: "${command}"`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userMessage },
-        ],
-        temperature: 0.1,
-      }),
-    });
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            { role: "user", parts: [{ text: SYSTEM_PROMPT + "\n\n" + userMessage }] },
+          ],
+          generationConfig: { temperature: 0.1, maxOutputTokens: 4096 },
+        }),
+      }
+    );
 
     if (response.status === 429) {
       return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again shortly." }), {
