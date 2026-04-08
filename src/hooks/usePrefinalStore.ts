@@ -80,7 +80,9 @@ function normalizeTypeKeyPart(value: string): string {
     .toUpperCase()
     .trim()
     .replace(/^TYPE\s+/, '')
-    .replace(/[^A-Z0-9]/g, '');
+    .replace(/\s*-\s*/g, '-')
+    .replace(/[^A-Z0-9\-]/g, '')
+    .replace(/-+$/g, '');
 }
 
 function normalizeCabinetSku(value: string): string {
