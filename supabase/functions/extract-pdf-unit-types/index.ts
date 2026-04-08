@@ -29,7 +29,6 @@ EXTRACT:
    - KEEP the FULL type name exactly as written, including bedroom-count prefixes like "1BR", "2BR", "3BR", "STUDIO". Example: "2BR TYPE B1" → "2BR TYPE B1", "STUDIO TYPE S1" → "STUDIO TYPE S1", "3BR TYPE C-MIRROR" → "3BR TYPE C-MIRROR"
    - CRITICAL: Preserve trailing digits! "TYPE B1" and "TYPE B" are DIFFERENT types. "TYPE A1" and "TYPE A" are DIFFERENT. Read each character carefully — do NOT truncate trailing numbers.
    - CRITICAL: Every distinct type label on the page MUST appear in the output. Do NOT merge or skip types that look similar. "TYPE B", "TYPE B1", "TYPE B-AS", "TYPE B-MIRROR" are ALL separate types.
-   - CRITICAL: unitType can NEVER be a building label or the same text as unitNumber. Example: if the page says "BLDG 13 / UNIT 13C" and the room label is "Kitchenette", then unitType = "Kitchenette" and unitNumber = "13C".
    - Never use sheet numbers, dimensions, cabinet SKUs, or drawing labels as unitType
 
 2. UNIT NUMBERS (CRITICAL — DO NOT MISS ANY):
@@ -69,143 +68,6 @@ VERIFICATION: Before outputting, re-read the unit number list one more time and 
 
 Return ONLY valid JSON, no other text. Each unit entry MUST include a "bldg" field:
 {"bldg":null,"units":[{"unitNumber":"1A","unitType":"TYPE 1 - AS","floor":"1","bldg":"BLDG 1"},{"unitNumber":"1A","unitType":"TYPE 1 - AS","floor":"1","bldg":"BLDG 3"},{"unitNumber":"2A","unitType":"TYPE 1 - AS","floor":"2","bldg":"BLDG 1"},{"unitNumber":"2A","unitType":"TYPE 1 - AS","floor":"2","bldg":"BLDG 3"}]}`;
-
-const COMMON_AREA_LABELS: Array<{ label: string; re: RegExp }> = [
-  { label: "Kitchenette", re: /\bKITCHENETTE\b/i },
-  { label: "Mail Room", re: /\bMAIL\s*ROOM\b/i },
-  { label: "Break Room", re: /\bBREAK\s*ROOM\b/i },
-  { label: "Business Center", re: /\bBUSINESS\s*CENTER\b/i },
-  { label: "Community Room", re: /\bCOMMUNITY\s*ROOM\b/i },
-  { label: "Pool Bath", re: /\bPOOL\s*BATH\b/i },
-  { label: "Leasing", re: /\bLEASING\b/i },
-  { label: "Clubhouse", re: /\bCLUBHOUSE\b/i },
-  { label: "Fitness", re: /\bFITNESS\b/i },
-  { label: "Laundry", re: /\bLAUNDRY\b/i },
-  { label: "Restroom", re: /\bRESTROOM\b/i },
-  { label: "Lobby", re: /\bLOBBY\b/i },
-  { label: "Office", re: /\bOFFICE\b/i },
-  { label: "Reception", re: /\bRECEPTION\b/i },
-  { label: "Storage", re: /\bSTORAGE\b/i },
-  { label: "Garage", re: /\bGARAGE\b/i },
-  { label: "Corridor", re: /\bCORRIDOR\b/i },
-  { label: "Mechanical", re: /\bMECHANICAL\b/i },
-  { label: "Maintenance", re: /\bMAINTENANCE\b/i },
-  { label: "Trash", re: /\bTRASH\b/i },
-];
-
-function normalizeTypeText(value: string): string {
-  return String(value || "")
-    .replace(/[\u2010-\u2015]/g, "-")
-    .replace(/\u00A0/g, " ")
-    .replace(/\s+/g, " ")
-    .replace(/\s*-\s*/g, "-")
-    .replace(/\s*\(\s*/g, " (")
-    .replace(/\s*\)\s*/g, ")")
-    .trim();
-}
-
-function detectCommonAreaLabel(value: string): string | null {
-  for (const entry of COMMON_AREA_LABELS) {
-    if (entry.re.test(value)) return entry.label;
-  }
-  return null;
-}
-
-function normalizeResolvedUnitType(value: string): string {
-  const clean = normalizeTypeText(value);
-  if (!clean) return "";
-  if (/^(?:PLAN|ELEVATION|SECTION|DETAIL|SHEET|DRAWING|LEGEND)\b/i.test(clean)) return "";
-  const commonArea = detectCommonAreaLabel(clean);
-  if (commonArea) {
-    const suffixMatch = clean.match(/[-\s]+(AS|MIRROR|ADA|REV|ALT|OPTION)\b/i);
-    if (suffixMatch) return `${commonArea}-${suffixMatch[1].toUpperCase()}`;
-    return commonArea;
-  }
-  return clean.toUpperCase();
-}
-
-function hasStrongTypeStructure(value: string): boolean {
-  const t = normalizeResolvedUnitType(value).toUpperCase();
-  if (!t) return false;
-  return /^TYPE\b/.test(t)
-    || /\b(?:MIRROR|ADA|REV|AS|BR|BED|PH|STUDIO|KITCHENETTE|LAUNDRY|MAIL\s*ROOM|RESTROOM|OFFICE|RECEPTION)\b/.test(t)
-    || /(?:^|[-\s])(?:AS|MIRROR|ADA|REV|ALT|OPTION)\b/.test(t);
-}
-
-function trimPageText(value: string, limit = 12000): string {
-  const text = normalizeTypeText(value);
-  return text.length > limit ? text.slice(0, limit) : text;
-}
-
-function isSuspiciousUnitType(value: string, unitNumber = ""): boolean {
-  const text = normalizeResolvedUnitType(value);
-  const normalizedUnit = normalizeTypeText(unitNumber).toUpperCase();
-  if (!text) return true;
-  if (normalizedUnit && text.toUpperCase() === normalizedUnit) return true;
-  if (hasStrongTypeStructure(text)) return false;
-  if (/^(?:BLDG|BUILDING|FLOOR|LEVEL|UNIT)\b/i.test(text)) return true;
-  return /^[A-Z]?\d{1,4}[A-Z]?(?:-\d{1,4}[A-Z]?)?$/.test(text.toUpperCase().replace(/\s+/g, ""));
-}
-
-function canonicalTypeBase(value: string): string {
-  const text = normalizeResolvedUnitType(value).toUpperCase();
-  if (!text) return "";
-  const commonArea = detectCommonAreaLabel(text);
-  if (commonArea) return commonArea.toUpperCase().replace(/\s+/g, "");
-  return text
-    .replace(/\s+\((AS|MIRROR|ADA|REV|ALT|OPTION)\)$/g, "")
-    .replace(/-(AS|MIRROR|ADA|REV|ALT|OPTION)\b/g, "")
-    .replace(/^TYPE\s+/, "")
-    .replace(/\s+/g, "")
-    .trim();
-}
-
-function typeSpecificityScore(value: string): number {
-  const text = normalizeResolvedUnitType(value).toUpperCase();
-  if (!text) return 0;
-  let score = text.replace(/\s+/g, "").length;
-  if (/\bTYPE\b/.test(text)) score += 25;
-  if (/\b(?:STUDIO|\d+BR)\b/.test(text)) score += 20;
-  if (/(?:^|[-\s])(?:AS|MIRROR|ADA|REV|ALT|OPTION)\b/.test(text)) score += 30;
-  if (/\(|\)|\./.test(text)) score += 10;
-  if (detectCommonAreaLabel(text)) score += 30;
-  return score;
-}
-
-function extractTypeFromPageText(pageText: string): string | null {
-  const text = trimPageText(pageText).replace(/[|]+/g, " ");
-  if (!text) return null;
-
-  const patterns = [
-    /\b(?:STUDIO|\d+\s*BR)\s+TYPE\s+[A-Z0-9][A-Z0-9._]*(?:\s*-\s*[A-Z0-9._]+)*(?:\s+\([A-Z0-9 ._-]+\))?/i,
-    /\bTYPE\s+[A-Z0-9][A-Z0-9._]*(?:\s*-\s*[A-Z0-9._]+)*(?:\s+\([A-Z0-9 ._-]+\))?/i,
-  ];
-
-  for (const pattern of patterns) {
-    const match = text.match(pattern)?.[0];
-    if (!match) continue;
-    const resolved = normalizeResolvedUnitType(match);
-    if (resolved && !isSuspiciousUnitType(resolved)) return resolved;
-  }
-
-  return detectCommonAreaLabel(text);
-}
-
-function pickPreferredUnitType(aiType: string, pageText: string, unitNumber = ""): string {
-  const resolvedAi = normalizeResolvedUnitType(aiType);
-  const resolvedFromText = extractTypeFromPageText(pageText) || "";
-  if (!resolvedAi) return resolvedFromText;
-  if (!resolvedFromText) return resolvedAi;
-  if (isSuspiciousUnitType(resolvedAi, unitNumber)) return resolvedFromText;
-
-  const aiBase = canonicalTypeBase(resolvedAi);
-  const textBase = canonicalTypeBase(resolvedFromText);
-  if (aiBase && textBase && aiBase === textBase && typeSpecificityScore(resolvedFromText) > typeSpecificityScore(resolvedAi)) {
-    return resolvedFromText;
-  }
-
-  return resolvedAi;
-}
 
 function extractJSON(text: string): { units: any[]; bldg?: string } {
   // Strip markdown fences
@@ -257,7 +119,7 @@ function normalizeUnitNumber(raw: unknown): string {
 function hasStrongTypeHint(unitType: string): boolean {
   const t = String(unitType || "").trim().toUpperCase();
   if (!t) return false;
-  return /^TYPE\b/.test(t) || /\b(MIRROR|ADA|REV|AS|BR|BED|PH|STUDIO|KITCHENETTE|LAUNDRY|MAIL\s*ROOM|RESTROOM|OFFICE|RECEPTION)\b/.test(t);
+  return /^TYPE\b/.test(t) || /\b(MIRROR|ADA|REV|AS|BR|BED|PH)\b/.test(t);
 }
 
 function isValidUnitNumber(val: string, unitType = ""): boolean {
@@ -331,19 +193,17 @@ function splitMultiBuilding(bldgStr: string): string[] {
   return expanded;
 }
 
-function cleanUnits(rawUnits: any[], pageBldg: string | null, pageText = "") {
-  const pageTypeHint = extractTypeFromPageText(pageText) || "";
+function cleanUnits(rawUnits: any[], pageBldg: string | null) {
   const mapped = (rawUnits ?? [])
     .filter((u: any) => u.unitNumber && typeof u.unitNumber === "string")
     .map((u: any) => {
-      const normalizedUnitNumber = normalizeUnitNumber(u.unitNumber);
-      let unitType = normalizeResolvedUnitType(u.unitType ? String(u.unitType).trim() : "");
+      let unitType = u.unitType ? String(u.unitType).trim() : "";
       // Preserve full type name including bedroom prefixes
+      unitType = unitType.trim();
       if (/^(FLOOR|LEVEL|ELEVATION|ELEV|PLAN|SECTION|DETAIL|SHEET|DRAWING|DWG|REV|DATE|SCALE|NOTE|LEGEND)\b/i.test(unitType)) unitType = "";
       if (/^(W|B|SB|DB|UB|UC|TC|TK|WF|BF|V|OH|PT|PTC|UT|HAV|HASB|HASP|HAT|HAF|LS|LSB|FIL|CM|LR|EP|FP)\d/i.test(unitType.replace(/\s+/g, '').toUpperCase())) unitType = "";
-      unitType = pickPreferredUnitType(unitType, pageTypeHint, normalizedUnitNumber);
       return {
-        unitNumber: normalizedUnitNumber,
+        unitNumber: normalizeUnitNumber(u.unitNumber),
         unitType,
         bldg: String(u.bldg || pageBldg || "").trim(),
         floor: u.floor ? `Floor ${String(u.floor).trim().replace(/^Floor\s*/i, '')}` : null,
@@ -417,9 +277,8 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
-    const { pageImage, pageText = "", speedMode } = await req.json();
+    const { pageImage, speedMode } = await req.json();
     const isFastMode = speedMode === 'fast';
-    const pageTextSnippet = trimPageText(String(pageText || ""));
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -427,7 +286,7 @@ serve(async (req) => {
     }
 
     let content = "";
-    const MODELS = ["gemini-3.1-flash-lite", "gemini-3-flash-preview"];
+    const MODELS = ["gemini-3.1-flash-preview", "gemini-3-flash-preview"];
     const MAX_RETRIES = 3;
 
     for (const model of MODELS) {
@@ -444,7 +303,6 @@ serve(async (req) => {
                 contents: [{ role: "user", parts: [
                   { inlineData: { mimeType: "image/jpeg", data: pageImage } },
                   { text: SYSTEM_PROMPT },
-                  ...(pageTextSnippet ? [{ text: `PDF TEXT LAYER (use this exact text to resolve unitType when visible):\n${pageTextSnippet}` }] : []),
                 ]}],
               generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
               }),
@@ -458,11 +316,7 @@ serve(async (req) => {
             if ((status === 503 || status === 500) && attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
             if (status === 503 || status === 500) {
               console.warn(`${model} unavailable (${status}) after ${MAX_RETRIES} attempts, trying next model`);
-              break;
-            }
-            if (status === 404) {
-              console.warn(`${model} not found (404), skipping to next model`);
-              break;
+              break; // break inner loop to try next model
             }
             throw new Error(`AI error ${status}`);
           }
@@ -491,7 +345,7 @@ serve(async (req) => {
 
     console.log("AI Pass 1 response:", content.slice(0, 500));
     const parsed = extractJSON(content);
-    const firstPassUnits = cleanUnits(parsed.units, parsed.bldg || null, pageTextSnippet);
+    const firstPassUnits = cleanUnits(parsed.units, parsed.bldg || null);
     console.log("Pass 1 units:", firstPassUnits.length, JSON.stringify(firstPassUnits.map(u => `${u.bldg}/${u.unitNumber}`)));
 
     // PASS 2: Verification — re-send the image with first-pass results (SKIP in fast mode)
@@ -510,9 +364,8 @@ This page may show ANY type of drawing that contains cabinet/millwork informatio
 
 **IMPORTANT**: Do NOT reject a page just because it shows a single room (restroom, laundry, mail room). These are valid units that need cabinets.
 
-        Verify:
+Verify:
 - Is the UNIT TYPE correct? Prefer title-block unit type when present; for common areas (restroom, office, laundry, mail room, community room, package room), use the ROOM LABEL as unitType.
-        - CRITICAL: unitType must never be the same as unitNumber or building label. If the page says "BLDG 13 / UNIT 13C" and the room is "Kitchenette", the correct unitType is "Kitchenette", not "13C".
 - Are ALL unit numbers captured? Re-read the comma-separated list CHARACTER BY CHARACTER. Add any missing ones.
 - Are there FALSE entries (cabinet SKUs like W3030, HASB48B, room names like "Island")? Remove them.
 - ONLY apartment/suite unit numbers or common area room numbers should remain (e.g., 230, 101, A-502, PH-1, 103, 110).
@@ -526,13 +379,13 @@ Return the corrected JSON (same format), no other text. Each entry MUST have a "
         const verifyBody = JSON.stringify({
           contents: [{ role: "user", parts: [
             { inlineData: { mimeType: "image/jpeg", data: pageImage } },
-            { text: VERIFY_PROMPT + "\n\nPDF TEXT LAYER:\n" + (pageTextSnippet || "(not available)") + "\n\nPreviously extracted data:\n" + JSON.stringify({ bldg: parsed.bldg || null, units: firstPassUnits }) },
+            { text: VERIFY_PROMPT + "\n\nPreviously extracted data:\n" + JSON.stringify({ bldg: parsed.bldg || null, units: firstPassUnits }) },
           ]}],
           generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
         });
 
         const verifyRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-preview:generateContent?key=${GEMINI_API_KEY}`,
           { method: "POST", headers: { "Content-Type": "application/json" }, body: verifyBody }
         );
 
@@ -541,7 +394,7 @@ Return the corrected JSON (same format), no other text. Each entry MUST have a "
           const verifyContent = verifyData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
           console.log("AI Pass 2 (verify) response:", verifyContent.slice(0, 500));
           const verifyParsed = extractJSON(verifyContent);
-          const verifiedUnits = cleanUnits(verifyParsed.units, verifyParsed.bldg || parsed.bldg || null, pageTextSnippet);
+          const verifiedUnits = cleanUnits(verifyParsed.units, verifyParsed.bldg || parsed.bldg || null);
 
           if (verifiedUnits.length > 0) {
             const merged = new Map<string, typeof finalUnits[0]>();

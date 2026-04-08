@@ -2,7 +2,6 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { FileUp, X, Loader2, CheckCircle, AlertCircle, Sparkles, Trash2, LayoutGrid, FileText, Search, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { startExtraction, useExtractionJobByType, clearExtractionJob } from '@/hooks/useExtractionStore';
-import { extractPageTextForTypeDetection, resolvePreferredUnitType } from '@/lib/pdfUnitTypeResolver';
 
 const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-pdf-unit-types`;
 
@@ -220,10 +219,7 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
       }> => {
         const { file, pdf, pageNum: p } = task;
         const page = await pdf.getPage(p);
-        const [pageImage, pageText] = await Promise.all([
-          renderPageToBase64(page),
-          extractPageTextForTypeDetection(page),
-        ]);
+        const pageImage = await renderPageToBase64(page);
 
         const fetchWithRetry = async (attempts = 3): Promise<Response> => {
           for (let attempt = 1; attempt <= attempts; attempt++) {
@@ -233,7 +229,7 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
               const res = await fetch(EDGE_FUNCTION_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pageImage, pageText, speedMode }),
+                body: JSON.stringify({ pageImage, speedMode }),
                 signal: controller.signal,
               });
               clearTimeout(tid);
@@ -277,7 +273,7 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
         const units: PageSighting[] = [];
         for (const u of pageUnits) {
           const num = String(u.unitNumber ?? '').trim();
-          const type = resolvePreferredUnitType(String(u.unitType ?? '').trim(), pageText, num);
+          const type = String(u.unitType ?? '').trim();
           const bldg = String(u.bldg ?? '').trim();
           const floor = String(u.floor ?? '').trim();
           if (!num) continue;

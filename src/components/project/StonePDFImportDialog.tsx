@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { startExtraction, useExtractionJobByType, clearExtractionJob, type ExtractionType } from '@/hooks/useExtractionStore';
 import { X, Upload, Loader2, Check, Trash2, Sparkles } from 'lucide-react';
-import { extractPageTextForTypeDetection, resolvePreferredUnitType } from '@/lib/pdfUnitTypeResolver';
 
 export interface StoneExtractedRow {
   label: string;
@@ -174,10 +173,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
         for (let p = 1; p <= pdf.numPages; p++) {
           update({ statusText: `Processing ${file.name} — page ${p}/${pdf.numPages}` });
           const page = await pdf.getPage(p);
-            const [pageImage, pageText] = await Promise.all([
-              renderPageToBase64(page),
-              extractPageTextForTypeDetection(page),
-            ]);
+          const pageImage = await renderPageToBase64(page);
 
           const MAX_CLIENT_RETRIES = 5;
           let pageSuccess = false;
@@ -196,7 +192,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                   'Content-Type': 'application/json',
                   'Authorization': `Bearer ${SUPABASE_KEY}`,
                 },
-                  body: JSON.stringify({ pageImage, pageText }),
+                body: JSON.stringify({ pageImage }),
                 signal: controller.signal,
               });
               clearTimeout(timeout);
@@ -206,7 +202,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
 
               if (resp.ok) {
                 const data = await resp.json();
-                const pageUnitType = resolvePreferredUnitType(String(data.unitTypeName || ''), pageText);
+                const pageUnitType = String(data.unitTypeName || '').trim();
                 if (pageUnitType && !detectedTypesOrder.includes(pageUnitType)) {
                   detectedTypesOrder.push(pageUnitType);
                 }

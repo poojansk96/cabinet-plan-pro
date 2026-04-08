@@ -119,7 +119,7 @@ export default function PreFinalModule({ project }: Props) {
       const hasStructure = /\b(\d+BR|STUDIO)\b/i.test(normalizedIncoming) ||
         /\bTYPE\b/i.test(normalizedIncoming) ||
         /_/.test(normalizedIncoming) ||
-        /\b(KITCHENETTE|LAUNDRY|MAIL\s*ROOM|RESTROOM|LOBBY|OFFICE|RECEPTION|COMMUNITY\s*ROOM|BREAK\s*ROOM|CLUBHOUSE|FITNESS|POOL\s*BATH|BUSINESS\s*CENTER|LEASING|STORAGE|GARAGE|CORRIDOR|MECHANICAL|MAINTENANCE|TRASH)\b/i.test(normalizedIncoming);
+        /\bKITCHENETTE\b/i.test(normalizedIncoming);
       const canPromoteIncomingType = Boolean(incomingKey) && hasStructure;
 
       const finalType = knownResolved || (canPromoteIncomingType ? normalizedIncoming : 'Unassigned');
@@ -382,7 +382,7 @@ export default function PreFinalModule({ project }: Props) {
   const stoneUnitTypes = (() => {
     const seen = new Set<string>();
     return store.stoneUnitTypes.filter(t => {
-      const key = t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').trim();
+      const key = t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '').trim();
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -401,7 +401,7 @@ export default function PreFinalModule({ project }: Props) {
   const cabUnitTypes = (() => {
     const seen = new Set<string>();
     return store.cabinetUnitTypes.filter(t => {
-      const key = t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').trim();
+      const key = t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '').trim();
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -1635,7 +1635,7 @@ export default function PreFinalModule({ project }: Props) {
                   const lamUnitTypes = (() => {
                     const seen = new Set<string>();
                     return store.laminateUnitTypes.filter(t => {
-                      const key = t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').trim();
+                      const key = t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '').trim();
                       if (seen.has(key)) return false;
                       seen.add(key);
                       return true;
@@ -1841,7 +1841,7 @@ export default function PreFinalModule({ project }: Props) {
                   const vtopUnitTypes = (() => {
                     const seen = new Set<string>();
                     return store.vtopUnitTypes.filter(t => {
-                      const key = t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').trim();
+                      const key = t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '').trim();
                       if (seen.has(key)) return false;
                       seen.add(key);
                       return true;

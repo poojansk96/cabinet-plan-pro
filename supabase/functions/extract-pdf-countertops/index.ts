@@ -10,149 +10,12 @@ type ModelAttempt = { name: string; retries: number };
 
 const PRIMARY_MODELS: ModelAttempt[] = [
   { name: "gemini-3-flash-preview", retries: 3 },
-  { name: "gemini-2.5-pro", retries: 2 },
+  { name: "gemini-2.5-flash", retries: 2 },
 ];
 
 const VERIFY_MODELS: ModelAttempt[] = [
   { name: "gemini-3-flash-preview", retries: 2 },
-  { name: "gemini-2.5-pro", retries: 1 },
 ];
-
-const COMMON_AREA_LABELS: Array<{ label: string; re: RegExp }> = [
-  { label: "Kitchenette", re: /\bKITCHENETTE\b/i },
-  { label: "Mail Room", re: /\bMAIL\s*ROOM\b/i },
-  { label: "Break Room", re: /\bBREAK\s*ROOM\b/i },
-  { label: "Business Center", re: /\bBUSINESS\s*CENTER\b/i },
-  { label: "Community Room", re: /\bCOMMUNITY\s*ROOM\b/i },
-  { label: "Pool Bath", re: /\bPOOL\s*BATH\b/i },
-  { label: "Leasing", re: /\bLEASING\b/i },
-  { label: "Clubhouse", re: /\bCLUBHOUSE\b/i },
-  { label: "Fitness", re: /\bFITNESS\b/i },
-  { label: "Laundry", re: /\bLAUNDRY\b/i },
-  { label: "Restroom", re: /\bRESTROOM\b/i },
-  { label: "Lobby", re: /\bLOBBY\b/i },
-  { label: "Office", re: /\bOFFICE\b/i },
-  { label: "Reception", re: /\bRECEPTION\b/i },
-  { label: "Storage", re: /\bSTORAGE\b/i },
-  { label: "Garage", re: /\bGARAGE\b/i },
-  { label: "Corridor", re: /\bCORRIDOR\b/i },
-  { label: "Mechanical", re: /\bMECHANICAL\b/i },
-  { label: "Maintenance", re: /\bMAINTENANCE\b/i },
-  { label: "Trash", re: /\bTRASH\b/i },
-];
-
-function normalizeTypeText(value: string): string {
-  return String(value || "")
-    .replace(/[\u2010-\u2015]/g, "-")
-    .replace(/\u00A0/g, " ")
-    .replace(/\s+/g, " ")
-    .replace(/\s*-\s*/g, "-")
-    .replace(/\s*\(\s*/g, " (")
-    .replace(/\s*\)\s*/g, ")")
-    .trim();
-}
-
-function detectCommonAreaLabel(value: string): string | null {
-  for (const entry of COMMON_AREA_LABELS) {
-    if (entry.re.test(value)) return entry.label;
-  }
-  return null;
-}
-
-function normalizeResolvedTypeLabel(value: string): string {
-  const clean = normalizeTypeText(value);
-  if (!clean) return "";
-  if (/^(?:PLAN|ELEVATION|SECTION|DETAIL|SHEET|DRAWING|LEGEND)\b/i.test(clean)) return "";
-  const commonArea = detectCommonAreaLabel(clean);
-  if (commonArea) {
-    const suffixMatch = clean.match(/[-\s]+(AS|MIRROR|ADA|REV|ALT|OPTION)\b/i);
-    if (suffixMatch) return `${commonArea}-${suffixMatch[1].toUpperCase()}`;
-    return commonArea;
-  }
-  return clean.toUpperCase();
-}
-
-function hasStrongTypeStructure(value: string): boolean {
-  const text = normalizeResolvedTypeLabel(value).toUpperCase();
-  if (!text) return false;
-  return /\bTYPE\b/.test(text)
-    || /\b(?:STUDIO|\d+BR)\b/.test(text)
-    || /(?:^|[-\s])(?:AS|MIRROR|ADA|REV|ALT|OPTION)\b/.test(text)
-    || Boolean(detectCommonAreaLabel(text));
-}
-
-function isSuspiciousTypeLabel(value: string): boolean {
-  const text = normalizeResolvedTypeLabel(value);
-  if (!text) return true;
-  if (hasStrongTypeStructure(text)) return false;
-  if (/^(?:BLDG|BUILDING|FLOOR|LEVEL|UNIT)\b/i.test(text)) return true;
-  return /^[A-Z]?\d{1,4}[A-Z]?(?:-\d{1,4}[A-Z]?)?$/.test(text.toUpperCase().replace(/\s+/g, ""));
-}
-
-function canonicalTypeBase(value: string): string {
-  const text = normalizeResolvedTypeLabel(value).toUpperCase();
-  if (!text) return "";
-  const commonArea = detectCommonAreaLabel(text);
-  if (commonArea) return commonArea.toUpperCase().replace(/\s+/g, "");
-  return text
-    .replace(/\s+\((AS|MIRROR|ADA|REV|ALT|OPTION)\)$/g, "")
-    .replace(/-(AS|MIRROR|ADA|REV|ALT|OPTION)\b/g, "")
-    .replace(/^TYPE\s+/, "")
-    .replace(/\s+/g, "")
-    .trim();
-}
-
-function typeSpecificityScore(value: string): number {
-  const text = normalizeResolvedTypeLabel(value).toUpperCase();
-  if (!text) return 0;
-  let score = text.replace(/\s+/g, "").length;
-  if (/\bTYPE\b/.test(text)) score += 25;
-  if (/\b(?:STUDIO|\d+BR)\b/.test(text)) score += 20;
-  if (/(?:^|[-\s])(?:AS|MIRROR|ADA|REV|ALT|OPTION)\b/.test(text)) score += 30;
-  if (/\(|\)|\./.test(text)) score += 10;
-  if (detectCommonAreaLabel(text)) score += 30;
-  return score;
-}
-
-function trimPageText(value: string, limit = 12000): string {
-  const text = normalizeTypeText(value);
-  return text.length > limit ? text.slice(0, limit) : text;
-}
-
-function extractTypeFromPageText(pageText: string): string | null {
-  const text = trimPageText(pageText).replace(/[|]+/g, " ");
-  if (!text) return null;
-
-  const patterns = [
-    /\b(?:STUDIO|\d+\s*BR)\s+TYPE\s+[A-Z0-9][A-Z0-9._]*(?:\s*-\s*[A-Z0-9._]+)*(?:\s+\([A-Z0-9 ._-]+\))?/i,
-    /\bTYPE\s+[A-Z0-9][A-Z0-9._]*(?:\s*-\s*[A-Z0-9._]+)*(?:\s+\([A-Z0-9 ._-]+\))?/i,
-  ];
-
-  for (const pattern of patterns) {
-    const match = text.match(pattern)?.[0];
-    if (!match) continue;
-    const resolved = normalizeResolvedTypeLabel(match);
-    if (resolved && !isSuspiciousTypeLabel(resolved)) return resolved;
-  }
-
-  return detectCommonAreaLabel(text);
-}
-
-function pickPreferredUnitType(aiType: string, pageText: string): string {
-  const resolvedAi = normalizeResolvedTypeLabel(aiType);
-  const resolvedFromText = extractTypeFromPageText(pageText) || "";
-  if (!resolvedAi) return resolvedFromText;
-  if (!resolvedFromText) return resolvedAi;
-  if (isSuspiciousTypeLabel(resolvedAi)) return resolvedFromText;
-
-  const aiBase = canonicalTypeBase(resolvedAi);
-  const textBase = canonicalTypeBase(resolvedFromText);
-  if (aiBase && textBase && aiBase === textBase && typeSpecificityScore(resolvedFromText) > typeSpecificityScore(resolvedAi)) {
-    return resolvedFromText;
-  }
-
-  return resolvedAi;
-}
 
 async function requestGemini(
   apiKey: string,
@@ -200,17 +63,10 @@ async function requestGemini(
         break;
       }
 
-      if (response.status === 404) {
-        console.warn(`Model not found (404) for ${model}, skipping to next model`);
-        response = null;
-        break;
-      }
-
       if (!response.ok) {
         const errText = await response.text();
-        console.error(`AI error for ${model}:`, response.status, errText);
-        response = null;
-        break;
+        console.error("AI error:", response.status, errText);
+        throw new Error(`AI error: ${response.status}`);
       }
 
       succeeded = true;
@@ -228,60 +84,6 @@ async function requestGemini(
   throw new Error("ai_unavailable");
 }
 
-function extractBalancedObjectsFromNamedArray(content: string, key: string): string[] {
-  const keyIndex = content.indexOf(`"${key}"`);
-  if (keyIndex < 0) return [];
-
-  const arrayStart = content.indexOf("[", keyIndex);
-  if (arrayStart < 0) return [];
-
-  const objects: string[] = [];
-  let depth = 0;
-  let objectStart = -1;
-  let inString = false;
-  let escapeNext = false;
-
-  for (let index = arrayStart + 1; index < content.length; index++) {
-    const char = content[index];
-
-    if (escapeNext) {
-      escapeNext = false;
-      continue;
-    }
-
-    if (char === "\\" && inString) {
-      escapeNext = true;
-      continue;
-    }
-
-    if (char === '"') {
-      inString = !inString;
-      continue;
-    }
-
-    if (inString) continue;
-
-    if (char === "{") {
-      if (depth === 0) objectStart = index;
-      depth += 1;
-      continue;
-    }
-
-    if (char === "}") {
-      if (depth > 0) depth -= 1;
-      if (depth === 0 && objectStart >= 0) {
-        objects.push(content.slice(objectStart, index + 1));
-        objectStart = -1;
-      }
-      continue;
-    }
-
-    if (char === "]" && depth === 0) break;
-  }
-
-  return objects;
-}
-
 function parseCountertopJSON(content: string): { unitTypeName: string; countertops: any[] } {
   let parsed: { unitTypeName?: string; countertops?: any[] } = { countertops: [] };
   try {
@@ -297,25 +99,6 @@ function parseCountertopJSON(content: string): { unitTypeName: string; counterto
     if (end >= 0) cleaned = cleaned.slice(0, end + 1);
     parsed = JSON.parse(cleaned);
   } catch {
-    const cleaned = content.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
-    const recoveredType = cleaned.match(/"unitTypeName"\s*:\s*"([^"]*)"/i)?.[1] ?? "";
-    const recoveredCountertops = extractBalancedObjectsFromNamedArray(cleaned, "countertops")
-      .map((entry) => {
-        try {
-          return JSON.parse(entry);
-        } catch {
-          return null;
-        }
-      })
-      .filter(Boolean);
-
-    if (recoveredCountertops.length > 0 || recoveredType) {
-      return {
-        unitTypeName: String(recoveredType).trim(),
-        countertops: recoveredCountertops,
-      };
-    }
-
     console.error("JSON parse failed, raw:", content.slice(0, 500));
   }
   return {
@@ -354,8 +137,7 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
-    const { pageImage, pageText = "" } = await req.json();
-    const pageTextSnippet = trimPageText(String(pageText || ""));
+    const { pageImage } = await req.json();
 
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage (base64 string) required" }), {
@@ -366,16 +148,10 @@ serve(async (req) => {
 
     const extractionPrompt = `You are an expert millwork estimator analyzing a 2020 countertop shop drawing.
 
-PDF TEXT LAYER (use this to recover exact type names when the image text is small):
-${pageTextSnippet || "(not available)"}
-
 TASK:
 1. First, find the UNIT TYPE NAME from the drawing's title block. This is the architectural unit/plan type shown in the title block area (usually bottom-right or top of the drawing). Examples: "1.1B-AS", "TYPE A", "2BR-ADA", "BREAKROOM", "MAIL ROOM", "COMMUNITY ROOM", "STUDIO", "1BR MIRROR", etc. Extract the EXACT and COMPLETE name as it appears — do NOT abbreviate or modify it. This is critical for grouping countertops by unit type. If no title block or type name is visible, use "".
-   - CRITICAL: Preserve suffixes like -AS, -MIRROR, -ADA, and trailing digits.
-   - CRITICAL: Never use building labels or unit numbers as the unitTypeName.
 
 2. Then extract every countertop section visible. For each section extract:
-   - CRITICAL: Return EVERY countertop/top run on the page. Missing a run is worse than returning a duplicate. Include short legs, small vanity tops, and corner segments.
 
 a. **label** — a short descriptive name based on its location (e.g. "Perimeter Left", "Perimeter Right", "Island", "Peninsula", "Bar Top", "Vanity", "L-Section", "U-Section"). If the drawing has text labels, use those.
 b. **length** — total linear length in inches. Read dimension labels first. If no label, estimate from the drawing.
@@ -438,7 +214,7 @@ Return ONLY valid JSON — no markdown fences, no explanation:
     const countertops = (extracted.countertops).map(normalizeCountertop);
 
     // ── Pass 2: Verification ──
-    if (countertops.length > 0 || !!pageTextSnippet || !!extracted.unitTypeName) {
+    if (countertops.length > 0) {
       console.log("Starting verification pass...");
       const verifyPrompt = `You are verifying AI-extracted countertop data from a 2020 shop drawing.
 
@@ -448,12 +224,10 @@ ${JSON.stringify({ unitTypeName: extracted.unitTypeName, countertops }, null, 2)
 Look at the SAME shop drawing image and verify:
 1. Is the unitTypeName correct? If not, provide the correct one.
 2. Are there any MISSING countertop sections that were not extracted? Add them.
-2a. If the extracted list is empty or incomplete, do a fresh full extraction from scratch and return the COMPLETE list.
 3. Are the dimensions (length, depth, backsplashLength) accurate? Correct any errors.
 4. Are the categories (kitchen/bath) correct?
 5. Are there any DUPLICATE sections that should be removed?
 6. Are any sections actually NOT countertops (e.g. appliance cutouts listed separately)?
-7. Re-scan the full page carefully and make sure no countertop run is missed, including short segments, bath tops, and small vanity runs.
 
 Return the CORRECTED complete JSON — same format:
 {"unitTypeName":"...","countertops":[...]}
@@ -473,7 +247,7 @@ If everything looks correct, return the data as-is. Return ONLY valid JSON — n
 
         if (verified.countertops && verified.countertops.length > 0) {
           const verifiedCts = verified.countertops.map(normalizeCountertop);
-          const unitTypeName = pickPreferredUnitType(verified.unitTypeName || extracted.unitTypeName || "", pageTextSnippet);
+          const unitTypeName = (verified.unitTypeName || extracted.unitTypeName || "").trim();
           console.log("Verified unit type:", unitTypeName, "sections:", verifiedCts.length);
 
           return new Response(JSON.stringify({ unitTypeName, countertops: verifiedCts }), {
@@ -486,7 +260,7 @@ If everything looks correct, return the data as-is. Return ONLY valid JSON — n
     }
 
     // Fallback: return extraction result
-    const unitTypeName = pickPreferredUnitType(extracted.unitTypeName, pageTextSnippet);
+    const unitTypeName = extracted.unitTypeName;
     console.log("Detected unit type name:", unitTypeName);
 
     return new Response(JSON.stringify({ unitTypeName, countertops }), {

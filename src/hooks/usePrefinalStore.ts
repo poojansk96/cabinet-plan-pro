@@ -80,9 +80,7 @@ function normalizeTypeKeyPart(value: string): string {
     .toUpperCase()
     .trim()
     .replace(/^TYPE\s+/, '')
-    .replace(/\s*-\s*/g, '-')
-    .replace(/[^A-Z0-9\-]/g, '')
-    .replace(/-+$/g, '');
+    .replace(/[^A-Z0-9]/g, '');
 }
 
 function normalizeCabinetSku(value: string): string {
@@ -717,7 +715,7 @@ export function usePrefinalStore(projectId: string) {
   // ── Stone (Countertop) imports ──────────────────────────────────────────
   const addStoneUnitTypes = useCallback((types: string[]) => {
     setData(prev => {
-      const normalizeKey = (t: string) => t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').trim();
+      const normalizeKey = (t: string) => t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '').trim();
       const existingKeys = new Set(prev.stoneUnitTypes.map(t => normalizeKey(t)));
       const newTypes = types.filter(t => {
         const key = normalizeKey(t);
@@ -834,7 +832,7 @@ export function usePrefinalStore(projectId: string) {
   // ── Laminate LFT ──────────────────────────────────────────────────────
   const addLaminateUnitTypes = useCallback((types: string[]) => {
     setData(prev => {
-      const normalizeKey = (t: string) => t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').trim();
+      const normalizeKey = (t: string) => t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '').trim();
       const existingKeys = new Set(prev.laminateUnitTypes.map(t => normalizeKey(t)));
       const newTypes = types.filter(t => {
         const key = normalizeKey(t);
@@ -877,7 +875,7 @@ export function usePrefinalStore(projectId: string) {
   // ── Vtop (Cmarble/Swan) ──────────────────────────────────────────────
   const addVtopUnitTypes = useCallback((types: string[]) => {
     setData(prev => {
-      const normalizeKey = (t: string) => t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').trim();
+      const normalizeKey = (t: string) => t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '').trim();
       const existingKeys = new Set(prev.vtopUnitTypes.map(t => normalizeKey(t)));
       const newTypes = types.filter(t => {
         const key = normalizeKey(t);

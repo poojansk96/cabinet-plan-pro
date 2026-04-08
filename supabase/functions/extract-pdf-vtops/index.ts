@@ -38,7 +38,7 @@ type ModelAttempt = {
 
 const PRIMARY_MODELS: ModelAttempt[] = [
   { name: "gemini-3-flash-preview", retries: 3 },
-  { name: "gemini-2.5-pro", retries: 2 },
+  { name: "gemini-2.5-flash", retries: 2 },
 ];
 
 const VERIFY_MODELS: ModelAttempt[] = [
@@ -238,13 +238,6 @@ async function requestGemini(
           continue;
         }
         break;
-      }
-
-      if (response.status === 404) {
-        const errText = await response.text();
-        console.error(`AI error for ${model}:`, response.status, errText);
-        response = null;
-        break; // Try next model in fallback list
       }
 
       if (!response.ok) {
