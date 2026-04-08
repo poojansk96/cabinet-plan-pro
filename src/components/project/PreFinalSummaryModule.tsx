@@ -775,14 +775,10 @@ export default function PreFinalSummaryModule({ project }: Props) {
         : vanityMaterial === 'Cultured Marble' ? 'CULTURED MARBLE VTOPS'
         : 'CMARBLE/SWAN VTOPS';
 
-      // Get vtop unit types — merge stored list with any types found in vtopRows to avoid missing any
-      const storedVtopTypes = store.vtopUnitTypes.filter(t =>
+      // Get vtop unit types that actually have data
+      const vtopTypes = store.vtopUnitTypes.filter(t =>
         store.vtopRows.some(r => r.unitType === t)
       );
-      // Also collect any types present in rows but missing from the stored list
-      const rowOnlyTypes = [...new Set(store.vtopRows.map(r => r.unitType))]
-        .filter(t => !storedVtopTypes.includes(t));
-      const vtopTypes = [...storedVtopTypes, ...rowOnlyTypes];
       const nVtopTypes = vtopTypes.length;
 
       if (nVtopTypes > 0) {
