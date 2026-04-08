@@ -715,7 +715,7 @@ export function usePrefinalStore(projectId: string) {
   // ── Stone (Countertop) imports ──────────────────────────────────────────
   const addStoneUnitTypes = useCallback((types: string[]) => {
     setData(prev => {
-      const normalizeKey = (t: string) => t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '').trim();
+      const normalizeKey = (t: string) => t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, ' ').trim();
       const existingKeys = new Set(prev.stoneUnitTypes.map(t => normalizeKey(t)));
       const newTypes = types.filter(t => {
         const key = normalizeKey(t);
@@ -832,7 +832,7 @@ export function usePrefinalStore(projectId: string) {
   // ── Laminate LFT ──────────────────────────────────────────────────────
   const addLaminateUnitTypes = useCallback((types: string[]) => {
     setData(prev => {
-      const normalizeKey = (t: string) => t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '').trim();
+      const normalizeKey = (t: string) => t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, ' ').trim();
       const existingKeys = new Set(prev.laminateUnitTypes.map(t => normalizeKey(t)));
       const newTypes = types.filter(t => {
         const key = normalizeKey(t);
