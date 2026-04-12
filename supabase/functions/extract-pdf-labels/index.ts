@@ -688,7 +688,8 @@ ${isStrip ? '\nNOTE: This image shows a CROPPED SECTION of a larger drawing page
 If no cabinet SKUs are found, return {"items":[]}`;
 
     // ── Step 2a: Initial extraction ──
-    const extractionModel = "gemini-3.1-flash-lite-preview";
+    const useAccuModel = aiModel === 'accu';
+    const extractionModel = useAccuModel ? "gemini-3-flash-preview" : "gemini-3.1-flash-lite-preview";
     console.log(`Using model: ${extractionModel} (aiModel=${aiModel})`);
     let extracted: any = { items: [] };
     try {
@@ -736,7 +737,7 @@ ${isStrip ? '\nNOTE: This is a CROPPED SECTION of a larger page. Only report wha
 Return ALL valid cabinet SKUs (kept from original + newly found). If the original list was correct, return it unchanged.`;
 
       try {
-        const verified: any = await callGemini(GEMINI_API_KEY, "gemini-3.1-flash-lite-preview", pageImage, verifyPrompt, 0.1, 8192, EXTRACT_SCHEMA);
+        const verified: any = await callGemini(GEMINI_API_KEY, useAccuModel ? "gemini-3-flash-preview" : "gemini-3.1-flash-lite-preview", pageImage, verifyPrompt, 0.1, 8192, EXTRACT_SCHEMA);
         const verifiedItems = verified.items ?? [];
         if (verifiedItems.length > 0) {
           // Use verification results but never let it drop count below 50% of original
@@ -794,7 +795,7 @@ IMPORTANT: Only include a SKU if you can actually SEE it as a printed label on t
 ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
 
         try {
-          const recovery: any = await callGemini(GEMINI_API_KEY, "gemini-3.1-flash-lite-preview", pageImage, recoveryPrompt, 0.3, 4096, EXTRACT_SCHEMA);
+          const recovery: any = await callGemini(GEMINI_API_KEY, useAccuModel ? "gemini-3-flash-preview" : "gemini-3.1-flash-lite-preview", pageImage, recoveryPrompt, 0.3, 4096, EXTRACT_SCHEMA);
           const recoveredItems = (recovery.items ?? []).filter((item: any) => {
             const normalized = normalizeSkuLabel(String(item.sku || ''));
             return normalized && isValidSku(normalized) && !extractedAfterVerify.has(normalized);
