@@ -688,7 +688,8 @@ ${isStrip ? '\nNOTE: This image shows a CROPPED SECTION of a larger drawing page
 If no cabinet SKUs are found, return {"items":[]}`;
 
     // ── Step 2a: Initial extraction ──
-    const extractionModel = "gemini-3.1-flash-lite-preview";
+    const useAccuModel = aiModel === 'accu';
+    const extractionModel = useAccuModel ? "gemini-3-flash-preview" : "gemini-3.1-flash-lite-preview";
     console.log(`Using model: ${extractionModel} (aiModel=${aiModel})`);
     let extracted: any = { items: [] };
     try {
