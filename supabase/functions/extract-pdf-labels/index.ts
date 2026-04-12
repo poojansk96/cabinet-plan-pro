@@ -18,7 +18,7 @@ async function callGemini(
   responseSchema?: any,
 ): Promise<any> {
   // Model fallback: try primary model 3 times, then fallback model 3 times
-  const MODELS = [model, "gemini-2.5-pro"];
+  const MODELS = [model, "gemini-3.1-flash-lite-preview"];
   const MAX_RETRIES = 3;
   let response: Response | null = null;
 
@@ -570,7 +570,7 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
 
       let classification: any = { pageType: "plan_view", unitTypeName: null, isCommonArea: false };
       try {
-        classification = await callGemini(GEMINI_API_KEY, "gemini-3-flash-preview", pageImage, classifyPrompt, 0.1, 1024, CLASSIFY_SCHEMA);
+        classification = await callGemini(GEMINI_API_KEY, "gemini-3.1-flash-lite-preview", pageImage, classifyPrompt, 0.1, 1024, CLASSIFY_SCHEMA);
       } catch (e: any) {
         if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -688,8 +688,7 @@ ${isStrip ? '\nNOTE: This image shows a CROPPED SECTION of a larger drawing page
 If no cabinet SKUs are found, return {"items":[]}`;
 
     // ── Step 2a: Initial extraction ──
-    const useAccuModel = aiModel === 'accu';
-    const extractionModel = useAccuModel ? "gemini-3-flash-preview" : "gemini-3.1-flash-lite-preview";
+    const extractionModel = "gemini-3.1-flash-lite-preview";
     console.log(`Using model: ${extractionModel} (aiModel=${aiModel})`);
     let extracted: any = { items: [] };
     try {
