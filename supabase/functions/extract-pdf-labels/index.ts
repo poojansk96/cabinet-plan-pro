@@ -116,7 +116,7 @@ async function callGemini(
 
 // ── SKU Helpers ──
 
-const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|WDC|UB|WC|OH|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HALC|HAL|HAB|HADB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS)\d[\w\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
+const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|WDC|UB|WC|OH|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS)\d[\w\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
 // Secondary pattern for APPRON with space before dimensions (e.g. "APPRON 59X21")
 const APPRON_DIM_PATTERN = /\bAPPRON\s+(\d+X\d+)\b/gi;
 const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
@@ -212,7 +212,7 @@ function classifySku(sku: string): string {
   if (/^HCW\d/i.test(normalizedSku)) return "Wall";
   if (/^HW\d/i.test(normalizedSku)) return "Wall";
   if (/^(T|UT|TC|PT|PTC|UC)(\d|$)/i.test(normalizedSku)) return "Tall";
-  if (/^(HALC|HCUC|HCYC)\d/i.test(normalizedSku)) return "Tall";
+  if (/^(HALC|HAUC|HCUC|HCYC)\d/i.test(normalizedSku)) return "Tall";
   if (/^(V|VB|VD|VDC)\d/i.test(normalizedSku)) return "Vanity";
   if (/^(HAV|HAVDB)\d/i.test(normalizedSku)) return "Vanity";
   if (/^(BP|SCRIBE)$/i.test(normalizedSku)) return "Accessory";
@@ -266,7 +266,7 @@ function trySplitConcatenatedSku(rawSku: string, knownTextSkus: string[] = []): 
 
 // Known cabinet SKU prefixes for boundary detection (ordered longest-first to match greedily)
 const CABINET_PREFIXES = [
-  'HAWDC','HAVDB','HALSB','HADB','HAOC','HASB','HACB','HAEB','HALS','HALC',
+  'HAWDC','HAVDB','HALSB','HADB','HAOC','HASB','HACB','HAEB','HALS','HALC','HAUC',
   'HCBMW','HCBM','HCOC','HCUC','HCYC','HCDB','HCLS','HWSB','HWS',
   'BFFIL','WFFIL','TKRUN',
   'HAB','HAW','HAV','HAL','HCB','HSS',
@@ -628,7 +628,7 @@ For each cabinet found, provide:
 2. type: Classify by prefix:
    - "Base" → B, DB, SB, CB, EB, LS, LSB, HCDB, HCLS, HWS, HWSB, HAB, HADB, HAOC, HASB, HACB, HAEB (but NOT BLW/BRW — those are Wall, NOT HAV — those are Vanity)
     - "Wall" → W, WDC, UB, WC, OH, BLW, BRW, HAW, HAWDC, HCW, HW (ONLY when the prefix is exactly HW followed immediately by digits; HWS/HWSB are Base)
-     - "Tall" → T, UT, TC, PT, PTC, UC, HALC, HCUC, HCYC (HCUC15X82 and HCYC15S82-L = Tall, NOT Wall)
+     - "Tall" → T, UT, TC, PT, PTC, UC, HALC, HAUC, HCUC, HCYC (HCUC15X82, HAUC1818X72, HCYC15S82-L = Tall, NOT Wall)
      - "Vanity" → V, VB, VD, VDC, HAV, HAVDB (HAV/HAVDB = Vanity, NOT Base)
    - "Accessory" → FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR, TF, APPRON
 3. room: From room labels on the plan (Kitchen, Bath, Laundry, Pantry — capitalize first letter only)
@@ -678,7 +678,7 @@ SKIP THESE — NOT CABINET SKUs:
 
 VALID SKU PREFIXES (a label must start with letters followed by a digit):
 B, DB, SB, CB, EB, LS, LSB, W, WDC, UB, WC, OH, BLW, BRW, T, TF, UT, TC, PT, PTC, UC, V, VB, VD, VDC, FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR, APPRON
-Also accept manufacturer-specific longer prefixes (e.g. HA, HAV, HAVDB, HALC, SA, SV) followed by digits.
+Also accept manufacturer-specific longer prefixes (e.g. HA, HAV, HAVDB, HALC, HAUC, SA, SV) followed by digits.
 
 VALID NO-DIGIT SKUS:
 UC, SCRIBE, BP

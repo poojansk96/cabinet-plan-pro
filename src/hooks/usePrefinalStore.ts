@@ -100,7 +100,7 @@ function classifyPrefinalCabinetSku(value: string): string {
   if (/^HCW\d/i.test(sku)) return 'Wall';
   if (/^HW\d/i.test(sku)) return 'Wall';
   if (/^(T|UT|TC|PT|PTC|UC)(\d|$)/i.test(sku)) return 'Tall';
-  if (/^(HALC|HCUC|HCYC)\d/i.test(sku)) return 'Tall';
+  if (/^(HALC|HAUC|HCUC|HCYC)\d/i.test(sku)) return 'Tall';
   if (/^(V|VB|VD|VDC)\d/i.test(sku)) return 'Vanity';
   if (/^(HAV|HAVDB)\d/i.test(sku)) return 'Vanity';
   if (/^(BP|SCRIBE)$/i.test(sku)) return 'Accessory';
