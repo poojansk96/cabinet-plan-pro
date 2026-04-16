@@ -43,4 +43,17 @@ describe('mergePrefinalExtractionPasses', () => {
     expect(merged).toHaveLength(1);
     expect(merged[0].quantity).toBe(2);
   });
+
+  it('caps down AI quantity to text layer count when AI hallucinates extra', () => {
+    const merged = mergePrefinalExtractionPasses([
+      [{ sku: 'W3018X24B', room: 'Kitchen', type: 'Wall', quantity: 1 }],
+      [{ sku: 'W3018X24B', room: 'Kitchen', type: 'Wall', quantity: 2 }],
+      [{ sku: 'W3018X24B', room: 'Kitchen', type: 'Wall', quantity: 1 }],
+    ], {
+      W3018X24B: 1,
+    });
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0].quantity).toBe(1);
+  });
 });
