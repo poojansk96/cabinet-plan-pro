@@ -985,11 +985,12 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
         return { ...item, quantity: textCount };
       }
 
-      // CAP: Allow +1 tolerance above text layer — AI vision can occasionally see
-      // a rotated or overlapping label that text OCR missed
-      const capValue = textCount + 1;
+      // CAP: For full-page scans, trust the text layer count strictly — it reads
+      // the actual embedded PDF text and is highly reliable. For strip crops,
+      // allow +1 tolerance since partial text may be cut off at crop edges.
+      const capValue = isStrip ? textCount + 1 : textCount;
       if (item.quantity > capValue) {
-        console.log(`Non-accessory qty cap: ${item.sku} ${item.quantity} → ${capValue} (text layer + tolerance)`);
+        console.log(`Non-accessory qty cap: ${item.sku} ${item.quantity} → ${capValue} (text layer${isStrip ? ' + strip tolerance' : ' strict'})`);
         return { ...item, quantity: capValue };
       }
       return item;
