@@ -435,7 +435,20 @@ export default function PreFinalModule({ project }: Props) {
       });
     }
     if (group === 'Base') {
+      const basePrefixOrder = (sku: string): number => {
+        const u = sku.toUpperCase();
+        if (/^(BLB|BLD|BLW|BRW)\d/i.test(u)) return 2; // blind bases
+        if (/^SB\d/i.test(u)) return 3; // sink bases
+        if (/^(DB|CB|EB)\d/i.test(u)) return 1; // drawer bases
+        if (/^B\d/i.test(u)) return 0; // regular bases
+        return 4;
+      };
+      const isHA = (sku: string) => /^HA/i.test(sku);
       return [...skus].sort((a, b) => {
+        const haA = isHA(a) ? 1 : 0, haB = isHA(b) ? 1 : 0;
+        if (haA !== haB) return haA - haB;
+        const pa = basePrefixOrder(a.replace(/^HA/i, '')), pb = basePrefixOrder(b.replace(/^HA/i, ''));
+        if (pa !== pb) return pa - pb;
         const da = parseSkuDims(a), db = parseSkuDims(b);
         if (da.width !== db.width) return da.width - db.width;
         return da.height - db.height;
