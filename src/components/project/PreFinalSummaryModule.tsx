@@ -25,10 +25,21 @@ function parseSkuDims(sku: string): { width: number; height: number } {
 }
 
 function sortSkusForGroup(skus: string[], group: string): string[] {
+  const isHA = (sku: string) => /^HA/i.test(sku);
   if (group === 'Wall') {
+    const wallPrefixOrder = (sku: string): number => {
+      const u = sku.toUpperCase();
+      if (/^(BLW)\d/i.test(u)) return 1;
+      if (/^W\d/i.test(u)) return 0;
+      return 2;
+    };
     return [...skus].sort((a, b) => {
+      const haA = isHA(a) ? 1 : 0, haB = isHA(b) ? 1 : 0;
+      if (haA !== haB) return haA - haB;
       const da = parseSkuDims(a), db = parseSkuDims(b);
       if (da.height !== db.height) return da.height - db.height;
+      const pa = wallPrefixOrder(a.replace(/^HA/i, '')), pb = wallPrefixOrder(b.replace(/^HA/i, ''));
+      if (pa !== pb) return pa - pb;
       return da.width - db.width;
     });
   }
@@ -41,12 +52,20 @@ function sortSkusForGroup(skus: string[], group: string): string[] {
       if (/^B\d/i.test(u)) return 0;
       return 4;
     };
-    const isHA = (sku: string) => /^HA/i.test(sku);
     return [...skus].sort((a, b) => {
       const haA = isHA(a) ? 1 : 0, haB = isHA(b) ? 1 : 0;
       if (haA !== haB) return haA - haB;
       const pa = basePrefixOrder(a.replace(/^HA/i, '')), pb = basePrefixOrder(b.replace(/^HA/i, ''));
       if (pa !== pb) return pa - pb;
+      const da = parseSkuDims(a), db = parseSkuDims(b);
+      if (da.width !== db.width) return da.width - db.width;
+      return da.height - db.height;
+    });
+  }
+  if (group === 'UC') {
+    return [...skus].sort((a, b) => {
+      const haA = isHA(a) ? 1 : 0, haB = isHA(b) ? 1 : 0;
+      if (haA !== haB) return haA - haB;
       const da = parseSkuDims(a), db = parseSkuDims(b);
       if (da.width !== db.width) return da.width - db.width;
       return da.height - db.height;
