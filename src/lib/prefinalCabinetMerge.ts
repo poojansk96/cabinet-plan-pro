@@ -300,9 +300,16 @@ export function mergePrefinalExtractionPasses(
 
     const currentQty = Math.max(1, Number(existing.quantity) || 1);
     const support = stripStats.get(key)?.support ?? 0;
-    const canPromoteByOne = planTextCount === currentQty + 1 && (currentQty >= 3 || support >= 3);
 
+    // Promote up: text layer shows one more than AI detected, with enough confidence
+    const canPromoteByOne = planTextCount === currentQty + 1 && (currentQty >= 3 || support >= 3);
     if (canPromoteByOne) {
+      existing.quantity = planTextCount;
+    }
+
+    // Cap down: if AI detected more than the text layer shows, trust the text layer
+    // The text layer is ground truth for how many physical labels exist in the drawing
+    if (currentQty > planTextCount) {
       existing.quantity = planTextCount;
     }
   }
