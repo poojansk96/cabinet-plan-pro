@@ -19,6 +19,8 @@ interface Props {
   onClose: () => void;
   prefinalPerson?: string;
   extractionType?: ExtractionType;
+  aiProvider?: 'gemini' | 'dialagram';
+  dialagramModel?: string;
 }
 
 const PERSONAL_QUOTES = [
@@ -82,7 +84,7 @@ const QUOTES = [
   "Calculating surface areas...",
 ];
 
-export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson, extractionType = 'stone' }: Props) {
+export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson, extractionType = 'stone', aiProvider = 'gemini', dialagramModel = 'qwen-3.6-plus' }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<StoneExtractedRow[]>([]);
   const [error, setError] = useState('');
@@ -192,7 +194,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                   'Content-Type': 'application/json',
                   'Authorization': `Bearer ${SUPABASE_KEY}`,
                 },
-                body: JSON.stringify({ pageImage }),
+                body: JSON.stringify({ pageImage, provider: aiProvider, dialagramModel }),
                 signal: controller.signal,
               });
               clearTimeout(timeout);

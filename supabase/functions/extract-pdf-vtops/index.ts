@@ -261,17 +261,94 @@ async function requestGemini(
   throw new Error("ai_unavailable");
 }
 
+// ── Dialagram (OpenAI-compatible Qwen) ──
+const DIALAGRAM_BASE_URL = "https://www.dialagram.me/router/v1";
+
+async function requestDialagram(
+  apiKey: string,
+  images: Array<{ mimeType: string; data: string }>,
+  prompt: string,
+  model: string,
+  temperature: number,
+  maxTokens: number,
+): Promise<string> {
+  const MAX_RETRIES = 3;
+  const imageParts = images.map((img) => ({
+    type: "image_url" as const,
+    image_url: { url: `data:${img.mimeType};base64,${img.data}` },
+  }));
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    let response: Response;
+    try {
+      response = await fetch(`${DIALAGRAM_BASE_URL}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          temperature,
+          max_tokens: maxTokens,
+          messages: [
+            {
+              role: "user",
+              content: [...imageParts, { type: "text", text: prompt }],
+            },
+          ],
+        }),
+      });
+    } catch (fetchErr) {
+      console.error(`Dialagram fetch error (attempt ${attempt + 1}):`, fetchErr);
+      if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
+      throw new Error("ai_unavailable");
+    }
+
+    if (response.status === 429) throw new Error("rate_limit");
+    if (response.status === 402) throw new Error("credits");
+    if (response.status === 503 || response.status === 500) {
+      console.warn(`Dialagram unavailable (${response.status}), attempt ${attempt + 1}/${MAX_RETRIES}`);
+      if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
+      throw new Error("ai_unavailable");
+    }
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("Dialagram error:", response.status, errText);
+      throw new Error(`AI error: ${response.status}`);
+    }
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content ?? "";
+  }
+  throw new Error("ai_unavailable");
+}
+
+async function callAI(
+  provider: "gemini" | "dialagram",
+  images: Array<{ mimeType: string; data: string }>,
+  prompt: string,
+  opts: { temperature: number; maxOutputTokens: number; geminiModels: ModelAttempt[]; dialagramModel: string },
+): Promise<string> {
+  if (provider === "dialagram") {
+    const key = Deno.env.get("DIALAGRAM_API_KEY");
+    if (!key) throw new Error("DIALAGRAM_API_KEY not configured");
+    return requestDialagram(key, images, prompt, opts.dialagramModel, opts.temperature, opts.maxOutputTokens);
+  }
+  const key = Deno.env.get("GEMINI_API_KEY");
+  if (!key) throw new Error("GEMINI_API_KEY not configured");
+  return requestGemini(key, images, prompt, opts.geminiModels, { temperature: opts.temperature, maxOutputTokens: opts.maxOutputTokens });
+}
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
-
     const body = await req.json();
-    const { pageImage, focusedWallDetection, rightEndCrop } = body;
+    const { pageImage, focusedWallDetection, rightEndCrop, provider: providerInput, dialagramModel: dialagramModelInput } = body;
+    const provider: "gemini" | "dialagram" = providerInput === "dialagram" ? "dialagram" : "gemini";
+    const dialagramModel = String(dialagramModelInput || "qwen-3.6-plus");
+    console.log(`extract-pdf-vtops provider=${provider}${provider === "dialagram" ? ` model=${dialagramModel}` : ""}`);
 
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage (base64 string) required" }), {
@@ -302,15 +379,19 @@ leftWallYesConfidence: probability 0.0-1.0 that the LEFT end has a wall
 rightWallYesConfidence: probability 0.0-1.0 that the RIGHT end has a wall`;
 
       try {
-        const content = await requestGemini(
-          GEMINI_API_KEY,
+        const content = await callAI(
+          provider,
           [
             { mimeType: "image/png", data: pageImage },
             { mimeType: "image/png", data: rightEndCrop },
           ],
           focusedPrompt,
-          [{ name: "gemini-3-flash-preview", retries: 2 }],
-          { temperature: 0.1, maxOutputTokens: 256 },
+          {
+            temperature: 0.1,
+            maxOutputTokens: 256,
+            geminiModels: [{ name: "gemini-3-flash-preview", retries: 2 }],
+            dialagramModel,
+          },
         );
         console.log("Focused wall raw:", content);
         const result = parseWallConfidence(content);
@@ -406,12 +487,16 @@ Return ONLY valid JSON — no markdown fences, no explanation:
     // ── Pass 1: Extraction ──
     let fullContent = "";
     try {
-      fullContent = await requestGemini(
-        GEMINI_API_KEY,
+      fullContent = await callAI(
+        provider,
         [{ mimeType: "image/jpeg", data: pageImage }],
         fullPrompt,
-        PRIMARY_MODELS,
-        { temperature: 0.1, maxOutputTokens: 4096 },
+        {
+          temperature: 0.1,
+          maxOutputTokens: 4096,
+          geminiModels: PRIMARY_MODELS,
+          dialagramModel,
+        },
       );
     } catch (err) {
       if (err instanceof Error && err.message === "rate_limit") {
@@ -472,12 +557,16 @@ Return the CORRECTED complete JSON — same format:
 If everything looks correct, return the data as-is. Return ONLY valid JSON — no markdown fences, no explanation.`;
 
       try {
-        const verifyContent = await requestGemini(
-          GEMINI_API_KEY,
+        const verifyContent = await callAI(
+          provider,
           [{ mimeType: "image/jpeg", data: pageImage }],
           verifyPrompt,
-          VERIFY_MODELS,
-          { temperature: 0.1, maxOutputTokens: 4096 },
+          {
+            temperature: 0.1,
+            maxOutputTokens: 4096,
+            geminiModels: VERIFY_MODELS,
+            dialagramModel,
+          },
         );
         console.log("Verify vtop raw:", verifyContent.slice(0, 800));
         const verified = parseExtractionText(verifyContent);

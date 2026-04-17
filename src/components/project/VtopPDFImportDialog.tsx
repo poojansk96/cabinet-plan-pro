@@ -24,6 +24,8 @@ interface Props {
   onImport: (rows: VtopImportRow[], detectedTypes?: string[]) => void;
   onClose: () => void;
   prefinalPerson?: string;
+  aiProvider?: 'gemini' | 'dialagram';
+  dialagramModel?: string;
 }
 
 type Step = 'upload' | 'processing' | 'review';
@@ -386,7 +388,7 @@ export { formatVtopSku, getVtopSidesplashItems };
 
 // ─── Main component ───
 
-export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson }: Props) {
+export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson, aiProvider = 'gemini', dialagramModel = 'qwen-3.6-plus' }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<VtopImportRow[]>([]);
   const [error, setError] = useState('');
@@ -495,7 +497,7 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson 
                   'Content-Type': 'application/json',
                   'Authorization': `Bearer ${SUPABASE_KEY}`,
                 },
-                body: JSON.stringify({ pageImage }),
+                body: JSON.stringify({ pageImage, provider: aiProvider, dialagramModel }),
                 signal: controller.signal,
               });
               clearTimeout(timeout);

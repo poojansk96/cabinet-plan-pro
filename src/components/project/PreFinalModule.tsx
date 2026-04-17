@@ -29,6 +29,27 @@ function normalizeUnitType(raw: string): string {
   return s;
 }
 
+function ProviderToggle({ value, onChange }: { value: 'gemini' | 'dialagram'; onChange: (v: 'gemini' | 'dialagram') => void }) {
+  return (
+    <div className="inline-flex items-center rounded border border-border overflow-hidden text-[10px] font-medium" title="AI Provider">
+      <button
+        type="button"
+        onClick={() => onChange('gemini')}
+        className={`px-2 py-1 transition-colors ${value === 'gemini' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-secondary'}`}
+      >
+        Gemini
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange('dialagram')}
+        className={`px-2 py-1 transition-colors ${value === 'dialagram' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-secondary'}`}
+      >
+        Qwen
+      </button>
+    </div>
+  );
+}
+
 export default function PreFinalModule({ project }: Props) {
   const store = usePrefinalStore(project.id);
   const [activeSubTab, setActiveSubTab] = useState<'units' | 'cabinets' | 'stone' | 'laminate' | 'cmarble'>('units');
@@ -49,6 +70,9 @@ export default function PreFinalModule({ project }: Props) {
   const [cabinetImportedCount, setCabinetImportedCount] = useState<number | null>(null);
   const [cabinetChecks, setCabinetChecks] = useState<Record<string, boolean>>({});
   const [cabinetAiModel, setCabinetAiModel] = useState<'fast' | 'accu'>('fast');
+  // Stone/Laminate/Vtop AI provider (test toggle for Dialagram Qwen)
+  const [stoneAiProvider, setStoneAiProvider] = useState<'gemini' | 'dialagram'>('gemini');
+  const [vtopAiProvider, setVtopAiProvider] = useState<'gemini' | 'dialagram'>('gemini');
 
   // ── Stone SQFT state ──────────────────────────────────────────────────
   const [showStoneImport, setShowStoneImport] = useState(false);
@@ -533,6 +557,7 @@ export default function PreFinalModule({ project }: Props) {
           onClose={() => setShowStoneImport(false)}
           prefinalPerson={project.specs?.takeoffPerson}
           extractionType="stone"
+          aiProvider={stoneAiProvider}
         />
       )}
 
@@ -543,6 +568,7 @@ export default function PreFinalModule({ project }: Props) {
           onClose={() => setShowLaminateImport(false)}
           prefinalPerson={project.specs?.takeoffPerson}
           extractionType="laminate"
+          aiProvider={stoneAiProvider}
         />
       )}
 
@@ -552,6 +578,7 @@ export default function PreFinalModule({ project }: Props) {
           onImport={(rows, detectedTypes) => handleVtopImport(rows, detectedTypes)}
           onClose={() => setShowVtopImport(false)}
           prefinalPerson={project.specs?.takeoffPerson}
+          aiProvider={vtopAiProvider}
         />
       )}
 
@@ -1237,6 +1264,7 @@ export default function PreFinalModule({ project }: Props) {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <ProviderToggle value={stoneAiProvider} onChange={setStoneAiProvider} />
                   <button
                     onClick={() => setShowStoneImport(true)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
@@ -1263,6 +1291,7 @@ export default function PreFinalModule({ project }: Props) {
                 Stone Area
 
                 <div className="ml-auto flex items-center gap-2 flex-wrap">
+                  <ProviderToggle value={stoneAiProvider} onChange={setStoneAiProvider} />
                   <button
                     onClick={() => setShowStoneImport(true)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
@@ -1639,6 +1668,7 @@ export default function PreFinalModule({ project }: Props) {
               P-Laminate KTOP
 
               <div className="ml-auto flex items-center gap-2 flex-wrap">
+                <ProviderToggle value={stoneAiProvider} onChange={setStoneAiProvider} />
                 <button
                   onClick={() => setShowLaminateImport(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
@@ -1845,6 +1875,7 @@ export default function PreFinalModule({ project }: Props) {
               🛁 Cmarble/Swan Vtop
 
               <div className="ml-auto flex items-center gap-2 flex-wrap">
+                <ProviderToggle value={vtopAiProvider} onChange={setVtopAiProvider} />
                 <button
                   onClick={() => setShowVtopImport(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"

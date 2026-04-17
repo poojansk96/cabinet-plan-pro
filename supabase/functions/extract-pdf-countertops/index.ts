@@ -27,7 +27,7 @@ async function requestGemini(
   let response: Response | null = null;
 
   for (const { name: model, retries } of models) {
-    console.log(`Trying model: ${model} (${retries} attempts)`);
+    console.log(`Trying Gemini model: ${model} (${retries} attempts)`);
     let succeeded = false;
 
     for (let attempt = 0; attempt < retries; attempt++) {
@@ -84,6 +84,87 @@ async function requestGemini(
   throw new Error("ai_unavailable");
 }
 
+// ── Dialagram (OpenAI-compatible Qwen) ──
+const DIALAGRAM_BASE_URL = "https://www.dialagram.me/router/v1";
+
+async function requestDialagram(
+  apiKey: string,
+  imageData: string,
+  prompt: string,
+  model: string,
+  temperature: number,
+  maxTokens: number,
+): Promise<string> {
+  const MAX_RETRIES = 3;
+  let response: Response | null = null;
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      response = await fetch(`${DIALAGRAM_BASE_URL}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          temperature,
+          max_tokens: maxTokens,
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "image_url",
+                  image_url: { url: `data:image/jpeg;base64,${imageData}` },
+                },
+                { type: "text", text: prompt },
+              ],
+            },
+          ],
+        }),
+      });
+    } catch (fetchErr) {
+      console.error(`Dialagram fetch error (attempt ${attempt + 1}):`, fetchErr);
+      if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
+      throw new Error("ai_unavailable");
+    }
+
+    if (response.status === 429) throw new Error("rate_limit");
+    if (response.status === 402) throw new Error("credits");
+    if (response.status === 503 || response.status === 500) {
+      console.warn(`Dialagram unavailable (${response.status}), attempt ${attempt + 1}/${MAX_RETRIES}`);
+      if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
+      throw new Error("ai_unavailable");
+    }
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("Dialagram error:", response.status, errText);
+      throw new Error(`AI error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content ?? "";
+  }
+  throw new Error("ai_unavailable");
+}
+
+async function callAI(
+  provider: "gemini" | "dialagram",
+  imageData: string,
+  prompt: string,
+  opts: { temperature: number; maxOutputTokens: number; geminiModels: ModelAttempt[]; dialagramModel: string },
+): Promise<string> {
+  if (provider === "dialagram") {
+    const key = Deno.env.get("DIALAGRAM_API_KEY");
+    if (!key) throw new Error("DIALAGRAM_API_KEY not configured");
+    return requestDialagram(key, imageData, prompt, opts.dialagramModel, opts.temperature, opts.maxOutputTokens);
+  }
+  const key = Deno.env.get("GEMINI_API_KEY");
+  if (!key) throw new Error("GEMINI_API_KEY not configured");
+  return requestGemini(key, imageData, prompt, opts.geminiModels, { temperature: opts.temperature, maxOutputTokens: opts.maxOutputTokens });
+}
+
 function parseCountertopJSON(content: string): { unitTypeName: string; countertops: any[] } {
   let parsed: { unitTypeName?: string; countertops?: any[] } = { countertops: [] };
   try {
@@ -134,10 +215,10 @@ serve(async (req) => {
   }
 
   try {
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
-
-    const { pageImage } = await req.json();
+    const { pageImage, provider: providerInput, dialagramModel: dialagramModelInput } = await req.json();
+    const provider: "gemini" | "dialagram" = providerInput === "dialagram" ? "dialagram" : "gemini";
+    const dialagramModel = String(dialagramModelInput || "qwen-3.6-plus");
+    console.log(`extract-pdf-countertops provider=${provider}${provider === "dialagram" ? ` model=${dialagramModel}` : ""}`);
 
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage (base64 string) required" }), {
@@ -189,13 +270,12 @@ Return ONLY valid JSON — no markdown fences, no explanation:
     // ── Pass 1: Extraction ──
     let extractionContent = "";
     try {
-      extractionContent = await requestGemini(
-        GEMINI_API_KEY,
-        pageImage,
-        extractionPrompt,
-        PRIMARY_MODELS,
-        { temperature: 0.2, maxOutputTokens: 8192 },
-      );
+      extractionContent = await callAI(provider, pageImage, extractionPrompt, {
+        temperature: 0.2,
+        maxOutputTokens: 8192,
+        geminiModels: PRIMARY_MODELS,
+        dialagramModel,
+      });
     } catch (err) {
       if (err instanceof Error && err.message === "rate_limit") {
         return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -235,13 +315,12 @@ Return the CORRECTED complete JSON — same format:
 If everything looks correct, return the data as-is. Return ONLY valid JSON — no markdown fences, no explanation.`;
 
       try {
-        const verifyContent = await requestGemini(
-          GEMINI_API_KEY,
-          pageImage,
-          verifyPrompt,
-          VERIFY_MODELS,
-          { temperature: 0.1, maxOutputTokens: 8192 },
-        );
+        const verifyContent = await callAI(provider, pageImage, verifyPrompt, {
+          temperature: 0.1,
+          maxOutputTokens: 8192,
+          geminiModels: VERIFY_MODELS,
+          dialagramModel,
+        });
         console.log("Verify countertop raw:", verifyContent.slice(0, 800));
         const verified = parseCountertopJSON(verifyContent);
 
