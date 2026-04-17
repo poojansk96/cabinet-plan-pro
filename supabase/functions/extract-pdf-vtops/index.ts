@@ -338,16 +338,17 @@ async function callAI(
   if (!key) throw new Error("GEMINI_API_KEY not configured");
   return requestGemini(key, images, prompt, opts.geminiModels, { temperature: opts.temperature, maxOutputTokens: opts.maxOutputTokens });
 }
+serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
-
     const body = await req.json();
-    const { pageImage, focusedWallDetection, rightEndCrop } = body;
+    const { pageImage, focusedWallDetection, rightEndCrop, provider: providerInput, dialagramModel: dialagramModelInput } = body;
+    const provider: "gemini" | "dialagram" = providerInput === "dialagram" ? "dialagram" : "gemini";
+    const dialagramModel = String(dialagramModelInput || "qwen-3.6-plus");
+    console.log(`extract-pdf-vtops provider=${provider}${provider === "dialagram" ? ` model=${dialagramModel}` : ""}`);
 
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage (base64 string) required" }), {
