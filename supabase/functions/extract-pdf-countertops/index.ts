@@ -20,6 +20,7 @@ const VERIFY_MODELS: ModelAttempt[] = [
 async function requestGemini(
   apiKey: string,
   imageData: string,
+  imageMimeType: string,
   prompt: string,
   models: ModelAttempt[],
   generationConfig: { temperature: number; maxOutputTokens: number },
@@ -39,7 +40,7 @@ async function requestGemini(
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               contents: [{ role: "user", parts: [
-                { inlineData: { mimeType: "image/jpeg", data: imageData } },
+                { inlineData: { mimeType: imageMimeType, data: imageData } },
                 { text: prompt },
               ]}],
               generationConfig,
@@ -90,6 +91,7 @@ const DIALAGRAM_BASE_URL = "https://www.dialagram.me/router/v1";
 async function requestDialagram(
   apiKey: string,
   imageData: string,
+  imageMimeType: string,
   prompt: string,
   model: string,
   temperature: number,
@@ -100,7 +102,7 @@ async function requestDialagram(
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     if (attempt === 0) {
-      console.log(`Dialagram request: model=${model}, image bytes (base64)=${imageData.length}`);
+      console.log(`Dialagram request: model=${model}, mime=${imageMimeType}, image bytes (base64)=${imageData.length}`);
     }
     try {
       response = await fetch(`${DIALAGRAM_BASE_URL}/chat/completions`, {
@@ -126,7 +128,7 @@ async function requestDialagram(
                 { type: "text", text: prompt },
                 {
                   type: "image_url",
-                  image_url: { url: `data:image/jpeg;base64,${imageData}` },
+                  image_url: { url: `data:${imageMimeType};base64,${imageData}` },
                 },
               ],
             },
@@ -200,17 +202,18 @@ async function parseDialagramResponse(response: Response): Promise<string> {
 async function callAI(
   provider: "gemini" | "dialagram",
   imageData: string,
+  imageMimeType: string,
   prompt: string,
   opts: { temperature: number; maxOutputTokens: number; geminiModels: ModelAttempt[]; dialagramModel: string },
 ): Promise<string> {
   if (provider === "dialagram") {
     const key = Deno.env.get("DIALAGRAM_API_KEY");
     if (!key) throw new Error("DIALAGRAM_API_KEY not configured");
-    return requestDialagram(key, imageData, prompt, opts.dialagramModel, opts.temperature, opts.maxOutputTokens);
+    return requestDialagram(key, imageData, imageMimeType, prompt, opts.dialagramModel, opts.temperature, opts.maxOutputTokens);
   }
   const key = Deno.env.get("GEMINI_API_KEY");
   if (!key) throw new Error("GEMINI_API_KEY not configured");
-  return requestGemini(key, imageData, prompt, opts.geminiModels, { temperature: opts.temperature, maxOutputTokens: opts.maxOutputTokens });
+  return requestGemini(key, imageData, imageMimeType, prompt, opts.geminiModels, { temperature: opts.temperature, maxOutputTokens: opts.maxOutputTokens });
 }
 
 function buildCountertopExtractionPrompt(provider: "gemini" | "dialagram"): string {
