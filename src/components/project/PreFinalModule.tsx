@@ -4,6 +4,7 @@ import type { Project, Unit, Cabinet } from '@/types/project';
 import { type LabelRow } from './ShopDrawingImportDialog';
 import ShopDrawingImportDialog from './ShopDrawingImportDialog';
 import UnitTypeImportDialog from './UnitTypeImportDialog';
+import CombinedImportDialog from './CombinedImportDialog';
 import StonePDFImportDialog, { type StoneExtractedRow } from './StonePDFImportDialog';
 import VtopPDFImportDialog, { type VtopImportRow, formatVtopSku, getVtopSidesplashItems } from './VtopPDFImportDialog';
 import { usePrefinalStore, type PrefinalStoneRow, type PrefinalVtopRow } from '@/hooks/usePrefinalStore';
@@ -66,10 +67,10 @@ export default function PreFinalModule({ project }: Props) {
 
   // ── Cabinet Count state ───────────────────────────────────────────────────
   const [showCabinetImport, setShowCabinetImport] = useState(false);
+  const [showCombinedImport, setShowCombinedImport] = useState(false);
   const [importTargetType, setImportTargetType] = useState('');
   const [cabinetImportedCount, setCabinetImportedCount] = useState<number | null>(null);
   const [cabinetChecks, setCabinetChecks] = useState<Record<string, boolean>>({});
-  const [cabinetAiModel, setCabinetAiModel] = useState<'fast' | 'accu'>('fast');
   // Stone/Laminate/Vtop AI provider (test toggle for Dialagram Qwen)
   const [stoneAiProvider, setStoneAiProvider] = useState<'gemini' | 'dialagram'>('gemini');
   const [vtopAiProvider, setVtopAiProvider] = useState<'gemini' | 'dialagram'>('gemini');
@@ -546,7 +547,22 @@ export default function PreFinalModule({ project }: Props) {
           prefinalPerson={project.specs?.takeoffPerson}
           speedMode="thorough"
           skipClassify
-          aiModel={cabinetAiModel}
+          aiModel="fast"
+        />
+      )}
+
+      {/* Combined Unit + Cabinet Import (single PDF → both tabs) */}
+      {showCombinedImport && (
+        <CombinedImportDialog
+          onImport={(unitRows, cabinetRows) => {
+            // Derive type order from unit rows (PDF page order)
+            const typeOrder = Array.from(new Set(unitRows.map(r => r.unitType)));
+            handleUnitImport(unitRows, typeOrder);
+            // Cabinet rows already carry detectedUnitType per row
+            handleCabinetImport(cabinetRows, undefined, typeOrder);
+            setShowCombinedImport(false);
+          }}
+          onClose={() => setShowCombinedImport(false)}
         />
       )}
 
@@ -641,11 +657,12 @@ export default function PreFinalModule({ project }: Props) {
 
               <div className="ml-auto flex items-center gap-2 flex-wrap">
                 <button
-                  onClick={() => setShowUnitImport(true)}
+                  onClick={() => setShowCombinedImport(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
                   style={{ background: 'hsl(var(--primary))' }}
+                  title="Uploads one floor plan and fills both Unit Count and Cabinet Count tabs"
                 >
-                  <FileUp size={12} /> Upload 2020 floor plans
+                  <FileUp size={12} /> Upload 2020 floor plan (Units + Cabinets)
                 </button>
                 {(store.unitTypes.length > 0 || store.unitNumbers.length > 0) && (
                   <button
@@ -896,42 +913,13 @@ export default function PreFinalModule({ project }: Props) {
               Pre-Final Cabinet Count
 
               <div className="ml-auto flex items-center gap-2 flex-wrap">
-                {/* AI Model Toggle */}
-                <div className="relative flex items-center border border-border rounded-md bg-background overflow-hidden group">
-                  <button
-                    onClick={() => setCabinetAiModel('fast')}
-                    className={`relative px-2.5 py-1.5 text-[10px] font-semibold transition-colors ${cabinetAiModel === 'fast' ? 'text-white' : 'text-muted-foreground hover:text-foreground'}`}
-                    style={cabinetAiModel === 'fast' ? { background: 'hsl(var(--primary))' } : {}}
-                    title="Fast-3.1 Lite: ~20-25 sec/page, slightly less accurate"
-                  >
-                    ⚡ Fast-3.1 Lite
-                  </button>
-                  <button
-                    onClick={() => setCabinetAiModel('accu')}
-                    className={`relative px-2.5 py-1.5 text-[10px] font-semibold transition-colors ${cabinetAiModel === 'accu' ? 'text-white' : 'text-muted-foreground hover:text-foreground'}`}
-                    style={cabinetAiModel === 'accu' ? { background: 'hsl(142 71% 45%)' } : {}}
-                    title="Accu-3 Flash: ~2.5-3 min/page, thinking model — more accurate"
-                  >
-                    🎯 Accu-3 Flash
-                  </button>
-                  {/* Tooltip on hover */}
-                  <div className="absolute top-full right-0 mt-1 w-64 bg-popover border border-border rounded-lg shadow-lg p-3 text-[10px] text-popover-foreground opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity z-50">
-                    <div className="mb-2">
-                      <strong className="text-foreground">⚡ Fast-3.1 Lite</strong>
-                      <p className="text-muted-foreground mt-0.5">~20-25 seconds per page. Slightly less accurate but much faster.</p>
-                    </div>
-                    <div>
-                      <strong className="text-foreground">🎯 Accu-3 Flash</strong>
-                      <p className="text-muted-foreground mt-0.5">~2.5-3 minutes per page. Thinking model — more accurate than fast model.</p>
-                    </div>
-                  </div>
-                </div>
                 <button
-                  onClick={() => setShowCabinetImport(true)}
+                  onClick={() => setShowCombinedImport(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
                   style={{ background: 'hsl(var(--primary))' }}
+                  title="Uploads one floor plan and fills both Unit Count and Cabinet Count tabs"
                 >
-                  <FileUp size={12} /> Upload 2020 Floor plan
+                  <FileUp size={12} /> Upload 2020 floor plan (Units + Cabinets)
                 </button>
                 {store.cabinetRows.length > 0 && (
                   <button
