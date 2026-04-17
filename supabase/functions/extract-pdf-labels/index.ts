@@ -116,7 +116,7 @@ async function callGemini(
 
 // ── SKU Helpers ──
 
-const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|WDC|UB|WC|OH|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS)\d[\w\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
+const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|WDC|UB|WC|OH|BLB|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS)\d[\w\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
 // Secondary pattern for APPRON with space before dimensions (e.g. "APPRON 59X21")
 const APPRON_DIM_PATTERN = /\bAPPRON\s+(\d+X\d+)\b/gi;
 const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
@@ -145,7 +145,7 @@ function isValidSku(s: string): boolean {
   if (!upper || upper.length < 2) return false;
   if (APPLIANCE_RE.test(upper)) return false;
   if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) return false;
-  if (upper.includes('/') && !(/^(BLW|BRW)\d/i.test(upper))) return false;
+  if (upper.includes('/') && !(/^(BLB|BLW|BRW|HABLB)\d/i.test(upper))) return false;
   // Reject bare dimension suffixes like "X84", "X96" — these are WxH tails, not real SKUs
   if (/^X\d+$/i.test(upper)) return false;
   // Reject 2-char single-letter-prefix + single-digit SKUs (e.g. "B1", "W1", "T1", "V1")
@@ -206,7 +206,7 @@ function countSkusFromText(pageText: string): Record<string, number> {
 
 function classifySku(sku: string): string {
   const normalizedSku = normalizeSkuLabel(sku);
-  if (/^(BLW|BRW)/i.test(normalizedSku)) return "Wall";
+  if (/^(BLB|BLW|BRW)/i.test(normalizedSku)) return "Wall";
   if (/^(W|WDC|UB|WC|OH)\d/i.test(normalizedSku)) return "Wall";
   if (/^(HAW|HAWDC)\d/i.test(normalizedSku)) return "Wall";
   if (/^HCW\d/i.test(normalizedSku)) return "Wall";
@@ -217,7 +217,7 @@ function classifySku(sku: string): string {
   if (/^(HAV|HAVDB)\d/i.test(normalizedSku)) return "Vanity";
   if (/^(BP|SCRIBE)$/i.test(normalizedSku)) return "Accessory";
   if (/^(FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|TF|APPRON|UREP|REP)\d/i.test(normalizedSku)) return "Accessory";
-  if (/^(HAB|HADB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HCDB|HCLS|HWSB|HWS)\d/i.test(normalizedSku)) return "Base";
+  if (/^(HABLB|HAB|HADB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HCDB|HCLS|HWSB|HWS)\d/i.test(normalizedSku)) return "Base";
   return "Base";
 }
 
@@ -266,11 +266,11 @@ function trySplitConcatenatedSku(rawSku: string, knownTextSkus: string[] = []): 
 
 // Known cabinet SKU prefixes for boundary detection (ordered longest-first to match greedily)
 const CABINET_PREFIXES = [
-  'HAWDC','HAVDB','HALSB','HADB','HAOC','HASB','HACB','HAEB','HALS','HALC','HAUC',
+  'HAWDC','HAVDB','HABLB','HALSB','HADB','HAOC','HASB','HACB','HAEB','HALS','HALC','HAUC',
   'HCBMW','HCBM','HCOC','HCUC','HCYC','HCDB','HCLS','HWSB','HWS',
   'BFFIL','WFFIL','TKRUN',
   'HAB','HAW','HAV','HAL','HCB','HSS',
-  'BLW','BRW','WDC','PTC','VDC',
+  'BLB','BLW','BRW','WDC','PTC','VDC',
   'DB','SB','CB','EB','LS','LSB','WC','UB','OH','BF','WF','TF','TK','UC','VB','VD','FIL','CM','LR','EP','FP','DWR','HC','HW','HS','HA','SA','SV','PT','TC','UT',
   'APPRON','UREP','REP',
   'B','W','T','V',
@@ -626,8 +626,8 @@ ${unitTypeDetectInstructions}
 For each cabinet found, provide:
 1. sku: The SKU label exactly as written (e.g. B24, W3036, DB15, BF3, WF6X30, LS36-L, BLW36/3930-L, B09FH, APPRON59X21, DWR1). For APPRON labels with dimensions like "APPRON 59X21", combine into one string without spaces: "APPRON59X21".
 2. type: Classify by prefix:
-   - "Base" → B, DB, SB, CB, EB, LS, LSB, HCDB, HCLS, HWS, HWSB, HAB, HADB, HAOC, HASB, HACB, HAEB (but NOT BLW/BRW — those are Wall, NOT HAV — those are Vanity)
-    - "Wall" → W, WDC, UB, WC, OH, BLW, BRW, HAW, HAWDC, HCW, HW (ONLY when the prefix is exactly HW followed immediately by digits; HWS/HWSB are Base)
+   - "Base" → B, DB, SB, CB, EB, LS, LSB, HCDB, HCLS, HWS, HWSB, HAB, HABLB, HADB, HAOC, HASB, HACB, HAEB (but NOT BLB/BLW/BRW — those are Wall, NOT HAV — those are Vanity)
+    - "Wall" → W, WDC, UB, WC, OH, BLB, BLW, BRW, HAW, HAWDC, HCW, HW (ONLY when the prefix is exactly HW followed immediately by digits; HWS/HWSB are Base)
      - "Tall" → T, UT, TC, PT, PTC, UC, HALC, HAUC, HCUC, HCYC (HCUC15X82, HAUC1818X72, HCYC15S82-L = Tall, NOT Wall)
      - "Vanity" → V, VB, VD, VDC, HAV, HAVDB (HAV/HAVDB = Vanity, NOT Base)
    - "Accessory" → FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR, TF, APPRON
@@ -677,7 +677,7 @@ SKIP THESE — NOT CABINET SKUs:
 - Non-SKU text: unit numbers, elevation titles, dimension text, page numbers
 
 VALID SKU PREFIXES (a label must start with letters followed by a digit):
-B, DB, SB, CB, EB, LS, LSB, W, WDC, UB, WC, OH, BLW, BRW, T, TF, UT, TC, PT, PTC, UC, V, VB, VD, VDC, FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR, APPRON
+B, DB, SB, CB, EB, LS, LSB, W, WDC, UB, WC, OH, BLB, BLW, BRW, T, TF, UT, TC, PT, PTC, UC, V, VB, VD, VDC, FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR, APPRON
 Also accept manufacturer-specific longer prefixes (e.g. HA, HAV, HAVDB, HALC, HAUC, SA, SV) followed by digits.
 
 VALID NO-DIGIT SKUS:
@@ -906,7 +906,7 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
         if (/^WALL\s+[A-Z]$/i.test(upper)) return false;
         if (/^[A-Z]\d?-[A-Z]/i.test(upper) && upper.length <= 4) return false;
         // Filter callout / sheet references containing "/"
-        if (upper.includes('/') && !(/^(BLW|BRW)\d/i.test(upper))) return false;
+        if (upper.includes('/') && !(/^(BLB|BLW|BRW|HABLB)\d/i.test(upper))) return false;
         // Must match a known cabinet prefix
         if (!SKU_PREFIX_RE.test(upper) && !NO_DIGIT_OK.test(upper)) return false;
         return true;
