@@ -912,36 +912,6 @@ export default function PreFinalModule({ project }: Props) {
               Pre-Final Cabinet Count
 
               <div className="ml-auto flex items-center gap-2 flex-wrap">
-                {/* AI Model Toggle */}
-                <div className="relative flex items-center border border-border rounded-md bg-background overflow-hidden group">
-                  <button
-                    onClick={() => setCabinetAiModel('fast')}
-                    className={`relative px-2.5 py-1.5 text-[10px] font-semibold transition-colors ${cabinetAiModel === 'fast' ? 'text-white' : 'text-muted-foreground hover:text-foreground'}`}
-                    style={cabinetAiModel === 'fast' ? { background: 'hsl(var(--primary))' } : {}}
-                    title="Fast-3.1 Lite: ~20-25 sec/page, slightly less accurate"
-                  >
-                    ⚡ Fast-3.1 Lite
-                  </button>
-                  <button
-                    onClick={() => setCabinetAiModel('accu')}
-                    className={`relative px-2.5 py-1.5 text-[10px] font-semibold transition-colors ${cabinetAiModel === 'accu' ? 'text-white' : 'text-muted-foreground hover:text-foreground'}`}
-                    style={cabinetAiModel === 'accu' ? { background: 'hsl(142 71% 45%)' } : {}}
-                    title="Accu-3 Flash: ~2.5-3 min/page, thinking model — more accurate"
-                  >
-                    🎯 Accu-3 Flash
-                  </button>
-                  {/* Tooltip on hover */}
-                  <div className="absolute top-full right-0 mt-1 w-64 bg-popover border border-border rounded-lg shadow-lg p-3 text-[10px] text-popover-foreground opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity z-50">
-                    <div className="mb-2">
-                      <strong className="text-foreground">⚡ Fast-3.1 Lite</strong>
-                      <p className="text-muted-foreground mt-0.5">~20-25 seconds per page. Slightly less accurate but much faster.</p>
-                    </div>
-                    <div>
-                      <strong className="text-foreground">🎯 Accu-3 Flash</strong>
-                      <p className="text-muted-foreground mt-0.5">~2.5-3 minutes per page. Thinking model — more accurate than fast model.</p>
-                    </div>
-                  </div>
-                </div>
                 <button
                   onClick={() => setShowCabinetImport(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
