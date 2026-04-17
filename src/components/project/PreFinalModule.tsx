@@ -1243,6 +1243,7 @@ export default function PreFinalModule({ project }: Props) {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <ProviderToggle value={stoneAiProvider} onChange={setStoneAiProvider} />
                   <button
                     onClick={() => setShowStoneImport(true)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
@@ -1269,6 +1270,7 @@ export default function PreFinalModule({ project }: Props) {
                 Stone Area
 
                 <div className="ml-auto flex items-center gap-2 flex-wrap">
+                  <ProviderToggle value={stoneAiProvider} onChange={setStoneAiProvider} />
                   <button
                     onClick={() => setShowStoneImport(true)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
@@ -1645,6 +1647,7 @@ export default function PreFinalModule({ project }: Props) {
               P-Laminate KTOP
 
               <div className="ml-auto flex items-center gap-2 flex-wrap">
+                <ProviderToggle value={stoneAiProvider} onChange={setStoneAiProvider} />
                 <button
                   onClick={() => setShowLaminateImport(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
@@ -1851,6 +1854,7 @@ export default function PreFinalModule({ project }: Props) {
               🛁 Cmarble/Swan Vtop
 
               <div className="ml-auto flex items-center gap-2 flex-wrap">
+                <ProviderToggle value={vtopAiProvider} onChange={setVtopAiProvider} />
                 <button
                   onClick={() => setShowVtopImport(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
