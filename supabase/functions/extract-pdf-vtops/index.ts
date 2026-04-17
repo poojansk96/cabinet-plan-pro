@@ -285,12 +285,14 @@ async function requestDialagram(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Accept": "application/json",
           "Authorization": `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
           model,
           temperature,
           max_tokens: maxTokens,
+          stream: false,
           messages: [
             {
               role: "user",
@@ -317,9 +319,50 @@ async function requestDialagram(
       console.error("Dialagram error:", response.status, errText);
       throw new Error(`AI error: ${response.status}`);
     }
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content ?? "";
+    return await parseDialagramResponse(response);
   }
+  throw new Error("ai_unavailable");
+}
+
+// Parse Dialagram response — handles both standard JSON and SSE streaming format.
+async function parseDialagramResponse(response: Response): Promise<string> {
+  const raw = await response.text();
+  const trimmed = raw.trim();
+
+  if (trimmed.startsWith("{")) {
+    try {
+      const data = JSON.parse(trimmed);
+      return data.choices?.[0]?.message?.content ?? "";
+    } catch (err) {
+      console.error("Dialagram JSON parse failed:", err, "raw:", trimmed.slice(0, 300));
+      throw new Error("ai_unavailable");
+    }
+  }
+
+  if (trimmed.startsWith("data:")) {
+    let assembled = "";
+    const lines = raw.split("\n");
+    for (const line of lines) {
+      const l = line.trim();
+      if (!l.startsWith("data:")) continue;
+      const payload = l.slice(5).trim();
+      if (!payload || payload === "[DONE]") continue;
+      try {
+        const chunk = JSON.parse(payload);
+        const delta = chunk.choices?.[0]?.delta?.content
+          ?? chunk.choices?.[0]?.message?.content
+          ?? "";
+        if (delta) assembled += delta;
+      } catch {
+        // skip non-JSON SSE lines
+      }
+    }
+    if (assembled) return assembled;
+    console.error("Dialagram SSE returned no content. Raw:", raw.slice(0, 500));
+    throw new Error("ai_unavailable");
+  }
+
+  console.error("Dialagram returned unexpected format:", raw.slice(0, 300));
   throw new Error("ai_unavailable");
 }
 
