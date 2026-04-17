@@ -215,10 +215,10 @@ serve(async (req) => {
   }
 
   try {
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
-
-    const { pageImage } = await req.json();
+    const { pageImage, provider: providerInput, dialagramModel: dialagramModelInput } = await req.json();
+    const provider: "gemini" | "dialagram" = providerInput === "dialagram" ? "dialagram" : "gemini";
+    const dialagramModel = String(dialagramModelInput || "qwen-3.6-plus");
+    console.log(`extract-pdf-countertops provider=${provider}${provider === "dialagram" ? ` model=${dialagramModel}` : ""}`);
 
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage (base64 string) required" }), {
@@ -270,13 +270,12 @@ Return ONLY valid JSON — no markdown fences, no explanation:
     // ── Pass 1: Extraction ──
     let extractionContent = "";
     try {
-      extractionContent = await requestGemini(
-        GEMINI_API_KEY,
-        pageImage,
-        extractionPrompt,
-        PRIMARY_MODELS,
-        { temperature: 0.2, maxOutputTokens: 8192 },
-      );
+      extractionContent = await callAI(provider, pageImage, extractionPrompt, {
+        temperature: 0.2,
+        maxOutputTokens: 8192,
+        geminiModels: PRIMARY_MODELS,
+        dialagramModel,
+      });
     } catch (err) {
       if (err instanceof Error && err.message === "rate_limit") {
         return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -316,13 +315,12 @@ Return the CORRECTED complete JSON — same format:
 If everything looks correct, return the data as-is. Return ONLY valid JSON — no markdown fences, no explanation.`;
 
       try {
-        const verifyContent = await requestGemini(
-          GEMINI_API_KEY,
-          pageImage,
-          verifyPrompt,
-          VERIFY_MODELS,
-          { temperature: 0.1, maxOutputTokens: 8192 },
-        );
+        const verifyContent = await callAI(provider, pageImage, verifyPrompt, {
+          temperature: 0.1,
+          maxOutputTokens: 8192,
+          geminiModels: VERIFY_MODELS,
+          dialagramModel,
+        });
         console.log("Verify countertop raw:", verifyContent.slice(0, 800));
         const verified = parseCountertopJSON(verifyContent);
 
