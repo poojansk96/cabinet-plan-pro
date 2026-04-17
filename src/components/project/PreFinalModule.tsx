@@ -599,21 +599,30 @@ export default function PreFinalModule({ project }: Props) {
       )}
 
       {/* Sub-tab toggle + speed mode */}
-      <div className="flex items-center gap-1 flex-wrap">
-        <button
-          onClick={() => setActiveSubTab('units')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-xs font-medium transition-colors ${activeSubTab === 'units' ? 'text-white' : 'text-muted-foreground border border-border hover:bg-secondary'}`}
-          style={activeSubTab === 'units' ? { background: 'hsl(var(--primary))' } : {}}
-        >
-          <Users size={13} /> Unit Count
-        </button>
-        <button
-          onClick={() => setActiveSubTab('cabinets')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-xs font-medium transition-colors ${activeSubTab === 'cabinets' ? 'text-white' : 'text-muted-foreground border border-border hover:bg-secondary'}`}
-          style={activeSubTab === 'cabinets' ? { background: 'hsl(var(--primary))' } : {}}
-        >
-          <LayoutGrid size={13} /> Cabinet Count
-        </button>
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Grouped: Unit + Cabinet Count */}
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-accent/30 px-2 py-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground pl-1 pr-1 select-none">
+            Unit + Cabinet Count
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setActiveSubTab('units')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${activeSubTab === 'units' ? 'text-white' : 'text-muted-foreground border border-border bg-background hover:bg-secondary'}`}
+              style={activeSubTab === 'units' ? { background: 'hsl(var(--primary))' } : {}}
+            >
+              <Users size={13} /> Unit Count
+            </button>
+            <button
+              onClick={() => setActiveSubTab('cabinets')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${activeSubTab === 'cabinets' ? 'text-white' : 'text-muted-foreground border border-border bg-background hover:bg-secondary'}`}
+              style={activeSubTab === 'cabinets' ? { background: 'hsl(var(--primary))' } : {}}
+            >
+              <LayoutGrid size={13} /> Cabinet Count
+            </button>
+          </div>
+        </div>
+
         <button
           onClick={() => setActiveSubTab('stone')}
           className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-xs font-medium transition-colors ${activeSubTab === 'stone' ? 'text-white' : 'text-muted-foreground border border-border hover:bg-secondary'}`}
@@ -635,7 +644,6 @@ export default function PreFinalModule({ project }: Props) {
         >
           🛁 Cmarble/Swan Vtop
         </button>
-
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
