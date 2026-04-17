@@ -372,11 +372,12 @@ serve(async (req) => {
   }
 
   try {
-    const { pageImage, provider: providerInput, dialagramModel: dialagramModelInput } = await req.json();
+    const { pageImage, pageImageMimeType, provider: providerInput, dialagramModel: dialagramModelInput } = await req.json();
     const provider: "gemini" | "dialagram" = providerInput === "dialagram" ? "dialagram" : "gemini";
     const dialagramModel = String(dialagramModelInput || "qwen-3.6-plus");
+    const imageMimeType = String(pageImageMimeType || "image/jpeg").trim() || "image/jpeg";
     let activeDialagramModel = dialagramModel;
-    console.log(`extract-pdf-countertops provider=${provider}${provider === "dialagram" ? ` model=${dialagramModel}` : ""}`);
+    console.log(`extract-pdf-countertops provider=${provider}${provider === "dialagram" ? ` model=${dialagramModel}` : ""} mime=${imageMimeType}`);
 
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage (base64 string) required" }), {
@@ -392,7 +393,7 @@ serve(async (req) => {
     let countertops: Array<ReturnType<typeof normalizeCountertop>> = [];
 
     try {
-      extractionContent = await callAI(provider, pageImage, extractionPrompt, {
+      extractionContent = await callAI(provider, pageImage, imageMimeType, extractionPrompt, {
         temperature: provider === "dialagram" ? 0.1 : 0.2,
         maxOutputTokens: 8192,
         geminiModels: PRIMARY_MODELS,
@@ -421,7 +422,7 @@ serve(async (req) => {
 
       for (const rescueModel of rescueModels) {
         try {
-          const rescueContent = await callAI("dialagram", pageImage, rescuePrompt, {
+          const rescueContent = await callAI("dialagram", pageImage, imageMimeType, rescuePrompt, {
             temperature: 0.05,
             maxOutputTokens: 8192,
             geminiModels: PRIMARY_MODELS,
@@ -475,7 +476,7 @@ Return the CORRECTED complete JSON — same format:
 If everything looks correct, return the data as-is. Return ONLY valid JSON — no markdown fences, no explanation.`;
 
       try {
-        const verifyContent = await callAI(provider, pageImage, verifyPrompt, {
+        const verifyContent = await callAI(provider, pageImage, imageMimeType, verifyPrompt, {
           temperature: 0.1,
           maxOutputTokens: 8192,
           geminiModels: VERIFY_MODELS,

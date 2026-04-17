@@ -192,7 +192,11 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
         for (let p = 1; p <= pdf.numPages; p++) {
           update({ statusText: `Processing ${file.name} — page ${p}/${pdf.numPages}` });
           const page = await pdf.getPage(p);
-          const pageImage = await renderPageToBase64(page);
+          const renderedPage = await renderPageToBase64(page, aiProvider === 'dialagram'
+            ? { scale: 4, mimeType: 'image/png', maxBase64Length: 4_500_000 }
+            : { scale: 3, mimeType: 'image/jpeg', quality: 0.85, maxBase64Length: 3_500_000 });
+          const pageImage = renderedPage.base64;
+          const pageImageMimeType = renderedPage.mimeType;
 
           const MAX_CLIENT_RETRIES = 5;
           let pageSuccess = false;
@@ -211,7 +215,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                   'Content-Type': 'application/json',
                   'Authorization': `Bearer ${SUPABASE_KEY}`,
                 },
-                body: JSON.stringify({ pageImage, provider: aiProvider, dialagramModel }),
+                body: JSON.stringify({ pageImage, pageImageMimeType, provider: aiProvider, dialagramModel }),
                 signal: controller.signal,
               });
               clearTimeout(timeout);
