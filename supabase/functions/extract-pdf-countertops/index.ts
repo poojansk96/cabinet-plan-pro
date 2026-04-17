@@ -20,6 +20,7 @@ const VERIFY_MODELS: ModelAttempt[] = [
 async function requestGemini(
   apiKey: string,
   imageData: string,
+  imageMimeType: string,
   prompt: string,
   models: ModelAttempt[],
   generationConfig: { temperature: number; maxOutputTokens: number },
@@ -39,7 +40,7 @@ async function requestGemini(
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               contents: [{ role: "user", parts: [
-                { inlineData: { mimeType: "image/jpeg", data: imageData } },
+                { inlineData: { mimeType: imageMimeType, data: imageData } },
                 { text: prompt },
               ]}],
               generationConfig,
@@ -90,6 +91,7 @@ const DIALAGRAM_BASE_URL = "https://www.dialagram.me/router/v1";
 async function requestDialagram(
   apiKey: string,
   imageData: string,
+  imageMimeType: string,
   prompt: string,
   model: string,
   temperature: number,
@@ -100,7 +102,7 @@ async function requestDialagram(
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     if (attempt === 0) {
-      console.log(`Dialagram request: model=${model}, image bytes (base64)=${imageData.length}`);
+      console.log(`Dialagram request: model=${model}, mime=${imageMimeType}, image bytes (base64)=${imageData.length}`);
     }
     try {
       response = await fetch(`${DIALAGRAM_BASE_URL}/chat/completions`, {
@@ -118,7 +120,7 @@ async function requestDialagram(
           messages: [
             {
               role: "system",
-              content: "You are a vision AI that analyzes architectural shop drawings provided as images. Always examine the attached image carefully before responding. Never ask the user to upload an image — the image is always attached.",
+              content: "You are a vision AI that analyzes architectural shop drawings provided as images. Always inspect the attached image before responding. Never say no image was uploaded, because the image is always attached.",
             },
             {
               role: "user",
@@ -126,7 +128,7 @@ async function requestDialagram(
                 { type: "text", text: prompt },
                 {
                   type: "image_url",
-                  image_url: { url: `data:image/jpeg;base64,${imageData}` },
+                  image_url: { url: `data:${imageMimeType};base64,${imageData}` },
                 },
               ],
             },
@@ -157,12 +159,10 @@ async function requestDialagram(
   throw new Error("ai_unavailable");
 }
 
-// Parse Dialagram response — handles both standard JSON and SSE streaming format.
 async function parseDialagramResponse(response: Response): Promise<string> {
   const raw = await response.text();
   const trimmed = raw.trim();
 
-  // Standard JSON response
   if (trimmed.startsWith("{")) {
     try {
       const data = JSON.parse(trimmed);
@@ -173,7 +173,6 @@ async function parseDialagramResponse(response: Response): Promise<string> {
     }
   }
 
-  // SSE streaming response: lines like `data: {...}` and a final `data: [DONE]`
   if (trimmed.startsWith("data:")) {
     let assembled = "";
     const lines = raw.split("\n");
@@ -189,7 +188,6 @@ async function parseDialagramResponse(response: Response): Promise<string> {
           ?? "";
         if (delta) assembled += delta;
       } catch {
-        // skip non-JSON SSE lines (e.g. `id:`, `event:`)
       }
     }
     if (assembled) return assembled;
@@ -204,17 +202,116 @@ async function parseDialagramResponse(response: Response): Promise<string> {
 async function callAI(
   provider: "gemini" | "dialagram",
   imageData: string,
+  imageMimeType: string,
   prompt: string,
   opts: { temperature: number; maxOutputTokens: number; geminiModels: ModelAttempt[]; dialagramModel: string },
 ): Promise<string> {
   if (provider === "dialagram") {
     const key = Deno.env.get("DIALAGRAM_API_KEY");
     if (!key) throw new Error("DIALAGRAM_API_KEY not configured");
-    return requestDialagram(key, imageData, prompt, opts.dialagramModel, opts.temperature, opts.maxOutputTokens);
+    return requestDialagram(key, imageData, imageMimeType, prompt, opts.dialagramModel, opts.temperature, opts.maxOutputTokens);
   }
   const key = Deno.env.get("GEMINI_API_KEY");
   if (!key) throw new Error("GEMINI_API_KEY not configured");
-  return requestGemini(key, imageData, prompt, opts.geminiModels, { temperature: opts.temperature, maxOutputTokens: opts.maxOutputTokens });
+  return requestGemini(key, imageData, imageMimeType, prompt, opts.geminiModels, { temperature: opts.temperature, maxOutputTokens: opts.maxOutputTokens });
+}
+
+function buildCountertopExtractionPrompt(provider: "gemini" | "dialagram"): string {
+  if (provider === "dialagram") {
+    return `You are reading ONE 2020 countertop shop drawing image.
+
+Extract:
+1. unitTypeName — exact title block or plan type name if visible
+2. countertops — every countertop section visible on the page
+
+For each countertop section return:
+- label
+- length (inches)
+- depth (inches)
+- backsplashLength (wall backsplash inches only)
+- isIsland (true/false)
+- category ("kitchen" or "bath")
+
+Rules:
+- Use visible dimensions if present; otherwise estimate reasonably from the drawing
+- Split L-shaped or U-shaped tops into straight segments
+- Wall runs usually have backsplashLength equal to the full wall-contact length
+- Islands and peninsulas usually have backsplashLength = 0
+- If depth is 22 or less, or if the room/label suggests vanity/bath/lav/powder, category = "bath"
+- Otherwise category = "kitchen"
+- Only return an empty list if there is truly no countertop drawing on the page
+
+Return ONLY valid JSON:
+{"unitTypeName":"TYPE A","countertops":[{"label":"Perimeter","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"}]}`;
+  }
+
+  return `You are an expert millwork estimator analyzing a 2020 countertop shop drawing.
+
+TASK:
+1. First, find the UNIT TYPE NAME from the drawing's title block. This is the architectural unit/plan type shown in the title block area (usually bottom-right or top of the drawing). Examples: "1.1B-AS", "TYPE A", "2BR-ADA", "BREAKROOM", "MAIL ROOM", "COMMUNITY ROOM", "STUDIO", "1BR MIRROR", etc. Extract the EXACT and COMPLETE name as it appears — do NOT abbreviate or modify it. This is critical for grouping countertops by unit type. If no title block or type name is visible, use "".
+
+2. Then extract every countertop section visible. For each section extract:
+
+a. **label** — a short descriptive name based on its location (e.g. "Perimeter Left", "Perimeter Right", "Island", "Peninsula", "Bar Top", "Vanity", "L-Section", "U-Section"). If the drawing has text labels, use those.
+b. **length** — total linear length in inches. Read dimension labels first. If no label, estimate from the drawing.
+c. **depth** — depth in inches. Read from dimension labels. Standard kitchen countertop depth is 25.5". Vanity/bath tops are typically 22" or 19" deep. Islands are often 36-42".
+d. **backsplashLength** — the linear inches of WALL backsplash ONLY. This is CRITICAL — read carefully:
+   - For EVERY countertop section that is against a wall, backsplash runs along the FULL wall edge.
+   - KEY RULE: If a countertop section is against a wall (not an island), the backsplash length should generally EQUAL or be very close to the countertop LENGTH, because backsplash runs the entire length of the countertop along the wall.
+   - For L-shaped or U-shaped runs broken into segments: each segment's backsplash = that segment's FULL length along the wall. Do NOT deduct depth at corners — backsplash is continuous along walls.
+   - Look for DOUBLE LINES drawn along the WALL edge — these confirm backsplash presence.
+   - Do NOT include sidesplash (short perpendicular returns at exposed ends). Sidesplash is tracked separately.
+   - Islands and peninsulas typically have backsplashLength = 0 (no wall behind them).
+   - If a section is clearly against a wall but you're unsure about backsplash markings, default backsplashLength to the section's length.
+ e. **isIsland** — true if this section is an island or peninsula (not against a wall, typically depth >= 30").
+ f. **category** — classify as "kitchen" or "bath". Use these rules:
+    - If depth is 22" or less (19", 22", etc.) → "bath"  
+    - If the label or room mentions "vanity", "bath", "bathroom", "lav", "powder" → "bath"
+    - Everything else → "kitchen"
+
+RULES:
+- Look for dimension lines, annotations, and measurements in the drawing
+- For L-shaped or U-shaped runs, break them into individual straight segments
+- If a countertop wraps around a corner, create separate sections for each leg
+- IMPORTANT for **length** (Top Inches): When breaking L/U-shaped runs at a corner, deduct the depth (e.g. 25.5") from one leg to avoid double-counting the corner overlap. This is correct for top surface area.
+- IMPORTANT for **backsplashLength** (BS Inches): Do NOT deduct any depth for corners. Backsplash runs along the wall continuously — measure the FULL linear inches along the wall with NO corner deduction. Each wall-adjacent segment's backsplash = its full length.
+- Do NOT include appliance surfaces (range top, sink cutout dimensions) as separate sections — they are part of the countertop run
+- If the page has no countertop information, return {"unitTypeName":"","countertops":[]}
+- Round all dimensions to nearest 0.5 inch
+- Standard depths: perimeter = 25.5", island = 36", bar = 12-18", vanity = 22"
+- The unitTypeName field is REQUIRED — always look for it in the title block
+- IMPORTANT: Scan the ENTIRE page thoroughly. Do not skip any countertop sections, especially smaller segments or sections in corners of the drawing.
+
+Return ONLY valid JSON — no markdown fences, no explanation:
+{"unitTypeName":"1.1B-AS","countertops":[{"label":"Perimeter Left","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"}]}`;
+}
+
+function buildDialagramRescuePrompt(previousContent: string): string {
+  const previous = previousContent.trim()
+    ? previousContent.trim().slice(0, 500)
+    : '{"unitTypeName":"","countertops":[]}';
+
+  return `You are re-checking the SAME countertop shop drawing image because the first pass returned empty or missed sections.
+
+First-pass output:
+${previous}
+
+Re-examine the attached image carefully.
+- If you can see ANY countertop plan, vanity top, kitchen perimeter, island, bar top, or dimensioned countertop run, return one or more sections
+- Do NOT return an empty list unless the page truly has no countertop geometry, no countertop labels, and no countertop dimensions
+- Extract the exact unitTypeName from the title block if visible
+- Split L-shaped or U-shaped tops into straight segments
+- backsplashLength should be the full wall-contact length; islands usually have 0 backsplash
+
+Return ONLY valid JSON:
+{"unitTypeName":"TYPE A","countertops":[{"label":"Perimeter","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"}]}`;
+}
+
+function getDialagramFallbackModels(requestedModel: string): string[] {
+  const normalized = String(requestedModel || "qwen-3.6-plus").trim() || "qwen-3.6-plus";
+  return normalized === "qwen-3.6-plus"
+    ? [normalized, "qwen-3.6-plus-thinking"]
+    : [normalized];
 }
 
 function parseCountertopJSON(content: string): { unitTypeName: string; countertops: any[] } {
@@ -261,16 +358,26 @@ function normalizeCountertop(ct: any) {
   };
 }
 
+function parseAndNormalizeCountertops(content: string) {
+  const parsed = parseCountertopJSON(content);
+  return {
+    parsed,
+    countertops: (parsed.countertops ?? []).map(normalizeCountertop),
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const { pageImage, provider: providerInput, dialagramModel: dialagramModelInput } = await req.json();
+    const { pageImage, pageImageMimeType, provider: providerInput, dialagramModel: dialagramModelInput } = await req.json();
     const provider: "gemini" | "dialagram" = providerInput === "dialagram" ? "dialagram" : "gemini";
     const dialagramModel = String(dialagramModelInput || "qwen-3.6-plus");
-    console.log(`extract-pdf-countertops provider=${provider}${provider === "dialagram" ? ` model=${dialagramModel}` : ""}`);
+    const imageMimeType = String(pageImageMimeType || "image/jpeg").trim() || "image/jpeg";
+    let activeDialagramModel = dialagramModel;
+    console.log(`extract-pdf-countertops provider=${provider}${provider === "dialagram" ? ` model=${dialagramModel}` : ""} mime=${imageMimeType}`);
 
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage (base64 string) required" }), {
@@ -279,54 +386,18 @@ serve(async (req) => {
       });
     }
 
-    const extractionPrompt = `You are an expert millwork estimator analyzing a 2020 countertop shop drawing.
+    const extractionPrompt = buildCountertopExtractionPrompt(provider);
 
-TASK:
-1. First, find the UNIT TYPE NAME from the drawing's title block. This is the architectural unit/plan type shown in the title block area (usually bottom-right or top of the drawing). Examples: "1.1B-AS", "TYPE A", "2BR-ADA", "BREAKROOM", "MAIL ROOM", "COMMUNITY ROOM", "STUDIO", "1BR MIRROR", etc. Extract the EXACT and COMPLETE name as it appears — do NOT abbreviate or modify it. This is critical for grouping countertops by unit type. If no title block or type name is visible, use "".
-
-2. Then extract every countertop section visible. For each section extract:
-
-a. **label** — a short descriptive name based on its location (e.g. "Perimeter Left", "Perimeter Right", "Island", "Peninsula", "Bar Top", "Vanity", "L-Section", "U-Section"). If the drawing has text labels, use those.
-b. **length** — total linear length in inches. Read dimension labels first. If no label, estimate from the drawing.
-c. **depth** — depth in inches. Read from dimension labels. Standard kitchen countertop depth is 25.5". Vanity/bath tops are typically 22" or 19" deep. Islands are often 36-42".
-d. **backsplashLength** — the linear inches of WALL backsplash ONLY. This is CRITICAL — read carefully:
-   - For EVERY countertop section that is against a wall, backsplash runs along the FULL wall edge.
-   - KEY RULE: If a countertop section is against a wall (not an island), the backsplash length should generally EQUAL or be very close to the countertop LENGTH, because backsplash runs the entire length of the countertop along the wall.
-   - For L-shaped or U-shaped runs broken into segments: each segment's backsplash = that segment's FULL length along the wall. Do NOT deduct depth at corners — backsplash is continuous along walls.
-   - Look for DOUBLE LINES drawn along the WALL edge — these confirm backsplash presence.
-   - Do NOT include sidesplash (short perpendicular returns at exposed ends). Sidesplash is tracked separately.
-   - Islands and peninsulas typically have backsplashLength = 0 (no wall behind them).
-   - If a section is clearly against a wall but you're unsure about backsplash markings, default backsplashLength to the section's length.
-e. **isIsland** — true if this section is an island or peninsula (not against a wall, typically depth >= 30").
-f. **category** — classify as "kitchen" or "bath". Use these rules:
-   - If depth is 22" or less (19", 22", etc.) → "bath"  
-   - If the label or room mentions "vanity", "bath", "bathroom", "lav", "powder" → "bath"
-   - Everything else → "kitchen"
-
-RULES:
-- Look for dimension lines, annotations, and measurements in the drawing
-- For L-shaped or U-shaped runs, break them into individual straight segments
-- If a countertop wraps around a corner, create separate sections for each leg
-- IMPORTANT for **length** (Top Inches): When breaking L/U-shaped runs at a corner, deduct the depth (e.g. 25.5") from one leg to avoid double-counting the corner overlap. This is correct for top surface area.
-- IMPORTANT for **backsplashLength** (BS Inches): Do NOT deduct any depth for corners. Backsplash runs along the wall continuously — measure the FULL linear inches along the wall with NO corner deduction. Each wall-adjacent segment's backsplash = its full length.
-- Do NOT include appliance surfaces (range top, sink cutout dimensions) as separate sections — they are part of the countertop run
-- If the page has no countertop information, return {"unitTypeName":"","countertops":[]}
-- Round all dimensions to nearest 0.5 inch
-- Standard depths: perimeter = 25.5", island = 36", bar = 12-18", vanity = 22"
-- The unitTypeName field is REQUIRED — always look for it in the title block
-- IMPORTANT: Scan the ENTIRE page thoroughly. Do not skip any countertop sections, especially smaller segments or sections in corners of the drawing.
-
-Return ONLY valid JSON — no markdown fences, no explanation:
-{"unitTypeName":"1.1B-AS","countertops":[{"label":"Perimeter Left","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"}]}`;
-
-    // ── Pass 1: Extraction ──
     let extractionContent = "";
+    let extracted: { unitTypeName: string; countertops: any[] } = { unitTypeName: "", countertops: [] };
+    let countertops: Array<ReturnType<typeof normalizeCountertop>> = [];
+
     try {
-      extractionContent = await callAI(provider, pageImage, extractionPrompt, {
-        temperature: 0.2,
+      extractionContent = await callAI(provider, pageImage, imageMimeType, extractionPrompt, {
+        temperature: provider === "dialagram" ? 0.1 : 0.2,
         maxOutputTokens: 8192,
         geminiModels: PRIMARY_MODELS,
-        dialagramModel,
+        dialagramModel: activeDialagramModel,
       });
     } catch (err) {
       if (err instanceof Error && err.message === "rate_limit") {
@@ -342,10 +413,48 @@ Return ONLY valid JSON — no markdown fences, no explanation:
     }
 
     console.log("AI countertop raw:", extractionContent.slice(0, 800));
-    const extracted = parseCountertopJSON(extractionContent);
-    const countertops = (extracted.countertops).map(normalizeCountertop);
+    ({ parsed: extracted, countertops } = parseAndNormalizeCountertops(extractionContent));
 
-    // ── Pass 2: Verification ──
+    if (provider === "dialagram" && countertops.length === 0) {
+      console.log("Dialagram returned empty extraction, running rescue pass...");
+      const rescuePrompt = buildDialagramRescuePrompt(extractionContent);
+      const rescueModels = getDialagramFallbackModels(dialagramModel);
+
+      for (const rescueModel of rescueModels) {
+        try {
+          const rescueContent = await callAI("dialagram", pageImage, imageMimeType, rescuePrompt, {
+            temperature: 0.05,
+            maxOutputTokens: 8192,
+            geminiModels: PRIMARY_MODELS,
+            dialagramModel: rescueModel,
+          });
+          console.log(`Dialagram rescue raw (${rescueModel}):`, rescueContent.slice(0, 800));
+
+          const rescueResult = parseAndNormalizeCountertops(rescueContent);
+          if (rescueResult.countertops.length > 0) {
+            extractionContent = rescueContent;
+            extracted = rescueResult.parsed;
+            countertops = rescueResult.countertops;
+            activeDialagramModel = rescueModel;
+            console.log(`Dialagram rescue succeeded with ${rescueModel}, sections: ${countertops.length}`);
+            break;
+          }
+
+          if (!extracted.unitTypeName && rescueResult.parsed.unitTypeName) {
+            extracted.unitTypeName = rescueResult.parsed.unitTypeName;
+          }
+        } catch (rescueErr) {
+          if (rescueErr instanceof Error && rescueErr.message === "rate_limit") {
+            return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }
+          if (rescueErr instanceof Error && rescueErr.message === "credits") {
+            return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }
+          console.warn(`Dialagram rescue failed for ${rescueModel}:`, rescueErr);
+        }
+      }
+    }
+
     if (countertops.length > 0) {
       console.log("Starting verification pass...");
       const verifyPrompt = `You are verifying AI-extracted countertop data from a 2020 shop drawing.
@@ -367,11 +476,11 @@ Return the CORRECTED complete JSON — same format:
 If everything looks correct, return the data as-is. Return ONLY valid JSON — no markdown fences, no explanation.`;
 
       try {
-        const verifyContent = await callAI(provider, pageImage, verifyPrompt, {
+        const verifyContent = await callAI(provider, pageImage, imageMimeType, verifyPrompt, {
           temperature: 0.1,
           maxOutputTokens: 8192,
           geminiModels: VERIFY_MODELS,
-          dialagramModel,
+          dialagramModel: activeDialagramModel,
         });
         console.log("Verify countertop raw:", verifyContent.slice(0, 800));
         const verified = parseCountertopJSON(verifyContent);
@@ -390,7 +499,6 @@ If everything looks correct, return the data as-is. Return ONLY valid JSON — n
       }
     }
 
-    // Fallback: return extraction result
     const unitTypeName = extracted.unitTypeName;
     console.log("Detected unit type name:", unitTypeName);
 

@@ -40,7 +40,24 @@ const PERSONAL_QUOTES = [
 
 type Step = 'upload' | 'processing' | 'review';
 
-async function renderPageToBase64(page: any, scale = 3): Promise<string> {
+type RenderedPageImage = {
+  base64: string;
+  mimeType: 'image/jpeg' | 'image/png';
+};
+
+async function renderPageToBase64(
+  page: any,
+  options?: {
+    scale?: number;
+    mimeType?: 'image/jpeg' | 'image/png';
+    quality?: number;
+    maxBase64Length?: number;
+  }
+): Promise<RenderedPageImage> {
+  const scale = options?.scale ?? 3;
+  const mimeType = options?.mimeType ?? 'image/jpeg';
+  const quality = options?.quality ?? 0.85;
+  const maxBase64Length = options?.maxBase64Length ?? 3_500_000;
   const vp = page.getViewport({ scale });
   let canvas: any;
   let ctx: any;
@@ -56,20 +73,20 @@ async function renderPageToBase64(page: any, scale = 3): Promise<string> {
   await page.render({ canvasContext: ctx, viewport: vp }).promise;
   let blob: Blob;
   if (canvas instanceof OffscreenCanvas) {
-    blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.85 });
+    blob = await canvas.convertToBlob({ type: mimeType, quality: mimeType === 'image/jpeg' ? quality : undefined });
   } else {
-    blob = await new Promise<Blob>((res) => canvas.toBlob((b: Blob) => res(b), 'image/jpeg', 0.85));
+    blob = await new Promise<Blob>((res) => canvas.toBlob((b: Blob) => res(b), mimeType, mimeType === 'image/jpeg' ? quality : undefined));
   }
   const buf = await blob.arrayBuffer();
   const bytes = new Uint8Array(buf);
   let binary = '';
   for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
 
-  let b64 = btoa(binary);
-  if (b64.length > 3_500_000 && scale > 1.5) {
-    return renderPageToBase64(page, scale - 0.5);
+  const b64 = btoa(binary);
+  if (b64.length > maxBase64Length && scale > 1.5) {
+    return renderPageToBase64(page, { ...options, scale: scale - 0.5 });
   }
-  return b64;
+  return { base64: b64, mimeType };
 }
 
 function calcTopSqft(row: StoneExtractedRow): number {
@@ -175,7 +192,11 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
         for (let p = 1; p <= pdf.numPages; p++) {
           update({ statusText: `Processing ${file.name} — page ${p}/${pdf.numPages}` });
           const page = await pdf.getPage(p);
-          const pageImage = await renderPageToBase64(page);
+          const renderedPage = await renderPageToBase64(page, aiProvider === 'dialagram'
+            ? { scale: 4, mimeType: 'image/png', maxBase64Length: 4_500_000 }
+            : { scale: 3, mimeType: 'image/jpeg', quality: 0.85, maxBase64Length: 3_500_000 });
+          const pageImage = renderedPage.base64;
+          const pageImageMimeType = renderedPage.mimeType;
 
           const MAX_CLIENT_RETRIES = 5;
           let pageSuccess = false;
@@ -194,7 +215,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                   'Content-Type': 'application/json',
                   'Authorization': `Bearer ${SUPABASE_KEY}`,
                 },
-                body: JSON.stringify({ pageImage, provider: aiProvider, dialagramModel }),
+                body: JSON.stringify({ pageImage, pageImageMimeType, provider: aiProvider, dialagramModel }),
                 signal: controller.signal,
               });
               clearTimeout(timeout);
