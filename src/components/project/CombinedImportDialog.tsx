@@ -110,6 +110,41 @@ export default function CombinedImportDialog({ onImport, onClose }: Props) {
   const [quoteIndex, setQuoteIndex] = useState(() => Math.floor(Math.random() * QUOTES.length));
   const [quoteVisible, setQuoteVisible] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
+  const bgPickedUpRef = useRef(false);
+
+  // ── Pick up background job results (so closing dialog mid-run keeps it going) ──
+  const bgJob = useExtractionJobByType('prefinal-combined');
+
+  useEffect(() => {
+    if (!bgJob || bgPickedUpRef.current) return;
+    if (bgJob.status === 'processing') {
+      setStep('processing');
+      setProgress(bgJob.progress);
+      setProcessingStatus(bgJob.statusText);
+    } else if (bgJob.status === 'done') {
+      bgPickedUpRef.current = true;
+      const r = bgJob.results as { unitRows: UnitRow[]; cabinetRows: CabinetRow[] } | null;
+      if (r) {
+        setUnitRows(r.unitRows);
+        setCabinetRows(r.cabinetRows);
+        setReviewTab(r.unitRows.length > 0 ? 'units' : 'cabinets');
+      }
+      setProgress(100);
+      setStep('review');
+      clearExtractionJob('prefinal-combined');
+    } else if (bgJob.status === 'error') {
+      bgPickedUpRef.current = true;
+      setError(bgJob.error || 'Failed to process files. Please try again.');
+      setStep('upload');
+      clearExtractionJob('prefinal-combined');
+    }
+  }, [bgJob]);
+
+  useEffect(() => {
+    if (!bgJob || bgJob.status !== 'processing' || bgPickedUpRef.current) return;
+    setProgress(bgJob.progress);
+    setProcessingStatus(bgJob.statusText);
+  }, [bgJob?.progress, bgJob?.statusText]);
 
   useEffect(() => {
     if (step !== 'processing') return;
