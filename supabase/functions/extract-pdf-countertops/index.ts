@@ -8,6 +8,21 @@ const corsHeaders = {
 
 type ModelAttempt = { name: string; retries: number };
 
+type NormalizedCountertop = {
+  label: string;
+  length: number;
+  depth: number;
+  backsplashLength: number;
+  isIsland: boolean;
+  category: "kitchen" | "bath";
+};
+
+type CountertopPassResult = {
+  unitTypeName: string;
+  countertops: NormalizedCountertop[];
+  raw: string;
+};
+
 const PRIMARY_MODELS: ModelAttempt[] = [
   { name: "gemini-3-flash-preview", retries: 3 },
   { name: "gemini-2.5-flash", retries: 2 },
@@ -216,6 +231,28 @@ async function callAI(
   return requestGemini(key, imageData, imageMimeType, prompt, opts.geminiModels, { temperature: opts.temperature, maxOutputTokens: opts.maxOutputTokens });
 }
 
+function buildKnownAIErrorResponse(err: unknown): Response | null {
+  if (err instanceof Error && err.message === "rate_limit") {
+    return new Response(JSON.stringify({ error: "rate_limit" }), {
+      status: 429,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  if (err instanceof Error && err.message === "credits") {
+    return new Response(JSON.stringify({ error: "credits" }), {
+      status: 402,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  if (err instanceof Error && err.message === "ai_unavailable") {
+    return new Response(JSON.stringify({ error: "AI model temporarily unavailable.", unitTypeName: "", countertops: [] }), {
+      status: 503,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  return null;
+}
+
 function buildCountertopExtractionPrompt(provider: "gemini" | "dialagram"): string {
   if (provider === "dialagram") {
     return `You are reading ONE 2020 countertop shop drawing image.
@@ -233,13 +270,16 @@ For each countertop section return:
 - category ("kitchen" or "bath")
 
 Rules:
-- Use visible dimensions if present; otherwise estimate reasonably from the drawing
-- Split L-shaped or U-shaped tops into straight segments
-- Wall runs usually have backsplashLength equal to the full wall-contact length
-- Islands and peninsulas usually have backsplashLength = 0
-- If depth is 22 or less, or if the room/label suggests vanity/bath/lav/powder, category = "bath"
-- Otherwise category = "kitchen"
-- Only return an empty list if there is truly no countertop drawing on the page
+- Scan the ENTIRE page before answering. Do not stop after the first countertop.
+- Count kitchen sections and bath/vanity sections separately.
+- Small vanity tops matter — return each vanity separately even if it is similar to another vanity.
+- Use visible dimensions if present; otherwise estimate reasonably from the drawing.
+- Split L-shaped or U-shaped tops into straight segments.
+- Wall runs usually have backsplashLength equal to the full wall-contact length.
+- Islands and peninsulas usually have backsplashLength = 0.
+- If depth is 22 or less, or if the room/label suggests vanity/bath/lav/powder, category = "bath".
+- Otherwise category = "kitchen".
+- Only return an empty list if there is truly no countertop drawing on the page.
 
 Return ONLY valid JSON:
 {"unitTypeName":"TYPE A","countertops":[{"label":"Perimeter","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"}]}`;
@@ -307,11 +347,68 @@ Return ONLY valid JSON:
 {"unitTypeName":"TYPE A","countertops":[{"label":"Perimeter","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"}]}`;
 }
 
+function buildDialagramCategoryPrompt(category: "kitchen" | "bath"): string {
+  if (category === "bath") {
+    return `You are reading ONE 2020 countertop shop drawing image.
+
+Find ONLY bath / vanity countertop sections on this page.
+
+Rules:
+- Count EACH vanity separately. Do not merge two bathrooms into one section just because the sizes match.
+- Focus on vanity, bath, bathroom, lav, powder, WC, or tops that are about 19" or 22" deep.
+- Ignore kitchen perimeter runs, islands, peninsulas, laundry tops, and bar tops.
+- If a bath top is visible but only partly dimensioned, estimate using the drawing and standard bath depths.
+- backsplashLength is the full wall-contact length.
+
+Return ONLY valid JSON:
+{"unitTypeName":"TYPE A","countertops":[{"label":"Vanity","length":36,"depth":22,"backsplashLength":36,"isIsland":false,"category":"bath"}]}`;
+  }
+
+  return `You are reading ONE 2020 countertop shop drawing image.
+
+Find ONLY kitchen / laundry / bar / island countertop sections on this page.
+
+Rules:
+- Count EVERY kitchen section visible on the page. Do not stop after the first perimeter run.
+- Include perimeter runs, islands, peninsulas, bar tops, and laundry counters.
+- Ignore bath / vanity tops.
+- Split L-shaped or U-shaped tops into straight segments.
+- backsplashLength is the full wall-contact length for wall runs; islands usually have 0 backsplash.
+
+Return ONLY valid JSON:
+{"unitTypeName":"TYPE A","countertops":[{"label":"Perimeter","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"},{"label":"Island","length":72,"depth":36,"backsplashLength":0,"isIsland":true,"category":"kitchen"}]}`;
+}
+
+function buildDialagramFinalizePrompt(unitTypeName: string, countertops: NormalizedCountertop[]): string {
+  return `You are finalizing countertop extraction for the attached ONE 2020 shop drawing image.
+
+Candidate JSON:
+${JSON.stringify({ unitTypeName, countertops })}
+
+Check the image and return the CORRECT complete JSON.
+
+Rules:
+- Keep kitchen sections and bath/vanity sections separate.
+- Small vanity tops matter; count each vanity separately.
+- Do not merge separate rooms just because dimensions match.
+- Add missing sections, remove duplicates, and correct dimensions/categories.
+- Split L-shaped or U-shaped tops into straight segments.
+
+Return ONLY valid JSON.`;
+}
+
 function getDialagramFallbackModels(requestedModel: string): string[] {
   const normalized = String(requestedModel || "qwen-3.6-plus").trim() || "qwen-3.6-plus";
   return normalized === "qwen-3.6-plus"
     ? [normalized, "qwen-3.6-plus-thinking"]
     : [normalized];
+}
+
+function getDialagramAccuracyModel(requestedModel: string): string {
+  const models = getDialagramFallbackModels(requestedModel);
+  return models.includes("qwen-3.6-plus-thinking")
+    ? "qwen-3.6-plus-thinking"
+    : models[0];
 }
 
 function parseCountertopJSON(content: string): { unitTypeName: string; countertops: any[] } {
@@ -366,6 +463,114 @@ function parseAndNormalizeCountertops(content: string) {
   };
 }
 
+function parseCountertopPassResult(content: string): CountertopPassResult {
+  const { parsed, countertops } = parseAndNormalizeCountertops(content);
+  return {
+    unitTypeName: parsed.unitTypeName,
+    countertops,
+    raw: content,
+  };
+}
+
+function normalizeCountertopLabelKey(label: string): string {
+  return String(label || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function isGenericCountertopLabel(label: string): boolean {
+  const key = normalizeCountertopLabelKey(label);
+  return !key || /^(section|counter|countertop|run|wall run|perimeter|kitchen|bath|vanity|island|peninsula|bar top|top)$/.test(key);
+}
+
+function scoreCountertopCandidate(ct: NormalizedCountertop): number {
+  let score = 0;
+  if (!isGenericCountertopLabel(ct.label)) score += 4;
+  if (ct.backsplashLength > 0 || ct.isIsland) score += 2;
+  if (ct.category === "bath" && ct.depth <= 22) score += 2;
+  if (ct.category === "kitchen" && ct.depth >= 24) score += 2;
+  if (ct.length > 0) score += 1;
+  return score;
+}
+
+function chooseBetterCountertop(existing: NormalizedCountertop, incoming: NormalizedCountertop): NormalizedCountertop {
+  return scoreCountertopCandidate(incoming) > scoreCountertopCandidate(existing)
+    ? incoming
+    : existing;
+}
+
+function areCountertopsLikelySame(a: NormalizedCountertop, b: NormalizedCountertop): boolean {
+  if (a.category !== b.category || a.isIsland !== b.isIsland) return false;
+
+  const lengthClose = Math.abs(a.length - b.length) <= 2;
+  const depthClose = Math.abs(a.depth - b.depth) <= 1.5;
+  const backsplashClose = Math.abs(a.backsplashLength - b.backsplashLength) <= 4;
+  if (!(lengthClose && depthClose && backsplashClose)) return false;
+
+  const aLabel = normalizeCountertopLabelKey(a.label);
+  const bLabel = normalizeCountertopLabelKey(b.label);
+  if (!aLabel || !bLabel) return true;
+  if (aLabel === bLabel) return true;
+  return isGenericCountertopLabel(a.label) || isGenericCountertopLabel(b.label);
+}
+
+function mergeCountertopCandidateLists(lists: NormalizedCountertop[][]): NormalizedCountertop[] {
+  const nonEmptyLists = lists.filter((list) => list.length > 0);
+  if (!nonEmptyLists.length) return [];
+
+  const orderedLists = [...nonEmptyLists].sort((a, b) => b.length - a.length);
+  const merged = [...orderedLists[0]];
+
+  for (const list of orderedLists.slice(1)) {
+    const usedExisting = new Set<number>();
+    for (const candidate of list) {
+      let matchIndex = -1;
+      for (let i = 0; i < merged.length; i++) {
+        if (usedExisting.has(i)) continue;
+        if (areCountertopsLikelySame(merged[i], candidate)) {
+          matchIndex = i;
+          break;
+        }
+      }
+
+      if (matchIndex === -1) {
+        merged.push(candidate);
+      } else {
+        usedExisting.add(matchIndex);
+        merged[matchIndex] = chooseBetterCountertop(merged[matchIndex], candidate);
+      }
+    }
+  }
+
+  return merged;
+}
+
+function scoreUnitTypeName(value: string): number {
+  const name = String(value || "").trim();
+  if (!name) return -999;
+
+  let score = Math.min(name.length, 24);
+  if (/^unknown$/i.test(name)) score -= 100;
+  if (/counter\s*top\s*plan|countertop\s*plan|top\s*plan/i.test(name)) score -= 30;
+  if (/\btype\b/i.test(name)) score += 14;
+  if (/\b\d+\s*br\b/i.test(name)) score += 12;
+  if (/\bstudio\b/i.test(name)) score += 12;
+  if (/[a-z]*\d+[a-z-]*/i.test(name)) score += 5;
+  if (/-/.test(name)) score += 3;
+  return score;
+}
+
+function chooseBestUnitTypeName(values: string[]): string {
+  const unique = values
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .filter((value, index, arr) => arr.indexOf(value) === index);
+
+  if (!unique.length) return "";
+  return unique.sort((a, b) => scoreUnitTypeName(b) - scoreUnitTypeName(a))[0];
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -390,7 +595,8 @@ serve(async (req) => {
 
     let extractionContent = "";
     let extracted: { unitTypeName: string; countertops: any[] } = { unitTypeName: "", countertops: [] };
-    let countertops: Array<ReturnType<typeof normalizeCountertop>> = [];
+    let countertops: NormalizedCountertop[] = [];
+    const dialagramPassResults: CountertopPassResult[] = [];
 
     try {
       extractionContent = await callAI(provider, pageImage, imageMimeType, extractionPrompt, {
@@ -400,64 +606,87 @@ serve(async (req) => {
         dialagramModel: activeDialagramModel,
       });
     } catch (err) {
-      if (err instanceof Error && err.message === "rate_limit") {
-        return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-      if (err instanceof Error && err.message === "credits") {
-        return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-      if (err instanceof Error && err.message === "ai_unavailable") {
-        return new Response(JSON.stringify({ error: "AI model temporarily unavailable.", unitTypeName: "", countertops: [] }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+      const knownErrorResponse = buildKnownAIErrorResponse(err);
+      if (knownErrorResponse) return knownErrorResponse;
       throw err;
     }
 
     console.log("AI countertop raw:", extractionContent.slice(0, 800));
     ({ parsed: extracted, countertops } = parseAndNormalizeCountertops(extractionContent));
+    dialagramPassResults.push({ unitTypeName: extracted.unitTypeName, countertops, raw: extractionContent });
 
-    if (provider === "dialagram" && countertops.length === 0) {
-      console.log("Dialagram returned empty extraction, running rescue pass...");
-      const rescuePrompt = buildDialagramRescuePrompt(extractionContent);
-      const rescueModels = getDialagramFallbackModels(dialagramModel);
+    if (provider === "dialagram") {
+      const focusedModel = getDialagramAccuracyModel(dialagramModel);
+      const focusedPasses = [
+        { label: "kitchen-focus", prompt: buildDialagramCategoryPrompt("kitchen"), model: focusedModel },
+        { label: "bath-focus", prompt: buildDialagramCategoryPrompt("bath"), model: focusedModel },
+      ];
 
-      for (const rescueModel of rescueModels) {
+      for (const pass of focusedPasses) {
         try {
-          const rescueContent = await callAI("dialagram", pageImage, imageMimeType, rescuePrompt, {
+          const passContent = await callAI("dialagram", pageImage, imageMimeType, pass.prompt, {
             temperature: 0.05,
             maxOutputTokens: 8192,
             geminiModels: PRIMARY_MODELS,
-            dialagramModel: rescueModel,
+            dialagramModel: pass.model,
           });
-          console.log(`Dialagram rescue raw (${rescueModel}):`, rescueContent.slice(0, 800));
+          console.log(`Dialagram ${pass.label} raw (${pass.model}):`, passContent.slice(0, 800));
+          const passResult = parseCountertopPassResult(passContent);
+          if (passResult.countertops.length > 0 || passResult.unitTypeName) {
+            dialagramPassResults.push(passResult);
+          }
+        } catch (focusErr) {
+          const knownErrorResponse = buildKnownAIErrorResponse(focusErr);
+          if (knownErrorResponse) return knownErrorResponse;
+          console.warn(`Dialagram ${pass.label} failed:`, focusErr);
+        }
+      }
 
-          const rescueResult = parseAndNormalizeCountertops(rescueContent);
-          if (rescueResult.countertops.length > 0) {
-            extractionContent = rescueContent;
-            extracted = rescueResult.parsed;
-            countertops = rescueResult.countertops;
-            activeDialagramModel = rescueModel;
-            console.log(`Dialagram rescue succeeded with ${rescueModel}, sections: ${countertops.length}`);
-            break;
-          }
+      countertops = mergeCountertopCandidateLists(dialagramPassResults.map((result) => result.countertops));
+      extracted.unitTypeName = chooseBestUnitTypeName(dialagramPassResults.map((result) => result.unitTypeName));
+      activeDialagramModel = focusedModel;
 
-          if (!extracted.unitTypeName && rescueResult.parsed.unitTypeName) {
-            extracted.unitTypeName = rescueResult.parsed.unitTypeName;
+      if (countertops.length <= 1) {
+        console.log("Dialagram extraction looks incomplete, running rescue pass...");
+        const rescuePrompt = buildDialagramRescuePrompt(extractionContent);
+        const rescueModels = getDialagramFallbackModels(focusedModel);
+
+        for (const rescueModel of rescueModels) {
+          try {
+            const rescueContent = await callAI("dialagram", pageImage, imageMimeType, rescuePrompt, {
+              temperature: 0.05,
+              maxOutputTokens: 8192,
+              geminiModels: PRIMARY_MODELS,
+              dialagramModel: rescueModel,
+            });
+            console.log(`Dialagram rescue raw (${rescueModel}):`, rescueContent.slice(0, 800));
+
+            const rescueResult = parseCountertopPassResult(rescueContent);
+            if (rescueResult.countertops.length > 0 || rescueResult.unitTypeName) {
+              dialagramPassResults.push(rescueResult);
+              countertops = mergeCountertopCandidateLists(dialagramPassResults.map((result) => result.countertops));
+              extracted.unitTypeName = chooseBestUnitTypeName(dialagramPassResults.map((result) => result.unitTypeName));
+            }
+
+            if (countertops.length > 1) {
+              activeDialagramModel = rescueModel;
+              console.log(`Dialagram rescue improved extraction with ${rescueModel}, sections: ${countertops.length}`);
+              break;
+            }
+          } catch (rescueErr) {
+            const knownErrorResponse = buildKnownAIErrorResponse(rescueErr);
+            if (knownErrorResponse) return knownErrorResponse;
+            console.warn(`Dialagram rescue failed for ${rescueModel}:`, rescueErr);
           }
-        } catch (rescueErr) {
-          if (rescueErr instanceof Error && rescueErr.message === "rate_limit") {
-            return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-          }
-          if (rescueErr instanceof Error && rescueErr.message === "credits") {
-            return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-          }
-          console.warn(`Dialagram rescue failed for ${rescueModel}:`, rescueErr);
         }
       }
     }
 
     if (countertops.length > 0) {
       console.log("Starting verification pass...");
-      const verifyPrompt = `You are verifying AI-extracted countertop data from a 2020 shop drawing.
+      const verifyPrompt = provider === "dialagram"
+        ? buildDialagramFinalizePrompt(extracted.unitTypeName, countertops)
+        : `You are verifying AI-extracted countertop data from a 2020 shop drawing.
 
 Here is the extracted data:
 ${JSON.stringify({ unitTypeName: extracted.unitTypeName, countertops }, null, 2)}
@@ -477,17 +706,19 @@ If everything looks correct, return the data as-is. Return ONLY valid JSON — n
 
       try {
         const verifyContent = await callAI(provider, pageImage, imageMimeType, verifyPrompt, {
-          temperature: 0.1,
+          temperature: provider === "dialagram" ? 0.05 : 0.1,
           maxOutputTokens: 8192,
           geminiModels: VERIFY_MODELS,
-          dialagramModel: activeDialagramModel,
+          dialagramModel: provider === "dialagram" ? getDialagramAccuracyModel(activeDialagramModel) : activeDialagramModel,
         });
         console.log("Verify countertop raw:", verifyContent.slice(0, 800));
-        const verified = parseCountertopJSON(verifyContent);
+        const verified = parseAndNormalizeCountertops(verifyContent);
 
-        if (verified.countertops && verified.countertops.length > 0) {
-          const verifiedCts = verified.countertops.map(normalizeCountertop);
-          const unitTypeName = (verified.unitTypeName || extracted.unitTypeName || "").trim();
+        if (verified.countertops.length > 0) {
+          const verifiedCts = verified.countertops;
+          const unitTypeName = provider === "dialagram"
+            ? chooseBestUnitTypeName([verified.parsed.unitTypeName, extracted.unitTypeName])
+            : (verified.parsed.unitTypeName || extracted.unitTypeName || "").trim();
           console.log("Verified unit type:", unitTypeName, "sections:", verifiedCts.length);
 
           return new Response(JSON.stringify({ unitTypeName, countertops: verifiedCts }), {
@@ -499,7 +730,9 @@ If everything looks correct, return the data as-is. Return ONLY valid JSON — n
       }
     }
 
-    const unitTypeName = extracted.unitTypeName;
+    const unitTypeName = provider === "dialagram"
+      ? chooseBestUnitTypeName([extracted.unitTypeName])
+      : extracted.unitTypeName;
     console.log("Detected unit type name:", unitTypeName);
 
     return new Response(JSON.stringify({ unitTypeName, countertops }), {
