@@ -5,7 +5,7 @@
 
 import { useSyncExternalStore } from 'react';
 
-export type ExtractionType = 'cabinet' | 'unit' | 'stone' | 'laminate' | 'vtop' | 'takeoff-unit' | 'takeoff-cabinet' | 'takeoff-countertop';
+export type ExtractionType = 'cabinet' | 'unit' | 'stone' | 'laminate' | 'vtop' | 'takeoff-unit' | 'takeoff-cabinet' | 'takeoff-countertop' | 'prefinal-combined';
 
 const LABELS: Record<ExtractionType, string> = {
   cabinet: 'Pre-Final Cabinets',
@@ -16,6 +16,7 @@ const LABELS: Record<ExtractionType, string> = {
   'takeoff-unit': 'Takeoff Unit Count',
   'takeoff-cabinet': 'Takeoff Cabinets',
   'takeoff-countertop': 'Takeoff Countertops',
+  'prefinal-combined': 'Pre-Final Units + Cabinets',
 };
 
 export interface ExtractionJob {
