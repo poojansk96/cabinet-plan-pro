@@ -279,6 +279,10 @@ async function requestDialagram(
   }));
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    if (attempt === 0) {
+      const totalBytes = images.reduce((s, i) => s + i.data.length, 0);
+      console.log(`Dialagram request: model=${model}, images=${images.length}, total base64 bytes=${totalBytes}`);
+    }
     let response: Response;
     try {
       response = await fetch(`${DIALAGRAM_BASE_URL}/chat/completions`, {
@@ -295,8 +299,12 @@ async function requestDialagram(
           stream: false,
           messages: [
             {
+              role: "system",
+              content: "You are a vision AI that analyzes architectural shop drawings provided as images. Always examine the attached image(s) carefully before responding. Never ask the user to upload an image — the images are always attached.",
+            },
+            {
               role: "user",
-              content: [...imageParts, { type: "text", text: prompt }],
+              content: [{ type: "text", text: prompt }, ...imageParts],
             },
           ],
         }),

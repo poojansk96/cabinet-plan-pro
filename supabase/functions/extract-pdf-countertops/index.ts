@@ -99,6 +99,9 @@ async function requestDialagram(
   let response: Response | null = null;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    if (attempt === 0) {
+      console.log(`Dialagram request: model=${model}, image bytes (base64)=${imageData.length}`);
+    }
     try {
       response = await fetch(`${DIALAGRAM_BASE_URL}/chat/completions`, {
         method: "POST",
@@ -114,13 +117,17 @@ async function requestDialagram(
           stream: false,
           messages: [
             {
+              role: "system",
+              content: "You are a vision AI that analyzes architectural shop drawings provided as images. Always examine the attached image carefully before responding. Never ask the user to upload an image — the image is always attached.",
+            },
+            {
               role: "user",
               content: [
+                { type: "text", text: prompt },
                 {
                   type: "image_url",
                   image_url: { url: `data:image/jpeg;base64,${imageData}` },
                 },
-                { type: "text", text: prompt },
               ],
             },
           ],
