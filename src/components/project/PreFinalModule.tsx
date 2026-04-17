@@ -657,11 +657,12 @@ export default function PreFinalModule({ project }: Props) {
 
               <div className="ml-auto flex items-center gap-2 flex-wrap">
                 <button
-                  onClick={() => setShowUnitImport(true)}
+                  onClick={() => setShowCombinedImport(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
                   style={{ background: 'hsl(var(--primary))' }}
+                  title="Uploads one floor plan and fills both Unit Count and Cabinet Count tabs"
                 >
-                  <FileUp size={12} /> Upload 2020 floor plans
+                  <FileUp size={12} /> Upload 2020 floor plan (Units + Cabinets)
                 </button>
                 {(store.unitTypes.length > 0 || store.unitNumbers.length > 0) && (
                   <button
