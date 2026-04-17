@@ -14,6 +14,17 @@ describe('extractPlanSkuCountsFromTextItems', () => {
     expect(counts.W2430B).toBe(2);
     expect(counts.W3018B).toBe(1);
   });
+
+  it('counts BLB and HABLB labels from plan text items', () => {
+    const counts = extractPlanSkuCountsFromTextItems([
+      { str: 'BLB42/45FH-R', transform: [1, 0, 0, 1, 320, 420] },
+      { str: 'HABLB42/45FH-R', transform: [1, 0, 0, 1, 360, 425] },
+      { str: 'BLB42/45FH-R', transform: [1, 0, 0, 1, 400, 430] },
+    ]);
+
+    expect(counts['BLB42/45FH-R']).toBe(2);
+    expect(counts['HABLB42/45FH-R']).toBe(1);
+  });
 });
 
 describe('mergePrefinalExtractionPasses', () => {
