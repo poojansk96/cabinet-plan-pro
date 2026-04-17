@@ -547,7 +547,22 @@ export default function PreFinalModule({ project }: Props) {
           prefinalPerson={project.specs?.takeoffPerson}
           speedMode="thorough"
           skipClassify
-          aiModel={cabinetAiModel}
+          aiModel="fast"
+        />
+      )}
+
+      {/* Combined Unit + Cabinet Import (single PDF → both tabs) */}
+      {showCombinedImport && (
+        <CombinedImportDialog
+          onImport={(unitRows, cabinetRows) => {
+            // Derive type order from unit rows (PDF page order)
+            const typeOrder = Array.from(new Set(unitRows.map(r => r.unitType)));
+            handleUnitImport(unitRows, typeOrder);
+            // Cabinet rows already carry detectedUnitType per row
+            handleCabinetImport(cabinetRows, undefined, typeOrder);
+            setShowCombinedImport(false);
+          }}
+          onClose={() => setShowCombinedImport(false)}
         />
       )}
 
