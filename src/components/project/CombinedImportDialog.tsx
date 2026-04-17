@@ -451,6 +451,11 @@ export default function CombinedImportDialog({ onImport, onClose }: Props) {
                 <span className="text-border">—</span>
                 <span className={progress >= 95 ? 'text-primary font-medium' : ''}>● Finalizing</span>
               </div>
+
+              <p className="text-[11px] text-muted-foreground/80 flex items-center gap-1.5">
+                <Sparkles size={11} className="text-primary" />
+                You can close this dialog — it will keep running in the background.
+              </p>
             </div>
           )}
 
