@@ -99,6 +99,9 @@ async function requestDialagram(
   let response: Response | null = null;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    if (attempt === 0) {
+      console.log(`Dialagram request: model=${model}, image bytes (base64)=${imageData.length}`);
+    }
     try {
       response = await fetch(`${DIALAGRAM_BASE_URL}/chat/completions`, {
         method: "POST",
@@ -131,9 +134,6 @@ async function requestDialagram(
         }),
       });
     } catch (fetchErr) {
-      if (attempt === 0) {
-        console.log(`Dialagram request: model=${model}, image bytes (base64)=${imageData.length}`);
-      }
       console.error(`Dialagram fetch error (attempt ${attempt + 1}):`, fetchErr);
       if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
       throw new Error("ai_unavailable");
