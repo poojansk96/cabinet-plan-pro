@@ -4,6 +4,7 @@ import type { Project, Unit, Cabinet } from '@/types/project';
 import { type LabelRow } from './ShopDrawingImportDialog';
 import ShopDrawingImportDialog from './ShopDrawingImportDialog';
 import UnitTypeImportDialog from './UnitTypeImportDialog';
+import CombinedImportDialog from './CombinedImportDialog';
 import StonePDFImportDialog, { type StoneExtractedRow } from './StonePDFImportDialog';
 import VtopPDFImportDialog, { type VtopImportRow, formatVtopSku, getVtopSidesplashItems } from './VtopPDFImportDialog';
 import { usePrefinalStore, type PrefinalStoneRow, type PrefinalVtopRow } from '@/hooks/usePrefinalStore';
