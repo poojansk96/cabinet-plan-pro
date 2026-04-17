@@ -49,6 +49,9 @@ export default function PreFinalModule({ project }: Props) {
   const [cabinetImportedCount, setCabinetImportedCount] = useState<number | null>(null);
   const [cabinetChecks, setCabinetChecks] = useState<Record<string, boolean>>({});
   const [cabinetAiModel, setCabinetAiModel] = useState<'fast' | 'accu'>('fast');
+  // Stone/Laminate/Vtop AI provider (test toggle for Dialagram Qwen)
+  const [stoneAiProvider, setStoneAiProvider] = useState<'gemini' | 'dialagram'>('gemini');
+  const [vtopAiProvider, setVtopAiProvider] = useState<'gemini' | 'dialagram'>('gemini');
 
   // ── Stone SQFT state ──────────────────────────────────────────────────
   const [showStoneImport, setShowStoneImport] = useState(false);
@@ -533,6 +536,7 @@ export default function PreFinalModule({ project }: Props) {
           onClose={() => setShowStoneImport(false)}
           prefinalPerson={project.specs?.takeoffPerson}
           extractionType="stone"
+          aiProvider={stoneAiProvider}
         />
       )}
 
@@ -543,6 +547,7 @@ export default function PreFinalModule({ project }: Props) {
           onClose={() => setShowLaminateImport(false)}
           prefinalPerson={project.specs?.takeoffPerson}
           extractionType="laminate"
+          aiProvider={stoneAiProvider}
         />
       )}
 
@@ -552,6 +557,7 @@ export default function PreFinalModule({ project }: Props) {
           onImport={(rows, detectedTypes) => handleVtopImport(rows, detectedTypes)}
           onClose={() => setShowVtopImport(false)}
           prefinalPerson={project.specs?.takeoffPerson}
+          aiProvider={vtopAiProvider}
         />
       )}
 
