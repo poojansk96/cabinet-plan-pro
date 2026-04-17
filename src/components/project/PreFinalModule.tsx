@@ -67,10 +67,10 @@ export default function PreFinalModule({ project }: Props) {
 
   // ── Cabinet Count state ───────────────────────────────────────────────────
   const [showCabinetImport, setShowCabinetImport] = useState(false);
+  const [showCombinedImport, setShowCombinedImport] = useState(false);
   const [importTargetType, setImportTargetType] = useState('');
   const [cabinetImportedCount, setCabinetImportedCount] = useState<number | null>(null);
   const [cabinetChecks, setCabinetChecks] = useState<Record<string, boolean>>({});
-  const [cabinetAiModel, setCabinetAiModel] = useState<'fast' | 'accu'>('fast');
   // Stone/Laminate/Vtop AI provider (test toggle for Dialagram Qwen)
   const [stoneAiProvider, setStoneAiProvider] = useState<'gemini' | 'dialagram'>('gemini');
   const [vtopAiProvider, setVtopAiProvider] = useState<'gemini' | 'dialagram'>('gemini');
