@@ -114,19 +114,26 @@ async function requestDialagram(
           stream: false,
           messages: [
             {
+              role: "system",
+              content: "You are a vision AI that analyzes architectural shop drawings provided as images. Always examine the attached image carefully before responding. Never ask the user to upload an image — the image is always attached.",
+            },
+            {
               role: "user",
               content: [
+                { type: "text", text: prompt },
                 {
                   type: "image_url",
                   image_url: { url: `data:image/jpeg;base64,${imageData}` },
                 },
-                { type: "text", text: prompt },
               ],
             },
           ],
         }),
       });
     } catch (fetchErr) {
+      if (attempt === 0) {
+        console.log(`Dialagram request: model=${model}, image bytes (base64)=${imageData.length}`);
+      }
       console.error(`Dialagram fetch error (attempt ${attempt + 1}):`, fetchErr);
       if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
       throw new Error("ai_unavailable");
