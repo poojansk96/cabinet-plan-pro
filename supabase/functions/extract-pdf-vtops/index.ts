@@ -379,15 +379,19 @@ leftWallYesConfidence: probability 0.0-1.0 that the LEFT end has a wall
 rightWallYesConfidence: probability 0.0-1.0 that the RIGHT end has a wall`;
 
       try {
-        const content = await requestGemini(
-          GEMINI_API_KEY,
+        const content = await callAI(
+          provider,
           [
             { mimeType: "image/png", data: pageImage },
             { mimeType: "image/png", data: rightEndCrop },
           ],
           focusedPrompt,
-          [{ name: "gemini-3-flash-preview", retries: 2 }],
-          { temperature: 0.1, maxOutputTokens: 256 },
+          {
+            temperature: 0.1,
+            maxOutputTokens: 256,
+            geminiModels: [{ name: "gemini-3-flash-preview", retries: 2 }],
+            dialagramModel,
+          },
         );
         console.log("Focused wall raw:", content);
         const result = parseWallConfidence(content);
@@ -483,12 +487,16 @@ Return ONLY valid JSON — no markdown fences, no explanation:
     // ── Pass 1: Extraction ──
     let fullContent = "";
     try {
-      fullContent = await requestGemini(
-        GEMINI_API_KEY,
+      fullContent = await callAI(
+        provider,
         [{ mimeType: "image/jpeg", data: pageImage }],
         fullPrompt,
-        PRIMARY_MODELS,
-        { temperature: 0.1, maxOutputTokens: 4096 },
+        {
+          temperature: 0.1,
+          maxOutputTokens: 4096,
+          geminiModels: PRIMARY_MODELS,
+          dialagramModel,
+        },
       );
     } catch (err) {
       if (err instanceof Error && err.message === "rate_limit") {
@@ -549,12 +557,16 @@ Return the CORRECTED complete JSON — same format:
 If everything looks correct, return the data as-is. Return ONLY valid JSON — no markdown fences, no explanation.`;
 
       try {
-        const verifyContent = await requestGemini(
-          GEMINI_API_KEY,
+        const verifyContent = await callAI(
+          provider,
           [{ mimeType: "image/jpeg", data: pageImage }],
           verifyPrompt,
-          VERIFY_MODELS,
-          { temperature: 0.1, maxOutputTokens: 4096 },
+          {
+            temperature: 0.1,
+            maxOutputTokens: 4096,
+            geminiModels: VERIFY_MODELS,
+            dialagramModel,
+          },
         );
         console.log("Verify vtop raw:", verifyContent.slice(0, 800));
         const verified = parseExtractionText(verifyContent);
