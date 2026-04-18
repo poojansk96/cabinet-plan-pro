@@ -707,9 +707,14 @@ serve(async (req) => {
       }
     }
 
+    // For Dialagram broad pass, use the accuracy (thinking) model from the start —
+    // the lite qwen-3.6-plus consistently returns empty on dense ctop drawings.
+    if (provider === "dialagram") {
+      activeDialagramModel = getDialagramAccuracyModel(dialagramModel);
+    }
     try {
       extractionContent = await callAI(provider, pageImage, imageMimeType, extractionPrompt, {
-        temperature: provider === "dialagram" ? 0.1 : 0.2,
+        temperature: provider === "dialagram" ? 0.2 : 0.2,
         maxOutputTokens: 8192,
         geminiModels: PRIMARY_MODELS,
         dialagramModel: activeDialagramModel,
