@@ -460,7 +460,9 @@ rightWallYesConfidence: probability 0.0-1.0 that the RIGHT end has a wall`;
     }
 
     // ── Mode 1: Full-page extraction (dimensions, bbox, rough wall hints) ──
-    const fullPrompt = `You are an expert millwork estimator analyzing a 2020 countertop shop drawing page.
+    // Provider-specific prompt: Qwen handles short, direct prompts much better than long
+    // multi-rule prompts. Gemini benefits from the detailed perspective rules.
+    const geminiPrompt = `You are an expert millwork estimator analyzing a 2020 countertop shop drawing page.
 
 TASK:
 1. Find the UNIT TYPE NAME from the drawing's title block (usually bottom-right or top). Examples: "TYPE 1.1A (ADA)", "TYPE 2.1B-AS", "STUDIO", etc. Extract the EXACT and COMPLETE name. If none visible, use "".
@@ -535,6 +537,34 @@ IMPORTANT:
 Return ONLY valid JSON — no markdown fences, no explanation:
 {"unitTypeName":"TYPE 1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"backSideOnPage":"left","closerEndOnPage":"bottom","bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true,"leftWallYesConfidence":0.9,"rightWallYesConfidence":0.85,"bbox":{"x":0.05,"y":0.3,"width":0.35,"height":0.2}}]}`;
 
+    // QWEN PROMPT: short, direct, permissive. Qwen-VL fails on long prompts and over-strict
+    // filters. We extract EVERY top section drawn — vanity, break-room, mail-room, kitchen.
+    // The Cmarble/Swan Vtop module is used for any solid-surface top, not only bathroom vanities.
+    const qwenPrompt = `Look at this countertop shop drawing page (2020 / Cyncly format). Extract EVERY countertop / vanity / top section drawn on the page — DO NOT filter or skip any.
+
+For each top, return these fields:
+- length: longer edge dimension in inches as a number (e.g. 42, 47.5, 121.5)
+- depth: shorter edge dimension in inches as a number (e.g. 22, 25.25, 25.5)
+- bowlPosition: "offset-left" | "offset-right" | "center" (use "center" if no bowl is drawn or unclear)
+- bowlOffset: distance in inches from the closer end to bowl center (number), or null if centered / no bowl
+- leftWall: true if the LEFT end has a wall or double-line, else false (default true if uncertain)
+- rightWall: true if the RIGHT end has a wall or double-line, else false (default true if uncertain)
+
+Also extract:
+- unitTypeName: text after "TYPE" in the title block (e.g. "1.1A (ADA)", "Break Room", "Mail Room", "1.1B-AS", "Studio"). Empty string if none.
+
+CRITICAL RULES:
+- DO NOT filter by depth, label, or room type. Include break room, mail room, kitchen, vanity, island — every drawn top counts.
+- A page can have multiple tops (e.g. one large counter + one small vanity). Return ALL of them as separate items.
+- Convert fractions: 1/2=0.5, 1/4=0.25, 3/4=0.75, 1/8=0.125, 3/8=0.375, 5/8=0.625, 7/8=0.875.
+- Round dimensions to nearest 0.25".
+- Only return empty vtops:[] if the page truly has NO countertop drawing (e.g. only floor plan / cover sheet / index).
+
+Return ONLY valid JSON, no markdown fences, no commentary:
+{"unitTypeName":"1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true}]}`;
+
+    const fullPrompt = provider === "dialagram" ? qwenPrompt : geminiPrompt;
+
     // ── Pass 1: Extraction ──
     let fullContent = "";
     try {
@@ -543,7 +573,7 @@ Return ONLY valid JSON — no markdown fences, no explanation:
         [{ mimeType: "image/jpeg", data: pageImage }],
         fullPrompt,
         {
-          temperature: 0.1,
+          temperature: provider === "dialagram" ? 0.2 : 0.1,
           maxOutputTokens: 4096,
           geminiModels: PRIMARY_MODELS,
           dialagramModel,
