@@ -837,7 +837,12 @@ serve(async (req) => {
       }
     }
 
-    if (countertops.length > 0) {
+    // Skip verification for Dialagram when results look healthy — saves ~25s and avoids 504s.
+    const skipVerification = provider === "dialagram"
+      && countertops.length >= 2
+      && !countertops.some(hasNullCriticalDimensions);
+
+    if (countertops.length > 0 && !skipVerification) {
       console.log("Starting verification pass...");
       const verifyPrompt = provider === "dialagram"
         ? buildDialagramFinalizePrompt(extracted.unitTypeName, countertops)
