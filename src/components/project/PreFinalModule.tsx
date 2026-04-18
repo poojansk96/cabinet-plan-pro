@@ -154,24 +154,58 @@ export default function PreFinalModule({ project }: Props) {
       if (!orderedTypes.includes(finalType)) orderedTypes.push(finalType);
     }
 
-    // Use PDF page order from import when available.
-    // IMPORTANT: keep all detected types from this import even when a page had zero cabinet rows,
-    // otherwise missed AI extraction on a page would hide the whole unit type column.
+    // ── STRICT PDF PAGE ORDER ──────────────────────────────────────────────
+    // The dialog provides `importTypeOrder` built page-by-page in PDF order.
+    // That MUST be the single source of truth for column order. Row iteration order
+    // (which is sorted by SKU/room priority in the dialog's mergeRows) must NEVER
+    // influence column order, otherwise small SKU sort differences can swap two
+    // adjacent type columns.
     if (importTypeOrder && importTypeOrder.length > 0) {
-      const normalizedOrder = importTypeOrder
-        .map(t => {
-          const norm = normalizeUnitType(t);
-          const resolved = resolveKnownType(t) || resolveKnownType(norm);
-          return resolved || norm;
-        })
-        .filter((t, i, arr) => arr.indexOf(t) === i);
+      // 1) Resolve each page-order type against known Unit Count types (preserves casing).
+      const normalizedOrder = importTypeOrder.map(t => {
+        const norm = normalizeUnitType(t);
+        const resolved = resolveKnownType(t) || resolveKnownType(norm);
+        return resolved || norm;
+      });
 
-      const remaining = orderedTypes.filter(t => !normalizedOrder.includes(t));
-      const finalOrder = [...normalizedOrder, ...remaining].filter((t, i, arr) => arr.indexOf(t) === i);
-      store.addCabinetUnitTypes(finalOrder.filter(t => t !== 'Unassigned'), true);
+      // 2) Key-based dedup so "Type A" / "TYPE A" / "type-a" can't all reserve a slot.
+      const seenKeys = new Set<string>();
+      const pageOrdered: string[] = [];
+      for (const t of normalizedOrder) {
+        const k = toTypeKey(t);
+        if (!k || seenKeys.has(k)) continue;
+        seenKeys.add(k);
+        pageOrdered.push(t);
+      }
+
+      // 3) Append any row-derived types NOT present in the PDF page order at the END
+      //    (only happens when AI invented a type from a cabinet label that wasn't in
+      //    any title block — rare and intentionally pushed last so it never displaces
+      //    a real page-ordered type).
+      const tail: string[] = [];
+      for (const t of orderedTypes) {
+        if (t === 'Unassigned') continue;
+        const k = toTypeKey(t);
+        if (!k || seenKeys.has(k)) continue;
+        seenKeys.add(k);
+        tail.push(t);
+      }
+
+      const finalOrder = [...pageOrdered, ...tail].filter(t => t !== 'Unassigned');
+      store.addCabinetUnitTypes(finalOrder, true);
     } else {
-      const finalOrder = [...orderedTypes].filter((t, i, arr) => arr.indexOf(t) === i);
-      store.addCabinetUnitTypes(finalOrder.filter(t => t !== 'Unassigned'), true);
+      // No page order from dialog → fall back to row-iteration order (legacy path),
+      // still using key-based dedup so casing/whitespace can't double-add a type.
+      const seenKeys = new Set<string>();
+      const finalOrder: string[] = [];
+      for (const t of orderedTypes) {
+        if (t === 'Unassigned') continue;
+        const k = toTypeKey(t);
+        if (!k || seenKeys.has(k)) continue;
+        seenKeys.add(k);
+        finalOrder.push(t);
+      }
+      store.addCabinetUnitTypes(finalOrder, true);
     }
 
     for (const [unitType, typeRows] of rowsByType) {

@@ -727,7 +727,14 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
             ? [resolvedPageType]
             : [];
 
-        for (const t of typesForOrder) {
+        // ── STRICT PAGE ORDER ──
+        // Push this page's primary type FIRST (before any aliases) so order is stable per page.
+        // If only aliases exist (no resolvedPageType), keep their natural order.
+        const orderedTypesThisPage = resolvedPageType
+          ? [resolvedPageType, ...resolvedTypeAliases.filter(a => a !== resolvedPageType)]
+          : typesForOrder;
+
+        for (const t of orderedTypesThisPage) {
           if (!detectedType) detectedType = t;
           if (!pageTypeOrder.includes(t)) pageTypeOrder.push(t);
         }
