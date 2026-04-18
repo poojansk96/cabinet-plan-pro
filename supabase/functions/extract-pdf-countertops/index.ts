@@ -426,6 +426,7 @@ Rules:
 - Preserve roomName and instanceKey for each physical top.
 - Add missing sections, remove duplicates, and correct dimensions/categories.
 - Split L-shaped or U-shaped tops into straight segments.
+- unitTypeName: confirm it matches THIS page's title block VERBATIM. Never default to "TYPE A". If no title block visible on this page, return "".
 
 Return ONLY valid JSON.`;
 }
