@@ -742,10 +742,10 @@ serve(async (req) => {
       }
     }
 
-    // For Dialagram broad pass, use the accuracy (thinking) model from the start —
-    // the lite qwen-3.6-plus consistently returns empty on dense ctop drawings.
+    // For Dialagram broad pass, try the FAST (non-thinking) model first to save ~15-25s.
+    // Fall back to the thinking model only if fast returns empty/weak results.
     if (provider === "dialagram") {
-      activeDialagramModel = getDialagramAccuracyModel(dialagramModel);
+      activeDialagramModel = getDialagramFastModel(dialagramModel);
     }
     try {
       extractionContent = await callAI(provider, pageImage, imageMimeType, extractionPrompt, {
@@ -763,6 +763,35 @@ serve(async (req) => {
     console.log("AI countertop raw:", extractionContent.slice(0, 800));
     ({ parsed: extracted, countertops } = parseAndNormalizeCountertops(extractionContent));
     dialagramPassResults.push({ unitTypeName: extracted.unitTypeName, countertops, raw: extractionContent });
+
+    // If the FAST model returned nothing, retry once with the thinking model before giving up.
+    if (provider === "dialagram" && countertops.length === 0) {
+      const thinkingModel = getDialagramAccuracyModel(dialagramModel);
+      if (thinkingModel !== activeDialagramModel) {
+        console.log("Fast Qwen returned empty — retrying with thinking model...");
+        try {
+          const retryContent = await callAI("dialagram", pageImage, imageMimeType, extractionPrompt, {
+            temperature: 0.2,
+            maxOutputTokens: 8192,
+            geminiModels: PRIMARY_MODELS,
+            dialagramModel: thinkingModel,
+          });
+          console.log("AI countertop thinking-retry raw:", retryContent.slice(0, 800));
+          const retryParsed = parseAndNormalizeCountertops(retryContent);
+          if (retryParsed.countertops.length > 0) {
+            extractionContent = retryContent;
+            extracted = retryParsed.parsed;
+            countertops = retryParsed.countertops;
+            dialagramPassResults.push({ unitTypeName: extracted.unitTypeName, countertops, raw: retryContent });
+            activeDialagramModel = thinkingModel;
+          }
+        } catch (retryErr) {
+          const knownErrorResponse = buildKnownAIErrorResponse(retryErr);
+          if (knownErrorResponse) return knownErrorResponse;
+          console.warn("Thinking-retry failed:", retryErr);
+        }
+      }
+    }
 
     if (provider === "dialagram") {
       const focusedModel = getDialagramAccuracyModel(dialagramModel);
