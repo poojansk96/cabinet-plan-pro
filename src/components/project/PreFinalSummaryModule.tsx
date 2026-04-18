@@ -557,6 +557,20 @@ export default function PreFinalSummaryModule({ project }: Props) {
     cabHeader.height = 120;
     // Helper: which type-column groups should mark a mismatched type in red
     const typeGroupStarts = [colCabFirstType, colPullsFirstType, colPricingFirstType, colTotalCabFirstType, colCpuFirstType];
+
+    // Link the other 3 type-column groups (Pulls, Total Cab Count, Cab Count/Unit)
+    // to the FRONT cabinet-count type headers so renaming a type in the front
+    // group automatically propagates everywhere via formula.
+    const headerRowNum = cabHeader.number;
+    const linkedGroupStarts = [colPullsFirstType, colTotalCabFirstType, colCpuFirstType];
+    for (let i = 0; i < nTypes; i++) {
+      const sourceRef = ref(colCabFirstType + i, headerRowNum);
+      const sourceLabel = cabTypes[i] ?? '';
+      linkedGroupStarts.forEach(startCol => {
+        const cell = cabHeader.getCell(startCol + i);
+        cell.value = { formula: sourceRef, result: sourceLabel } as any;
+      });
+    }
     cabHeader.eachCell((cell, colNumber) => {
       cell.font = { bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F0' } };
