@@ -15,6 +15,7 @@ type VtopRow = {
   depth: number;
   bowlPosition: "offset-left" | "offset-right" | "center";
   bowlOffset: number | null;
+  hasSink?: boolean;
   leftWall: boolean;
   rightWall: boolean;
   bbox?: VtopBbox;
@@ -100,6 +101,9 @@ function normalizeVtop(vt: any): VtopRow {
   const bowlOffset = bowlPosition !== "center"
     ? Math.round((Number(vt?.bowlOffset) || 0) * 4) / 4
     : null;
+  const hasSink = vt?.hasSink === false
+    ? false
+    : bowlPosition !== "center" || bowlOffset != null || Boolean(vt?.hasSink);
 
   const aiLeft = Boolean(vt?.leftWall);
   const aiRight = Boolean(vt?.rightWall);
@@ -109,6 +113,7 @@ function normalizeVtop(vt: any): VtopRow {
     depth,
     bowlPosition,
     bowlOffset,
+    hasSink,
     leftWall: aiLeft,
     rightWall: aiRight,
     aiLeftWallHint: aiLeft,
@@ -233,17 +238,55 @@ function extractDimensionsFromHintText(text: string): number[] {
   return values;
 }
 
+const VANITY_DEPTH_MIN = 18;
+const VANITY_DEPTH_MAX = 22.5;
+
+function hasBathroomContext(text: string): boolean {
+  return /\b(vanity|lav(?:atory)?|bath(?:room)?|powder(?: room)?|restroom|wc)\b/i.test(text);
+}
+
+function hasExcludedCounterContext(text: string): boolean {
+  return /\b(kitchen|break\s*room|mail\s*room|community\s*room|island|pantry|bar\s*top|bartop)\b/i.test(text);
+}
+
+function isVanityDepth(depth: number): boolean {
+  return Number.isFinite(depth) && depth >= VANITY_DEPTH_MIN && depth <= VANITY_DEPTH_MAX;
+}
+
+function isVanityCandidate(row: VtopRow, unitTypeName: string, pageTextHint: string): boolean {
+  const context = `${unitTypeName} ${pageTextHint}`.trim();
+  const bathroomContext = hasBathroomContext(context);
+  const excludedContext = hasExcludedCounterContext(context) && !bathroomContext;
+  const sinkEvidence = Boolean(row.hasSink) || row.bowlOffset != null || row.bowlPosition !== "center";
+
+  if (!isVanityDepth(row.depth)) return false;
+  if (excludedContext) return false;
+  if (sinkEvidence) return true;
+  return bathroomContext;
+}
+
+function filterVanityCandidates(rows: VtopRow[], unitTypeName: string, pageTextHint: string): VtopRow[] {
+  return rows.filter((row) => isVanityCandidate(row, unitTypeName, pageTextHint));
+}
+
 function buildTextFallbackVtops(pageTextHint: string, hintedUnitTypeName: string): ParsedExtraction {
-  const dims = extractDimensionsFromHintText(pageTextHint);
+  const normalized = pageTextHint.replace(/\s+/g, " ").trim();
+  const hasVanityKeywords = hasBathroomContext(`${hintedUnitTypeName} ${normalized}`);
+  const dims = extractDimensionsFromHintText(normalized);
   if (dims.length < 2) {
     return { unitTypeName: hintedUnitTypeName, vtops: [] };
   }
 
-  const depthCandidates = dims.filter((v) => v >= 18 && v <= 36);
-  const depth = depthCandidates.length > 0 ? Math.min(...depthCandidates) : Math.min(...dims);
-  const length = Math.max(...dims.filter((v) => v >= depth));
+  const depthCandidates = dims.filter((v) => isVanityDepth(v));
+  const depth = depthCandidates.length > 0 ? Math.min(...depthCandidates) : null;
+  if (!depth) {
+    return { unitTypeName: hintedUnitTypeName, vtops: [] };
+  }
 
-  if (!Number.isFinite(length) || !Number.isFinite(depth) || length <= depth) {
+  const lengthCandidates = dims.filter((v) => v > depth && v >= 18 && v <= 120);
+  const length = lengthCandidates.length > 0 ? Math.max(...lengthCandidates) : null;
+
+  if (!Number.isFinite(length) || !Number.isFinite(depth) || !length || length <= depth || !hasVanityKeywords) {
     return { unitTypeName: hintedUnitTypeName, vtops: [] };
   }
 
@@ -254,6 +297,7 @@ function buildTextFallbackVtops(pageTextHint: string, hintedUnitTypeName: string
       depth: Math.round(depth * 4) / 4,
       bowlPosition: "center",
       bowlOffset: null,
+      hasSink: false,
       leftWall: true,
       rightWall: true,
       leftWallYesConfidence: 0.6,
@@ -630,31 +674,30 @@ IMPORTANT:
 Return ONLY valid JSON — no markdown fences, no explanation:
 {"unitTypeName":"TYPE 1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"backSideOnPage":"left","closerEndOnPage":"bottom","bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true,"leftWallYesConfidence":0.9,"rightWallYesConfidence":0.85,"bbox":{"x":0.05,"y":0.3,"width":0.35,"height":0.2}}]}`;
 
-    // QWEN PROMPT: short, direct, permissive. Qwen-VL fails on long prompts and over-strict
-    // filters. We extract EVERY top section drawn — vanity, break-room, mail-room, kitchen.
-    // The Cmarble/Swan Vtop module is used for any solid-surface top, not only bathroom vanities.
-    const qwenPrompt = `Look at this countertop shop drawing page (2020 / Cyncly format). Extract EVERY countertop / vanity / top section drawn on the page — DO NOT filter or skip any.
+    // QWEN PROMPT: short, direct, but STRICTLY vanity-only.
+    // We still keep it concise for Qwen stability, but do not allow kitchen/community/mail counters.
+    const qwenPrompt = `Look at this 2020 countertop shop drawing page and extract ONLY vanity tops / lavatory tops.
 
-For each top, return these fields:
-- length: longer edge dimension in inches as a number (e.g. 42, 47.5, 121.5)
-- depth: shorter edge dimension in inches as a number (e.g. 22, 25.25, 25.5)
-- bowlPosition: "offset-left" | "offset-right" | "center" (use "center" if no bowl is drawn or unclear)
-- bowlOffset: distance in inches from the closer end to bowl center (number), or null if centered / no bowl
-- leftWall: true if the LEFT end has a wall or double-line, else false (default true if uncertain)
-- rightWall: true if the RIGHT end has a wall or double-line, else false (default true if uncertain)
+A top counts as a vanity top ONLY if it matches these rules:
+- depth is about 18" to 22.5" (usually 19" or 22")
+- AND it has a sink / bowl cutout shown, OR the page/title uses bathroom words like vanity, bath, powder, lav, lavatory
+- DO NOT include kitchen tops, break room tops, mail room tops, community room tops, islands, or any top deeper than 22.5"
 
-Also extract:
-- unitTypeName: text after "TYPE" in the title block (e.g. "1.1A (ADA)", "Break Room", "Mail Room", "1.1B-AS", "Studio"). Empty string if none.
+For each vanity top, return:
+- length: longer edge in inches
+- depth: shorter edge in inches
+- hasSink: true if a sink/bowl cutout is visible or clearly implied, else false
+- bowlPosition: "offset-left" | "offset-right" | "center"
+- bowlOffset: number or null
+- leftWall: true if the LEFT end has a wall/double-line, else false (default true if uncertain)
+- rightWall: true if the RIGHT end has a wall/double-line, else false (default true if uncertain)
 
-CRITICAL RULES:
-- DO NOT filter by depth, label, or room type. Include break room, mail room, kitchen, vanity, island — every drawn top counts.
-- A page can have multiple tops (e.g. one large counter + one small vanity). Return ALL of them as separate items.
-- Convert fractions: 1/2=0.5, 1/4=0.25, 3/4=0.75, 1/8=0.125, 3/8=0.375, 5/8=0.625, 7/8=0.875.
-- Round dimensions to nearest 0.25".
-- Only return empty vtops:[] if the page truly has NO countertop drawing (e.g. only floor plan / cover sheet / index).
+Also extract unitTypeName from the title block after TYPE.
 
-Return ONLY valid JSON, no markdown fences, no commentary:
-{"unitTypeName":"1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true}]}`;
+Return ONLY actual vanity tops. If the page only shows kitchen/break-room/mail-room/community counters, return empty.
+
+Return ONLY valid JSON:
+{"unitTypeName":"1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"hasSink":true,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true}]} `;
 
     const fullPrompt = provider === "dialagram" ? qwenPrompt : geminiPrompt;
 
@@ -691,47 +734,45 @@ Return ONLY valid JSON, no markdown fences, no commentary:
     const extractedUnitTypeName = fullParsed.unitTypeName;
     console.log("Detected unit type name:", extractedUnitTypeName);
 
-    let finalVtops = fullParsed.vtops;
+    let finalVtops = filterVanityCandidates(fullParsed.vtops, extractedUnitTypeName || hintedUnitTypeName, normalizedPageTextHint);
     let finalUnitTypeName = sanitizeDetectedType(extractedUnitTypeName) || hintedUnitTypeName;
 
-    // ── Qwen rescue pass: if first attempt returned empty, retry with an even more
-    // direct counting prompt. Qwen-VL frequently returns [] on the first try when the
-    // page has unusual top types (break room, mail room, large counters) and gets it
-    // right on a retry framed as "describe what you see". ──
+    // ── Qwen rescue pass: retry only for vanity-depth/sink-bearing tops, never general counters. ──
     if (provider === "dialagram" && finalVtops.length === 0) {
-      console.log("Qwen returned empty — running rescue pass with simpler prompt...");
-      const rescuePrompt = `This page is from a countertop shop drawing. Describe each rectangular top section you see.
+      console.log("Qwen returned no vanity tops — running rescue pass with stricter vanity prompt...");
+      const rescuePrompt = `This page is from a countertop shop drawing. Extract ONLY vanity / lavatory tops.
 
-For EACH rectangle that looks like a countertop drawing (has dimension callouts in inches like 42", 25 1/2", 47 1/2", etc.), output one entry with:
-- length (longer side in inches)
-- depth (shorter side in inches)
-- bowlPosition: "center" if no bowl drawn, otherwise "offset-left" or "offset-right"
-- bowlOffset: number or null
-- leftWall: true (default)
-- rightWall: true (default)
+A result counts only if:
+- depth is 18" to 22.5" (usually 19" or 22")
+- and it shows a sink/bowl cutout, OR the page clearly indicates bathroom/vanity/lavatory use
+- do NOT include kitchen, break room, mail room, community room, island, or other general counters
 
-Also extract unitTypeName from any "TYPE ___" text in the title block.
-
-Convert fractions: 1/2=0.5, 1/4=0.25, 3/4=0.75. Round to nearest 0.25".
-
-If you see ANY rectangular top with dimensions, you MUST return it. Only return empty array if the page literally has no rectangular top drawings (e.g. it's a cover page or pure floor plan).
+For each vanity top return:
+- length
+- depth
+- hasSink
+- bowlPosition: "center" | "offset-left" | "offset-right"
+- bowlOffset
+- leftWall
+- rightWall
 
 Return ONLY valid JSON:
-{"unitTypeName":"Break Room","vtops":[{"length":121.5,"depth":25.5,"bowlPosition":"center","bowlOffset":null,"leftWall":true,"rightWall":true}]}`;
+{"unitTypeName":"Type 1.1A","vtops":[{"length":47.5,"depth":22,"hasSink":true,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true}]}`;
 
       try {
         const rescueContent = await callAI(
           "dialagram",
           [{ mimeType: imageMime, data: pageImage }],
           rescuePrompt,
-          { temperature: 0.3, maxOutputTokens: 2048, geminiModels: PRIMARY_MODELS, dialagramModel },
+          { temperature: 0.2, maxOutputTokens: 2048, geminiModels: PRIMARY_MODELS, dialagramModel },
         );
         console.log("Qwen rescue raw:", rescueContent.slice(0, 800));
         const rescueParsed = parseExtractionText(rescueContent);
-        if (rescueParsed.vtops.length > 0) {
-          finalVtops = rescueParsed.vtops;
+        const rescuedVtops = filterVanityCandidates(rescueParsed.vtops, rescueParsed.unitTypeName || finalUnitTypeName, normalizedPageTextHint);
+        if (rescuedVtops.length > 0) {
+          finalVtops = rescuedVtops;
           if (rescueParsed.unitTypeName) finalUnitTypeName = rescueParsed.unitTypeName;
-          console.log("Qwen rescue recovered", finalVtops.length, "vtop(s)");
+          console.log("Qwen rescue recovered", finalVtops.length, "vanity top(s)");
         }
       } catch (rescueErr) {
         console.warn("Qwen rescue pass failed:", rescueErr);
@@ -741,7 +782,7 @@ Return ONLY valid JSON:
     if (finalVtops.length === 0 && normalizedPageTextHint) {
       const fallback = buildTextFallbackVtops(normalizedPageTextHint, finalUnitTypeName || hintedUnitTypeName);
       if (fallback.vtops.length > 0) {
-        finalVtops = fallback.vtops;
+        finalVtops = filterVanityCandidates(fallback.vtops, fallback.unitTypeName || finalUnitTypeName, normalizedPageTextHint);
         finalUnitTypeName = fallback.unitTypeName || finalUnitTypeName;
         console.log("Text fallback recovered", finalVtops.length, "vtop(s) from PDF text hint");
       }
@@ -807,6 +848,8 @@ If everything looks correct, return the data as-is. Return ONLY valid JSON — n
         console.warn("Vtop verification pass failed, using extraction result:", verifyErr);
       }
     }
+
+    finalVtops = filterVanityCandidates(finalVtops, finalUnitTypeName, normalizedPageTextHint);
 
     const vtops = finalVtops.map(row => ({
       ...row,
