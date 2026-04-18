@@ -78,16 +78,20 @@ async function renderPageToCanvasData(page: any, maxPx = 3200, maxScale = 4.5): 
   return { canvas, width, height };
 }
 
-async function canvasToBase64(canvas: OffscreenCanvas | HTMLCanvasElement, quality = 0.82): Promise<string> {
+async function canvasToBase64(
+  canvas: OffscreenCanvas | HTMLCanvasElement,
+  quality = 0.82,
+  mimeType: 'image/jpeg' | 'image/png' = 'image/jpeg',
+): Promise<string> {
   if (canvas instanceof OffscreenCanvas) {
-    const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality });
+    const blob = await canvas.convertToBlob({ type: mimeType, quality: mimeType === 'image/jpeg' ? quality : undefined });
     const buf = await blob.arrayBuffer();
     const bytes = new Uint8Array(buf);
     let binary = '';
     for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
     return btoa(binary);
   }
-  return (canvas as HTMLCanvasElement).toDataURL('image/jpeg', quality).split(',')[1];
+  return (canvas as HTMLCanvasElement).toDataURL(mimeType, mimeType === 'image/jpeg' ? quality : undefined).split(',')[1];
 }
 
 async function canvasCropToBase64(
@@ -493,9 +497,12 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson,
           // High-res canvas for deterministic bbox crops (kept at 3200px)
           const { canvas, width: canvasW, height: canvasH } = await renderPageToCanvasData(page, 3200, 4.5);
           
-          // Smaller image for AI pass to avoid edge function timeouts
+          // Smaller image for AI pass to avoid edge function timeouts.
+          // Qwen-VL has been observed to refuse JPEGs ("I don't see any image attached")
+          // for these line-art shop drawings — PNG works reliably for it (same as Stone module).
+          const aiMimeType: 'image/jpeg' | 'image/png' = aiProvider === 'dialagram' ? 'image/png' : 'image/jpeg';
           const aiCanvas = await renderPageToCanvasData(page, 2500, 3.5);
-          const pageImage = await canvasToBase64(aiCanvas.canvas, 0.8);
+          const pageImage = await canvasToBase64(aiCanvas.canvas, 0.8, aiMimeType);
 
           const MAX_CLIENT_RETRIES = 5;
           let pageSuccess = false;
@@ -513,7 +520,7 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson,
                   'Content-Type': 'application/json',
                   'Authorization': `Bearer ${SUPABASE_KEY}`,
                 },
-                body: JSON.stringify({ pageImage, provider: aiProvider, dialagramModel }),
+                body: JSON.stringify({ pageImage, pageImageMimeType: aiMimeType, provider: aiProvider, dialagramModel }),
                 signal: controller.signal,
               });
               clearTimeout(timeout);

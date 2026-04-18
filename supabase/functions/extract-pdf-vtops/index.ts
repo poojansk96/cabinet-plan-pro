@@ -396,10 +396,11 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { pageImage, focusedWallDetection, rightEndCrop, provider: providerInput, dialagramModel: dialagramModelInput } = body;
+    const { pageImage, pageImageMimeType, focusedWallDetection, rightEndCrop, provider: providerInput, dialagramModel: dialagramModelInput } = body;
     const provider: "gemini" | "dialagram" = providerInput === "dialagram" ? "dialagram" : "gemini";
     const dialagramModel = String(dialagramModelInput || "qwen-3.6-plus");
-    console.log(`extract-pdf-vtops provider=${provider}${provider === "dialagram" ? ` model=${dialagramModel}` : ""}`);
+    const imageMime = String(pageImageMimeType || "image/jpeg").trim() || "image/jpeg";
+    console.log(`extract-pdf-vtops provider=${provider}${provider === "dialagram" ? ` model=${dialagramModel}` : ""} mime=${imageMime}`);
 
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage (base64 string) required" }), {
@@ -460,7 +461,9 @@ rightWallYesConfidence: probability 0.0-1.0 that the RIGHT end has a wall`;
     }
 
     // ── Mode 1: Full-page extraction (dimensions, bbox, rough wall hints) ──
-    const fullPrompt = `You are an expert millwork estimator analyzing a 2020 countertop shop drawing page.
+    // Provider-specific prompt: Qwen handles short, direct prompts much better than long
+    // multi-rule prompts. Gemini benefits from the detailed perspective rules.
+    const geminiPrompt = `You are an expert millwork estimator analyzing a 2020 countertop shop drawing page.
 
 TASK:
 1. Find the UNIT TYPE NAME from the drawing's title block (usually bottom-right or top). Examples: "TYPE 1.1A (ADA)", "TYPE 2.1B-AS", "STUDIO", etc. Extract the EXACT and COMPLETE name. If none visible, use "".
@@ -535,15 +538,43 @@ IMPORTANT:
 Return ONLY valid JSON — no markdown fences, no explanation:
 {"unitTypeName":"TYPE 1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"backSideOnPage":"left","closerEndOnPage":"bottom","bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true,"leftWallYesConfidence":0.9,"rightWallYesConfidence":0.85,"bbox":{"x":0.05,"y":0.3,"width":0.35,"height":0.2}}]}`;
 
+    // QWEN PROMPT: short, direct, permissive. Qwen-VL fails on long prompts and over-strict
+    // filters. We extract EVERY top section drawn — vanity, break-room, mail-room, kitchen.
+    // The Cmarble/Swan Vtop module is used for any solid-surface top, not only bathroom vanities.
+    const qwenPrompt = `Look at this countertop shop drawing page (2020 / Cyncly format). Extract EVERY countertop / vanity / top section drawn on the page — DO NOT filter or skip any.
+
+For each top, return these fields:
+- length: longer edge dimension in inches as a number (e.g. 42, 47.5, 121.5)
+- depth: shorter edge dimension in inches as a number (e.g. 22, 25.25, 25.5)
+- bowlPosition: "offset-left" | "offset-right" | "center" (use "center" if no bowl is drawn or unclear)
+- bowlOffset: distance in inches from the closer end to bowl center (number), or null if centered / no bowl
+- leftWall: true if the LEFT end has a wall or double-line, else false (default true if uncertain)
+- rightWall: true if the RIGHT end has a wall or double-line, else false (default true if uncertain)
+
+Also extract:
+- unitTypeName: text after "TYPE" in the title block (e.g. "1.1A (ADA)", "Break Room", "Mail Room", "1.1B-AS", "Studio"). Empty string if none.
+
+CRITICAL RULES:
+- DO NOT filter by depth, label, or room type. Include break room, mail room, kitchen, vanity, island — every drawn top counts.
+- A page can have multiple tops (e.g. one large counter + one small vanity). Return ALL of them as separate items.
+- Convert fractions: 1/2=0.5, 1/4=0.25, 3/4=0.75, 1/8=0.125, 3/8=0.375, 5/8=0.625, 7/8=0.875.
+- Round dimensions to nearest 0.25".
+- Only return empty vtops:[] if the page truly has NO countertop drawing (e.g. only floor plan / cover sheet / index).
+
+Return ONLY valid JSON, no markdown fences, no commentary:
+{"unitTypeName":"1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true}]}`;
+
+    const fullPrompt = provider === "dialagram" ? qwenPrompt : geminiPrompt;
+
     // ── Pass 1: Extraction ──
     let fullContent = "";
     try {
       fullContent = await callAI(
         provider,
-        [{ mimeType: "image/jpeg", data: pageImage }],
+        [{ mimeType: imageMime, data: pageImage }],
         fullPrompt,
         {
-          temperature: 0.1,
+          temperature: provider === "dialagram" ? 0.2 : 0.1,
           maxOutputTokens: 4096,
           geminiModels: PRIMARY_MODELS,
           dialagramModel,
@@ -571,8 +602,52 @@ Return ONLY valid JSON — no markdown fences, no explanation:
     let finalVtops = fullParsed.vtops;
     let finalUnitTypeName = extractedUnitTypeName;
 
-    // ── Pass 2: Verification ──
-    if (finalVtops.length > 0) {
+    // ── Qwen rescue pass: if first attempt returned empty, retry with an even more
+    // direct counting prompt. Qwen-VL frequently returns [] on the first try when the
+    // page has unusual top types (break room, mail room, large counters) and gets it
+    // right on a retry framed as "describe what you see". ──
+    if (provider === "dialagram" && finalVtops.length === 0) {
+      console.log("Qwen returned empty — running rescue pass with simpler prompt...");
+      const rescuePrompt = `This page is from a countertop shop drawing. Describe each rectangular top section you see.
+
+For EACH rectangle that looks like a countertop drawing (has dimension callouts in inches like 42", 25 1/2", 47 1/2", etc.), output one entry with:
+- length (longer side in inches)
+- depth (shorter side in inches)
+- bowlPosition: "center" if no bowl drawn, otherwise "offset-left" or "offset-right"
+- bowlOffset: number or null
+- leftWall: true (default)
+- rightWall: true (default)
+
+Also extract unitTypeName from any "TYPE ___" text in the title block.
+
+Convert fractions: 1/2=0.5, 1/4=0.25, 3/4=0.75. Round to nearest 0.25".
+
+If you see ANY rectangular top with dimensions, you MUST return it. Only return empty array if the page literally has no rectangular top drawings (e.g. it's a cover page or pure floor plan).
+
+Return ONLY valid JSON:
+{"unitTypeName":"Break Room","vtops":[{"length":121.5,"depth":25.5,"bowlPosition":"center","bowlOffset":null,"leftWall":true,"rightWall":true}]}`;
+
+      try {
+        const rescueContent = await callAI(
+          "dialagram",
+          [{ mimeType: imageMime, data: pageImage }],
+          rescuePrompt,
+          { temperature: 0.3, maxOutputTokens: 2048, geminiModels: PRIMARY_MODELS, dialagramModel },
+        );
+        console.log("Qwen rescue raw:", rescueContent.slice(0, 800));
+        const rescueParsed = parseExtractionText(rescueContent);
+        if (rescueParsed.vtops.length > 0) {
+          finalVtops = rescueParsed.vtops;
+          if (rescueParsed.unitTypeName) finalUnitTypeName = rescueParsed.unitTypeName;
+          console.log("Qwen rescue recovered", finalVtops.length, "vtop(s)");
+        }
+      } catch (rescueErr) {
+        console.warn("Qwen rescue pass failed:", rescueErr);
+      }
+    }
+
+    // ── Pass 2: Verification (Gemini only — Qwen handles the long verify prompt poorly) ──
+    if (provider === "gemini" && finalVtops.length > 0) {
       console.log("Starting vtop verification pass...");
         const verifyPrompt = `You are verifying AI-extracted vanity top data from a 2020 shop drawing.
 
@@ -610,7 +685,7 @@ If everything looks correct, return the data as-is. Return ONLY valid JSON — n
       try {
         const verifyContent = await callAI(
           provider,
-          [{ mimeType: "image/jpeg", data: pageImage }],
+          [{ mimeType: imageMime, data: pageImage }],
           verifyPrompt,
           {
             temperature: 0.1,
