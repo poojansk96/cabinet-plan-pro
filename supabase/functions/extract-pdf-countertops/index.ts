@@ -421,6 +421,12 @@ function getDialagramAccuracyModel(requestedModel: string): string {
     : models[0];
 }
 
+// Returns the FAST (non-thinking) model when available — used for first-attempt speed.
+function getDialagramFastModel(requestedModel: string): string {
+  const normalized = String(requestedModel || "qwen-3.6-plus").trim() || "qwen-3.6-plus";
+  return normalized === "qwen-3.6-plus-thinking" ? "qwen-3.6-plus-thinking" : "qwen-3.6-plus";
+}
+
 function parseCountertopJSON(content: string): { unitTypeName: string; countertops: any[] } {
   let parsed: { unitTypeName?: string; countertops?: any[] } = { countertops: [] };
   try {
