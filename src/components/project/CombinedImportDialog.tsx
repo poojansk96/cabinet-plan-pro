@@ -2,8 +2,6 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { FileUp, X, Loader2, CheckCircle, AlertCircle, Sparkles, Trash2, FileText, Search, Users, LayoutGrid } from 'lucide-react';
 import { toast } from 'sonner';
 import type { LabelRow } from './ShopDrawingImportDialog';
-import { startExtraction, useExtractionJobByType, clearExtractionJob } from '@/hooks/useExtractionStore';
-import { extractPlanSkuCountsFromTextItems, mergePrefinalExtractionPasses } from '@/lib/prefinalCabinetMerge';
 
 const UNIT_EDGE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-pdf-unit-types`;
 const CABINET_EDGE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-pdf-labels`;
@@ -29,8 +27,7 @@ interface CabinetRow {
 interface Props {
   onImport: (
     unitRows: { unitNumber: string; unitType: string; bldg: string }[],
-    cabinetRows: Omit<LabelRow, 'selected' | 'sourceFile'>[],
-    typeOrder?: string[]
+    cabinetRows: Omit<LabelRow, 'selected' | 'sourceFile'>[]
   ) => void;
   onClose: () => void;
 }
@@ -50,33 +47,15 @@ const QUOTES = [
   "Behind every great build is a great plan.",
 ];
 
-// ── PDF render helpers ────────────────────────────────────────────────
-// Match UnitTypeImportDialog/ShopDrawingImportDialog: render once, reuse canvas for full + strips.
-async function renderPageToCanvas(page: any): Promise<{ canvas: HTMLCanvasElement | OffscreenCanvas; width: number; height: number }> {
-  const MAX_PX = 3200;
+async function renderPageToBase64(page: any, maxPx = 4096, quality = 0.95): Promise<string> {
   const baseViewport = page.getViewport({ scale: 1 });
   const longSide = Math.max(baseViewport.width, baseViewport.height);
-  const scale = Math.min(4, MAX_PX / longSide);
+  const scale = Math.min(5, maxPx / longSide);
   const viewport = page.getViewport({ scale });
-  const w = Math.ceil(viewport.width);
-  const h = Math.ceil(viewport.height);
-
   if (typeof OffscreenCanvas !== 'undefined') {
-    const canvas = new OffscreenCanvas(w, h);
+    const canvas = new OffscreenCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
     const ctx = canvas.getContext('2d')!;
     await page.render({ canvasContext: ctx, viewport }).promise;
-    return { canvas, width: w, height: h };
-  }
-  const canvas = document.createElement('canvas');
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext('2d')!;
-  await page.render({ canvasContext: ctx, viewport }).promise;
-  return { canvas, width: w, height: h };
-}
-
-async function canvasToBase64(canvas: HTMLCanvasElement | OffscreenCanvas, quality = 0.7): Promise<string> {
-  if (canvas instanceof OffscreenCanvas) {
     const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality });
     const buf = await blob.arrayBuffer();
     const bytes = new Uint8Array(buf);
@@ -84,46 +63,12 @@ async function canvasToBase64(canvas: HTMLCanvasElement | OffscreenCanvas, quali
     for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
     return btoa(binary);
   }
-  return (canvas as HTMLCanvasElement).toDataURL('image/jpeg', 0.95).split(',')[1];
-}
-
-async function canvasCropToBase64(
-  sourceCanvas: HTMLCanvasElement | OffscreenCanvas,
-  sx: number, sy: number, sw: number, sh: number,
-): Promise<string> {
-  if (typeof OffscreenCanvas !== 'undefined') {
-    const crop = new OffscreenCanvas(sw, sh);
-    const ctx = crop.getContext('2d')!;
-    ctx.drawImage(sourceCanvas as any, sx, sy, sw, sh, 0, 0, sw, sh);
-    const blob = await crop.convertToBlob({ type: 'image/jpeg', quality: 0.7 });
-    const buf = await blob.arrayBuffer();
-    const bytes = new Uint8Array(buf);
-    let binary = '';
-    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-    return btoa(binary);
-  }
-  const crop = document.createElement('canvas');
-  crop.width = sw;
-  crop.height = sh;
-  const ctx = crop.getContext('2d')!;
-  ctx.drawImage(sourceCanvas as HTMLCanvasElement, sx, sy, sw, sh, 0, 0, sw, sh);
-  return crop.toDataURL('image/jpeg', 0.92).split(',')[1];
-}
-
-async function renderStrips(canvas: HTMLCanvasElement | OffscreenCanvas, w: number, h: number): Promise<string[]> {
-  const colRanges: [number, number][] = [[0, 0.65], [0.35, 1.0]];
-  const rowRanges: [number, number][] = [[0, 0.47], [0.27, 0.73], [0.53, 1.0]];
-  const strips: string[] = [];
-  for (const [ry, rye] of rowRanges) {
-    for (const [rx, rxe] of colRanges) {
-      const sx = Math.floor(rx * w);
-      const sy = Math.floor(ry * h);
-      const sw = Math.ceil((rxe - rx) * w);
-      const sh = Math.ceil((rye - ry) * h);
-      strips.push(await canvasCropToBase64(canvas, sx, sy, sw, sh));
-    }
-  }
-  return strips;
+  const canvas = document.createElement('canvas');
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext('2d')!;
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  return canvas.toDataURL('image/jpeg', quality).split(',')[1];
 }
 
 async function fetchWithRetry(url: string, body: string, attempts = 3): Promise<Response> {
@@ -156,7 +101,6 @@ export default function CombinedImportDialog({ onImport, onClose }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [unitRows, setUnitRows] = useState<UnitRow[]>([]);
   const [cabinetRows, setCabinetRows] = useState<CabinetRow[]>([]);
-  const [typeOrder, setTypeOrder] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -165,42 +109,6 @@ export default function CombinedImportDialog({ onImport, onClose }: Props) {
   const [quoteIndex, setQuoteIndex] = useState(() => Math.floor(Math.random() * QUOTES.length));
   const [quoteVisible, setQuoteVisible] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
-  const bgPickedUpRef = useRef(false);
-
-  // ── Pick up background job results (so closing dialog mid-run keeps it going) ──
-  const bgJob = useExtractionJobByType('prefinal-combined');
-
-  useEffect(() => {
-    if (!bgJob || bgPickedUpRef.current) return;
-    if (bgJob.status === 'processing') {
-      setStep('processing');
-      setProgress(bgJob.progress);
-      setProcessingStatus(bgJob.statusText);
-    } else if (bgJob.status === 'done') {
-      bgPickedUpRef.current = true;
-      const r = bgJob.results as { unitRows: UnitRow[]; cabinetRows: CabinetRow[]; typeOrder: string[] } | null;
-      if (r) {
-        setUnitRows(r.unitRows);
-        setCabinetRows(r.cabinetRows);
-        setTypeOrder(r.typeOrder ?? []);
-        setReviewTab(r.unitRows.length > 0 ? 'units' : 'cabinets');
-      }
-      setProgress(100);
-      setStep('review');
-      clearExtractionJob('prefinal-combined');
-    } else if (bgJob.status === 'error') {
-      bgPickedUpRef.current = true;
-      setError(bgJob.error || 'Failed to process files. Please try again.');
-      setStep('upload');
-      clearExtractionJob('prefinal-combined');
-    }
-  }, [bgJob]);
-
-  useEffect(() => {
-    if (!bgJob || bgJob.status !== 'processing' || bgPickedUpRef.current) return;
-    setProgress(bgJob.progress);
-    setProcessingStatus(bgJob.statusText);
-  }, [bgJob?.progress, bgJob?.statusText]);
 
   useEffect(() => {
     if (step !== 'processing') return;
@@ -220,244 +128,155 @@ export default function CombinedImportDialog({ onImport, onClose }: Props) {
     setError(null);
     setStep('processing');
     setProgress(5);
-    setProcessingStatus('Loading PDF library…');
-    bgPickedUpRef.current = false;
 
-    startExtraction('prefinal-combined', files.map(f => f.name), async (update) => {
-      let aborted: { reason: string } | null = null;
-      try {
-        update({ statusText: 'Loading PDF library…', progress: 5 });
-        const pdfjsLib = (await import('pdfjs-dist')) as any;
-        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
+    try {
+      setProcessingStatus('Loading PDF library…');
+      const pdfjsLib = (await import('pdfjs-dist')) as any;
+      pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 
-        // Load all PDFs and count pages
-        const pdfs: { file: File; pdf: any }[] = [];
-        let totalPages = 0;
-        for (const file of files) {
-          const ab = await file.arrayBuffer();
-          const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ab) }).promise;
-          pdfs.push({ file, pdf });
-          totalPages += pdf.numPages;
-        }
-        update({ progress: 10, totalPages });
+      // Load all PDFs and count pages
+      const pdfs: { file: File; pdf: any }[] = [];
+      let totalPages = 0;
+      for (const file of files) {
+        const ab = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ab) }).promise;
+        pdfs.push({ file, pdf });
+        totalPages += pdf.numPages;
+      }
+      setProgress(10);
 
-        // Each page = 1 unit step + 7 cabinet steps (full + 6 strips) = 8 steps
-        const totalWork = totalPages * 8;
-        let workDone = 0;
+      // We'll process each page twice: once for units, once for cabinets
+      // But render once and send to both endpoints
+      const totalWork = totalPages * 2; // unit pass + cabinet pass
+      let workDone = 0;
 
-        const unitSightings = new Map<string, { unitNumber: string; unitType: string; bldg: string; floor: string; pages: { unitType: string }[] }>();
-        const pageOrderTypes: string[] = []; // unit types in PDF page order (first-seen wins)
-        const seenTypeKeys = new Set<string>();
-        const normTypeKey = (v: string) => v.toUpperCase().replace(/\s+/g, '').trim();
-        const addPageOrderType = (rawType: string) => {
-          if (!rawType) return;
-          const k = normTypeKey(rawType);
-          if (!k || seenTypeKeys.has(k)) return;
-          seenTypeKeys.add(k);
-          pageOrderTypes.push(rawType);
-        };
+      // ── PASS 1: Unit extraction ──
+      setProcessingStatus('Extracting unit types…');
+      const unitSightings = new Map<string, { unitNumber: string; unitType: string; bldg: string; floor: string; pages: { page: number; file: string; unitType: string; bldg: string; floor: string }[] }>();
 
-        const cabinetMerged: Record<string, CabinetRow> = {};
+      for (const { file, pdf } of pdfs) {
+        for (let p = 1; p <= pdf.numPages; p++) {
+          setProcessingStatus(`Scanning units: "${file.name}" page ${p}/${pdf.numPages}…`);
+          const page = await pdf.getPage(p);
+          const pageImage = await renderPageToBase64(page);
 
-        // ── Process page-by-page so unit + cabinet types come out in true PDF page order ──
-        for (const { file, pdf } of pdfs) {
-          for (let p = 1; p <= pdf.numPages; p++) {
-            // Render once, reuse for all calls
-            update({ statusText: `Rendering "${file.name}" page ${p}/${pdf.numPages}…` });
-            const page = await pdf.getPage(p);
-            const { canvas, width: cw, height: ch } = await renderPageToCanvas(page);
-            const pageImage = await canvasToBase64(canvas);
-
-            // Extract text layer for context + plan-text SKU baseline
-            let pageText = '';
-            let planTextSkuCounts: Record<string, number> = {};
-            try {
-              const textContent = await page.getTextContent();
-              const textItems = Array.isArray(textContent.items) ? textContent.items : [];
-              pageText = textItems.map((it: any) => it.str).filter((s: string) => s && s.trim()).join(' ');
-              planTextSkuCounts = extractPlanSkuCountsFromTextItems(textItems as any);
-            } catch { /* ignore */ }
-
-            // ── UNIT PASS ──
-            update({ statusText: `Scanning units: "${file.name}" page ${p}/${pdf.numPages}…` });
-            let pageUnitType = '';
-            try {
-              const res = await fetchWithRetry(UNIT_EDGE_URL, JSON.stringify({ pageImage, speedMode: 'fast' }));
-              if (res.ok) {
-                const data = await res.json();
-                if (data.error === 'rate_limit') { aborted = { reason: 'AI rate limit reached.' }; break; }
-                if (data.error === 'credits') { aborted = { reason: 'AI credits exhausted.' }; break; }
-                const pageUnits = data.units ?? [];
-                for (const u of pageUnits) {
-                  const num = String(u.unitNumber ?? '').trim();
-                  const type = String(u.unitType ?? '').trim();
-                  const bldg = String(u.bldg ?? '').trim();
-                  const floor = String(u.floor ?? '').trim();
-                  if (!num || !type) continue;
-                  if (!pageUnitType) pageUnitType = type;
-                  addPageOrderType(type);
-                  const k = `${num.toUpperCase().replace(/\s+/g, '')}|${bldg.toUpperCase().replace(/\s+/g, '')}|${floor.toUpperCase().replace(/\s+/g, '')}`;
-                  const existing = unitSightings.get(k);
-                  if (existing) {
-                    existing.pages.push({ unitType: type });
-                  } else {
-                    unitSightings.set(k, { unitNumber: num, unitType: type, bldg, floor, pages: [{ unitType: type }] });
-                  }
-                }
-              } else if (res.status === 429) { aborted = { reason: 'AI rate limit reached.' }; break; }
-                else if (res.status === 402) { aborted = { reason: 'AI credits exhausted.' }; break; }
-            } catch (e) {
-              console.warn(`Unit pass failed page ${p}:`, e);
-            }
-            workDone++;
-            update({ progress: 10 + Math.round((workDone / totalWork) * 85), processedPages: workDone });
-            if (aborted) break;
-
-            // ── CABINET PASS: full page + 6 strips, then merge ──
-            update({ statusText: `Scanning cabinets: "${file.name}" page ${p}/${pdf.numPages}…` });
-
-            let detectedTypeForPage: string | null = null;
-            const allPassItems: any[][] = [];
-
-            // Full page (with classification — gives us unitTypeName)
-            try {
-              const fullRes = await fetchWithRetry(CABINET_EDGE_URL, JSON.stringify({
-                pageImage,
-                unitType: pageUnitType || undefined,
-                pageText,
-                speedMode: 'fast',
-                aiModel: 'fast',
-              }));
-              if (fullRes.ok) {
-                const fullData = await fullRes.json();
-                if (fullData.error === 'rate_limit') { aborted = { reason: 'AI rate limit reached.' }; break; }
-                if (fullData.error === 'credits') { aborted = { reason: 'AI credits exhausted.' }; break; }
-                allPassItems.push(fullData.items ?? []);
-                detectedTypeForPage = fullData.unitTypeName || pageUnitType || null;
-                if (detectedTypeForPage) addPageOrderType(detectedTypeForPage);
-
-                // Skip strips on title pages
-                const pageType = String(fullData.pageType || 'plan_view');
-                const skipStrips = pageType.includes('title');
-
-                if (!skipStrips) {
-                  // Run 6 strips in parallel
-                  update({ statusText: `Detail scanning "${file.name}" page ${p}/${pdf.numPages}…` });
-                  const strips = await renderStrips(canvas, cw, ch);
-                  const classificationOverride = {
-                    pageType,
-                    unitTypeName: detectedTypeForPage,
-                    isCommonArea: fullData.isCommonArea ?? false,
-                  };
-                  const stripResults = await Promise.allSettled(
-                    strips.map(async (stripImg) => {
-                      const sr = await fetchWithRetry(CABINET_EDGE_URL, JSON.stringify({
-                        pageImage: stripImg,
-                        unitType: pageUnitType || undefined,
-                        pageText,
-                        speedMode: 'fast',
-                        classificationOverride,
-                        isStrip: true,
-                        aiModel: 'fast',
-                      }));
-                      if (sr.ok) {
-                        const sd = await sr.json();
-                        if (sd.error) return null;
-                        return sd.items ?? [];
-                      }
-                      return null;
-                    })
-                  );
-                  for (const r of stripResults) {
-                    if (r.status === 'fulfilled' && Array.isArray(r.value)) {
-                      allPassItems.push(r.value);
-                    }
-                    workDone++; // each strip counts as one step
-                  }
+          try {
+            const res = await fetchWithRetry(UNIT_EDGE_URL, JSON.stringify({ pageImage }));
+            if (res.ok) {
+              const data = await res.json();
+              if (data.error === 'rate_limit') { toast.error('AI rate limit reached.'); setStep('upload'); return; }
+              if (data.error === 'credits') { toast.error('AI credits exhausted.'); setStep('upload'); return; }
+              const pageUnits = data.units ?? [];
+              const keyPart = (v: string) => v.toUpperCase().replace(/\s+/g, '').trim();
+              for (const u of pageUnits) {
+                const num = String(u.unitNumber ?? '').trim();
+                const type = String(u.unitType ?? '').trim();
+                const bldg = String(u.bldg ?? '').trim();
+                const floor = String(u.floor ?? '').trim();
+                if (!num || !type) continue;
+                const key = `${keyPart(num)}|${keyPart(bldg)}|${keyPart(floor)}`;
+                const existing = unitSightings.get(key);
+                const sighting = { page: p, file: file.name, unitType: type, bldg, floor };
+                if (existing) {
+                  existing.pages.push(sighting);
                 } else {
-                  // Skipped strips still count toward progress
-                  workDone += 6;
+                  unitSightings.set(key, { unitNumber: num, unitType: type, bldg, floor, pages: [sighting] });
                 }
-              } else if (fullRes.status === 429) { aborted = { reason: 'AI rate limit reached.' }; break; }
-                else if (fullRes.status === 402) { aborted = { reason: 'AI credits exhausted.' }; break; }
-            } catch (e) {
-              console.warn(`Cabinet pass failed page ${p}:`, e);
-              workDone += 6; // skipped strips still count
-            }
-            workDone++; // full-page step
-            update({ progress: 10 + Math.round((workDone / totalWork) * 85), processedPages: workDone });
-            if (aborted) break;
+              }
+            } else if (res.status === 429) { toast.error('AI rate limit reached.'); setStep('upload'); return; }
+              else if (res.status === 402) { toast.error('AI credits exhausted.'); setStep('upload'); return; }
+          } catch { /* skip page */ }
 
-            // Merge all passes for this page using the same algorithm as ShopDrawingImportDialog
-            if (allPassItems.length > 0) {
-              const mergedPageItems = mergePrefinalExtractionPasses(allPassItems, planTextSkuCounts);
-              for (const item of mergedPageItems) {
-                const normSku = String(item.sku || '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
-                if (!normSku) continue;
-                const unitTypeKey = detectedTypeForPage || '__none__';
-                const key = `${normSku}__${item.room || 'Kitchen'}__${unitTypeKey}`;
-                const qty = Number(item.quantity) || 1;
+          workDone++;
+          setProgress(10 + Math.round((workDone / totalWork) * 85));
+        }
+      }
+
+      // Build unit rows with conflict detection
+      const finalUnitRows: UnitRow[] = [];
+      for (const entry of unitSightings.values()) {
+        const primary = entry.pages[entry.pages.length - 1];
+        let conflict: string | undefined;
+        const uniqueTypes = [...new Set(entry.pages.map(p => p.unitType).filter(Boolean))];
+        if (uniqueTypes.length > 1) {
+          conflict = `Type: ${uniqueTypes.map(t => `"${t}"`).join(' vs ')}`;
+        }
+        finalUnitRows.push({
+          unitNumber: entry.unitNumber,
+          unitType: primary.unitType,
+          bldg: primary.bldg,
+          floor: primary.floor,
+          selected: true,
+          conflict,
+        });
+      }
+      finalUnitRows.sort((a, b) => a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true }));
+
+      // ── PASS 2: Cabinet extraction ──
+      setProcessingStatus('Extracting cabinet labels…');
+      const isCornerLazySusan = (sku: string) => /^(LS|LSB)\d+/i.test(sku);
+      const cabinetMerged: Record<string, CabinetRow> = {};
+
+      for (const { file, pdf } of pdfs) {
+        for (let p = 1; p <= pdf.numPages; p++) {
+          setProcessingStatus(`Scanning cabinets: "${file.name}" page ${p}/${pdf.numPages}…`);
+          const page = await pdf.getPage(p);
+          const pageImage = await renderPageToBase64(page);
+
+          try {
+            const res = await fetchWithRetry(CABINET_EDGE_URL, JSON.stringify({ pageImage }));
+            if (res.ok) {
+              const data = await res.json();
+              if (data.error === 'rate_limit') { toast.error('AI rate limit reached.'); setStep('upload'); return; }
+              if (data.error === 'credits') { toast.error('AI credits exhausted.'); setStep('upload'); return; }
+              const items = data.items ?? [];
+              const detectedType = data.unitTypeName || undefined;
+              for (const item of items) {
+                const normSku = (item.sku || '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
+                const unitTypeKey = detectedType || '__none__';
+                const key = `${normSku}__${item.room}__${unitTypeKey}`;
                 if (cabinetMerged[key]) {
-                  // Same SKU+room+type seen on multiple pages — use MAX (same cabinet shown again)
-                  cabinetMerged[key].quantity = Math.max(cabinetMerged[key].quantity, qty);
+                  cabinetMerged[key].quantity = isCornerLazySusan(normSku)
+                    ? Math.max(cabinetMerged[key].quantity, item.quantity)
+                    : cabinetMerged[key].quantity + item.quantity;
                 } else {
                   cabinetMerged[key] = {
                     sku: normSku,
                     type: item.type || 'Base',
                     room: item.room || 'Kitchen',
-                    quantity: qty,
+                    quantity: item.quantity || 1,
                     selected: true,
-                    detectedUnitType: detectedTypeForPage || undefined,
+                    detectedUnitType: detectedType,
                   };
                 }
               }
-            }
-          }
-          if (aborted) break;
+            } else if (res.status === 429) { toast.error('AI rate limit reached.'); setStep('upload'); return; }
+              else if (res.status === 402) { toast.error('AI credits exhausted.'); setStep('upload'); return; }
+          } catch { /* skip page */ }
+
+          workDone++;
+          setProgress(10 + Math.round((workDone / totalWork) * 85));
         }
-
-        if (aborted) {
-          toast.error(aborted.reason);
-          update({ status: 'error', error: aborted.reason });
-          return;
-        }
-
-        // ── Finalize unit rows ──
-        const finalUnitRows: UnitRow[] = [];
-        for (const entry of unitSightings.values()) {
-          const uniqueTypes = [...new Set(entry.pages.map(p => p.unitType).filter(Boolean))];
-          const conflict = uniqueTypes.length > 1 ? `Type: ${uniqueTypes.map(t => `"${t}"`).join(' vs ')}` : undefined;
-          finalUnitRows.push({
-            unitNumber: entry.unitNumber,
-            unitType: entry.unitType,
-            bldg: entry.bldg,
-            floor: entry.floor,
-            selected: true,
-            conflict,
-          });
-        }
-        finalUnitRows.sort((a, b) => a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true }));
-
-        const finalCabinetRows = Object.values(cabinetMerged).sort((a, b) =>
-          a.sku.localeCompare(b.sku, undefined, { numeric: true })
-        );
-
-        if (finalUnitRows.length === 0 && finalCabinetRows.length === 0) {
-          update({ status: 'error', error: 'No units or cabinet labels detected in the uploaded PDFs.' });
-          return;
-        }
-
-        update({
-          status: 'done',
-          progress: 100,
-          statusText: 'Extraction complete',
-          results: { unitRows: finalUnitRows, cabinetRows: finalCabinetRows, typeOrder: pageOrderTypes },
-        });
-      } catch (err) {
-        console.error(err);
-        update({ status: 'error', error: 'Failed to process files. Please try again.' });
       }
-    });
+
+      const finalCabinetRows = Object.values(cabinetMerged).sort((a, b) => a.sku.localeCompare(b.sku, undefined, { numeric: true }));
+
+      if (finalUnitRows.length === 0 && finalCabinetRows.length === 0) {
+        setError('No units or cabinet labels detected in the uploaded PDFs.');
+        setStep('upload');
+        return;
+      }
+
+      setUnitRows(finalUnitRows);
+      setCabinetRows(finalCabinetRows);
+      setReviewTab(finalUnitRows.length > 0 ? 'units' : 'cabinets');
+      setProgress(100);
+      setStep('review');
+    } catch (err) {
+      console.error(err);
+      setError('Failed to process files. Please try again.');
+      setStep('upload');
+    }
   };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -475,7 +294,7 @@ export default function CombinedImportDialog({ onImport, onClose }: Props) {
   const handleImport = () => {
     const selectedUnits = unitRows.filter(r => r.selected).map(({ selected: _, conflict: __, ...rest }) => rest);
     const selectedCabinets = cabinetRows.filter(r => r.selected).map(({ selected: _, ...rest }) => rest);
-    onImport(selectedUnits, selectedCabinets, typeOrder.length > 0 ? typeOrder : undefined);
+    onImport(selectedUnits, selectedCabinets);
   };
 
   const unitSelectedCount = unitRows.filter(r => r.selected).length;
@@ -572,10 +391,15 @@ export default function CombinedImportDialog({ onImport, onClose }: Props) {
                 </p>
               </div>
 
-              <p className="text-[11px] text-muted-foreground/80 flex items-center gap-1.5">
-                <Sparkles size={11} className="text-primary" />
-                You can close this dialog — it will keep running in the background.
-              </p>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span className={progress >= 5 ? 'text-primary font-medium' : ''}>● Loading</span>
+                <span className="text-border">—</span>
+                <span className={progress >= 10 ? 'text-primary font-medium' : ''}>● Scanning Units</span>
+                <span className="text-border">—</span>
+                <span className={progress >= 50 ? 'text-primary font-medium' : ''}>● Scanning Cabinets</span>
+                <span className="text-border">—</span>
+                <span className={progress >= 95 ? 'text-primary font-medium' : ''}>● Finalizing</span>
+              </div>
             </div>
           )}
 

@@ -4,7 +4,6 @@ import type { Project, Unit, Cabinet } from '@/types/project';
 import { type LabelRow } from './ShopDrawingImportDialog';
 import ShopDrawingImportDialog from './ShopDrawingImportDialog';
 import UnitTypeImportDialog from './UnitTypeImportDialog';
-import CombinedImportDialog from './CombinedImportDialog';
 import StonePDFImportDialog, { type StoneExtractedRow } from './StonePDFImportDialog';
 import VtopPDFImportDialog, { type VtopImportRow, formatVtopSku, getVtopSidesplashItems } from './VtopPDFImportDialog';
 import { usePrefinalStore, type PrefinalStoneRow, type PrefinalVtopRow } from '@/hooks/usePrefinalStore';
@@ -67,10 +66,10 @@ export default function PreFinalModule({ project }: Props) {
 
   // ── Cabinet Count state ───────────────────────────────────────────────────
   const [showCabinetImport, setShowCabinetImport] = useState(false);
-  const [showCombinedImport, setShowCombinedImport] = useState(false);
   const [importTargetType, setImportTargetType] = useState('');
   const [cabinetImportedCount, setCabinetImportedCount] = useState<number | null>(null);
   const [cabinetChecks, setCabinetChecks] = useState<Record<string, boolean>>({});
+  const [cabinetAiModel, setCabinetAiModel] = useState<'fast' | 'accu'>('fast');
   // Stone/Laminate/Vtop AI provider (test toggle for Dialagram Qwen)
   const [stoneAiProvider, setStoneAiProvider] = useState<'gemini' | 'dialagram'>('gemini');
   const [vtopAiProvider, setVtopAiProvider] = useState<'gemini' | 'dialagram'>('gemini');
@@ -547,24 +546,7 @@ export default function PreFinalModule({ project }: Props) {
           prefinalPerson={project.specs?.takeoffPerson}
           speedMode="thorough"
           skipClassify
-          aiModel="fast"
-        />
-      )}
-
-      {/* Combined Unit + Cabinet Import (single PDF → both tabs) */}
-      {showCombinedImport && (
-        <CombinedImportDialog
-          onImport={(unitRows, cabinetRows, pageTypeOrder) => {
-            // Prefer PDF page order from extraction; fall back to unit-row order
-            const typeOrder = pageTypeOrder && pageTypeOrder.length > 0
-              ? pageTypeOrder
-              : Array.from(new Set(unitRows.map(r => r.unitType)));
-            handleUnitImport(unitRows, typeOrder);
-            // Cabinet rows already carry detectedUnitType per row
-            handleCabinetImport(cabinetRows, undefined, typeOrder);
-            setShowCombinedImport(false);
-          }}
-          onClose={() => setShowCombinedImport(false)}
+          aiModel={cabinetAiModel}
         />
       )}
 
@@ -601,30 +583,21 @@ export default function PreFinalModule({ project }: Props) {
       )}
 
       {/* Sub-tab toggle + speed mode */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {/* Grouped: Unit + Cabinet Count */}
-        <div className="flex items-center gap-2 rounded-lg border border-border bg-accent/30 px-2 py-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground pl-1 pr-1 select-none">
-            Unit + Cabinet Count
-          </span>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setActiveSubTab('units')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${activeSubTab === 'units' ? 'text-white' : 'text-muted-foreground border border-border bg-background hover:bg-secondary'}`}
-              style={activeSubTab === 'units' ? { background: 'hsl(var(--primary))' } : {}}
-            >
-              <Users size={13} /> Unit Count
-            </button>
-            <button
-              onClick={() => setActiveSubTab('cabinets')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${activeSubTab === 'cabinets' ? 'text-white' : 'text-muted-foreground border border-border bg-background hover:bg-secondary'}`}
-              style={activeSubTab === 'cabinets' ? { background: 'hsl(var(--primary))' } : {}}
-            >
-              <LayoutGrid size={13} /> Cabinet Count
-            </button>
-          </div>
-        </div>
-
+      <div className="flex items-center gap-1 flex-wrap">
+        <button
+          onClick={() => setActiveSubTab('units')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-xs font-medium transition-colors ${activeSubTab === 'units' ? 'text-white' : 'text-muted-foreground border border-border hover:bg-secondary'}`}
+          style={activeSubTab === 'units' ? { background: 'hsl(var(--primary))' } : {}}
+        >
+          <Users size={13} /> Unit Count
+        </button>
+        <button
+          onClick={() => setActiveSubTab('cabinets')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-xs font-medium transition-colors ${activeSubTab === 'cabinets' ? 'text-white' : 'text-muted-foreground border border-border hover:bg-secondary'}`}
+          style={activeSubTab === 'cabinets' ? { background: 'hsl(var(--primary))' } : {}}
+        >
+          <LayoutGrid size={13} /> Cabinet Count
+        </button>
         <button
           onClick={() => setActiveSubTab('stone')}
           className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-xs font-medium transition-colors ${activeSubTab === 'stone' ? 'text-white' : 'text-muted-foreground border border-border hover:bg-secondary'}`}
@@ -646,6 +619,7 @@ export default function PreFinalModule({ project }: Props) {
         >
           🛁 Cmarble/Swan Vtop
         </button>
+
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
@@ -667,12 +641,11 @@ export default function PreFinalModule({ project }: Props) {
 
               <div className="ml-auto flex items-center gap-2 flex-wrap">
                 <button
-                  onClick={() => setShowCombinedImport(true)}
+                  onClick={() => setShowUnitImport(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
                   style={{ background: 'hsl(var(--primary))' }}
-                  title="Uploads one floor plan and fills both Unit Count and Cabinet Count tabs"
                 >
-                  <FileUp size={12} /> Upload 2020 floor plan (Units + Cabinets)
+                  <FileUp size={12} /> Upload 2020 floor plans
                 </button>
                 {(store.unitTypes.length > 0 || store.unitNumbers.length > 0) && (
                   <button
@@ -923,13 +896,42 @@ export default function PreFinalModule({ project }: Props) {
               Pre-Final Cabinet Count
 
               <div className="ml-auto flex items-center gap-2 flex-wrap">
+                {/* AI Model Toggle */}
+                <div className="relative flex items-center border border-border rounded-md bg-background overflow-hidden group">
+                  <button
+                    onClick={() => setCabinetAiModel('fast')}
+                    className={`relative px-2.5 py-1.5 text-[10px] font-semibold transition-colors ${cabinetAiModel === 'fast' ? 'text-white' : 'text-muted-foreground hover:text-foreground'}`}
+                    style={cabinetAiModel === 'fast' ? { background: 'hsl(var(--primary))' } : {}}
+                    title="Fast-3.1 Lite: ~20-25 sec/page, slightly less accurate"
+                  >
+                    ⚡ Fast-3.1 Lite
+                  </button>
+                  <button
+                    onClick={() => setCabinetAiModel('accu')}
+                    className={`relative px-2.5 py-1.5 text-[10px] font-semibold transition-colors ${cabinetAiModel === 'accu' ? 'text-white' : 'text-muted-foreground hover:text-foreground'}`}
+                    style={cabinetAiModel === 'accu' ? { background: 'hsl(142 71% 45%)' } : {}}
+                    title="Accu-3 Flash: ~2.5-3 min/page, thinking model — more accurate"
+                  >
+                    🎯 Accu-3 Flash
+                  </button>
+                  {/* Tooltip on hover */}
+                  <div className="absolute top-full right-0 mt-1 w-64 bg-popover border border-border rounded-lg shadow-lg p-3 text-[10px] text-popover-foreground opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity z-50">
+                    <div className="mb-2">
+                      <strong className="text-foreground">⚡ Fast-3.1 Lite</strong>
+                      <p className="text-muted-foreground mt-0.5">~20-25 seconds per page. Slightly less accurate but much faster.</p>
+                    </div>
+                    <div>
+                      <strong className="text-foreground">🎯 Accu-3 Flash</strong>
+                      <p className="text-muted-foreground mt-0.5">~2.5-3 minutes per page. Thinking model — more accurate than fast model.</p>
+                    </div>
+                  </div>
+                </div>
                 <button
-                  onClick={() => setShowCombinedImport(true)}
+                  onClick={() => setShowCabinetImport(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
                   style={{ background: 'hsl(var(--primary))' }}
-                  title="Uploads one floor plan and fills both Unit Count and Cabinet Count tabs"
                 >
-                  <FileUp size={12} /> Upload 2020 floor plan (Units + Cabinets)
+                  <FileUp size={12} /> Upload 2020 Floor plan
                 </button>
                 {store.cabinetRows.length > 0 && (
                   <button
