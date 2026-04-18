@@ -114,6 +114,121 @@ async function callGemini(
   return text;
 }
 
+// ── Dialagram (Qwen) helper — returns parsed JSON when expectStructured=true ──
+const DIALAGRAM_BASE_URL = "https://www.dialagram.me/router/v1";
+
+async function callDialagram(
+  apiKey: string,
+  model: string,
+  pageImage: string,
+  prompt: string,
+  temperature = 0.2,
+  maxTokens = 8192,
+  expectStructured = false,
+): Promise<any> {
+  const MAX_RETRIES = 3;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    let response: Response | null = null;
+    try {
+      response = await fetch(`${DIALAGRAM_BASE_URL}/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json", "Authorization": `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model,
+          temperature,
+          max_tokens: maxTokens,
+          stream: false,
+          messages: [
+            { role: "system", content: "You are a vision AI that analyzes 2020 Design shop drawings provided as images. Always inspect the attached image. Never claim no image was uploaded — the image is always attached. When asked for JSON output, respond with ONLY valid JSON, no markdown fences." },
+            { role: "user", content: [
+              { type: "text", text: prompt },
+              { type: "image_url", image_url: { url: `data:image/jpeg;base64,${pageImage}` } },
+            ]},
+          ],
+        }),
+      });
+    } catch (fetchErr) {
+      console.error(`Dialagram fetch error (attempt ${attempt + 1}):`, fetchErr);
+      if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
+      throw new Error("AI model temporarily unavailable");
+    }
+    if (response.status === 429) throw new Error("rate_limit");
+    if (response.status === 402) throw new Error("credits");
+    if ((response.status === 503 || response.status === 500) && attempt < MAX_RETRIES - 1) {
+      await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+      continue;
+    }
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("Dialagram error:", response.status, errText.slice(0, 300));
+      throw new Error(`AI error: ${response.status}`);
+    }
+    const raw = await response.text();
+    const trimmed = raw.trim();
+    let text = "";
+    if (trimmed.startsWith("{")) {
+      try {
+        const data = JSON.parse(trimmed);
+        text = data.choices?.[0]?.message?.content ?? "";
+      } catch {
+        throw new Error("Dialagram parse failed");
+      }
+    } else if (trimmed.startsWith("data:")) {
+      for (const line of raw.split("\n")) {
+        const l = line.trim();
+        if (!l.startsWith("data:")) continue;
+        const payload = l.slice(5).trim();
+        if (!payload || payload === "[DONE]") continue;
+        try {
+          const chunk = JSON.parse(payload);
+          text += chunk.choices?.[0]?.delta?.content ?? chunk.choices?.[0]?.message?.content ?? "";
+        } catch {}
+      }
+    }
+    if (!text) throw new Error("Dialagram empty response");
+
+    if (!expectStructured) return text;
+
+    const cleaned = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
+    try { return JSON.parse(cleaned); } catch {
+      const itemRegex = /\{\s*"sku"\s*:\s*"([^"]+)"\s*,\s*"type"\s*:\s*"([^"]+)"\s*,\s*"room"\s*:\s*"([^"]+)"\s*,\s*"quantity"\s*:\s*(\d+)\s*\}/g;
+      const recoveredItems: any[] = [];
+      let match;
+      while ((match = itemRegex.exec(text)) !== null) {
+        recoveredItems.push({ sku: match[1], type: match[2], room: match[3], quantity: parseInt(match[4]) });
+      }
+      const unitTypeMatch = text.match(/"unitTypeName"\s*:\s*"([^"]+)"/);
+      if (recoveredItems.length > 0) {
+        return { items: recoveredItems, unitTypeName: unitTypeMatch ? unitTypeMatch[1] : null };
+      }
+      console.error("Dialagram JSON parse failed, raw:", text.slice(0, 300));
+      return { items: [] };
+    }
+  }
+  throw new Error("AI model temporarily unavailable");
+}
+
+// ── AI router ──
+async function callAI(
+  provider: "gemini" | "dialagram",
+  geminiKey: string | undefined,
+  dialagramKey: string | undefined,
+  geminiModel: string,
+  qwenModel: string,
+  pageImage: string,
+  prompt: string,
+  temperature: number,
+  maxTokens: number,
+  responseSchema?: any,
+): Promise<any> {
+  if (provider === "dialagram") {
+    if (!dialagramKey) throw new Error("DIALAGRAM_API_KEY not configured");
+    return callDialagram(dialagramKey, qwenModel, pageImage, prompt, temperature, maxTokens, !!responseSchema);
+  }
+  if (!geminiKey) throw new Error("GEMINI_API_KEY not configured");
+  return callGemini(geminiKey, geminiModel, pageImage, prompt, temperature, maxTokens, responseSchema);
+}
+
 // ── SKU Helpers ──
 
 const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|WDC|UB|WC|OH|BLB|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS)\d[\w\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
