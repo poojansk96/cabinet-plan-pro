@@ -225,8 +225,10 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
 
               if (resp.ok) {
                 const data = await resp.json();
-                const pageUnitType = String(data.unitTypeName || '').trim();
-                if (pageUnitType && !detectedTypesOrder.includes(pageUnitType)) {
+                const rawUnitType = String(data.unitTypeName || '').trim();
+                // Fall back to per-page label so different pages don't collapse together
+                const pageUnitType = rawUnitType || `${file.name.replace(/\.pdf$/i, '')} — Page ${p}`;
+                if (!detectedTypesOrder.includes(pageUnitType)) {
                   detectedTypesOrder.push(pageUnitType);
                 }
                 for (const ct of (data.countertops ?? [])) {
@@ -239,7 +241,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                     category: ct.category === 'bath' ? 'bath' : 'kitchen',
                     selected: true,
                     sourceFile: file.name,
-                    unitType: pageUnitType || undefined,
+                    unitType: pageUnitType,
                   });
                 }
                 pageSuccess = true;

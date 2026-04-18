@@ -260,7 +260,7 @@ function buildCountertopExtractionPrompt(provider: "gemini" | "dialagram"): stri
     return `You are reading ONE 2020 countertop shop drawing image.
 
 Extract:
-1. unitTypeName — exact title block or plan type name if visible
+1. unitTypeName — read the EXACT text from the title block on this specific page. Look in the bottom-right corner, top header, or any prominent label that names the architectural unit/plan type (e.g. "TYPE A", "TYPE B", "1.1B-AS", "2BR-ADA", "STUDIO", "PENTHOUSE A", "UNIT 2.3", "BREAKROOM", etc.). Copy the text VERBATIM as it appears on this page. Do NOT default to "TYPE A". Do NOT reuse a name from another drawing. If no title-block text is visible on THIS page, return "" (empty string) — never invent a name.
 2. countertops — every countertop section visible on the page
 
 For each countertop section return:
@@ -287,8 +287,8 @@ Rules:
 - Otherwise category = "kitchen".
 - Only return an empty list if there is truly no countertop drawing on the page.
 
-Return ONLY valid JSON:
-{"unitTypeName":"TYPE A","countertops":[{"label":"Perimeter","roomName":"KITCHEN","instanceKey":"KITCHEN_PERIMETER_1","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"}]}`;
+Return ONLY valid JSON. The unitTypeName must be the EXACT text from THIS page's title block, or "" if not visible. Example schema only — do not copy "<EXACT_TITLE_BLOCK_TEXT>" literally:
+{"unitTypeName":"<EXACT_TITLE_BLOCK_TEXT>","countertops":[{"label":"Perimeter","roomName":"KITCHEN","instanceKey":"KITCHEN_PERIMETER_1","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"}]}`;
   }
 
   return `You are an expert millwork estimator analyzing a 2020 countertop shop drawing.
@@ -345,12 +345,12 @@ ${previous}
 Re-examine the attached image carefully.
 - If you can see ANY countertop plan, vanity top, kitchen perimeter, island, bar top, or dimensioned countertop run, return one or more sections
 - Do NOT return an empty list unless the page truly has no countertop geometry, no countertop labels, and no countertop dimensions
-- Extract the exact unitTypeName from the title block if visible
+- Extract the exact unitTypeName from THIS page's title block (bottom-right corner or header). Copy verbatim. Never default to "TYPE A". If no title-block text is visible on this page, return "".
 - Split L-shaped or U-shaped tops into straight segments
 - backsplashLength should be the full wall-contact length; islands usually have 0 backsplash
 
-Return ONLY valid JSON:
-{"unitTypeName":"TYPE A","countertops":[{"label":"Perimeter","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"}]}`;
+Return ONLY valid JSON. unitTypeName must be the EXACT text from this page or "":
+{"unitTypeName":"<EXACT_TITLE_BLOCK_TEXT>","countertops":[{"label":"Perimeter","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"}]}`;
 }
 
 function buildDialagramCategoryPrompt(category: "kitchen" | "bath"): string {
@@ -368,9 +368,10 @@ Important estimator rules:
 - Ignore kitchen perimeter runs, islands, peninsulas, laundry tops, and bar tops.
 - If partly dimensioned, estimate reasonably from visible geometry and nearby dimensions.
 - backsplashLength is the full wall-contact length.
+- unitTypeName: read the EXACT text from THIS page's title block (bottom-right or header). Copy verbatim. Never default to "TYPE A". If not visible on this page, return "".
 
 Return ONLY valid JSON:
-{"unitTypeName":"TYPE A","countertops":[{"label":"Vanity","roomName":"MASTER BATH","instanceKey":"MASTER_BATH_VANITY_1","length":36,"depth":22,"backsplashLength":36,"isIsland":false,"category":"bath"}]}`;
+{"unitTypeName":"<EXACT_TITLE_BLOCK_TEXT>","countertops":[{"label":"Vanity","roomName":"MASTER BATH","instanceKey":"MASTER_BATH_VANITY_1","length":36,"depth":22,"backsplashLength":36,"isIsland":false,"category":"bath"}]}`;
   }
 
   return `You are reading ONE 2020 countertop shop drawing image.
@@ -384,9 +385,30 @@ Rules:
 - Ignore bath / vanity tops.
 - Split L-shaped or U-shaped tops into straight segments.
 - backsplashLength is the full wall-contact length for wall runs; islands usually have 0 backsplash.
+- unitTypeName: read the EXACT text from THIS page's title block (bottom-right or header). Copy verbatim. Never default to "TYPE A". If not visible on this page, return "".
 
 Return ONLY valid JSON:
-{"unitTypeName":"TYPE A","countertops":[{"label":"Perimeter","roomName":"KITCHEN","instanceKey":"KITCHEN_PERIMETER_1","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"},{"label":"Island","roomName":"KITCHEN","instanceKey":"KITCHEN_ISLAND_1","length":72,"depth":36,"backsplashLength":0,"isIsland":true,"category":"kitchen"}]}`;
+{"unitTypeName":"<EXACT_TITLE_BLOCK_TEXT>","countertops":[{"label":"Perimeter","roomName":"KITCHEN","instanceKey":"KITCHEN_PERIMETER_1","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"},{"label":"Island","roomName":"KITCHEN","instanceKey":"KITCHEN_ISLAND_1","length":72,"depth":36,"backsplashLength":0,"isIsland":true,"category":"kitchen"}]}`;
+}
+
+function buildDialagramTitleBlockPrompt(): string {
+  return `You are reading ONE 2020 countertop shop drawing image.
+
+Your ONE job: find the unit / plan type name printed on THIS page.
+
+Where to look:
+- Title block usually in the BOTTOM-RIGHT corner.
+- Sheet header at the TOP of the page.
+- Large bold text near the floor plan title (e.g. "TYPE A", "TYPE B", "1.1B-AS", "2BR-ADA", "STUDIO", "PENTHOUSE A", "UNIT 2.3 — TYPE C", "BREAKROOM", etc.).
+
+Strict rules:
+- Copy the text EXACTLY as printed (preserve case, hyphens, dots, suffixes like -AS, -ADA, MIRROR).
+- Never default to "TYPE A". Never invent a name. Never reuse a name from a different drawing.
+- If THIS specific page has no clear title-block text, return "" (empty string).
+- If multiple plan-type labels appear, choose the one in the title block / sheet header — not interior room labels.
+
+Return ONLY valid JSON, nothing else:
+{"unitTypeName":"<EXACT_TITLE_BLOCK_TEXT_OR_EMPTY>"}`;
 }
 
 function buildDialagramFinalizePrompt(unitTypeName: string, countertops: NormalizedCountertop[]): string {
@@ -404,6 +426,7 @@ Rules:
 - Preserve roomName and instanceKey for each physical top.
 - Add missing sections, remove duplicates, and correct dimensions/categories.
 - Split L-shaped or U-shaped tops into straight segments.
+- unitTypeName: confirm it matches THIS page's title block VERBATIM. Never default to "TYPE A". If no title block visible on this page, return "".
 
 Return ONLY valid JSON.`;
 }
@@ -639,9 +662,18 @@ function scoreUnitTypeName(value: string): number {
   return score;
 }
 
+function sanitizeUnitTypeName(value: string): string {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^<.*>$/.test(raw)) return "";
+  if (/EXACT_TITLE_BLOCK_TEXT/i.test(raw)) return "";
+  if (/^(unknown|n\/?a|none|null|empty|tbd|untitled)$/i.test(raw)) return "";
+  return raw.replace(/^["']+|["']+$/g, "").trim();
+}
+
 function chooseBestUnitTypeName(values: string[]): string {
   const unique = values
-    .map((value) => String(value || "").trim())
+    .map(sanitizeUnitTypeName)
     .filter(Boolean)
     .filter((value, index, arr) => arr.indexOf(value) === index);
 
@@ -675,6 +707,29 @@ serve(async (req) => {
     let extracted: { unitTypeName: string; countertops: any[] } = { unitTypeName: "", countertops: [] };
     let countertops: NormalizedCountertop[] = [];
     const dialagramPassResults: CountertopPassResult[] = [];
+    let dialagramTitleBlockName = "";
+
+    // ── Dedicated title-block pass (Qwen only) ──
+    // Runs FIRST so we have an authoritative unit type name before extraction passes
+    // can hallucinate "TYPE A" from the prompt example.
+    if (provider === "dialagram") {
+      try {
+        const titleBlockContent = await callAI("dialagram", pageImage, imageMimeType, buildDialagramTitleBlockPrompt(), {
+          temperature: 0.0,
+          maxOutputTokens: 256,
+          geminiModels: PRIMARY_MODELS,
+          dialagramModel: getDialagramAccuracyModel(dialagramModel),
+        });
+        console.log("Dialagram title-block raw:", titleBlockContent.slice(0, 300));
+        const tb = parseCountertopJSON(titleBlockContent);
+        dialagramTitleBlockName = sanitizeUnitTypeName(tb.unitTypeName);
+        console.log("Dialagram title-block detected:", dialagramTitleBlockName || "(none)");
+      } catch (tbErr) {
+        const knownErrorResponse = buildKnownAIErrorResponse(tbErr);
+        if (knownErrorResponse) return knownErrorResponse;
+        console.warn("Dialagram title-block pass failed:", tbErr);
+      }
+    }
 
     try {
       extractionContent = await callAI(provider, pageImage, imageMimeType, extractionPrompt, {
@@ -725,7 +780,8 @@ serve(async (req) => {
       }
 
       countertops = mergeCountertopCandidateLists(dialagramPassResults.map((result) => result.countertops));
-      extracted.unitTypeName = chooseBestUnitTypeName(dialagramPassResults.map((result) => result.unitTypeName));
+      extracted.unitTypeName = dialagramTitleBlockName
+        || chooseBestUnitTypeName(dialagramPassResults.map((result) => result.unitTypeName));
       activeDialagramModel = focusedModel;
 
       const shouldRescue =
@@ -754,7 +810,8 @@ serve(async (req) => {
             if (rescueResult.countertops.length > 0 || rescueResult.unitTypeName) {
               dialagramPassResults.push(rescueResult);
               countertops = mergeCountertopCandidateLists(dialagramPassResults.map((result) => result.countertops));
-              extracted.unitTypeName = chooseBestUnitTypeName(dialagramPassResults.map((result) => result.unitTypeName));
+              extracted.unitTypeName = dialagramTitleBlockName
+                || chooseBestUnitTypeName(dialagramPassResults.map((result) => result.unitTypeName));
             }
 
             if (countertops.length > 1 && !countertops.some(hasNullCriticalDimensions)) {
@@ -806,7 +863,7 @@ If everything looks correct, return the data as-is. Return ONLY valid JSON — n
         if (verified.countertops.length > 0) {
           const verifiedCts = verified.countertops.map(applyFinalCountertopFallbacks);
           const unitTypeName = provider === "dialagram"
-            ? chooseBestUnitTypeName([verified.parsed.unitTypeName, extracted.unitTypeName])
+            ? (dialagramTitleBlockName || chooseBestUnitTypeName([verified.parsed.unitTypeName, extracted.unitTypeName]))
             : (verified.parsed.unitTypeName || extracted.unitTypeName || "").trim();
           console.log("Verified unit type:", unitTypeName, "sections:", verifiedCts.length);
 
@@ -820,7 +877,7 @@ If everything looks correct, return the data as-is. Return ONLY valid JSON — n
     }
 
     const unitTypeName = provider === "dialagram"
-      ? chooseBestUnitTypeName([extracted.unitTypeName])
+      ? (dialagramTitleBlockName || chooseBestUnitTypeName([extracted.unitTypeName]))
       : extracted.unitTypeName;
     console.log("Detected unit type name:", unitTypeName);
     const finalizedCountertops = countertops.map(applyFinalCountertopFallbacks);
