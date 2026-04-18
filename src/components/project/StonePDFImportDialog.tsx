@@ -227,8 +227,9 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
             .replace(/\s+/g, ' ')
             .trim();
           const hintedUnitType = extractUnitTypeFromPageText(pageText);
+          // Lower scale for Dialagram (was 4 PNG → ~485KB) saves significant Qwen processing time.
           const renderedPage = await renderPageToBase64(page, aiProvider === 'dialagram'
-            ? { scale: 4, mimeType: 'image/png', maxBase64Length: 4_500_000 }
+            ? { scale: 2.5, mimeType: 'image/jpeg', quality: 0.88, maxBase64Length: 3_000_000 }
             : { scale: 3, mimeType: 'image/jpeg', quality: 0.85, maxBase64Length: 3_500_000 });
           const pageImage = renderedPage.base64;
           const pageImageMimeType = renderedPage.mimeType;
