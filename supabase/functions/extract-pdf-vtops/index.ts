@@ -648,31 +648,30 @@ IMPORTANT:
 Return ONLY valid JSON — no markdown fences, no explanation:
 {"unitTypeName":"TYPE 1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"backSideOnPage":"left","closerEndOnPage":"bottom","bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true,"leftWallYesConfidence":0.9,"rightWallYesConfidence":0.85,"bbox":{"x":0.05,"y":0.3,"width":0.35,"height":0.2}}]}`;
 
-    // QWEN PROMPT: short, direct, permissive. Qwen-VL fails on long prompts and over-strict
-    // filters. We extract EVERY top section drawn — vanity, break-room, mail-room, kitchen.
-    // The Cmarble/Swan Vtop module is used for any solid-surface top, not only bathroom vanities.
-    const qwenPrompt = `Look at this countertop shop drawing page (2020 / Cyncly format). Extract EVERY countertop / vanity / top section drawn on the page — DO NOT filter or skip any.
+    // QWEN PROMPT: short, direct, but STRICTLY vanity-only.
+    // We still keep it concise for Qwen stability, but do not allow kitchen/community/mail counters.
+    const qwenPrompt = `Look at this 2020 countertop shop drawing page and extract ONLY vanity tops / lavatory tops.
 
-For each top, return these fields:
-- length: longer edge dimension in inches as a number (e.g. 42, 47.5, 121.5)
-- depth: shorter edge dimension in inches as a number (e.g. 22, 25.25, 25.5)
-- bowlPosition: "offset-left" | "offset-right" | "center" (use "center" if no bowl is drawn or unclear)
-- bowlOffset: distance in inches from the closer end to bowl center (number), or null if centered / no bowl
-- leftWall: true if the LEFT end has a wall or double-line, else false (default true if uncertain)
-- rightWall: true if the RIGHT end has a wall or double-line, else false (default true if uncertain)
+A top counts as a vanity top ONLY if it matches these rules:
+- depth is about 18" to 22.5" (usually 19" or 22")
+- AND it has a sink / bowl cutout shown, OR the page/title uses bathroom words like vanity, bath, powder, lav, lavatory
+- DO NOT include kitchen tops, break room tops, mail room tops, community room tops, islands, or any top deeper than 22.5"
 
-Also extract:
-- unitTypeName: text after "TYPE" in the title block (e.g. "1.1A (ADA)", "Break Room", "Mail Room", "1.1B-AS", "Studio"). Empty string if none.
+For each vanity top, return:
+- length: longer edge in inches
+- depth: shorter edge in inches
+- hasSink: true if a sink/bowl cutout is visible or clearly implied, else false
+- bowlPosition: "offset-left" | "offset-right" | "center"
+- bowlOffset: number or null
+- leftWall: true if the LEFT end has a wall/double-line, else false (default true if uncertain)
+- rightWall: true if the RIGHT end has a wall/double-line, else false (default true if uncertain)
 
-CRITICAL RULES:
-- DO NOT filter by depth, label, or room type. Include break room, mail room, kitchen, vanity, island — every drawn top counts.
-- A page can have multiple tops (e.g. one large counter + one small vanity). Return ALL of them as separate items.
-- Convert fractions: 1/2=0.5, 1/4=0.25, 3/4=0.75, 1/8=0.125, 3/8=0.375, 5/8=0.625, 7/8=0.875.
-- Round dimensions to nearest 0.25".
-- Only return empty vtops:[] if the page truly has NO countertop drawing (e.g. only floor plan / cover sheet / index).
+Also extract unitTypeName from the title block after TYPE.
 
-Return ONLY valid JSON, no markdown fences, no commentary:
-{"unitTypeName":"1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true}]}`;
+Return ONLY actual vanity tops. If the page only shows kitchen/break-room/mail-room/community counters, return empty.
+
+Return ONLY valid JSON:
+{"unitTypeName":"1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"hasSink":true,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true}]} `;
 
     const fullPrompt = provider === "dialagram" ? qwenPrompt : geminiPrompt;
 
