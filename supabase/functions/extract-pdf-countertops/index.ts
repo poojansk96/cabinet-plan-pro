@@ -760,53 +760,57 @@ serve(async (req) => {
 
     if (provider === "dialagram") {
       const focusedModel = getDialagramAccuracyModel(dialagramModel);
-      const focusedPasses = [
-        { label: "kitchen-focus", prompt: buildDialagramCategoryPrompt("kitchen"), model: focusedModel },
-        { label: "bath-focus", prompt: buildDialagramCategoryPrompt("bath"), model: focusedModel },
-      ];
-      let kitchenFocusCount = 0;
-      let bathFocusCount = 0;
-
-      for (const pass of focusedPasses) {
-        try {
-          const passContent = await callAI("dialagram", pageImage, imageMimeType, pass.prompt, {
-            temperature: 0.05,
-            maxOutputTokens: 8192,
-            geminiModels: PRIMARY_MODELS,
-            dialagramModel: pass.model,
-          });
-          console.log(`Dialagram ${pass.label} raw (${pass.model}):`, passContent.slice(0, 800));
-          const passResult = parseCountertopPassResult(passContent);
-          if (pass.label === "kitchen-focus") kitchenFocusCount = passResult.countertops.length;
-          if (pass.label === "bath-focus") bathFocusCount = passResult.countertops.length;
-          if (passResult.countertops.length > 0 || passResult.unitTypeName) {
-            dialagramPassResults.push(passResult);
-          }
-        } catch (focusErr) {
-          const knownErrorResponse = buildKnownAIErrorResponse(focusErr);
-          if (knownErrorResponse) return knownErrorResponse;
-          console.warn(`Dialagram ${pass.label} failed:`, focusErr);
-        }
-      }
-
-      countertops = mergeCountertopCandidateLists(dialagramPassResults.map((result) => result.countertops));
-      extracted.unitTypeName = dialagramTitleBlockName
-        || chooseBestUnitTypeName(dialagramPassResults.map((result) => result.unitTypeName));
       activeDialagramModel = focusedModel;
 
+      // Decide if broad extraction is "good enough" — skip focused passes to save 50s+.
+      const broadHasKitchen = countertops.some((ct) => ct.category === "kitchen");
+      const broadHasBath = countertops.some((ct) => ct.category === "bath");
+      const broadIsHealthy =
+        countertops.length >= 2 &&
+        !countertops.some(hasNullCriticalDimensions) &&
+        !countertops.every((ct) => isGenericCountertopLabel(ct.label));
+
+      // Only run focused passes if broad result is weak — and only the missing category.
+      if (!broadIsHealthy) {
+        const focusedPasses: Array<{ label: string; prompt: string; model: string }> = [];
+        if (!broadHasKitchen) focusedPasses.push({ label: "kitchen-focus", prompt: buildDialagramCategoryPrompt("kitchen"), model: focusedModel });
+        if (!broadHasBath) focusedPasses.push({ label: "bath-focus", prompt: buildDialagramCategoryPrompt("bath"), model: focusedModel });
+
+        for (const pass of focusedPasses) {
+          try {
+            const passContent = await callAI("dialagram", pageImage, imageMimeType, pass.prompt, {
+              temperature: 0.05,
+              maxOutputTokens: 8192,
+              geminiModels: PRIMARY_MODELS,
+              dialagramModel: pass.model,
+            });
+            console.log(`Dialagram ${pass.label} raw (${pass.model}):`, passContent.slice(0, 800));
+            const passResult = parseCountertopPassResult(passContent);
+            if (passResult.countertops.length > 0 || passResult.unitTypeName) {
+              dialagramPassResults.push(passResult);
+            }
+          } catch (focusErr) {
+            const knownErrorResponse = buildKnownAIErrorResponse(focusErr);
+            if (knownErrorResponse) return knownErrorResponse;
+            console.warn(`Dialagram ${pass.label} failed:`, focusErr);
+          }
+        }
+
+        countertops = mergeCountertopCandidateLists(dialagramPassResults.map((result) => result.countertops));
+        extracted.unitTypeName = dialagramTitleBlockName
+          || chooseBestUnitTypeName(dialagramPassResults.map((result) => result.unitTypeName));
+      }
+
       const shouldRescue =
-        countertops.length <= 1 ||
-        kitchenFocusCount === 0 ||
-        bathFocusCount === 0 ||
-        countertops.some(hasNullCriticalDimensions) ||
-        countertops.every((ct) => isGenericCountertopLabel(ct.label));
+        countertops.length === 0 ||
+        countertops.some(hasNullCriticalDimensions);
 
       if (shouldRescue) {
-        console.log("Dialagram extraction looks incomplete, running rescue pass...");
+        console.log("Dialagram extraction looks incomplete, running single rescue pass...");
         const rescuePrompt = buildDialagramRescuePrompt(extractionContent);
-        const rescueModels = getDialagramFallbackModels(focusedModel);
-
-        for (const rescueModel of rescueModels) {
+        // Only ONE rescue attempt to stay under 150s timeout.
+        const rescueModel = getDialagramFallbackModels(focusedModel)[0];
+        if (rescueModel) {
           try {
             const rescueContent = await callAI("dialagram", pageImage, imageMimeType, rescuePrompt, {
               temperature: 0.05,
@@ -823,12 +827,7 @@ serve(async (req) => {
               extracted.unitTypeName = dialagramTitleBlockName
                 || chooseBestUnitTypeName(dialagramPassResults.map((result) => result.unitTypeName));
             }
-
-            if (countertops.length > 1 && !countertops.some(hasNullCriticalDimensions)) {
-              activeDialagramModel = rescueModel;
-              console.log(`Dialagram rescue improved extraction with ${rescueModel}, sections: ${countertops.length}`);
-              break;
-            }
+            activeDialagramModel = rescueModel;
           } catch (rescueErr) {
             const knownErrorResponse = buildKnownAIErrorResponse(rescueErr);
             if (knownErrorResponse) return knownErrorResponse;
