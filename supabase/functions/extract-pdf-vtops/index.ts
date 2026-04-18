@@ -238,16 +238,46 @@ function extractDimensionsFromHintText(text: string): number[] {
   return values;
 }
 
+const VANITY_DEPTH_MIN = 18;
+const VANITY_DEPTH_MAX = 22.5;
+
+function hasBathroomContext(text: string): boolean {
+  return /\b(vanity|lav(?:atory)?|bath(?:room)?|powder(?: room)?|restroom|wc)\b/i.test(text);
+}
+
+function hasExcludedCounterContext(text: string): boolean {
+  return /\b(kitchen|break\s*room|mail\s*room|community\s*room|island|pantry|bar\s*top|bartop)\b/i.test(text);
+}
+
+function isVanityDepth(depth: number): boolean {
+  return Number.isFinite(depth) && depth >= VANITY_DEPTH_MIN && depth <= VANITY_DEPTH_MAX;
+}
+
+function isVanityCandidate(row: VtopRow, unitTypeName: string, pageTextHint: string): boolean {
+  const context = `${unitTypeName} ${pageTextHint}`.trim();
+  const bathroomContext = hasBathroomContext(context);
+  const excludedContext = hasExcludedCounterContext(context) && !bathroomContext;
+  const sinkEvidence = Boolean(row.hasSink) || row.bowlOffset != null || row.bowlPosition !== "center";
+
+  if (!isVanityDepth(row.depth)) return false;
+  if (excludedContext) return false;
+  if (sinkEvidence) return true;
+  return bathroomContext;
+}
+
+function filterVanityCandidates(rows: VtopRow[], unitTypeName: string, pageTextHint: string): VtopRow[] {
+  return rows.filter((row) => isVanityCandidate(row, unitTypeName, pageTextHint));
+}
+
 function buildTextFallbackVtops(pageTextHint: string, hintedUnitTypeName: string): ParsedExtraction {
   const normalized = pageTextHint.replace(/\s+/g, " ").trim();
-  const hasVanityKeywords = /\b(vanity|lav(?:atory)?|bath(?:room)?|powder)\b/i.test(normalized);
-  const hasSinkKeywords = /\b(sink|lav|bowl)\b/i.test(normalized);
+  const hasVanityKeywords = hasBathroomContext(`${hintedUnitTypeName} ${normalized}`);
   const dims = extractDimensionsFromHintText(normalized);
   if (dims.length < 2) {
     return { unitTypeName: hintedUnitTypeName, vtops: [] };
   }
 
-  const depthCandidates = dims.filter((v) => v >= 18 && v <= 22.5);
+  const depthCandidates = dims.filter((v) => isVanityDepth(v));
   const depth = depthCandidates.length > 0 ? Math.min(...depthCandidates) : null;
   if (!depth) {
     return { unitTypeName: hintedUnitTypeName, vtops: [] };
@@ -256,11 +286,7 @@ function buildTextFallbackVtops(pageTextHint: string, hintedUnitTypeName: string
   const lengthCandidates = dims.filter((v) => v > depth && v >= 18 && v <= 120);
   const length = lengthCandidates.length > 0 ? Math.max(...lengthCandidates) : null;
 
-  if (!Number.isFinite(length) || !Number.isFinite(depth) || !length || length <= depth) {
-    return { unitTypeName: hintedUnitTypeName, vtops: [] };
-  }
-
-  if (!hasVanityKeywords && !hasSinkKeywords) {
+  if (!Number.isFinite(length) || !Number.isFinite(depth) || !length || length <= depth || !hasVanityKeywords) {
     return { unitTypeName: hintedUnitTypeName, vtops: [] };
   }
 
@@ -271,7 +297,7 @@ function buildTextFallbackVtops(pageTextHint: string, hintedUnitTypeName: string
       depth: Math.round(depth * 4) / 4,
       bowlPosition: "center",
       bowlOffset: null,
-      hasSink: true,
+      hasSink: false,
       leftWall: true,
       rightWall: true,
       leftWallYesConfidence: 0.6,
