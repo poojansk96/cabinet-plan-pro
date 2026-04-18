@@ -187,6 +187,13 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
     setStatusMsg(bgJob.statusText);
   }, [bgJob?.progress, bgJob?.statusText]);
 
+  // ── Live timer tick while processing ──
+  useEffect(() => {
+    if (step !== 'processing') return;
+    const id = window.setInterval(() => setNowTick(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [step]);
+
   async function processFiles(files: File[]) {
     if (processingRef.current) return;
     processingRef.current = true;
