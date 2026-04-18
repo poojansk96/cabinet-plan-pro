@@ -780,7 +780,8 @@ serve(async (req) => {
       }
 
       countertops = mergeCountertopCandidateLists(dialagramPassResults.map((result) => result.countertops));
-      extracted.unitTypeName = chooseBestUnitTypeName(dialagramPassResults.map((result) => result.unitTypeName));
+      extracted.unitTypeName = dialagramTitleBlockName
+        || chooseBestUnitTypeName(dialagramPassResults.map((result) => result.unitTypeName));
       activeDialagramModel = focusedModel;
 
       const shouldRescue =
@@ -809,7 +810,8 @@ serve(async (req) => {
             if (rescueResult.countertops.length > 0 || rescueResult.unitTypeName) {
               dialagramPassResults.push(rescueResult);
               countertops = mergeCountertopCandidateLists(dialagramPassResults.map((result) => result.countertops));
-              extracted.unitTypeName = chooseBestUnitTypeName(dialagramPassResults.map((result) => result.unitTypeName));
+              extracted.unitTypeName = dialagramTitleBlockName
+                || chooseBestUnitTypeName(dialagramPassResults.map((result) => result.unitTypeName));
             }
 
             if (countertops.length > 1 && !countertops.some(hasNullCriticalDimensions)) {
@@ -861,7 +863,7 @@ If everything looks correct, return the data as-is. Return ONLY valid JSON — n
         if (verified.countertops.length > 0) {
           const verifiedCts = verified.countertops.map(applyFinalCountertopFallbacks);
           const unitTypeName = provider === "dialagram"
-            ? chooseBestUnitTypeName([verified.parsed.unitTypeName, extracted.unitTypeName])
+            ? (dialagramTitleBlockName || chooseBestUnitTypeName([verified.parsed.unitTypeName, extracted.unitTypeName]))
             : (verified.parsed.unitTypeName || extracted.unitTypeName || "").trim();
           console.log("Verified unit type:", unitTypeName, "sections:", verifiedCts.length);
 
@@ -875,7 +877,7 @@ If everything looks correct, return the data as-is. Return ONLY valid JSON — n
     }
 
     const unitTypeName = provider === "dialagram"
-      ? chooseBestUnitTypeName([extracted.unitTypeName])
+      ? (dialagramTitleBlockName || chooseBestUnitTypeName([extracted.unitTypeName]))
       : extracted.unitTypeName;
     console.log("Detected unit type name:", unitTypeName);
     const finalizedCountertops = countertops.map(applyFinalCountertopFallbacks);
