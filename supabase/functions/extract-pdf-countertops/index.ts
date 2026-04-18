@@ -257,38 +257,29 @@ function buildKnownAIErrorResponse(err: unknown): Response | null {
 
 function buildCountertopExtractionPrompt(provider: "gemini" | "dialagram"): string {
   if (provider === "dialagram") {
-    return `You are reading ONE 2020 countertop shop drawing image.
+    return `You are an expert countertop estimator looking at ONE 2020 shop drawing image.
 
-Extract:
-1. unitTypeName — read the EXACT text from the title block on this specific page. Look in the bottom-right corner, top header, or any prominent label that names the architectural unit/plan type (e.g. "TYPE A", "TYPE B", "1.1B-AS", "2BR-ADA", "STUDIO", "PENTHOUSE A", "UNIT 2.3", "BREAKROOM", etc.). Copy the text VERBATIM as it appears on this page. Do NOT default to "TYPE A". Do NOT reuse a name from another drawing. If no title-block text is visible on THIS page, return "" (empty string) — never invent a name.
-2. countertops — every countertop section visible on the page
+Extract EVERY countertop section visible on the page. Be generous — it is much worse to miss a section than to include an extra one.
 
 For each countertop section return:
-- label
-- roomName
-- instanceKey
-- length (inches)
-- depth (inches)
-- backsplashLength (wall backsplash inches only)
+- label (short name, e.g. "Perimeter", "Island", "Vanity", "Bar Top", "L-Section")
+- roomName (e.g. "KITCHEN", "MASTER BATH", "BATH 2", "POWDER", "LAUNDRY") — use "" if you cannot tell
+- length (inches, number)
+- depth (inches, number) — kitchen perimeter ~25.5, island ~36, vanity ~22, bar ~12-18
+- backsplashLength (wall backsplash inches; 0 for islands/peninsulas)
 - isIsland (true/false)
-- category ("kitchen" or "bath")
+- category ("kitchen" or "bath") — depth <=22 OR vanity/bath/lav/powder => "bath", else "kitchen"
+
+Also return unitTypeName: the exact text from the title block on THIS page (e.g. "TYPE A", "1.1B-AS", "STUDIO"). If you cannot read it on this page, return "" — do not guess.
 
 Rules:
-- Scan the ENTIRE page before answering. Do not stop after the first countertop.
-- Count kitchen sections and bath/vanity sections separately.
-- Small vanity tops matter — return each vanity separately even if it is similar to another vanity.
-- Capture the exact room name when visible: KITCHEN, MASTER BATH, BATH 2, POWDER, LAUNDRY, BAR, etc.
-- Return a stable instanceKey for each physical top, e.g. MASTER_BATH_VANITY_1 or KITCHEN_ISLAND_1.
-- Use visible dimensions if present; otherwise estimate reasonably from the drawing.
-- Split L-shaped or U-shaped tops into straight segments.
-- Wall runs usually have backsplashLength equal to the full wall-contact length.
-- Islands and peninsulas usually have backsplashLength = 0.
-- If depth is 22 or less, or if the room/label suggests vanity/bath/lav/powder, category = "bath".
-- Otherwise category = "kitchen".
-- Only return an empty list if there is truly no countertop drawing on the page.
+- Scan the ENTIRE page. Do not stop after the first section.
+- Split L-shaped or U-shaped runs into straight segments. For length, deduct depth at one corner; for backsplashLength, do NOT deduct corners.
+- Count every vanity separately, even if same size.
+- If you see ANY countertop, kitchen, vanity, bar top, island — return it. Only return an empty list if the page is truly not a countertop drawing.
 
-Return ONLY valid JSON. The unitTypeName must be the EXACT text from THIS page's title block, or "" if not visible. Example schema only — do not copy "<EXACT_TITLE_BLOCK_TEXT>" literally:
-{"unitTypeName":"<EXACT_TITLE_BLOCK_TEXT>","countertops":[{"label":"Perimeter","roomName":"KITCHEN","instanceKey":"KITCHEN_PERIMETER_1","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"}]}`;
+Return ONLY valid JSON, no markdown:
+{"unitTypeName":"TYPE A","countertops":[{"label":"Perimeter","roomName":"KITCHEN","length":120,"depth":25.5,"backsplashLength":120,"isIsland":false,"category":"kitchen"},{"label":"Island","roomName":"KITCHEN","length":72,"depth":36,"backsplashLength":0,"isIsland":true,"category":"kitchen"},{"label":"Vanity","roomName":"MASTER BATH","length":60,"depth":22,"backsplashLength":60,"isIsland":false,"category":"bath"}]}`;
   }
 
   return `You are an expert millwork estimator analyzing a 2020 countertop shop drawing.
@@ -334,81 +325,66 @@ Return ONLY valid JSON — no markdown fences, no explanation:
 
 function buildDialagramRescuePrompt(previousContent: string): string {
   const previous = previousContent.trim()
-    ? previousContent.trim().slice(0, 500)
+    ? previousContent.trim().slice(0, 400)
     : '{"unitTypeName":"","countertops":[]}';
 
-  return `You are re-checking the SAME countertop shop drawing image because the first pass returned empty or missed sections.
+  return `Re-check the same 2020 countertop shop drawing. The previous pass returned: ${previous}
 
-First-pass output:
-${previous}
+This is a countertop shop drawing — there ARE countertops on this page. Find them.
 
-Re-examine the attached image carefully.
-- If you can see ANY countertop plan, vanity top, kitchen perimeter, island, bar top, or dimensioned countertop run, return one or more sections
-- Do NOT return an empty list unless the page truly has no countertop geometry, no countertop labels, and no countertop dimensions
-- Extract the exact unitTypeName from THIS page's title block (bottom-right corner or header). Copy verbatim. Never default to "TYPE A". If no title-block text is visible on this page, return "".
-- Split L-shaped or U-shaped tops into straight segments
-- backsplashLength should be the full wall-contact length; islands usually have 0 backsplash
+Look for:
+- Kitchen perimeter runs (long rectangles ~25.5" deep against walls)
+- Islands or peninsulas (free-standing rectangles, often 36"+ deep)
+- Vanity tops in bathrooms (~22" deep, often 30"-72" long)
+- Bar tops, laundry counters, powder room vanities
+- Dimension lines, hatched fills, double lines along walls (= backsplash)
 
-Return ONLY valid JSON. unitTypeName must be the EXACT text from this page or "":
-{"unitTypeName":"<EXACT_TITLE_BLOCK_TEXT>","countertops":[{"label":"Perimeter","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"}]}`;
+For each section return: label, roomName (or ""), length, depth, backsplashLength, isIsland, category ("kitchen" or "bath").
+Also try to read unitTypeName from the title block; return "" if you cannot.
+
+Return ONLY valid JSON, no markdown fences:
+{"unitTypeName":"TYPE A","countertops":[{"label":"Perimeter","roomName":"KITCHEN","length":120,"depth":25.5,"backsplashLength":120,"isIsland":false,"category":"kitchen"}]}`;
 }
 
 function buildDialagramCategoryPrompt(category: "kitchen" | "bath"): string {
   if (category === "bath") {
-    return `You are reading ONE 2020 countertop shop drawing image.
+    return `Look at this 2020 countertop shop drawing. Find every BATH / VANITY top on the page.
 
-Find ONLY bath / vanity countertop sections on this page.
+Bath/vanity tops are typically 19"-22" deep, found in MASTER BATH, BATH 2, POWDER, WC, etc.
 
-Important estimator rules:
-- Count every physical vanity separately, even if two or more have identical sizes.
-- Never merge different bathrooms into one item.
-- For each item, capture the exact room name if visible: MASTER BATH, BATH 2, POWDER, WC, etc.
-- If multiple vanities exist with same room name, return separate instance keys like MASTER_BATH_VANITY_1 and MASTER_BATH_VANITY_2.
-- Focus on vanity, bath, bathroom, lav, powder, WC, or tops about 19" or 22" deep.
-- Ignore kitchen perimeter runs, islands, peninsulas, laundry tops, and bar tops.
-- If partly dimensioned, estimate reasonably from visible geometry and nearby dimensions.
-- backsplashLength is the full wall-contact length.
-- unitTypeName: read the EXACT text from THIS page's title block (bottom-right or header). Copy verbatim. Never default to "TYPE A". If not visible on this page, return "".
+For each one return: label ("Vanity"), roomName (the bathroom name, or ""), length, depth, backsplashLength (= length for wall vanities), isIsland (false), category ("bath").
 
-Return ONLY valid JSON:
-{"unitTypeName":"<EXACT_TITLE_BLOCK_TEXT>","countertops":[{"label":"Vanity","roomName":"MASTER BATH","instanceKey":"MASTER_BATH_VANITY_1","length":36,"depth":22,"backsplashLength":36,"isIsland":false,"category":"bath"}]}`;
+Count every vanity separately even if sizes match (different bathrooms = different items).
+
+Also return unitTypeName from the title block (e.g. "TYPE A"), or "" if not visible.
+
+Return ONLY valid JSON, no markdown:
+{"unitTypeName":"TYPE A","countertops":[{"label":"Vanity","roomName":"MASTER BATH","length":60,"depth":22,"backsplashLength":60,"isIsland":false,"category":"bath"}]}`;
   }
 
-  return `You are reading ONE 2020 countertop shop drawing image.
+  return `Look at this 2020 countertop shop drawing. Find every KITCHEN / ISLAND / BAR / LAUNDRY top on the page.
 
-Find ONLY kitchen / laundry / bar / island countertop sections on this page.
+Kitchen perimeter is ~25.5" deep against a wall. Islands/peninsulas are 30"+ deep, free-standing. Bar tops are 12"-18" deep.
 
-Rules:
-- Count EVERY kitchen section visible on the page. Do not stop after the first perimeter run.
-- Include perimeter runs, islands, peninsulas, bar tops, and laundry counters.
-- Capture roomName and a stable instanceKey for each physical top.
-- Ignore bath / vanity tops.
-- Split L-shaped or U-shaped tops into straight segments.
-- backsplashLength is the full wall-contact length for wall runs; islands usually have 0 backsplash.
-- unitTypeName: read the EXACT text from THIS page's title block (bottom-right or header). Copy verbatim. Never default to "TYPE A". If not visible on this page, return "".
+For each section return: label, roomName (e.g. "KITCHEN", or ""), length, depth, backsplashLength (= length for wall runs, 0 for islands), isIsland, category ("kitchen").
 
-Return ONLY valid JSON:
-{"unitTypeName":"<EXACT_TITLE_BLOCK_TEXT>","countertops":[{"label":"Perimeter","roomName":"KITCHEN","instanceKey":"KITCHEN_PERIMETER_1","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"},{"label":"Island","roomName":"KITCHEN","instanceKey":"KITCHEN_ISLAND_1","length":72,"depth":36,"backsplashLength":0,"isIsland":true,"category":"kitchen"}]}`;
+Split L/U-shaped runs into straight segments. Count every section.
+
+Also return unitTypeName from the title block (e.g. "TYPE A"), or "" if not visible.
+
+Return ONLY valid JSON, no markdown:
+{"unitTypeName":"TYPE A","countertops":[{"label":"Perimeter","roomName":"KITCHEN","length":120,"depth":25.5,"backsplashLength":120,"isIsland":false,"category":"kitchen"},{"label":"Island","roomName":"KITCHEN","length":72,"depth":36,"backsplashLength":0,"isIsland":true,"category":"kitchen"}]}`;
 }
 
 function buildDialagramTitleBlockPrompt(): string {
-  return `You are reading ONE 2020 countertop shop drawing image.
+  return `Find the unit / plan type name printed on this shop drawing page.
 
-Your ONE job: find the unit / plan type name printed on THIS page.
+Look in the title block (usually bottom-right corner) or sheet header. Examples: "TYPE A", "TYPE B", "1.1B-AS", "2BR-ADA", "STUDIO", "PENTHOUSE A".
 
-Where to look:
-- Title block usually in the BOTTOM-RIGHT corner.
-- Sheet header at the TOP of the page.
-- Large bold text near the floor plan title (e.g. "TYPE A", "TYPE B", "1.1B-AS", "2BR-ADA", "STUDIO", "PENTHOUSE A", "UNIT 2.3 — TYPE C", "BREAKROOM", etc.).
+Copy the text exactly as printed. If you cannot find a clear unit type name on this page, return "".
 
-Strict rules:
-- Copy the text EXACTLY as printed (preserve case, hyphens, dots, suffixes like -AS, -ADA, MIRROR).
-- Never default to "TYPE A". Never invent a name. Never reuse a name from a different drawing.
-- If THIS specific page has no clear title-block text, return "" (empty string).
-- If multiple plan-type labels appear, choose the one in the title block / sheet header — not interior room labels.
-
-Return ONLY valid JSON, nothing else:
-{"unitTypeName":"<EXACT_TITLE_BLOCK_TEXT_OR_EMPTY>"}`;
+Return ONLY valid JSON:
+{"unitTypeName":"TYPE A"}`;
 }
 
 function buildDialagramFinalizePrompt(unitTypeName: string, countertops: NormalizedCountertop[]): string {
@@ -731,9 +707,14 @@ serve(async (req) => {
       }
     }
 
+    // For Dialagram broad pass, use the accuracy (thinking) model from the start —
+    // the lite qwen-3.6-plus consistently returns empty on dense ctop drawings.
+    if (provider === "dialagram") {
+      activeDialagramModel = getDialagramAccuracyModel(dialagramModel);
+    }
     try {
       extractionContent = await callAI(provider, pageImage, imageMimeType, extractionPrompt, {
-        temperature: provider === "dialagram" ? 0.1 : 0.2,
+        temperature: provider === "dialagram" ? 0.2 : 0.2,
         maxOutputTokens: 8192,
         geminiModels: PRIMARY_MODELS,
         dialagramModel: activeDialagramModel,
