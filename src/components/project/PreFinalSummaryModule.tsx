@@ -472,6 +472,43 @@ export default function PreFinalSummaryModule({ project }: Props) {
     sectionRow.getCell(colCpuLabel).value = '*Cabinet Count Per Unit';
     sectionRow.getCell(colCpuLabel).font = { bold: true, size: 9 };
 
+    // Type Match Check row — compares each cabinet-count type header against
+    // the corresponding type header in '2-Unit Count'. Shows OK / MISMATCH
+    // per type and an overall status, so users can spot ordering drift.
+    const matchRow = wsCabs.addRow([]);
+    const overallStatusCell = matchRow.getCell(colTotalCabLabel);
+    overallStatusCell.value = 'Type Order Check';
+    overallStatusCell.font = { bold: true, italic: true, size: 8 };
+    const mismatchIdx = new Set<number>();
+    for (let i = 0; i < nTypes; i++) {
+      const cell = matchRow.getCell(colTotalCabFirstType + i);
+      const ucTypeCol = ucColLetter(5 + i);
+      const ucCabType = store.unitTypes[i]; // same i in unit-count sheet
+      const isMismatch = !ucCabType || ucCabType !== cabTypes[i];
+      if (isMismatch) mismatchIdx.add(i);
+      // Live formula so manual edits to either sheet re-evaluate the check
+      const safeCabType = (cabTypes[i] || '').replace(/"/g, '""');
+      cell.value = {
+        formula: `IF('2-Unit Count'!${ucTypeCol}4="","MISSING",IF(EXACT('2-Unit Count'!${ucTypeCol}4,"${safeCabType}"),"OK","MISMATCH"))`,
+        result: isMismatch ? 'MISMATCH' : 'OK',
+      } as any;
+      cell.alignment = { horizontal: 'center' };
+      cell.font = { bold: true, size: 8, color: { argb: isMismatch ? 'FFCC0000' : 'FF008000' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isMismatch ? 'FFFFE5E5' : 'FFE8F5E8' } };
+    }
+    if (nTypes > 0) {
+      const startRef = ref(colTotalCabFirstType, matchRow.number);
+      const endRef = ref(colTotalCabFirstType + nTypes - 1, matchRow.number);
+      const grandCell = matchRow.getCell(colTotalCabFirstType + nTypes);
+      grandCell.value = {
+        formula: `IF(COUNTIF(${startRef}:${endRef},"OK")=${nTypes},"ALL OK","CHECK TYPES")`,
+        result: mismatchIdx.size === 0 ? 'ALL OK' : 'CHECK TYPES',
+      } as any;
+      grandCell.alignment = { horizontal: 'center' };
+      grandCell.font = { bold: true, size: 8, color: { argb: mismatchIdx.size === 0 ? 'FF008000' : 'FFCC0000' } };
+      grandCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: mismatchIdx.size === 0 ? 'FFE8F5E8' : 'FFFFE5E5' } };
+    }
+
     // Unit count reference row (used by formulas)
     const unitCountRow = wsCabs.addRow([]);
     unitCountRow.getCell(colTotalCabLabel).value = 'Unit Count';
@@ -518,23 +555,34 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
     const cabHeader = wsCabs.addRow(headerValues);
     cabHeader.height = 120;
+    // Helper: which type-column groups should mark a mismatched type in red
+    const typeGroupStarts = [colCabFirstType, colPullsFirstType, colPricingFirstType, colTotalCabFirstType, colCpuFirstType];
     cabHeader.eachCell((cell, colNumber) => {
       cell.font = { bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F0' } };
       cell.border = { bottom: { style: 'thin', color: { argb: 'FF999999' } } };
       cell.alignment = { vertical: 'bottom', wrapText: false };
       const idx = colNumber;
-      if ((idx >= colCabFirstType && idx <= colCabFirstType + nTypes - 1) ||
-          (idx >= colPullsFirstType && idx <= colPullsFirstType + nTypes - 1) ||
-          (idx >= colPricingFirstType && idx <= colPricingFirstType + nTypes - 1) ||
-          (idx >= colTotalCabFirstType && idx <= colTotalCabFirstType + nTypes - 1) ||
-          (idx >= colCpuFirstType && idx <= colCpuFirstType + nTypes - 1)) {
+      let isTypeCol = false;
+      let typeColIdx = -1;
+      for (const start of typeGroupStarts) {
+        if (idx >= start && idx <= start + nTypes - 1) {
+          isTypeCol = true;
+          typeColIdx = idx - start;
+          break;
+        }
+      }
+      if (isTypeCol) {
         cell.alignment = { textRotation: 90, vertical: 'bottom', horizontal: 'center' };
+        if (mismatchIdx.has(typeColIdx)) {
+          cell.font = { bold: true, color: { argb: 'FFCC0000' } };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE5E5' } };
+        }
       }
     });
 
-    // Freeze: top 3 rows (section headers + unit count ref + column headers) AND first column (SKU Name)
-    wsCabs.views = [{ state: 'frozen', xSplit: 3, ySplit: 3 }];
+    // Freeze: top 4 rows (section headers + type-match + unit count ref + column headers) AND first column (SKU Name)
+    wsCabs.views = [{ state: 'frozen', xSplit: 3, ySplit: 4 }];
 
     const dataRangeStartRow = cabHeader.number + 1;
 
