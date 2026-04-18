@@ -28,7 +28,8 @@ interface CabinetRow {
 interface Props {
   onImport: (
     unitRows: { unitNumber: string; unitType: string; bldg: string }[],
-    cabinetRows: Omit<LabelRow, 'selected' | 'sourceFile'>[]
+    cabinetRows: Omit<LabelRow, 'selected' | 'sourceFile'>[],
+    typeOrder?: string[]
   ) => void;
   onClose: () => void;
 }
