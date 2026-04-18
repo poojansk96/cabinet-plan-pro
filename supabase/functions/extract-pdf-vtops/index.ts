@@ -181,6 +181,87 @@ function parseWallConfidence(content: string): { leftWallYesConfidence: number; 
   }
 }
 
+function sanitizeDetectedType(value: unknown): string {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^(unknown|n\/?a|none|null|empty|tbd|untitled)$/i.test(raw)) return "";
+  return raw.replace(/^['"]+|['"]+$/g, "").replace(/\s+/g, " ").trim();
+}
+
+function extractUnitTypeFromPageText(text: string): string {
+  const cleaned = text.replace(/\s+/g, " ").trim();
+  if (!cleaned) return "";
+
+  const patterns = [
+    /(?:parcel\s+[a-z0-9]+(?:\s+[a-z0-9]+)*\s+)?type\s*-?\s*([a-z0-9().\/-]+(?:\s+[a-z0-9().\/-]+){0,4})\s+unit#/i,
+    /countertops\s+type\s*-?\s*([a-z0-9().\/-]+(?:\s+[a-z0-9().\/-]+){0,4})\s+(?:parcel|unit#)/i,
+    /countertops\s+([a-z][a-z0-9().\/-]*(?:\s+[a-z0-9().\/-]+){0,4})\s+(?:\d+(?:\s+\d+\s+\d+)?\s*"|parcel\s+[a-z0-9]+|type\s+-?)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = cleaned.match(pattern);
+    if (!match) continue;
+    const candidate = sanitizeDetectedType(match[1]);
+    if (candidate) return candidate;
+  }
+
+  return "";
+}
+
+function parseFractionalNumber(value: string): number | null {
+  const cleaned = value.trim().replace(/\s+/g, " ");
+  const mixed = cleaned.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+  if (mixed) return Number(mixed[1]) + Number(mixed[2]) / Number(mixed[3]);
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : null;
+}
+
+function extractDimensionsFromHintText(text: string): number[] {
+  const normalized = text
+    .replace(/\s+/g, " ")
+    .replace(/(\d+)\s*"\s*([1357])\s+([248])/g, "$1 $2/$3\"")
+    .replace(/(\d+)\s+([1357])\s+([248])\s*"/g, "$1 $2/$3\"");
+
+  const values: number[] = [];
+  const regex = /(\d+(?:\.\d+)?(?:\s+\d\/\d)?)\s*"/g;
+  for (const match of normalized.matchAll(regex)) {
+    const parsed = parseFractionalNumber(match[1]);
+    if (parsed != null && parsed >= 12 && parsed <= 240) {
+      values.push(Math.round(parsed * 4) / 4);
+    }
+  }
+  return values;
+}
+
+function buildTextFallbackVtops(pageTextHint: string, hintedUnitTypeName: string): ParsedExtraction {
+  const dims = extractDimensionsFromHintText(pageTextHint);
+  if (dims.length < 2) {
+    return { unitTypeName: hintedUnitTypeName, vtops: [] };
+  }
+
+  const depthCandidates = dims.filter((v) => v >= 18 && v <= 36);
+  const depth = depthCandidates.length > 0 ? Math.min(...depthCandidates) : Math.min(...dims);
+  const length = Math.max(...dims.filter((v) => v >= depth));
+
+  if (!Number.isFinite(length) || !Number.isFinite(depth) || length <= depth) {
+    return { unitTypeName: hintedUnitTypeName, vtops: [] };
+  }
+
+  return {
+    unitTypeName: hintedUnitTypeName,
+    vtops: [{
+      length: Math.round(length * 4) / 4,
+      depth: Math.round(depth * 4) / 4,
+      bowlPosition: "center",
+      bowlOffset: null,
+      leftWall: true,
+      rightWall: true,
+      leftWallYesConfidence: 0.6,
+      rightWallYesConfidence: 0.6,
+    }],
+  };
+}
+
 async function requestGemini(
   apiKey: string,
   images: Array<{ mimeType: string; data: string }>,
@@ -396,10 +477,21 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { pageImage, pageImageMimeType, focusedWallDetection, rightEndCrop, provider: providerInput, dialagramModel: dialagramModelInput } = body;
+    const {
+      pageImage,
+      pageImageMimeType,
+      focusedWallDetection,
+      rightEndCrop,
+      provider: providerInput,
+      dialagramModel: dialagramModelInput,
+      pageTextHint,
+      unitTypeNameHint,
+    } = body;
     const provider: "gemini" | "dialagram" = providerInput === "dialagram" ? "dialagram" : "gemini";
     const dialagramModel = String(dialagramModelInput || "qwen-3.6-plus");
     const imageMime = String(pageImageMimeType || "image/jpeg").trim() || "image/jpeg";
+    const normalizedPageTextHint = String(pageTextHint || "").trim();
+    const hintedUnitTypeName = sanitizeDetectedType(unitTypeNameHint) || extractUnitTypeFromPageText(normalizedPageTextHint);
     console.log(`extract-pdf-vtops provider=${provider}${provider === "dialagram" ? ` model=${dialagramModel}` : ""} mime=${imageMime}`);
 
     if (!pageImage || typeof pageImage !== "string") {
@@ -600,7 +692,7 @@ Return ONLY valid JSON, no markdown fences, no commentary:
     console.log("Detected unit type name:", extractedUnitTypeName);
 
     let finalVtops = fullParsed.vtops;
-    let finalUnitTypeName = extractedUnitTypeName;
+    let finalUnitTypeName = sanitizeDetectedType(extractedUnitTypeName) || hintedUnitTypeName;
 
     // ── Qwen rescue pass: if first attempt returned empty, retry with an even more
     // direct counting prompt. Qwen-VL frequently returns [] on the first try when the
@@ -643,6 +735,15 @@ Return ONLY valid JSON:
         }
       } catch (rescueErr) {
         console.warn("Qwen rescue pass failed:", rescueErr);
+      }
+    }
+
+    if (finalVtops.length === 0 && normalizedPageTextHint) {
+      const fallback = buildTextFallbackVtops(normalizedPageTextHint, finalUnitTypeName || hintedUnitTypeName);
+      if (fallback.vtops.length > 0) {
+        finalVtops = fallback.vtops;
+        finalUnitTypeName = fallback.unitTypeName || finalUnitTypeName;
+        console.log("Text fallback recovered", finalVtops.length, "vtop(s) from PDF text hint");
       }
     }
 
