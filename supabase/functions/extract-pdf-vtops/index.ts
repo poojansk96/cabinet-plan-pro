@@ -15,6 +15,7 @@ type VtopRow = {
   depth: number;
   bowlPosition: "offset-left" | "offset-right" | "center";
   bowlOffset: number | null;
+  hasSink?: boolean;
   leftWall: boolean;
   rightWall: boolean;
   bbox?: VtopBbox;
