@@ -94,6 +94,7 @@ export function startExtraction(
     error: null,
     fileNames,
     startedAt: Date.now(),
+    finishedAt: null,
   };
   jobs.set(type, job);
   notify();
