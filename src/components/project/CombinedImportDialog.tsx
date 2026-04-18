@@ -125,10 +125,11 @@ export default function CombinedImportDialog({ onImport, onClose }: Props) {
       setProcessingStatus(bgJob.statusText);
     } else if (bgJob.status === 'done') {
       bgPickedUpRef.current = true;
-      const r = bgJob.results as { unitRows: UnitRow[]; cabinetRows: CabinetRow[] } | null;
+      const r = bgJob.results as { unitRows: UnitRow[]; cabinetRows: CabinetRow[]; typeOrder: string[] } | null;
       if (r) {
         setUnitRows(r.unitRows);
         setCabinetRows(r.cabinetRows);
+        setTypeOrder(r.typeOrder ?? []);
         setReviewTab(r.unitRows.length > 0 ? 'units' : 'cabinets');
       }
       setProgress(100);
