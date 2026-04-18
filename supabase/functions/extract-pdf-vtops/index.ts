@@ -571,7 +571,7 @@ Return ONLY valid JSON, no markdown fences, no commentary:
     try {
       fullContent = await callAI(
         provider,
-        [{ mimeType: "image/jpeg", data: pageImage }],
+        [{ mimeType: imageMime, data: pageImage }],
         fullPrompt,
         {
           temperature: provider === "dialagram" ? 0.2 : 0.1,
@@ -630,7 +630,7 @@ Return ONLY valid JSON:
       try {
         const rescueContent = await callAI(
           "dialagram",
-          [{ mimeType: "image/jpeg", data: pageImage }],
+          [{ mimeType: imageMime, data: pageImage }],
           rescuePrompt,
           { temperature: 0.3, maxOutputTokens: 2048, geminiModels: PRIMARY_MODELS, dialagramModel },
         );
@@ -685,7 +685,7 @@ If everything looks correct, return the data as-is. Return ONLY valid JSON — n
       try {
         const verifyContent = await callAI(
           provider,
-          [{ mimeType: "image/jpeg", data: pageImage }],
+          [{ mimeType: imageMime, data: pageImage }],
           verifyPrompt,
           {
             temperature: 0.1,
