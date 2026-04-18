@@ -533,11 +533,12 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson,
           const { canvas, width: canvasW, height: canvasH } = await renderPageToCanvasData(page, 3200, 4.5);
           
           // Smaller image for AI pass to avoid edge function timeouts.
-          // Qwen-VL has been observed to refuse JPEGs ("I don't see any image attached")
-          // for these line-art shop drawings — PNG works reliably for it (same as Stone module).
-          const aiMimeType: 'image/jpeg' | 'image/png' = aiProvider === 'dialagram' ? 'image/png' : 'image/jpeg';
+          // IMPORTANT: Qwen-3.6-plus (Dialagram) silently rejects PNG payloads and replies
+          // "I don't see any image attached". JPEG works reliably for both Gemini and Qwen
+          // (matches the Stone module which has been stable on JPEG for months).
+          const aiMimeType: 'image/jpeg' = 'image/jpeg';
           const aiCanvas = await renderPageToCanvasData(page, 2500, 3.5);
-          const pageImage = await canvasToBase64(aiCanvas.canvas, 0.8, aiMimeType);
+          const pageImage = await canvasToBase64(aiCanvas.canvas, 0.85, aiMimeType);
 
           const MAX_CLIENT_RETRIES = 5;
           let pageSuccess = false;
