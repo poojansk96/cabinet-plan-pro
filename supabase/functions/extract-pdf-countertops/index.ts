@@ -421,6 +421,12 @@ function getDialagramAccuracyModel(requestedModel: string): string {
     : models[0];
 }
 
+// Returns the FAST (non-thinking) model when available — used for first-attempt speed.
+function getDialagramFastModel(requestedModel: string): string {
+  const normalized = String(requestedModel || "qwen-3.6-plus").trim() || "qwen-3.6-plus";
+  return normalized === "qwen-3.6-plus-thinking" ? "qwen-3.6-plus-thinking" : "qwen-3.6-plus";
+}
+
 function parseCountertopJSON(content: string): { unitTypeName: string; countertops: any[] } {
   let parsed: { unitTypeName?: string; countertops?: any[] } = { countertops: [] };
   try {
@@ -736,10 +742,10 @@ serve(async (req) => {
       }
     }
 
-    // For Dialagram broad pass, use the accuracy (thinking) model from the start —
-    // the lite qwen-3.6-plus consistently returns empty on dense ctop drawings.
+    // For Dialagram broad pass, try the FAST (non-thinking) model first to save ~15-25s.
+    // Fall back to the thinking model only if fast returns empty/weak results.
     if (provider === "dialagram") {
-      activeDialagramModel = getDialagramAccuracyModel(dialagramModel);
+      activeDialagramModel = getDialagramFastModel(dialagramModel);
     }
     try {
       extractionContent = await callAI(provider, pageImage, imageMimeType, extractionPrompt, {
@@ -757,6 +763,35 @@ serve(async (req) => {
     console.log("AI countertop raw:", extractionContent.slice(0, 800));
     ({ parsed: extracted, countertops } = parseAndNormalizeCountertops(extractionContent));
     dialagramPassResults.push({ unitTypeName: extracted.unitTypeName, countertops, raw: extractionContent });
+
+    // If the FAST model returned nothing, retry once with the thinking model before giving up.
+    if (provider === "dialagram" && countertops.length === 0) {
+      const thinkingModel = getDialagramAccuracyModel(dialagramModel);
+      if (thinkingModel !== activeDialagramModel) {
+        console.log("Fast Qwen returned empty — retrying with thinking model...");
+        try {
+          const retryContent = await callAI("dialagram", pageImage, imageMimeType, extractionPrompt, {
+            temperature: 0.2,
+            maxOutputTokens: 8192,
+            geminiModels: PRIMARY_MODELS,
+            dialagramModel: thinkingModel,
+          });
+          console.log("AI countertop thinking-retry raw:", retryContent.slice(0, 800));
+          const retryParsed = parseAndNormalizeCountertops(retryContent);
+          if (retryParsed.countertops.length > 0) {
+            extractionContent = retryContent;
+            extracted = retryParsed.parsed;
+            countertops = retryParsed.countertops;
+            dialagramPassResults.push({ unitTypeName: extracted.unitTypeName, countertops, raw: retryContent });
+            activeDialagramModel = thinkingModel;
+          }
+        } catch (retryErr) {
+          const knownErrorResponse = buildKnownAIErrorResponse(retryErr);
+          if (knownErrorResponse) return knownErrorResponse;
+          console.warn("Thinking-retry failed:", retryErr);
+        }
+      }
+    }
 
     if (provider === "dialagram") {
       const focusedModel = getDialagramAccuracyModel(dialagramModel);
@@ -776,7 +811,8 @@ serve(async (req) => {
         if (!broadHasKitchen) focusedPasses.push({ label: "kitchen-focus", prompt: buildDialagramCategoryPrompt("kitchen"), model: focusedModel });
         if (!broadHasBath) focusedPasses.push({ label: "bath-focus", prompt: buildDialagramCategoryPrompt("bath"), model: focusedModel });
 
-        for (const pass of focusedPasses) {
+        // Run kitchen + bath focused passes IN PARALLEL — saves ~25s when both are needed.
+        const passResults = await Promise.all(focusedPasses.map(async (pass) => {
           try {
             const passContent = await callAI("dialagram", pageImage, imageMimeType, pass.prompt, {
               temperature: 0.05,
@@ -785,14 +821,21 @@ serve(async (req) => {
               dialagramModel: pass.model,
             });
             console.log(`Dialagram ${pass.label} raw (${pass.model}):`, passContent.slice(0, 800));
-            const passResult = parseCountertopPassResult(passContent);
-            if (passResult.countertops.length > 0 || passResult.unitTypeName) {
-              dialagramPassResults.push(passResult);
-            }
+            return { pass, result: parseCountertopPassResult(passContent), error: null as unknown };
           } catch (focusErr) {
-            const knownErrorResponse = buildKnownAIErrorResponse(focusErr);
+            return { pass, result: null, error: focusErr };
+          }
+        }));
+
+        for (const { pass, result, error } of passResults) {
+          if (error) {
+            const knownErrorResponse = buildKnownAIErrorResponse(error);
             if (knownErrorResponse) return knownErrorResponse;
-            console.warn(`Dialagram ${pass.label} failed:`, focusErr);
+            console.warn(`Dialagram ${pass.label} failed:`, error);
+            continue;
+          }
+          if (result && (result.countertops.length > 0 || result.unitTypeName)) {
+            dialagramPassResults.push(result);
           }
         }
 
