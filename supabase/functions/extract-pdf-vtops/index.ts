@@ -101,6 +101,9 @@ function normalizeVtop(vt: any): VtopRow {
   const bowlOffset = bowlPosition !== "center"
     ? Math.round((Number(vt?.bowlOffset) || 0) * 4) / 4
     : null;
+  const hasSink = vt?.hasSink === false
+    ? false
+    : bowlPosition !== "center" || bowlOffset != null || Boolean(vt?.hasSink);
 
   const aiLeft = Boolean(vt?.leftWall);
   const aiRight = Boolean(vt?.rightWall);
@@ -110,6 +113,7 @@ function normalizeVtop(vt: any): VtopRow {
     depth,
     bowlPosition,
     bowlOffset,
+    hasSink,
     leftWall: aiLeft,
     rightWall: aiRight,
     aiLeftWallHint: aiLeft,
