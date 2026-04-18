@@ -1,7 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Upload, Loader2, Sparkles, Trash2, AlertTriangle, Eye, EyeOff } from 'lucide-react';
+import { X, Upload, Loader2, Sparkles, Trash2, AlertTriangle, Eye, EyeOff, Timer } from 'lucide-react';
 import { startExtraction, useExtractionJobByType, clearExtractionJob } from '@/hooks/useExtractionStore';
 import type { PrefinalVtopRow } from '@/hooks/usePrefinalStore';
+
+function formatExtractionDuration(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  if (m === 0) return `${s}s`;
+  return `${m}m ${s.toString().padStart(2, '0')}s`;
+}
 
 // ─── Extended import row with new detection fields ───
 export interface VtopImportRow extends PrefinalVtopRow {
