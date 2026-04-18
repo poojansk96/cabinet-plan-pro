@@ -571,6 +571,7 @@ export default function PreFinalModule({ project }: Props) {
           onClose={() => setShowUnitImport(false)}
           prefinalPerson={project.specs?.takeoffPerson}
           speedMode="thorough"
+          aiProvider={unitAiProvider}
         />
       )}
 
@@ -584,7 +585,8 @@ export default function PreFinalModule({ project }: Props) {
           prefinalPerson={project.specs?.takeoffPerson}
           speedMode="thorough"
           skipClassify
-          aiModel={cabinetAiModel}
+          aiModel="fast"
+          aiProvider={cabinetAiProvider}
         />
       )}
 
