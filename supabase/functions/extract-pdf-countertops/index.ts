@@ -516,32 +516,67 @@ function isGenericCountertopLabel(label: string): boolean {
 function scoreCountertopCandidate(ct: NormalizedCountertop): number {
   let score = 0;
   if (!isGenericCountertopLabel(ct.label)) score += 4;
-  if (ct.backsplashLength > 0 || ct.isIsland) score += 2;
-  if (ct.category === "bath" && ct.depth <= 22) score += 2;
-  if (ct.category === "kitchen" && ct.depth >= 24) score += 2;
-  if (ct.length > 0) score += 1;
+  if ((ct.backsplashLength ?? 0) > 0 || ct.isIsland) score += 2;
+  if (ct.roomName) score += 2;
+  if (ct.instanceKey) score += 2;
+  if (ct.category === "bath" && ct.depth != null && ct.depth <= 22) score += 2;
+  if (ct.category === "kitchen" && ct.depth != null && ct.depth >= 24) score += 2;
+  if (ct.length != null && ct.length > 0) score += 1;
   return score;
 }
 
 function chooseBetterCountertop(existing: NormalizedCountertop, incoming: NormalizedCountertop): NormalizedCountertop {
-  return scoreCountertopCandidate(incoming) > scoreCountertopCandidate(existing)
+  const winner = scoreCountertopCandidate(incoming) > scoreCountertopCandidate(existing)
     ? incoming
     : existing;
+  const loser = winner === incoming ? existing : incoming;
+
+  return {
+    ...winner,
+    roomName: winner.roomName || loser.roomName,
+    instanceKey: winner.instanceKey || loser.instanceKey,
+    length: winner.length ?? loser.length,
+    depth: winner.depth ?? loser.depth,
+    backsplashLength: winner.backsplashLength ?? loser.backsplashLength,
+  };
 }
 
 function areCountertopsLikelySame(a: NormalizedCountertop, b: NormalizedCountertop): boolean {
   if (a.category !== b.category || a.isIsland !== b.isIsland) return false;
 
-  const lengthClose = Math.abs(a.length - b.length) <= 2;
-  const depthClose = Math.abs(a.depth - b.depth) <= 1.5;
-  const backsplashClose = Math.abs(a.backsplashLength - b.backsplashLength) <= 4;
-  if (!(lengthClose && depthClose && backsplashClose)) return false;
+  const aRoom = normalizeText(a.roomName);
+  const bRoom = normalizeText(b.roomName);
+  const aInstance = normalizeText(a.instanceKey);
+  const bInstance = normalizeText(b.instanceKey);
 
-  const aLabel = normalizeCountertopLabelKey(a.label);
-  const bLabel = normalizeCountertopLabelKey(b.label);
-  if (!aLabel || !bLabel) return true;
-  if (aLabel === bLabel) return true;
-  return isGenericCountertopLabel(a.label) || isGenericCountertopLabel(b.label);
+  if (aInstance && bInstance) return aInstance === bInstance;
+
+  const lengthClose =
+    a.length != null && b.length != null && Math.abs(a.length - b.length) <= 2;
+  const depthClose =
+    a.depth != null && b.depth != null && Math.abs(a.depth - b.depth) <= 1.5;
+  const backsplashClose =
+    a.backsplashLength != null &&
+    b.backsplashLength != null &&
+    Math.abs(a.backsplashLength - b.backsplashLength) <= 4;
+
+  if (a.category === "bath") {
+    if (!aRoom || !bRoom) return false;
+    return aRoom === bRoom && lengthClose && depthClose && backsplashClose;
+  }
+
+  const aLabel = normalizeText(a.label);
+  const bLabel = normalizeText(b.label);
+
+  if (aRoom && bRoom && aRoom === bRoom && lengthClose && depthClose && backsplashClose) {
+    return true;
+  }
+
+  if (aLabel && bLabel && aLabel === bLabel && lengthClose && depthClose && backsplashClose) {
+    return true;
+  }
+
+  return false;
 }
 
 function mergeCountertopCandidateLists(lists: NormalizedCountertop[][]): NormalizedCountertop[] {
@@ -573,6 +608,20 @@ function mergeCountertopCandidateLists(lists: NormalizedCountertop[][]): Normali
   }
 
   return merged;
+}
+
+function hasNullCriticalDimensions(ct: NormalizedCountertop): boolean {
+  return ct.length == null || ct.depth == null || ct.backsplashLength == null;
+}
+
+function applyFinalCountertopFallbacks(ct: NormalizedCountertop): NormalizedCountertop {
+  const isBath = ct.category === "bath";
+  return {
+    ...ct,
+    length: ct.length ?? (isBath ? 36 : 96),
+    depth: ct.depth ?? (isBath ? 22 : (ct.isIsland ? 36 : 25.5)),
+    backsplashLength: ct.backsplashLength ?? (ct.isIsland ? 0 : (ct.length ?? (isBath ? 36 : 96))),
+  };
 }
 
 function scoreUnitTypeName(value: string): number {
