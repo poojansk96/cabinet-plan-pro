@@ -10,9 +10,11 @@ type ModelAttempt = { name: string; retries: number };
 
 type NormalizedCountertop = {
   label: string;
-  length: number;
-  depth: number;
-  backsplashLength: number;
+  roomName?: string;
+  instanceKey?: string;
+  length: number | null;
+  depth: number | null;
+  backsplashLength: number | null;
   isIsland: boolean;
   category: "kitchen" | "bath";
 };
@@ -263,6 +265,8 @@ Extract:
 
 For each countertop section return:
 - label
+- roomName
+- instanceKey
 - length (inches)
 - depth (inches)
 - backsplashLength (wall backsplash inches only)
@@ -273,6 +277,8 @@ Rules:
 - Scan the ENTIRE page before answering. Do not stop after the first countertop.
 - Count kitchen sections and bath/vanity sections separately.
 - Small vanity tops matter — return each vanity separately even if it is similar to another vanity.
+- Capture the exact room name when visible: KITCHEN, MASTER BATH, BATH 2, POWDER, LAUNDRY, BAR, etc.
+- Return a stable instanceKey for each physical top, e.g. MASTER_BATH_VANITY_1 or KITCHEN_ISLAND_1.
 - Use visible dimensions if present; otherwise estimate reasonably from the drawing.
 - Split L-shaped or U-shaped tops into straight segments.
 - Wall runs usually have backsplashLength equal to the full wall-contact length.
@@ -282,7 +288,7 @@ Rules:
 - Only return an empty list if there is truly no countertop drawing on the page.
 
 Return ONLY valid JSON:
-{"unitTypeName":"TYPE A","countertops":[{"label":"Perimeter","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"}]}`;
+{"unitTypeName":"TYPE A","countertops":[{"label":"Perimeter","roomName":"KITCHEN","instanceKey":"KITCHEN_PERIMETER_1","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"}]}`;
   }
 
   return `You are an expert millwork estimator analyzing a 2020 countertop shop drawing.
@@ -353,15 +359,18 @@ function buildDialagramCategoryPrompt(category: "kitchen" | "bath"): string {
 
 Find ONLY bath / vanity countertop sections on this page.
 
-Rules:
-- Count EACH vanity separately. Do not merge two bathrooms into one section just because the sizes match.
-- Focus on vanity, bath, bathroom, lav, powder, WC, or tops that are about 19" or 22" deep.
+Important estimator rules:
+- Count every physical vanity separately, even if two or more have identical sizes.
+- Never merge different bathrooms into one item.
+- For each item, capture the exact room name if visible: MASTER BATH, BATH 2, POWDER, WC, etc.
+- If multiple vanities exist with same room name, return separate instance keys like MASTER_BATH_VANITY_1 and MASTER_BATH_VANITY_2.
+- Focus on vanity, bath, bathroom, lav, powder, WC, or tops about 19" or 22" deep.
 - Ignore kitchen perimeter runs, islands, peninsulas, laundry tops, and bar tops.
-- If a bath top is visible but only partly dimensioned, estimate using the drawing and standard bath depths.
+- If partly dimensioned, estimate reasonably from visible geometry and nearby dimensions.
 - backsplashLength is the full wall-contact length.
 
 Return ONLY valid JSON:
-{"unitTypeName":"TYPE A","countertops":[{"label":"Vanity","length":36,"depth":22,"backsplashLength":36,"isIsland":false,"category":"bath"}]}`;
+{"unitTypeName":"TYPE A","countertops":[{"label":"Vanity","roomName":"MASTER BATH","instanceKey":"MASTER_BATH_VANITY_1","length":36,"depth":22,"backsplashLength":36,"isIsland":false,"category":"bath"}]}`;
   }
 
   return `You are reading ONE 2020 countertop shop drawing image.
@@ -371,12 +380,13 @@ Find ONLY kitchen / laundry / bar / island countertop sections on this page.
 Rules:
 - Count EVERY kitchen section visible on the page. Do not stop after the first perimeter run.
 - Include perimeter runs, islands, peninsulas, bar tops, and laundry counters.
+- Capture roomName and a stable instanceKey for each physical top.
 - Ignore bath / vanity tops.
 - Split L-shaped or U-shaped tops into straight segments.
 - backsplashLength is the full wall-contact length for wall runs; islands usually have 0 backsplash.
 
 Return ONLY valid JSON:
-{"unitTypeName":"TYPE A","countertops":[{"label":"Perimeter","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"},{"label":"Island","length":72,"depth":36,"backsplashLength":0,"isIsland":true,"category":"kitchen"}]}`;
+{"unitTypeName":"TYPE A","countertops":[{"label":"Perimeter","roomName":"KITCHEN","instanceKey":"KITCHEN_PERIMETER_1","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"},{"label":"Island","roomName":"KITCHEN","instanceKey":"KITCHEN_ISLAND_1","length":72,"depth":36,"backsplashLength":0,"isIsland":true,"category":"kitchen"}]}`;
 }
 
 function buildDialagramFinalizePrompt(unitTypeName: string, countertops: NormalizedCountertop[]): string {
@@ -391,6 +401,7 @@ Rules:
 - Keep kitchen sections and bath/vanity sections separate.
 - Small vanity tops matter; count each vanity separately.
 - Do not merge separate rooms just because dimensions match.
+- Preserve roomName and instanceKey for each physical top.
 - Add missing sections, remove duplicates, and correct dimensions/categories.
 - Split L-shaped or U-shaped tops into straight segments.
 
@@ -434,22 +445,40 @@ function parseCountertopJSON(content: string): { unitTypeName: string; counterto
   };
 }
 
+function normalizeText(v: unknown): string {
+  return String(v || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function numOrNull(v: unknown): number | null {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.round(n * 2) / 2 : null;
+}
+
 function normalizeCountertop(ct: any) {
-  const depth = Math.round((Number(ct.depth) || 25.5) * 2) / 2;
+  const depth = numOrNull(ct.depth);
+  const length = numOrNull(ct.length);
+  const backsplashLength = numOrNull(ct.backsplashLength);
   let category = String(ct.category || "").toLowerCase().trim();
+  const label = String(ct.label || "Section").trim();
+  const roomName = String(ct.roomName || "").trim();
+  const instanceKey = String(ct.instanceKey || "").trim();
+
   if (!category || (category !== "kitchen" && category !== "bath")) {
-    const label = String(ct.label || "").toLowerCase();
-    if (depth <= 22 || /vanity|bath|lav|powder/.test(label)) {
+    const hint = `${label} ${roomName}`.toLowerCase();
+    if ((depth != null && depth <= 22) || /vanity|bath|lav|powder|wc/.test(hint)) {
       category = "bath";
     } else {
       category = "kitchen";
     }
   }
+
   return {
-    label: String(ct.label || "Section").trim(),
-    length: Math.round((Number(ct.length) || 96) * 2) / 2,
+    label,
+    roomName: roomName || undefined,
+    instanceKey: instanceKey || undefined,
+    length,
     depth,
-    backsplashLength: Math.round((Number(ct.backsplashLength) || 0) * 2) / 2,
+    backsplashLength,
     isIsland: Boolean(ct.isIsland),
     category,
   };
@@ -487,32 +516,67 @@ function isGenericCountertopLabel(label: string): boolean {
 function scoreCountertopCandidate(ct: NormalizedCountertop): number {
   let score = 0;
   if (!isGenericCountertopLabel(ct.label)) score += 4;
-  if (ct.backsplashLength > 0 || ct.isIsland) score += 2;
-  if (ct.category === "bath" && ct.depth <= 22) score += 2;
-  if (ct.category === "kitchen" && ct.depth >= 24) score += 2;
-  if (ct.length > 0) score += 1;
+  if ((ct.backsplashLength ?? 0) > 0 || ct.isIsland) score += 2;
+  if (ct.roomName) score += 2;
+  if (ct.instanceKey) score += 2;
+  if (ct.category === "bath" && ct.depth != null && ct.depth <= 22) score += 2;
+  if (ct.category === "kitchen" && ct.depth != null && ct.depth >= 24) score += 2;
+  if (ct.length != null && ct.length > 0) score += 1;
   return score;
 }
 
 function chooseBetterCountertop(existing: NormalizedCountertop, incoming: NormalizedCountertop): NormalizedCountertop {
-  return scoreCountertopCandidate(incoming) > scoreCountertopCandidate(existing)
+  const winner = scoreCountertopCandidate(incoming) > scoreCountertopCandidate(existing)
     ? incoming
     : existing;
+  const loser = winner === incoming ? existing : incoming;
+
+  return {
+    ...winner,
+    roomName: winner.roomName || loser.roomName,
+    instanceKey: winner.instanceKey || loser.instanceKey,
+    length: winner.length ?? loser.length,
+    depth: winner.depth ?? loser.depth,
+    backsplashLength: winner.backsplashLength ?? loser.backsplashLength,
+  };
 }
 
 function areCountertopsLikelySame(a: NormalizedCountertop, b: NormalizedCountertop): boolean {
   if (a.category !== b.category || a.isIsland !== b.isIsland) return false;
 
-  const lengthClose = Math.abs(a.length - b.length) <= 2;
-  const depthClose = Math.abs(a.depth - b.depth) <= 1.5;
-  const backsplashClose = Math.abs(a.backsplashLength - b.backsplashLength) <= 4;
-  if (!(lengthClose && depthClose && backsplashClose)) return false;
+  const aRoom = normalizeText(a.roomName);
+  const bRoom = normalizeText(b.roomName);
+  const aInstance = normalizeText(a.instanceKey);
+  const bInstance = normalizeText(b.instanceKey);
 
-  const aLabel = normalizeCountertopLabelKey(a.label);
-  const bLabel = normalizeCountertopLabelKey(b.label);
-  if (!aLabel || !bLabel) return true;
-  if (aLabel === bLabel) return true;
-  return isGenericCountertopLabel(a.label) || isGenericCountertopLabel(b.label);
+  if (aInstance && bInstance) return aInstance === bInstance;
+
+  const lengthClose =
+    a.length != null && b.length != null && Math.abs(a.length - b.length) <= 2;
+  const depthClose =
+    a.depth != null && b.depth != null && Math.abs(a.depth - b.depth) <= 1.5;
+  const backsplashClose =
+    a.backsplashLength != null &&
+    b.backsplashLength != null &&
+    Math.abs(a.backsplashLength - b.backsplashLength) <= 4;
+
+  if (a.category === "bath") {
+    if (!aRoom || !bRoom) return false;
+    return aRoom === bRoom && lengthClose && depthClose && backsplashClose;
+  }
+
+  const aLabel = normalizeText(a.label);
+  const bLabel = normalizeText(b.label);
+
+  if (aRoom && bRoom && aRoom === bRoom && lengthClose && depthClose && backsplashClose) {
+    return true;
+  }
+
+  if (aLabel && bLabel && aLabel === bLabel && lengthClose && depthClose && backsplashClose) {
+    return true;
+  }
+
+  return false;
 }
 
 function mergeCountertopCandidateLists(lists: NormalizedCountertop[][]): NormalizedCountertop[] {
@@ -544,6 +608,20 @@ function mergeCountertopCandidateLists(lists: NormalizedCountertop[][]): Normali
   }
 
   return merged;
+}
+
+function hasNullCriticalDimensions(ct: NormalizedCountertop): boolean {
+  return ct.length == null || ct.depth == null || ct.backsplashLength == null;
+}
+
+function applyFinalCountertopFallbacks(ct: NormalizedCountertop): NormalizedCountertop {
+  const isBath = ct.category === "bath";
+  return {
+    ...ct,
+    length: ct.length ?? (isBath ? 36 : 96),
+    depth: ct.depth ?? (isBath ? 22 : (ct.isIsland ? 36 : 25.5)),
+    backsplashLength: ct.backsplashLength ?? (ct.isIsland ? 0 : (ct.length ?? (isBath ? 36 : 96))),
+  };
 }
 
 function scoreUnitTypeName(value: string): number {
@@ -621,6 +699,8 @@ serve(async (req) => {
         { label: "kitchen-focus", prompt: buildDialagramCategoryPrompt("kitchen"), model: focusedModel },
         { label: "bath-focus", prompt: buildDialagramCategoryPrompt("bath"), model: focusedModel },
       ];
+      let kitchenFocusCount = 0;
+      let bathFocusCount = 0;
 
       for (const pass of focusedPasses) {
         try {
@@ -632,6 +712,8 @@ serve(async (req) => {
           });
           console.log(`Dialagram ${pass.label} raw (${pass.model}):`, passContent.slice(0, 800));
           const passResult = parseCountertopPassResult(passContent);
+          if (pass.label === "kitchen-focus") kitchenFocusCount = passResult.countertops.length;
+          if (pass.label === "bath-focus") bathFocusCount = passResult.countertops.length;
           if (passResult.countertops.length > 0 || passResult.unitTypeName) {
             dialagramPassResults.push(passResult);
           }
@@ -646,7 +728,14 @@ serve(async (req) => {
       extracted.unitTypeName = chooseBestUnitTypeName(dialagramPassResults.map((result) => result.unitTypeName));
       activeDialagramModel = focusedModel;
 
-      if (countertops.length <= 1) {
+      const shouldRescue =
+        countertops.length <= 1 ||
+        kitchenFocusCount === 0 ||
+        bathFocusCount === 0 ||
+        countertops.some(hasNullCriticalDimensions) ||
+        countertops.every((ct) => isGenericCountertopLabel(ct.label));
+
+      if (shouldRescue) {
         console.log("Dialagram extraction looks incomplete, running rescue pass...");
         const rescuePrompt = buildDialagramRescuePrompt(extractionContent);
         const rescueModels = getDialagramFallbackModels(focusedModel);
@@ -668,7 +757,7 @@ serve(async (req) => {
               extracted.unitTypeName = chooseBestUnitTypeName(dialagramPassResults.map((result) => result.unitTypeName));
             }
 
-            if (countertops.length > 1) {
+            if (countertops.length > 1 && !countertops.some(hasNullCriticalDimensions)) {
               activeDialagramModel = rescueModel;
               console.log(`Dialagram rescue improved extraction with ${rescueModel}, sections: ${countertops.length}`);
               break;
@@ -715,7 +804,7 @@ If everything looks correct, return the data as-is. Return ONLY valid JSON — n
         const verified = parseAndNormalizeCountertops(verifyContent);
 
         if (verified.countertops.length > 0) {
-          const verifiedCts = verified.countertops;
+          const verifiedCts = verified.countertops.map(applyFinalCountertopFallbacks);
           const unitTypeName = provider === "dialagram"
             ? chooseBestUnitTypeName([verified.parsed.unitTypeName, extracted.unitTypeName])
             : (verified.parsed.unitTypeName || extracted.unitTypeName || "").trim();
@@ -734,8 +823,9 @@ If everything looks correct, return the data as-is. Return ONLY valid JSON — n
       ? chooseBestUnitTypeName([extracted.unitTypeName])
       : extracted.unitTypeName;
     console.log("Detected unit type name:", unitTypeName);
+    const finalizedCountertops = countertops.map(applyFinalCountertopFallbacks);
 
-    return new Response(JSON.stringify({ unitTypeName, countertops }), {
+    return new Response(JSON.stringify({ unitTypeName, countertops: finalizedCountertops }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
