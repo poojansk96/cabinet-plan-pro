@@ -93,6 +93,34 @@ function calcTopSqft(row: StoneExtractedRow): number {
   return Math.ceil((row.length * row.depth) / 144);
 }
 
+function sanitizeDetectedType(value: unknown): string {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (/^(unknown|n\/?a|none|null|empty|tbd|untitled)$/i.test(raw)) return '';
+  if (/example_placeholder|exact_title_block_text/i.test(raw)) return '';
+  return raw.replace(/^['"]+|['"]+$/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function extractUnitTypeFromPageText(text: string): string | null {
+  const cleaned = text.replace(/\s+/g, ' ').trim();
+  if (!cleaned) return null;
+
+  const patterns = [
+    /(?:parcel\s+[a-z0-9]+(?:\s+[a-z0-9]+)*\s+)?type\s*-?\s*([a-z0-9().\/-]+(?:\s+[a-z0-9().\/-]+){0,4})\s+unit#/i,
+    /countertops\s+type\s*-?\s*([a-z0-9().\/-]+(?:\s+[a-z0-9().\/-]+){0,4})\s+(?:parcel|unit#)/i,
+    /countertops\s+([a-z][a-z0-9().\/-]*(?:\s+[a-z0-9().\/-]+){0,4})\s+(?:\d+(?:\s+\d+\s+\d+)?\s*"|parcel\s+[a-z0-9]+|type\s+-?)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = cleaned.match(pattern);
+    if (!match) continue;
+    const candidate = sanitizeDetectedType(match[1]);
+    if (candidate) return candidate.toUpperCase();
+  }
+
+  return null;
+}
+
 const QUOTES = [
   "Measuring twice, cutting once...",
   "Scanning for countertop dimensions...",
@@ -192,6 +220,13 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
         for (let p = 1; p <= pdf.numPages; p++) {
           update({ statusText: `Processing ${file.name} — page ${p}/${pdf.numPages}` });
           const page = await pdf.getPage(p);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items
+            .map((item: any) => ('str' in item ? item.str : ''))
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          const hintedUnitType = extractUnitTypeFromPageText(pageText);
           const renderedPage = await renderPageToBase64(page, aiProvider === 'dialagram'
             ? { scale: 4, mimeType: 'image/png', maxBase64Length: 4_500_000 }
             : { scale: 3, mimeType: 'image/jpeg', quality: 0.85, maxBase64Length: 3_500_000 });
@@ -215,7 +250,14 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                   'Content-Type': 'application/json',
                   'Authorization': `Bearer ${SUPABASE_KEY}`,
                 },
-                body: JSON.stringify({ pageImage, pageImageMimeType, provider: aiProvider, dialagramModel }),
+                body: JSON.stringify({
+                  pageImage,
+                  pageImageMimeType,
+                  provider: aiProvider,
+                  dialagramModel,
+                  pageTextHint: pageText,
+                  unitTypeNameHint: hintedUnitType,
+                }),
                 signal: controller.signal,
               });
               clearTimeout(timeout);
@@ -225,9 +267,8 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
 
               if (resp.ok) {
                 const data = await resp.json();
-                const rawUnitType = String(data.unitTypeName || '').trim();
-                // Fall back to per-page label so different pages don't collapse together
-                const pageUnitType = rawUnitType || `${file.name.replace(/\.pdf$/i, '')} — Page ${p}`;
+                const rawUnitType = sanitizeDetectedType(data.unitTypeName);
+                const pageUnitType = hintedUnitType || rawUnitType || `${file.name.replace(/\.pdf$/i, '')} — Page ${p}`;
                 if (!detectedTypesOrder.includes(pageUnitType)) {
                   detectedTypesOrder.push(pageUnitType);
                 }
