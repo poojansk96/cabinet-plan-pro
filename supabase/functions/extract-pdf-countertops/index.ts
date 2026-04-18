@@ -811,7 +811,8 @@ serve(async (req) => {
         if (!broadHasKitchen) focusedPasses.push({ label: "kitchen-focus", prompt: buildDialagramCategoryPrompt("kitchen"), model: focusedModel });
         if (!broadHasBath) focusedPasses.push({ label: "bath-focus", prompt: buildDialagramCategoryPrompt("bath"), model: focusedModel });
 
-        for (const pass of focusedPasses) {
+        // Run kitchen + bath focused passes IN PARALLEL — saves ~25s when both are needed.
+        const passResults = await Promise.all(focusedPasses.map(async (pass) => {
           try {
             const passContent = await callAI("dialagram", pageImage, imageMimeType, pass.prompt, {
               temperature: 0.05,
@@ -820,14 +821,21 @@ serve(async (req) => {
               dialagramModel: pass.model,
             });
             console.log(`Dialagram ${pass.label} raw (${pass.model}):`, passContent.slice(0, 800));
-            const passResult = parseCountertopPassResult(passContent);
-            if (passResult.countertops.length > 0 || passResult.unitTypeName) {
-              dialagramPassResults.push(passResult);
-            }
+            return { pass, result: parseCountertopPassResult(passContent), error: null as unknown };
           } catch (focusErr) {
-            const knownErrorResponse = buildKnownAIErrorResponse(focusErr);
+            return { pass, result: null, error: focusErr };
+          }
+        }));
+
+        for (const { pass, result, error } of passResults) {
+          if (error) {
+            const knownErrorResponse = buildKnownAIErrorResponse(error);
             if (knownErrorResponse) return knownErrorResponse;
-            console.warn(`Dialagram ${pass.label} failed:`, focusErr);
+            console.warn(`Dialagram ${pass.label} failed:`, error);
+            continue;
+          }
+          if (result && (result.countertops.length > 0 || result.unitTypeName)) {
+            dialagramPassResults.push(result);
           }
         }
 
