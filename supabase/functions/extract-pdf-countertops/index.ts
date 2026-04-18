@@ -647,6 +647,26 @@ function sanitizeUnitTypeName(value: string): string {
   return raw.replace(/^["']+|["']+$/g, "").trim();
 }
 
+function extractUnitTypeFromHintText(text: string): string {
+  const cleaned = String(text || "").replace(/\s+/g, " ").trim();
+  if (!cleaned) return "";
+
+  const patterns = [
+    /(?:parcel\s+[a-z0-9]+(?:\s+[a-z0-9]+)*\s+)?type\s*-?\s*([a-z0-9().\/-]+(?:\s+[a-z0-9().\/-]+){0,4})\s+unit#/i,
+    /countertops\s+type\s*-?\s*([a-z0-9().\/-]+(?:\s+[a-z0-9().\/-]+){0,4})\s+(?:parcel|unit#)/i,
+    /countertops\s+([a-z][a-z0-9().\/-]*(?:\s+[a-z0-9().\/-]+){0,4})\s+(?:\d+(?:\s+\d+\s+\d+)?\s*"|parcel\s+[a-z0-9]+|type\s+-?)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = cleaned.match(pattern);
+    if (!match) continue;
+    const candidate = sanitizeUnitTypeName(match[1]);
+    if (candidate) return candidate;
+  }
+
+  return "";
+}
+
 function chooseBestUnitTypeName(values: string[]): string {
   const unique = values
     .map(sanitizeUnitTypeName)
@@ -663,10 +683,18 @@ serve(async (req) => {
   }
 
   try {
-    const { pageImage, pageImageMimeType, provider: providerInput, dialagramModel: dialagramModelInput } = await req.json();
+    const {
+      pageImage,
+      pageImageMimeType,
+      provider: providerInput,
+      dialagramModel: dialagramModelInput,
+      pageTextHint,
+      unitTypeNameHint,
+    } = await req.json();
     const provider: "gemini" | "dialagram" = providerInput === "dialagram" ? "dialagram" : "gemini";
     const dialagramModel = String(dialagramModelInput || "qwen-3.6-plus");
     const imageMimeType = String(pageImageMimeType || "image/jpeg").trim() || "image/jpeg";
+    const hintedUnitTypeName = sanitizeUnitTypeName(String(unitTypeNameHint || "")) || extractUnitTypeFromHintText(String(pageTextHint || ""));
     let activeDialagramModel = dialagramModel;
     console.log(`extract-pdf-countertops provider=${provider}${provider === "dialagram" ? ` model=${dialagramModel}` : ""} mime=${imageMimeType}`);
 
@@ -683,12 +711,12 @@ serve(async (req) => {
     let extracted: { unitTypeName: string; countertops: any[] } = { unitTypeName: "", countertops: [] };
     let countertops: NormalizedCountertop[] = [];
     const dialagramPassResults: CountertopPassResult[] = [];
-    let dialagramTitleBlockName = "";
+    let dialagramTitleBlockName = hintedUnitTypeName;
 
     // ── Dedicated title-block pass (Qwen only) ──
     // Runs FIRST so we have an authoritative unit type name before extraction passes
     // can hallucinate "TYPE A" from the prompt example.
-    if (provider === "dialagram") {
+    if (provider === "dialagram" && !dialagramTitleBlockName) {
       try {
         const titleBlockContent = await callAI("dialagram", pageImage, imageMimeType, buildDialagramTitleBlockPrompt(), {
           temperature: 0.0,
@@ -844,8 +872,8 @@ If everything looks correct, return the data as-is. Return ONLY valid JSON — n
         if (verified.countertops.length > 0) {
           const verifiedCts = verified.countertops.map(applyFinalCountertopFallbacks);
           const unitTypeName = provider === "dialagram"
-            ? (dialagramTitleBlockName || chooseBestUnitTypeName([verified.parsed.unitTypeName, extracted.unitTypeName]))
-            : (verified.parsed.unitTypeName || extracted.unitTypeName || "").trim();
+            ? (hintedUnitTypeName || dialagramTitleBlockName || chooseBestUnitTypeName([verified.parsed.unitTypeName, extracted.unitTypeName]))
+            : (hintedUnitTypeName || verified.parsed.unitTypeName || extracted.unitTypeName || "").trim();
           console.log("Verified unit type:", unitTypeName, "sections:", verifiedCts.length);
 
           return new Response(JSON.stringify({ unitTypeName, countertops: verifiedCts }), {
@@ -858,8 +886,8 @@ If everything looks correct, return the data as-is. Return ONLY valid JSON — n
     }
 
     const unitTypeName = provider === "dialagram"
-      ? (dialagramTitleBlockName || chooseBestUnitTypeName([extracted.unitTypeName]))
-      : extracted.unitTypeName;
+      ? (hintedUnitTypeName || dialagramTitleBlockName || chooseBestUnitTypeName([extracted.unitTypeName]))
+      : (hintedUnitTypeName || extracted.unitTypeName);
     console.log("Detected unit type name:", unitTypeName);
     const finalizedCountertops = countertops.map(applyFinalCountertopFallbacks);
 
