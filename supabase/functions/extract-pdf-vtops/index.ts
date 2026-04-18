@@ -239,16 +239,28 @@ function extractDimensionsFromHintText(text: string): number[] {
 }
 
 function buildTextFallbackVtops(pageTextHint: string, hintedUnitTypeName: string): ParsedExtraction {
-  const dims = extractDimensionsFromHintText(pageTextHint);
+  const normalized = pageTextHint.replace(/\s+/g, " ").trim();
+  const hasVanityKeywords = /\b(vanity|lav(?:atory)?|bath(?:room)?|powder)\b/i.test(normalized);
+  const hasSinkKeywords = /\b(sink|lav|bowl)\b/i.test(normalized);
+  const dims = extractDimensionsFromHintText(normalized);
   if (dims.length < 2) {
     return { unitTypeName: hintedUnitTypeName, vtops: [] };
   }
 
-  const depthCandidates = dims.filter((v) => v >= 18 && v <= 36);
-  const depth = depthCandidates.length > 0 ? Math.min(...depthCandidates) : Math.min(...dims);
-  const length = Math.max(...dims.filter((v) => v >= depth));
+  const depthCandidates = dims.filter((v) => v >= 18 && v <= 22.5);
+  const depth = depthCandidates.length > 0 ? Math.min(...depthCandidates) : null;
+  if (!depth) {
+    return { unitTypeName: hintedUnitTypeName, vtops: [] };
+  }
 
-  if (!Number.isFinite(length) || !Number.isFinite(depth) || length <= depth) {
+  const lengthCandidates = dims.filter((v) => v > depth && v >= 18 && v <= 120);
+  const length = lengthCandidates.length > 0 ? Math.max(...lengthCandidates) : null;
+
+  if (!Number.isFinite(length) || !Number.isFinite(depth) || !length || length <= depth) {
+    return { unitTypeName: hintedUnitTypeName, vtops: [] };
+  }
+
+  if (!hasVanityKeywords && !hasSinkKeywords) {
     return { unitTypeName: hintedUnitTypeName, vtops: [] };
   }
 
@@ -259,6 +271,7 @@ function buildTextFallbackVtops(pageTextHint: string, hintedUnitTypeName: string
       depth: Math.round(depth * 4) / 4,
       bowlPosition: "center",
       bowlOffset: null,
+      hasSink: true,
       leftWall: true,
       rightWall: true,
       leftWallYesConfidence: 0.6,
