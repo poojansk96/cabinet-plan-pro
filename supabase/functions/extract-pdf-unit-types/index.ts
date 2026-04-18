@@ -268,105 +268,6 @@ function cleanUnits(rawUnits: any[], pageBldg: string | null) {
   });
 }
 
-// ── AI provider call helpers ──
-
-const DIALAGRAM_BASE_URL = "https://www.dialagram.me/router/v1";
-
-async function parseDialagramResponse(response: Response): Promise<string> {
-  const raw = await response.text();
-  const trimmed = raw.trim();
-  if (trimmed.startsWith("{")) {
-    try {
-      const data = JSON.parse(trimmed);
-      return data.choices?.[0]?.message?.content ?? "";
-    } catch (err) {
-      console.error("Dialagram JSON parse failed:", err, "raw:", trimmed.slice(0, 300));
-      return "";
-    }
-  }
-  if (trimmed.startsWith("data:")) {
-    let assembled = "";
-    for (const line of raw.split("\n")) {
-      const l = line.trim();
-      if (!l.startsWith("data:")) continue;
-      const payload = l.slice(5).trim();
-      if (!payload || payload === "[DONE]") continue;
-      try {
-        const chunk = JSON.parse(payload);
-        const delta = chunk.choices?.[0]?.delta?.content
-          ?? chunk.choices?.[0]?.message?.content
-          ?? "";
-        if (delta) assembled += delta;
-      } catch {
-        // ignore
-      }
-    }
-    return assembled;
-  }
-  return "";
-}
-
-async function requestDialagram(
-  apiKey: string,
-  pageImage: string,
-  prompt: string,
-  model: string,
-  temperature: number,
-  maxTokens: number,
-): Promise<string> {
-  const MAX_RETRIES = 3;
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    let response: Response;
-    try {
-      response = await fetch(`${DIALAGRAM_BASE_URL}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model,
-          temperature,
-          max_tokens: maxTokens,
-          stream: false,
-          messages: [
-            {
-              role: "system",
-              content: "You are a vision AI that analyzes architectural shop drawings provided as images. Always inspect the attached image before responding. Never say no image was uploaded — the image is always attached.",
-            },
-            {
-              role: "user",
-              content: [
-                { type: "text", text: prompt },
-                { type: "image_url", image_url: { url: `data:image/jpeg;base64,${pageImage}` } },
-              ],
-            },
-          ],
-        }),
-      });
-    } catch (err) {
-      console.error(`Dialagram fetch error (attempt ${attempt + 1}):`, err);
-      if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
-      throw new Error("ai_unavailable");
-    }
-    if (response.status === 429) throw new Error("rate_limit");
-    if (response.status === 402) throw new Error("credits");
-    if (response.status === 503 || response.status === 500) {
-      console.warn(`Dialagram unavailable (${response.status}), attempt ${attempt + 1}/${MAX_RETRIES}`);
-      if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
-      throw new Error("ai_unavailable");
-    }
-    if (!response.ok) {
-      const t = await response.text();
-      console.error("Dialagram error:", response.status, t);
-      throw new Error(`AI error: ${response.status}`);
-    }
-    return await parseDialagramResponse(response);
-  }
-  throw new Error("ai_unavailable");
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -376,15 +277,7 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
-    const body = await req.json();
-    const {
-      pageImage,
-      speedMode,
-      provider: providerInput,
-      dialagramModel: dialagramModelInput,
-    } = body;
-    const provider: "gemini" | "dialagram" = providerInput === "dialagram" ? "dialagram" : "gemini";
-    const dialagramModel = String(dialagramModelInput || "qwen-3.6-plus");
+    const { pageImage, speedMode } = await req.json();
     const isFastMode = speedMode === 'fast';
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage required" }), {
@@ -393,71 +286,53 @@ serve(async (req) => {
     }
 
     let content = "";
+    const MODELS = ["gemini-3.1-flash-preview", "gemini-3-flash-preview"];
+    const MAX_RETRIES = 3;
 
-    if (provider === "dialagram") {
-      const DIALAGRAM_API_KEY = Deno.env.get("DIALAGRAM_API_KEY");
-      if (!DIALAGRAM_API_KEY) throw new Error("DIALAGRAM_API_KEY not configured");
-      try {
-        console.log(`Pass 1 trying Qwen (${dialagramModel})`);
-        content = await requestDialagram(DIALAGRAM_API_KEY, pageImage, SYSTEM_PROMPT, dialagramModel, 0.1, 8192);
-      } catch (err: any) {
-        if (err?.message === "rate_limit") {
-          return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        }
-        if (err?.message === "credits") {
-          return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        }
-        console.error("Qwen pass 1 failed:", err?.message ?? err);
-      }
-    } else {
-      const MODELS = ["gemini-3.1-flash-preview", "gemini-3-flash-preview"];
-      const MAX_RETRIES = 3;
-
-      for (const model of MODELS) {
-        let modelSucceeded = false;
-        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-          try {
-            console.log(`Pass 1 trying ${model}, attempt ${attempt + 1}/${MAX_RETRIES}`);
-            const res = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  contents: [{ role: "user", parts: [
-                    { inlineData: { mimeType: "image/jpeg", data: pageImage } },
-                    { text: SYSTEM_PROMPT },
-                  ]}],
-                generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
-                }),
-              }
-            );
-            if (!res.ok) {
-              const status = res.status;
-              if (status === 429 && attempt < MAX_RETRIES - 1) { console.warn(`Rate limited (429) on ${model}, attempt ${attempt + 1}/${MAX_RETRIES}`); await new Promise(r => setTimeout(r, 8000 * (attempt + 1))); continue; }
-              if (status === 429) return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-              if (status === 402) return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-              if ((status === 503 || status === 500) && attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
-              if (status === 503 || status === 500) {
-                console.warn(`${model} unavailable (${status}) after ${MAX_RETRIES} attempts, trying next model`);
-                break;
-              }
-              throw new Error(`AI error ${status}`);
+    for (const model of MODELS) {
+      let modelSucceeded = false;
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+          console.log(`Pass 1 trying ${model}, attempt ${attempt + 1}/${MAX_RETRIES}`);
+          const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ role: "user", parts: [
+                  { inlineData: { mimeType: "image/jpeg", data: pageImage } },
+                  { text: SYSTEM_PROMPT },
+                ]}],
+              generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
+              }),
             }
-            const data = await res.json();
-            content = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-            modelSucceeded = true;
-            break;
-          } catch (err: any) {
-            if (attempt === MAX_RETRIES - 1) {
-              console.warn(`${model} failed after ${MAX_RETRIES} attempts: ${err.message}, trying next model`);
-              break;
+          );
+          if (!res.ok) {
+            const status = res.status;
+            if (status === 429 && attempt < MAX_RETRIES - 1) { console.warn(`Rate limited (429) on ${model}, attempt ${attempt + 1}/${MAX_RETRIES}`); await new Promise(r => setTimeout(r, 8000 * (attempt + 1))); continue; }
+            if (status === 429) return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            if (status === 402) return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            if ((status === 503 || status === 500) && attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 3000 * (attempt + 1))); continue; }
+            if (status === 503 || status === 500) {
+              console.warn(`${model} unavailable (${status}) after ${MAX_RETRIES} attempts, trying next model`);
+              break; // break inner loop to try next model
             }
-            await new Promise(r => setTimeout(r, 2000));
+            throw new Error(`AI error ${status}`);
           }
+          const data = await res.json();
+          content = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+          modelSucceeded = true;
+          break;
+        } catch (err: any) {
+          if (attempt === MAX_RETRIES - 1) {
+            console.warn(`${model} failed after ${MAX_RETRIES} attempts: ${err.message}, trying next model`);
+            break; // try next model
+          }
+          await new Promise(r => setTimeout(r, 2000));
         }
-        if (modelSucceeded) break;
       }
+      if (modelSucceeded) break;
     }
 
     // If no model succeeded at all
@@ -501,38 +376,22 @@ Verify:
 Return the corrected JSON (same format), no other text. Each entry MUST have a "bldg" field:
 {"bldg":null,"units":[{"unitNumber":"1A","unitType":"TYPE 1 - AS","floor":"1","bldg":"BLDG 1"}]}`;
 
-        const verifyPromptText = VERIFY_PROMPT + "\n\nPreviously extracted data:\n" + JSON.stringify({ bldg: parsed.bldg || null, units: firstPassUnits });
-        let verifyContent = "";
+        const verifyBody = JSON.stringify({
+          contents: [{ role: "user", parts: [
+            { inlineData: { mimeType: "image/jpeg", data: pageImage } },
+            { text: VERIFY_PROMPT + "\n\nPreviously extracted data:\n" + JSON.stringify({ bldg: parsed.bldg || null, units: firstPassUnits }) },
+          ]}],
+          generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
+        });
 
-        if (provider === "dialagram") {
-          const DIALAGRAM_API_KEY = Deno.env.get("DIALAGRAM_API_KEY");
-          if (!DIALAGRAM_API_KEY) throw new Error("DIALAGRAM_API_KEY not configured");
-          try {
-            verifyContent = await requestDialagram(DIALAGRAM_API_KEY, pageImage, verifyPromptText, dialagramModel, 0.1, 8192);
-          } catch (err: any) {
-            console.warn("Qwen verification pass failed:", err?.message ?? err);
-          }
-        } else {
-          const verifyBody = JSON.stringify({
-            contents: [{ role: "user", parts: [
-              { inlineData: { mimeType: "image/jpeg", data: pageImage } },
-              { text: verifyPromptText },
-            ]}],
-            generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
-          });
-          const verifyRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-preview:generateContent?key=${GEMINI_API_KEY}`,
-            { method: "POST", headers: { "Content-Type": "application/json" }, body: verifyBody }
-          );
-          if (verifyRes.ok) {
-            const verifyData = await verifyRes.json();
-            verifyContent = verifyData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-          } else {
-            console.warn("Verification pass failed with status:", verifyRes.status, "— using Pass 1 results");
-          }
-        }
+        const verifyRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-preview:generateContent?key=${GEMINI_API_KEY}`,
+          { method: "POST", headers: { "Content-Type": "application/json" }, body: verifyBody }
+        );
 
-        if (verifyContent) {
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json();
+          const verifyContent = verifyData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
           console.log("AI Pass 2 (verify) response:", verifyContent.slice(0, 500));
           const verifyParsed = extractJSON(verifyContent);
           const verifiedUnits = cleanUnits(verifyParsed.units, verifyParsed.bldg || parsed.bldg || null);
@@ -558,6 +417,8 @@ Return the corrected JSON (same format), no other text. Each entry MUST have a "
             console.log("Pass 2 returned empty — keeping Pass 1 results");
           }
           console.log("Pass 2 verified units:", finalUnits.length);
+        } else {
+          console.warn("Verification pass failed with status:", verifyRes.status, "— using Pass 1 results");
         }
       } catch (verifyErr) {
         console.warn("Verification pass error:", verifyErr, "— using Pass 1 results");

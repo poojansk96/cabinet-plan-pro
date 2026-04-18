@@ -6,140 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// ── AI Call Helpers ──
-
-const DIALAGRAM_BASE_URL = "https://www.dialagram.me/router/v1";
-
-async function parseDialagramResponse(response: Response): Promise<string> {
-  const raw = await response.text();
-  const trimmed = raw.trim();
-  if (trimmed.startsWith("{")) {
-    try {
-      const data = JSON.parse(trimmed);
-      return data.choices?.[0]?.message?.content ?? "";
-    } catch (err) {
-      console.error("Dialagram JSON parse failed:", err, "raw:", trimmed.slice(0, 300));
-      return "";
-    }
-  }
-  if (trimmed.startsWith("data:")) {
-    let assembled = "";
-    for (const line of raw.split("\n")) {
-      const l = line.trim();
-      if (!l.startsWith("data:")) continue;
-      const payload = l.slice(5).trim();
-      if (!payload || payload === "[DONE]") continue;
-      try {
-        const chunk = JSON.parse(payload);
-        const delta = chunk.choices?.[0]?.delta?.content
-          ?? chunk.choices?.[0]?.message?.content
-          ?? "";
-        if (delta) assembled += delta;
-      } catch {
-        // ignore non-JSON SSE lines
-      }
-    }
-    return assembled;
-  }
-  return "";
-}
-
-async function requestDialagramText(
-  apiKey: string,
-  pageImage: string,
-  prompt: string,
-  model: string,
-  temperature: number,
-  maxTokens: number,
-): Promise<string> {
-  const MAX_RETRIES = 3;
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    let response: Response;
-    try {
-      response = await fetch(`${DIALAGRAM_BASE_URL}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model,
-          temperature,
-          max_tokens: maxTokens,
-          stream: false,
-          messages: [
-            {
-              role: "system",
-              content: "You are a vision AI that analyzes architectural shop drawings provided as images. Always inspect the attached image before responding. Never say no image was uploaded — the image is always attached.",
-            },
-            {
-              role: "user",
-              content: [
-                { type: "text", text: prompt },
-                { type: "image_url", image_url: { url: `data:image/jpeg;base64,${pageImage}` } },
-              ],
-            },
-          ],
-        }),
-      });
-    } catch (err) {
-      console.error(`Dialagram fetch error (attempt ${attempt + 1}):`, err);
-      if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
-      throw new Error("ai_unavailable");
-    }
-    if (response.status === 429) throw new Error("rate_limit");
-    if (response.status === 402) throw new Error("credits");
-    if (response.status === 503 || response.status === 500) {
-      console.warn(`Dialagram unavailable (${response.status}), attempt ${attempt + 1}/${MAX_RETRIES}`);
-      if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
-      throw new Error("ai_unavailable");
-    }
-    if (!response.ok) {
-      const t = await response.text();
-      console.error("Dialagram error:", response.status, t);
-      throw new Error(`AI error: ${response.status}`);
-    }
-    return await parseDialagramResponse(response);
-  }
-  throw new Error("ai_unavailable");
-}
-
-function parseStructuredJsonText(text: string): any {
-  if (!text) return {};
-  try { return JSON.parse(text); } catch {}
-  const cleaned = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
-  try { return JSON.parse(cleaned); } catch {}
-  // Truncated JSON recovery — same item shape as Gemini structured output
-  const itemRegex = /\{\s*"sku"\s*:\s*"([^"]+)"\s*,\s*"type"\s*:\s*"([^"]+)"\s*,\s*"room"\s*:\s*"([^"]+)"\s*,\s*"quantity"\s*:\s*(\d+)\s*\}/g;
-  const recoveredItems: any[] = [];
-  let m;
-  while ((m = itemRegex.exec(text)) !== null) {
-    recoveredItems.push({ sku: m[1], type: m[2], room: m[3], quantity: parseInt(m[4]) });
-  }
-  if (recoveredItems.length > 0) {
-    const unitTypeMatch = text.match(/"unitTypeName"\s*:\s*"([^"]+)"/);
-    return { items: recoveredItems, unitTypeName: unitTypeMatch ? unitTypeMatch[1] : null };
-  }
-  return {};
-}
-
-async function callQwen(
-  apiKey: string,
-  pageImage: string,
-  prompt: string,
-  model: string,
-  temperature = 0.1,
-  maxTokens = 8192,
-  responseSchema?: any,
-): Promise<any> {
-  const schemaInstruction = responseSchema
-    ? `\n\nReturn ONLY valid JSON matching this exact schema (no markdown fences, no commentary):\n${JSON.stringify(responseSchema)}`
-    : "";
-  const text = await requestDialagramText(apiKey, pageImage, prompt + schemaInstruction, model, temperature, maxTokens);
-  if (!responseSchema) return text;
-  return parseStructuredJsonText(text);
-}
+// ── AI Call Helper (supports structured JSON output) ──
 
 async function callGemini(
   apiKey: string,
@@ -220,7 +87,27 @@ async function callGemini(
   // If structured output was requested, parse directly
   if (responseSchema) {
     try { return JSON.parse(text); } catch {
-      return parseStructuredJsonText(text);
+      // Fallback: strip markdown fences
+      const cleaned = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
+      try { return JSON.parse(cleaned); } catch {
+        console.warn("Structured output parse failed, attempting truncated JSON recovery...");
+        // ── Truncated JSON recovery ──
+        // The AI sometimes returns truncated JSON. Try to recover complete item objects.
+        const itemRegex = /\{\s*"sku"\s*:\s*"([^"]+)"\s*,\s*"type"\s*:\s*"([^"]+)"\s*,\s*"room"\s*:\s*"([^"]+)"\s*,\s*"quantity"\s*:\s*(\d+)\s*\}/g;
+        const recoveredItems: any[] = [];
+        let match;
+        while ((match = itemRegex.exec(text)) !== null) {
+          recoveredItems.push({ sku: match[1], type: match[2], room: match[3], quantity: parseInt(match[4]) });
+        }
+        if (recoveredItems.length > 0) {
+          console.log(`Recovered ${recoveredItems.length} items from truncated response`);
+          // Also try to extract unitTypeName if present
+          const unitTypeMatch = text.match(/"unitTypeName"\s*:\s*"([^"]+)"/);
+          return { items: recoveredItems, unitTypeName: unitTypeMatch ? unitTypeMatch[1] : null };
+        }
+        console.error("No items recovered from truncated response:", text.slice(0, 300));
+        return {};
+      }
     }
   }
 
@@ -553,26 +440,7 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
-    const reqBody = await req.json();
-    const { pageImage, unitType, pageText, speedMode, classificationOverride, isStrip, skipClassify, aiModel, provider: providerInput, dialagramModel: dialagramModelInput } = reqBody;
-    const provider: "gemini" | "dialagram" = providerInput === "dialagram" ? "dialagram" : "gemini";
-    const dialagramModel = String(dialagramModelInput || "qwen-3.6-plus");
-    const DIALAGRAM_API_KEY = provider === "dialagram" ? Deno.env.get("DIALAGRAM_API_KEY") : null;
-    if (provider === "dialagram" && !DIALAGRAM_API_KEY) throw new Error("DIALAGRAM_API_KEY not configured");
-
-    // Provider-aware AI call. For Qwen, schema is enforced via prompt (no JSON-mode in Qwen-VL).
-    const callAIModel = async (
-      modelHint: string,
-      prompt: string,
-      temperature: number,
-      maxTokens: number,
-      responseSchema?: any,
-    ): Promise<any> => {
-      if (provider === "dialagram") {
-        return callQwen(DIALAGRAM_API_KEY!, pageImage, prompt, dialagramModel, temperature, maxTokens, responseSchema);
-      }
-      return callGemini(GEMINI_API_KEY, modelHint, pageImage, prompt, temperature, maxTokens, responseSchema);
-    };
+    const { pageImage, unitType, pageText, speedMode, classificationOverride, isStrip, skipClassify, aiModel } = await req.json();
 
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage (base64 string) required" }), {
@@ -702,7 +570,7 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
 
       let classification: any = { pageType: "plan_view", unitTypeName: null, isCommonArea: false };
       try {
-        classification = await callAIModel("gemini-3.1-flash-lite-preview", classifyPrompt, 0.1, 1024, CLASSIFY_SCHEMA);
+        classification = await callGemini(GEMINI_API_KEY, "gemini-3.1-flash-lite-preview", pageImage, classifyPrompt, 0.1, 1024, CLASSIFY_SCHEMA);
       } catch (e: any) {
         if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -820,15 +688,12 @@ ${isStrip ? '\nNOTE: This image shows a CROPPED SECTION of a larger drawing page
 If no cabinet SKUs are found, return {"items":[]}`;
 
     // ── Step 2a: Initial extraction ──
-    // Qwen mode always uses qwen-3.6-plus and runs the verify pass.
-    const useAccuModel = provider === "gemini" && aiModel === 'accu';
-    const extractionModel = provider === "dialagram"
-      ? dialagramModel
-      : (useAccuModel ? "gemini-3-flash-preview" : "gemini-3.1-flash-lite-preview");
-    console.log(`Using model: ${provider === "dialagram" ? `qwen (${dialagramModel})` : extractionModel} (aiModel=${aiModel}, provider=${provider})`);
+    const useAccuModel = aiModel === 'accu';
+    const extractionModel = useAccuModel ? "gemini-3-flash-preview" : "gemini-3.1-flash-lite-preview";
+    console.log(`Using model: ${extractionModel} (aiModel=${aiModel})`);
     let extracted: any = { items: [] };
     try {
-      extracted = await callAIModel(extractionModel, extractPrompt, 0.2, 8192, EXTRACT_SCHEMA);
+      extracted = await callGemini(GEMINI_API_KEY, extractionModel, pageImage, extractPrompt, 0.2, 8192, EXTRACT_SCHEMA);
     } catch (e: any) {
       if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -872,7 +737,7 @@ ${isStrip ? '\nNOTE: This is a CROPPED SECTION of a larger page. Only report wha
 Return ALL valid cabinet SKUs (kept from original + newly found). If the original list was correct, return it unchanged.`;
 
       try {
-        const verified: any = await callAIModel(useAccuModel ? "gemini-3-flash-preview" : "gemini-3.1-flash-lite-preview", verifyPrompt, 0.1, 8192, EXTRACT_SCHEMA);
+        const verified: any = await callGemini(GEMINI_API_KEY, useAccuModel ? "gemini-3-flash-preview" : "gemini-3.1-flash-lite-preview", pageImage, verifyPrompt, 0.1, 8192, EXTRACT_SCHEMA);
         const verifiedItems = verified.items ?? [];
         if (verifiedItems.length > 0) {
           // Use verification results but never let it drop count below 50% of original
@@ -930,7 +795,7 @@ IMPORTANT: Only include a SKU if you can actually SEE it as a printed label on t
 ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
 
         try {
-          const recovery: any = await callAIModel(useAccuModel ? "gemini-3-flash-preview" : "gemini-3.1-flash-lite-preview", recoveryPrompt, 0.3, 4096, EXTRACT_SCHEMA);
+          const recovery: any = await callGemini(GEMINI_API_KEY, useAccuModel ? "gemini-3-flash-preview" : "gemini-3.1-flash-lite-preview", pageImage, recoveryPrompt, 0.3, 4096, EXTRACT_SCHEMA);
           const recoveredItems = (recovery.items ?? []).filter((item: any) => {
             const normalized = normalizeSkuLabel(String(item.sku || ''));
             return normalized && isValidSku(normalized) && !extractedAfterVerify.has(normalized);

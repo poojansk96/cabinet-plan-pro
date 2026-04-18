@@ -43,8 +43,6 @@ interface Props {
   speedMode?: 'fast' | 'thorough';
   skipClassify?: boolean;
   aiModel?: 'fast' | 'accu';
-  aiProvider?: 'gemini' | 'dialagram';
-  dialagramModel?: string;
 }
 
 const PERSONAL_QUOTES = [
@@ -445,7 +443,7 @@ function resolvePageUnitType(
   return { primary: null, aliases: [] };
 }
 
-export default function ShopDrawingImportDialog({ unitType, onImport, onClose, prefinalPerson, speedMode = 'fast', skipClassify = false, aiModel = 'fast', aiProvider = 'gemini', dialagramModel = 'qwen-3.6-plus' }: Props) {
+export default function ShopDrawingImportDialog({ unitType, onImport, onClose, prefinalPerson, speedMode = 'fast', skipClassify = false, aiModel = 'fast' }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<LabelRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -597,7 +595,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       };
 
       // ── PASS 1: Full page (extract, with optional classification skip) ──
-      const fullResponse = await fetchWithRetry(JSON.stringify({ pageImage, unitType, pageText, speedMode, skipClassify, aiModel, provider: aiProvider, dialagramModel }));
+      const fullResponse = await fetchWithRetry(JSON.stringify({ pageImage, unitType, pageText, speedMode, skipClassify, aiModel }));
       if (!fullResponse.ok) {
         const status = fullResponse.status;
         if (status === 429) throw new Error('rate_limit');
@@ -651,8 +649,6 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
             classificationOverride,
             isStrip: true,
             aiModel,
-            provider: aiProvider,
-            dialagramModel,
           }));
           if (stripResponse.ok) {
             const stripData = await stripResponse.json();
