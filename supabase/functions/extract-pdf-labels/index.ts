@@ -553,9 +553,13 @@ serve(async (req) => {
 
   try {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
+    const DIALAGRAM_API_KEY = Deno.env.get("DIALAGRAM_API_KEY");
 
-    const { pageImage, unitType, pageText, speedMode, classificationOverride, isStrip, skipClassify, aiModel } = await req.json();
+    const { pageImage, unitType, pageText, speedMode, classificationOverride, isStrip, skipClassify, aiModel, aiProvider, dialagramModel } = await req.json();
+    const provider: "gemini" | "dialagram" = aiProvider === "dialagram" ? "dialagram" : "gemini";
+    const qwenModel: string = dialagramModel || "qwen-3.6-plus";
+    if (provider === "gemini" && !GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
+    if (provider === "dialagram" && !DIALAGRAM_API_KEY) throw new Error("DIALAGRAM_API_KEY not configured");
 
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage (base64 string) required" }), {
