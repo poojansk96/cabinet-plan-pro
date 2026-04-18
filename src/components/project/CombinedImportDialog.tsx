@@ -340,7 +340,7 @@ export default function CombinedImportDialog({ onImport, onClose }: Props) {
           status: 'done',
           progress: 100,
           statusText: 'Extraction complete',
-          results: { unitRows: finalUnitRows, cabinetRows: finalCabinetRows },
+          results: { unitRows: finalUnitRows, cabinetRows: finalCabinetRows, typeOrder: pageOrderTypes },
         });
       } catch (err) {
         console.error(err);
