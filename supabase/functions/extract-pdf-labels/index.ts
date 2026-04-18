@@ -114,6 +114,121 @@ async function callGemini(
   return text;
 }
 
+// ── Dialagram (Qwen) helper — returns parsed JSON when expectStructured=true ──
+const DIALAGRAM_BASE_URL = "https://www.dialagram.me/router/v1";
+
+async function callDialagram(
+  apiKey: string,
+  model: string,
+  pageImage: string,
+  prompt: string,
+  temperature = 0.2,
+  maxTokens = 8192,
+  expectStructured = false,
+): Promise<any> {
+  const MAX_RETRIES = 3;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    let response: Response | null = null;
+    try {
+      response = await fetch(`${DIALAGRAM_BASE_URL}/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json", "Authorization": `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model,
+          temperature,
+          max_tokens: maxTokens,
+          stream: false,
+          messages: [
+            { role: "system", content: "You are a vision AI that analyzes 2020 Design shop drawings provided as images. Always inspect the attached image. Never claim no image was uploaded — the image is always attached. When asked for JSON output, respond with ONLY valid JSON, no markdown fences." },
+            { role: "user", content: [
+              { type: "text", text: prompt },
+              { type: "image_url", image_url: { url: `data:image/jpeg;base64,${pageImage}` } },
+            ]},
+          ],
+        }),
+      });
+    } catch (fetchErr) {
+      console.error(`Dialagram fetch error (attempt ${attempt + 1}):`, fetchErr);
+      if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
+      throw new Error("AI model temporarily unavailable");
+    }
+    if (response.status === 429) throw new Error("rate_limit");
+    if (response.status === 402) throw new Error("credits");
+    if ((response.status === 503 || response.status === 500) && attempt < MAX_RETRIES - 1) {
+      await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+      continue;
+    }
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("Dialagram error:", response.status, errText.slice(0, 300));
+      throw new Error(`AI error: ${response.status}`);
+    }
+    const raw = await response.text();
+    const trimmed = raw.trim();
+    let text = "";
+    if (trimmed.startsWith("{")) {
+      try {
+        const data = JSON.parse(trimmed);
+        text = data.choices?.[0]?.message?.content ?? "";
+      } catch {
+        throw new Error("Dialagram parse failed");
+      }
+    } else if (trimmed.startsWith("data:")) {
+      for (const line of raw.split("\n")) {
+        const l = line.trim();
+        if (!l.startsWith("data:")) continue;
+        const payload = l.slice(5).trim();
+        if (!payload || payload === "[DONE]") continue;
+        try {
+          const chunk = JSON.parse(payload);
+          text += chunk.choices?.[0]?.delta?.content ?? chunk.choices?.[0]?.message?.content ?? "";
+        } catch {}
+      }
+    }
+    if (!text) throw new Error("Dialagram empty response");
+
+    if (!expectStructured) return text;
+
+    const cleaned = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
+    try { return JSON.parse(cleaned); } catch {
+      const itemRegex = /\{\s*"sku"\s*:\s*"([^"]+)"\s*,\s*"type"\s*:\s*"([^"]+)"\s*,\s*"room"\s*:\s*"([^"]+)"\s*,\s*"quantity"\s*:\s*(\d+)\s*\}/g;
+      const recoveredItems: any[] = [];
+      let match;
+      while ((match = itemRegex.exec(text)) !== null) {
+        recoveredItems.push({ sku: match[1], type: match[2], room: match[3], quantity: parseInt(match[4]) });
+      }
+      const unitTypeMatch = text.match(/"unitTypeName"\s*:\s*"([^"]+)"/);
+      if (recoveredItems.length > 0) {
+        return { items: recoveredItems, unitTypeName: unitTypeMatch ? unitTypeMatch[1] : null };
+      }
+      console.error("Dialagram JSON parse failed, raw:", text.slice(0, 300));
+      return { items: [] };
+    }
+  }
+  throw new Error("AI model temporarily unavailable");
+}
+
+// ── AI router ──
+async function callAI(
+  provider: "gemini" | "dialagram",
+  geminiKey: string | undefined,
+  dialagramKey: string | undefined,
+  geminiModel: string,
+  qwenModel: string,
+  pageImage: string,
+  prompt: string,
+  temperature: number,
+  maxTokens: number,
+  responseSchema?: any,
+): Promise<any> {
+  if (provider === "dialagram") {
+    if (!dialagramKey) throw new Error("DIALAGRAM_API_KEY not configured");
+    return callDialagram(dialagramKey, qwenModel, pageImage, prompt, temperature, maxTokens, !!responseSchema);
+  }
+  if (!geminiKey) throw new Error("GEMINI_API_KEY not configured");
+  return callGemini(geminiKey, geminiModel, pageImage, prompt, temperature, maxTokens, responseSchema);
+}
+
 // ── SKU Helpers ──
 
 const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|WDC|UB|WC|OH|BLB|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS)\d[\w\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
@@ -438,9 +553,13 @@ serve(async (req) => {
 
   try {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
+    const DIALAGRAM_API_KEY = Deno.env.get("DIALAGRAM_API_KEY");
 
-    const { pageImage, unitType, pageText, speedMode, classificationOverride, isStrip, skipClassify, aiModel } = await req.json();
+    const { pageImage, unitType, pageText, speedMode, classificationOverride, isStrip, skipClassify, aiModel, aiProvider, dialagramModel } = await req.json();
+    const provider: "gemini" | "dialagram" = aiProvider === "dialagram" ? "dialagram" : "gemini";
+    const qwenModel: string = dialagramModel || "qwen-3.6-plus";
+    if (provider === "gemini" && !GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
+    if (provider === "dialagram" && !DIALAGRAM_API_KEY) throw new Error("DIALAGRAM_API_KEY not configured");
 
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage (base64 string) required" }), {
@@ -570,7 +689,7 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
 
       let classification: any = { pageType: "plan_view", unitTypeName: null, isCommonArea: false };
       try {
-        classification = await callGemini(GEMINI_API_KEY, "gemini-3.1-flash-lite-preview", pageImage, classifyPrompt, 0.1, 1024, CLASSIFY_SCHEMA);
+        classification = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, "gemini-3.1-flash-lite-preview", qwenModel, pageImage, classifyPrompt, 0.1, 1024, CLASSIFY_SCHEMA);
       } catch (e: any) {
         if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -690,10 +809,10 @@ If no cabinet SKUs are found, return {"items":[]}`;
     // ── Step 2a: Initial extraction ──
     const useAccuModel = aiModel === 'accu';
     const extractionModel = useAccuModel ? "gemini-3-flash-preview" : "gemini-3.1-flash-lite-preview";
-    console.log(`Using model: ${extractionModel} (aiModel=${aiModel})`);
+    console.log(`Using provider: ${provider}, geminiModel: ${extractionModel}, qwenModel: ${qwenModel} (aiModel=${aiModel})`);
     let extracted: any = { items: [] };
     try {
-      extracted = await callGemini(GEMINI_API_KEY, extractionModel, pageImage, extractPrompt, 0.2, 8192, EXTRACT_SCHEMA);
+      extracted = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, extractionModel, qwenModel, pageImage, extractPrompt, 0.2, 8192, EXTRACT_SCHEMA);
     } catch (e: any) {
       if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -710,7 +829,8 @@ If no cabinet SKUs are found, return {"items":[]}`;
 
     // ── Step 2b: Verification pass (only for fast/lite model) ──
     // Skipped for accu model (gemini-3-flash is a thinking model, verification is redundant).
-    if (!useAccuModel) {
+    // ── Step 2b: Verification pass (only for fast/lite Gemini model; skipped for Qwen and accu) ──
+    if (!useAccuModel && provider === "gemini") {
       const liteSkuList = finalItems.map((i: any) => `${i.sku} (qty ${i.quantity}, ${i.room})`).join(', ');
       const verifyPrompt = `You are verifying cabinet SKU extraction results from a fast AI model on this 2020 Design shop drawing.
 
@@ -737,7 +857,7 @@ ${isStrip ? '\nNOTE: This is a CROPPED SECTION of a larger page. Only report wha
 Return ALL valid cabinet SKUs (kept from original + newly found). If the original list was correct, return it unchanged.`;
 
       try {
-        const verified: any = await callGemini(GEMINI_API_KEY, useAccuModel ? "gemini-3-flash-preview" : "gemini-3.1-flash-lite-preview", pageImage, verifyPrompt, 0.1, 8192, EXTRACT_SCHEMA);
+        const verified: any = await callGemini(GEMINI_API_KEY!, useAccuModel ? "gemini-3-flash-preview" : "gemini-3.1-flash-lite-preview", pageImage, verifyPrompt, 0.1, 8192, EXTRACT_SCHEMA);
         const verifiedItems = verified.items ?? [];
         if (verifiedItems.length > 0) {
           // Use verification results but never let it drop count below 50% of original
@@ -795,7 +915,7 @@ IMPORTANT: Only include a SKU if you can actually SEE it as a printed label on t
 ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
 
         try {
-          const recovery: any = await callGemini(GEMINI_API_KEY, useAccuModel ? "gemini-3-flash-preview" : "gemini-3.1-flash-lite-preview", pageImage, recoveryPrompt, 0.3, 4096, EXTRACT_SCHEMA);
+          const recovery: any = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, useAccuModel ? "gemini-3-flash-preview" : "gemini-3.1-flash-lite-preview", qwenModel, pageImage, recoveryPrompt, 0.3, 4096, EXTRACT_SCHEMA);
           const recoveredItems = (recovery.items ?? []).filter((item: any) => {
             const normalized = normalizeSkuLabel(String(item.sku || ''));
             return normalized && isValidSku(normalized) && !extractedAfterVerify.has(normalized);

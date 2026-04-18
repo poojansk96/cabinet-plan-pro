@@ -28,6 +28,8 @@ interface Props {
   onClose: () => void;
   prefinalPerson?: string;
   speedMode?: 'fast' | 'thorough';
+  aiProvider?: 'gemini' | 'dialagram';
+  dialagramModel?: string;
 }
 
 const PERSONAL_QUOTES = [
@@ -116,7 +118,7 @@ async function renderPageToBase64(page: any): Promise<string> {
 
 type Step = 'upload' | 'processing' | 'review';
 
-export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson, speedMode = 'fast' }: Props) {
+export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson, speedMode = 'fast', aiProvider = 'gemini', dialagramModel = 'qwen-3.6-plus' }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<UnitMappingRow[]>([]);
   const [typeOrder, setTypeOrder] = useState<string[]>([]);
@@ -229,7 +231,7 @@ export default function UnitTypeImportDialog({ onImport, onClose, prefinalPerson
               const res = await fetch(EDGE_FUNCTION_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pageImage, speedMode }),
+                body: JSON.stringify({ pageImage, speedMode, aiProvider, dialagramModel }),
                 signal: controller.signal,
               });
               clearTimeout(tid);
