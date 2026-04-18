@@ -69,7 +69,10 @@ export default function PreFinalModule({ project }: Props) {
   const [importTargetType, setImportTargetType] = useState('');
   const [cabinetImportedCount, setCabinetImportedCount] = useState<number | null>(null);
   const [cabinetChecks, setCabinetChecks] = useState<Record<string, boolean>>({});
-  const [cabinetAiModel, setCabinetAiModel] = useState<'fast' | 'accu'>('fast');
+  // Cabinet Count provider: Gemini (fast lite) or Qwen (qwen-3.6-plus). Replaces the old Accu-3 toggle.
+  const [cabinetAiProvider, setCabinetAiProvider] = useState<'gemini' | 'dialagram'>('gemini');
+  // Unit Count provider: Gemini (default, current behavior) or Qwen.
+  const [unitAiProvider, setUnitAiProvider] = useState<'gemini' | 'dialagram'>('gemini');
   // Stone/Laminate/Vtop AI provider — Qwen (dialagram) is now the default for Stone SQFT
   // because it handles dense 2020 shop-drawing dimension text more reliably than Gemini.
   const [stoneAiProvider, setStoneAiProvider] = useState<'gemini' | 'dialagram'>('dialagram');
