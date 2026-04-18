@@ -103,6 +103,7 @@ export default function CombinedImportDialog({ onImport, onClose }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [unitRows, setUnitRows] = useState<UnitRow[]>([]);
   const [cabinetRows, setCabinetRows] = useState<CabinetRow[]>([]);
+  const [typeOrder, setTypeOrder] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState(0);
