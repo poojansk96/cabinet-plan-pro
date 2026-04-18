@@ -446,6 +446,15 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                 <Sparkles size={13} className="absolute top-2 right-2 z-20 animate-pulse" style={{ color: 'hsl(var(--primary))' }} />
               </div>
 
+              {/* Live elapsed timer */}
+              <div className="flex items-center gap-1.5 text-xs font-mono tabular-nums text-foreground bg-secondary/70 border border-border px-2.5 py-1 rounded-full">
+                <Timer size={12} className="text-primary" />
+                <span className="font-semibold">
+                  {formatExtractionDuration((bgJob?.startedAt ? nowTick - bgJob.startedAt : 0))}
+                </span>
+                <span className="text-muted-foreground text-[10px]">elapsed</span>
+              </div>
+
               <div className="text-center space-y-2 max-w-xs">
                 <p
                   className="text-xs italic text-muted-foreground/80 transition-opacity duration-400 px-2"
