@@ -405,6 +405,7 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson,
   const [personalQuoteIdx, setPersonalQuoteIdx] = useState(0);
   const [quoteVisible, setQuoteVisible] = useState(true);
   const [showDebug, setShowDebug] = useState(false);
+  const [nowTick, setNowTick] = useState<number>(() => Date.now());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const processingRef = useRef(false);
   const bgPickedUpRef = useRef(false);
@@ -439,6 +440,13 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson,
     if (!bgJob || bgJob.status !== 'processing' || bgPickedUpRef.current) return;
     setProgress(bgJob.progress);
   }, [bgJob?.progress]);
+
+  // ── Live timer tick while processing ──
+  useEffect(() => {
+    if (step !== 'processing') return;
+    const id = window.setInterval(() => setNowTick(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [step]);
 
   async function processFiles(files: File[]) {
     if (processingRef.current) return;
