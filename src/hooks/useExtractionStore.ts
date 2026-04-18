@@ -102,7 +102,14 @@ export function startExtraction(
   const update = (patch: Partial<ExtractionJob>) => {
     const current = jobs.get(type);
     if (!current || current.id !== jobId) return; // job was cleared
-    jobs.set(type, { ...current, ...patch });
+    const next = { ...current, ...patch };
+    if (
+      (patch.status === 'done' || patch.status === 'error') &&
+      next.finishedAt == null
+    ) {
+      next.finishedAt = Date.now();
+    }
+    jobs.set(type, next);
     notify();
   };
 
