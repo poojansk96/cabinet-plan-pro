@@ -1,6 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { startExtraction, useExtractionJobByType, clearExtractionJob, type ExtractionType } from '@/hooks/useExtractionStore';
-import { X, Upload, Loader2, Check, Trash2, Sparkles } from 'lucide-react';
+import { X, Upload, Loader2, Check, Trash2, Sparkles, Timer } from 'lucide-react';
+
+function formatExtractionDuration(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  if (m === 0) return `${s}s`;
+  return `${m}m ${s.toString().padStart(2, '0')}s`;
+}
 
 export interface StoneExtractedRow {
   label: string;
