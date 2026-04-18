@@ -716,7 +716,8 @@ serve(async (req) => {
     // ── Dedicated title-block pass (Qwen only) ──
     // Runs FIRST so we have an authoritative unit type name before extraction passes
     // can hallucinate "TYPE A" from the prompt example.
-    if (provider === "dialagram" && !dialagramTitleBlockName) {
+    // SKIP if we already have a hint from the client (PDF text layer) — saves ~25s.
+    if (provider === "dialagram" && !dialagramTitleBlockName && !hintedUnitTypeName) {
       try {
         const titleBlockContent = await callAI("dialagram", pageImage, imageMimeType, buildDialagramTitleBlockPrompt(), {
           temperature: 0.0,
