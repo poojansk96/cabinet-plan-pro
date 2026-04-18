@@ -194,6 +194,9 @@ export default function CombinedImportDialog({ onImport, onClose }: Props) {
         // ── PASS 1: Unit extraction ──
         update({ statusText: 'Extracting unit types…' });
         const unitSightings = new Map<string, { unitNumber: string; unitType: string; bldg: string; floor: string; pages: { page: number; file: string; unitType: string; bldg: string; floor: string }[] }>();
+        const pageOrderTypes: string[] = []; // unit types in PDF page order (first-seen wins)
+        const seenTypes = new Set<string>();
+        const normTypeKey = (v: string) => v.toUpperCase().replace(/\s+/g, '').trim();
 
         for (const { file, pdf } of pdfs) {
           for (let p = 1; p <= pdf.numPages; p++) {
@@ -215,6 +218,12 @@ export default function CombinedImportDialog({ onImport, onClose }: Props) {
                   const bldg = String(u.bldg ?? '').trim();
                   const floor = String(u.floor ?? '').trim();
                   if (!num || !type) continue;
+                  // Track type by PDF page order
+                  const tKey = normTypeKey(type);
+                  if (tKey && !seenTypes.has(tKey)) {
+                    seenTypes.add(tKey);
+                    pageOrderTypes.push(type);
+                  }
                   const key = `${keyPart(num)}|${keyPart(bldg)}|${keyPart(floor)}`;
                   const existing = unitSightings.get(key);
                   const sighting = { page: p, file: file.name, unitType: type, bldg, floor };
