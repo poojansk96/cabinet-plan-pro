@@ -31,6 +31,7 @@ export interface ExtractionJob {
   error: string | null;
   fileNames: string[];
   startedAt: number;
+  finishedAt: number | null;
 }
 
 type Listener = () => void;
@@ -93,6 +94,7 @@ export function startExtraction(
     error: null,
     fileNames,
     startedAt: Date.now(),
+    finishedAt: null,
   };
   jobs.set(type, job);
   notify();
@@ -100,7 +102,14 @@ export function startExtraction(
   const update = (patch: Partial<ExtractionJob>) => {
     const current = jobs.get(type);
     if (!current || current.id !== jobId) return; // job was cleared
-    jobs.set(type, { ...current, ...patch });
+    const next = { ...current, ...patch };
+    if (
+      (patch.status === 'done' || patch.status === 'error') &&
+      next.finishedAt == null
+    ) {
+      next.finishedAt = Date.now();
+    }
+    jobs.set(type, next);
     notify();
   };
 
