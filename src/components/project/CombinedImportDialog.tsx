@@ -287,6 +287,13 @@ export default function CombinedImportDialog({ onImport, onClose }: Props) {
                 if (data.error === 'credits') { aborted = { reason: 'AI credits exhausted.' }; break; }
                 const items = data.items ?? [];
                 const detectedType = data.unitTypeName || undefined;
+                if (detectedType) {
+                  const tKey = normTypeKey(detectedType);
+                  if (tKey && !seenTypes.has(tKey)) {
+                    seenTypes.add(tKey);
+                    pageOrderTypes.push(detectedType);
+                  }
+                }
                 for (const item of items) {
                   const normSku = (item.sku || '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
                   const unitTypeKey = detectedType || '__none__';
