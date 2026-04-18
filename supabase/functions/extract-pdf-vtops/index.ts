@@ -601,8 +601,52 @@ Return ONLY valid JSON, no markdown fences, no commentary:
     let finalVtops = fullParsed.vtops;
     let finalUnitTypeName = extractedUnitTypeName;
 
-    // ── Pass 2: Verification ──
-    if (finalVtops.length > 0) {
+    // ── Qwen rescue pass: if first attempt returned empty, retry with an even more
+    // direct counting prompt. Qwen-VL frequently returns [] on the first try when the
+    // page has unusual top types (break room, mail room, large counters) and gets it
+    // right on a retry framed as "describe what you see". ──
+    if (provider === "dialagram" && finalVtops.length === 0) {
+      console.log("Qwen returned empty — running rescue pass with simpler prompt...");
+      const rescuePrompt = `This page is from a countertop shop drawing. Describe each rectangular top section you see.
+
+For EACH rectangle that looks like a countertop drawing (has dimension callouts in inches like 42", 25 1/2", 47 1/2", etc.), output one entry with:
+- length (longer side in inches)
+- depth (shorter side in inches)
+- bowlPosition: "center" if no bowl drawn, otherwise "offset-left" or "offset-right"
+- bowlOffset: number or null
+- leftWall: true (default)
+- rightWall: true (default)
+
+Also extract unitTypeName from any "TYPE ___" text in the title block.
+
+Convert fractions: 1/2=0.5, 1/4=0.25, 3/4=0.75. Round to nearest 0.25".
+
+If you see ANY rectangular top with dimensions, you MUST return it. Only return empty array if the page literally has no rectangular top drawings (e.g. it's a cover page or pure floor plan).
+
+Return ONLY valid JSON:
+{"unitTypeName":"Break Room","vtops":[{"length":121.5,"depth":25.5,"bowlPosition":"center","bowlOffset":null,"leftWall":true,"rightWall":true}]}`;
+
+      try {
+        const rescueContent = await callAI(
+          "dialagram",
+          [{ mimeType: "image/jpeg", data: pageImage }],
+          rescuePrompt,
+          { temperature: 0.3, maxOutputTokens: 2048, geminiModels: PRIMARY_MODELS, dialagramModel },
+        );
+        console.log("Qwen rescue raw:", rescueContent.slice(0, 800));
+        const rescueParsed = parseExtractionText(rescueContent);
+        if (rescueParsed.vtops.length > 0) {
+          finalVtops = rescueParsed.vtops;
+          if (rescueParsed.unitTypeName) finalUnitTypeName = rescueParsed.unitTypeName;
+          console.log("Qwen rescue recovered", finalVtops.length, "vtop(s)");
+        }
+      } catch (rescueErr) {
+        console.warn("Qwen rescue pass failed:", rescueErr);
+      }
+    }
+
+    // ── Pass 2: Verification (Gemini only — Qwen handles the long verify prompt poorly) ──
+    if (provider === "gemini" && finalVtops.length > 0) {
       console.log("Starting vtop verification pass...");
         const verifyPrompt = `You are verifying AI-extracted vanity top data from a 2020 shop drawing.
 
