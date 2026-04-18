@@ -11,6 +11,34 @@ function formatExtractionDuration(ms: number): string {
   return `${m}m ${s.toString().padStart(2, '0')}s`;
 }
 
+function sanitizeDetectedType(value: unknown): string {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (/^(unknown|n\/?a|none|null|empty|tbd|untitled)$/i.test(raw)) return '';
+  if (/example_placeholder|exact_title_block_text/i.test(raw)) return '';
+  return raw.replace(/^['"]+|['"]+$/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function extractUnitTypeFromPageText(text: string): string | null {
+  const cleaned = text.replace(/\s+/g, ' ').trim();
+  if (!cleaned) return null;
+
+  const patterns = [
+    /(?:parcel\s+[a-z0-9]+(?:\s+[a-z0-9]+)*\s+)?type\s*-?\s*([a-z0-9().\/-]+(?:\s+[a-z0-9().\/-]+){0,4})\s+unit#/i,
+    /countertops\s+type\s*-?\s*([a-z0-9().\/-]+(?:\s+[a-z0-9().\/-]+){0,4})\s+(?:parcel|unit#)/i,
+    /countertops\s+([a-z][a-z0-9().\/-]*(?:\s+[a-z0-9().\/-]+){0,4})\s+(?:\d+(?:\s+\d+\s+\d+)?\s*"|parcel\s+[a-z0-9]+|type\s+-?)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = cleaned.match(pattern);
+    if (!match) continue;
+    const candidate = sanitizeDetectedType(match[1]);
+    if (candidate) return candidate.toUpperCase();
+  }
+
+  return null;
+}
+
 // ─── Extended import row with new detection fields ───
 export interface VtopImportRow extends PrefinalVtopRow {
   selected: boolean;
@@ -493,6 +521,13 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson,
         for (let p = 1; p <= pdf.numPages; p++) {
           update({ statusText: `Processing ${file.name} — page ${p}/${pdf.numPages}` });
           const page = await pdf.getPage(p);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items
+            .map((item: any) => ('str' in item ? item.str : ''))
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          const hintedUnitType = extractUnitTypeFromPageText(pageText);
 
           // High-res canvas for deterministic bbox crops (kept at 3200px)
           const { canvas, width: canvasW, height: canvasH } = await renderPageToCanvasData(page, 3200, 4.5);
@@ -520,7 +555,14 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson,
                   'Content-Type': 'application/json',
                   'Authorization': `Bearer ${SUPABASE_KEY}`,
                 },
-                body: JSON.stringify({ pageImage, pageImageMimeType: aiMimeType, provider: aiProvider, dialagramModel }),
+                body: JSON.stringify({
+                  pageImage,
+                  pageImageMimeType: aiMimeType,
+                  provider: aiProvider,
+                  dialagramModel,
+                  pageTextHint: pageText,
+                  unitTypeNameHint: hintedUnitType,
+                }),
                 signal: controller.signal,
               });
               clearTimeout(timeout);
