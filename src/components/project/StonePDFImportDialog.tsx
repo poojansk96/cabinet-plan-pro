@@ -129,7 +129,7 @@ const QUOTES = [
   "Calculating surface areas...",
 ];
 
-export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson, extractionType = 'stone', aiProvider = 'gemini', dialagramModel = 'qwen-3.6-plus' }: Props) {
+export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson, extractionType = 'stone', aiProvider = 'dialagram', dialagramModel = 'qwen-3.6-plus' }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<StoneExtractedRow[]>([]);
   const [error, setError] = useState('');
