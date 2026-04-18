@@ -148,6 +148,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
   const [personalQuoteIdx, setPersonalQuoteIdx] = useState(0);
   const [quoteVisible, setQuoteVisible] = useState(true);
   const [detectedType, setDetectedType] = useState<string | null>(null);
+  const [nowTick, setNowTick] = useState<number>(() => Date.now());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const processingRef = useRef(false);
   const bgPickedUpRef = useRef(false);
