@@ -699,6 +699,8 @@ serve(async (req) => {
         { label: "kitchen-focus", prompt: buildDialagramCategoryPrompt("kitchen"), model: focusedModel },
         { label: "bath-focus", prompt: buildDialagramCategoryPrompt("bath"), model: focusedModel },
       ];
+      let kitchenFocusCount = 0;
+      let bathFocusCount = 0;
 
       for (const pass of focusedPasses) {
         try {
@@ -710,6 +712,8 @@ serve(async (req) => {
           });
           console.log(`Dialagram ${pass.label} raw (${pass.model}):`, passContent.slice(0, 800));
           const passResult = parseCountertopPassResult(passContent);
+          if (pass.label === "kitchen-focus") kitchenFocusCount = passResult.countertops.length;
+          if (pass.label === "bath-focus") bathFocusCount = passResult.countertops.length;
           if (passResult.countertops.length > 0 || passResult.unitTypeName) {
             dialagramPassResults.push(passResult);
           }
@@ -724,7 +728,14 @@ serve(async (req) => {
       extracted.unitTypeName = chooseBestUnitTypeName(dialagramPassResults.map((result) => result.unitTypeName));
       activeDialagramModel = focusedModel;
 
-      if (countertops.length <= 1) {
+      const shouldRescue =
+        countertops.length <= 1 ||
+        kitchenFocusCount === 0 ||
+        bathFocusCount === 0 ||
+        countertops.some(hasNullCriticalDimensions) ||
+        countertops.every((ct) => isGenericCountertopLabel(ct.label));
+
+      if (shouldRescue) {
         console.log("Dialagram extraction looks incomplete, running rescue pass...");
         const rescuePrompt = buildDialagramRescuePrompt(extractionContent);
         const rescueModels = getDialagramFallbackModels(focusedModel);
@@ -746,7 +757,7 @@ serve(async (req) => {
               extracted.unitTypeName = chooseBestUnitTypeName(dialagramPassResults.map((result) => result.unitTypeName));
             }
 
-            if (countertops.length > 1) {
+            if (countertops.length > 1 && !countertops.some(hasNullCriticalDimensions)) {
               activeDialagramModel = rescueModel;
               console.log(`Dialagram rescue improved extraction with ${rescueModel}, sections: ${countertops.length}`);
               break;
@@ -793,7 +804,7 @@ If everything looks correct, return the data as-is. Return ONLY valid JSON — n
         const verified = parseAndNormalizeCountertops(verifyContent);
 
         if (verified.countertops.length > 0) {
-          const verifiedCts = verified.countertops;
+          const verifiedCts = verified.countertops.map(applyFinalCountertopFallbacks);
           const unitTypeName = provider === "dialagram"
             ? chooseBestUnitTypeName([verified.parsed.unitTypeName, extracted.unitTypeName])
             : (verified.parsed.unitTypeName || extracted.unitTypeName || "").trim();
@@ -812,8 +823,9 @@ If everything looks correct, return the data as-is. Return ONLY valid JSON — n
       ? chooseBestUnitTypeName([extracted.unitTypeName])
       : extracted.unitTypeName;
     console.log("Detected unit type name:", unitTypeName);
+    const finalizedCountertops = countertops.map(applyFinalCountertopFallbacks);
 
-    return new Response(JSON.stringify({ unitTypeName, countertops }), {
+    return new Response(JSON.stringify({ unitTypeName, countertops: finalizedCountertops }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
