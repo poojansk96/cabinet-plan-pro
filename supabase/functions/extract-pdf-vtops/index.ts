@@ -849,6 +849,8 @@ If everything looks correct, return the data as-is. Return ONLY valid JSON — n
       }
     }
 
+    finalVtops = filterVanityCandidates(finalVtops, finalUnitTypeName, normalizedPageTextHint);
+
     const vtops = finalVtops.map(row => ({
       ...row,
       leftWallYesConfidence: row.leftWallYesConfidence ?? 0.5,
