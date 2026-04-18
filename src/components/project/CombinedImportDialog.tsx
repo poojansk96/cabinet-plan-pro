@@ -364,7 +364,7 @@ export default function CombinedImportDialog({ onImport, onClose }: Props) {
   const handleImport = () => {
     const selectedUnits = unitRows.filter(r => r.selected).map(({ selected: _, conflict: __, ...rest }) => rest);
     const selectedCabinets = cabinetRows.filter(r => r.selected).map(({ selected: _, ...rest }) => rest);
-    onImport(selectedUnits, selectedCabinets);
+    onImport(selectedUnits, selectedCabinets, typeOrder.length > 0 ? typeOrder : undefined);
   };
 
   const unitSelectedCount = unitRows.filter(r => r.selected).length;
