@@ -396,10 +396,11 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { pageImage, focusedWallDetection, rightEndCrop, provider: providerInput, dialagramModel: dialagramModelInput } = body;
+    const { pageImage, pageImageMimeType, focusedWallDetection, rightEndCrop, provider: providerInput, dialagramModel: dialagramModelInput } = body;
     const provider: "gemini" | "dialagram" = providerInput === "dialagram" ? "dialagram" : "gemini";
     const dialagramModel = String(dialagramModelInput || "qwen-3.6-plus");
-    console.log(`extract-pdf-vtops provider=${provider}${provider === "dialagram" ? ` model=${dialagramModel}` : ""}`);
+    const imageMime = String(pageImageMimeType || "image/jpeg").trim() || "image/jpeg";
+    console.log(`extract-pdf-vtops provider=${provider}${provider === "dialagram" ? ` model=${dialagramModel}` : ""} mime=${imageMime}`);
 
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage (base64 string) required" }), {
