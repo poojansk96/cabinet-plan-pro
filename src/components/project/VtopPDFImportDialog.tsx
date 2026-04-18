@@ -1,7 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Upload, Loader2, Sparkles, Trash2, AlertTriangle, Eye, EyeOff } from 'lucide-react';
+import { X, Upload, Loader2, Sparkles, Trash2, AlertTriangle, Eye, EyeOff, Timer } from 'lucide-react';
 import { startExtraction, useExtractionJobByType, clearExtractionJob } from '@/hooks/useExtractionStore';
 import type { PrefinalVtopRow } from '@/hooks/usePrefinalStore';
+
+function formatExtractionDuration(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  if (m === 0) return `${s}s`;
+  return `${m}m ${s.toString().padStart(2, '0')}s`;
+}
 
 // ─── Extended import row with new detection fields ───
 export interface VtopImportRow extends PrefinalVtopRow {
@@ -397,6 +405,7 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson,
   const [personalQuoteIdx, setPersonalQuoteIdx] = useState(0);
   const [quoteVisible, setQuoteVisible] = useState(true);
   const [showDebug, setShowDebug] = useState(false);
+  const [nowTick, setNowTick] = useState<number>(() => Date.now());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const processingRef = useRef(false);
   const bgPickedUpRef = useRef(false);
@@ -431,6 +440,13 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson,
     if (!bgJob || bgJob.status !== 'processing' || bgPickedUpRef.current) return;
     setProgress(bgJob.progress);
   }, [bgJob?.progress]);
+
+  // ── Live timer tick while processing ──
+  useEffect(() => {
+    if (step !== 'processing') return;
+    const id = window.setInterval(() => setNowTick(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [step]);
 
   async function processFiles(files: File[]) {
     if (processingRef.current) return;
@@ -676,6 +692,15 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson,
                 <span className="absolute inset-0 rounded-full opacity-20 animate-[ping_1.8s_cubic-bezier(0,0,0.2,1)_infinite]" style={{ background: 'hsl(var(--primary))' }} />
                 <Loader2 size={32} className="animate-spin relative z-10" style={{ color: 'hsl(var(--primary))' }} />
                 <Sparkles size={13} className="absolute top-2 right-2 z-20 animate-pulse" style={{ color: 'hsl(var(--primary))' }} />
+              </div>
+
+              {/* Live elapsed timer */}
+              <div className="flex items-center gap-1.5 text-xs font-mono tabular-nums text-foreground bg-secondary/70 border border-border px-2.5 py-1 rounded-full">
+                <Timer size={12} className="text-primary" />
+                <span className="font-semibold">
+                  {formatExtractionDuration((bgJob?.startedAt ? nowTick - bgJob.startedAt : 0))}
+                </span>
+                <span className="text-muted-foreground text-[10px]">elapsed</span>
               </div>
               <div className="text-center space-y-2 max-w-xs">
                 <p className="text-xs italic text-muted-foreground/80" style={{ opacity: quoteVisible ? 1 : 0, transition: 'opacity 0.4s ease' }}>
