@@ -555,23 +555,34 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
     const cabHeader = wsCabs.addRow(headerValues);
     cabHeader.height = 120;
+    // Helper: which type-column groups should mark a mismatched type in red
+    const typeGroupStarts = [colCabFirstType, colPullsFirstType, colPricingFirstType, colTotalCabFirstType, colCpuFirstType];
     cabHeader.eachCell((cell, colNumber) => {
       cell.font = { bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F0' } };
       cell.border = { bottom: { style: 'thin', color: { argb: 'FF999999' } } };
       cell.alignment = { vertical: 'bottom', wrapText: false };
       const idx = colNumber;
-      if ((idx >= colCabFirstType && idx <= colCabFirstType + nTypes - 1) ||
-          (idx >= colPullsFirstType && idx <= colPullsFirstType + nTypes - 1) ||
-          (idx >= colPricingFirstType && idx <= colPricingFirstType + nTypes - 1) ||
-          (idx >= colTotalCabFirstType && idx <= colTotalCabFirstType + nTypes - 1) ||
-          (idx >= colCpuFirstType && idx <= colCpuFirstType + nTypes - 1)) {
+      let isTypeCol = false;
+      let typeColIdx = -1;
+      for (const start of typeGroupStarts) {
+        if (idx >= start && idx <= start + nTypes - 1) {
+          isTypeCol = true;
+          typeColIdx = idx - start;
+          break;
+        }
+      }
+      if (isTypeCol) {
         cell.alignment = { textRotation: 90, vertical: 'bottom', horizontal: 'center' };
+        if (mismatchIdx.has(typeColIdx)) {
+          cell.font = { bold: true, color: { argb: 'FFCC0000' } };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE5E5' } };
+        }
       }
     });
 
-    // Freeze: top 3 rows (section headers + unit count ref + column headers) AND first column (SKU Name)
-    wsCabs.views = [{ state: 'frozen', xSplit: 3, ySplit: 3 }];
+    // Freeze: top 4 rows (section headers + type-match + unit count ref + column headers) AND first column (SKU Name)
+    wsCabs.views = [{ state: 'frozen', xSplit: 3, ySplit: 4 }];
 
     const dataRangeStartRow = cabHeader.number + 1;
 
