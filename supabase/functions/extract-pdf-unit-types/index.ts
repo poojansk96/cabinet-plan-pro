@@ -268,6 +268,69 @@ function cleanUnits(rawUnits: any[], pageBldg: string | null) {
   });
 }
 
+// ── Dialagram (Qwen) helper ──
+const DIALAGRAM_BASE_URL = "https://www.dialagram.me/router/v1";
+
+async function callDialagram(apiKey: string, model: string, pageImage: string, prompt: string, temperature: number, maxTokens: number): Promise<string> {
+  const MAX_RETRIES = 3;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetch(`${DIALAGRAM_BASE_URL}/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json", "Authorization": `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model,
+          temperature,
+          max_tokens: maxTokens,
+          stream: false,
+          messages: [
+            { role: "system", content: "You are a vision AI that analyzes architectural shop drawings provided as images. Always inspect the attached image before responding. Never say no image was uploaded, because the image is always attached." },
+            { role: "user", content: [
+              { type: "text", text: prompt },
+              { type: "image_url", image_url: { url: `data:image/jpeg;base64,${pageImage}` } },
+            ]},
+          ],
+        }),
+      });
+      if (res.status === 429) throw new Error("rate_limit");
+      if (res.status === 402) throw new Error("credits");
+      if ((res.status === 503 || res.status === 500) && attempt < MAX_RETRIES - 1) {
+        await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+        continue;
+      }
+      if (!res.ok) {
+        console.error("Dialagram error:", res.status, (await res.text()).slice(0, 300));
+        throw new Error(`AI error ${res.status}`);
+      }
+      const raw = await res.text();
+      const trimmed = raw.trim();
+      if (trimmed.startsWith("{")) {
+        const data = JSON.parse(trimmed);
+        return data.choices?.[0]?.message?.content ?? "";
+      }
+      // SSE fallback
+      let assembled = "";
+      for (const line of raw.split("\n")) {
+        const l = line.trim();
+        if (!l.startsWith("data:")) continue;
+        const payload = l.slice(5).trim();
+        if (!payload || payload === "[DONE]") continue;
+        try {
+          const chunk = JSON.parse(payload);
+          assembled += chunk.choices?.[0]?.delta?.content ?? chunk.choices?.[0]?.message?.content ?? "";
+        } catch {}
+      }
+      if (assembled) return assembled;
+      throw new Error("Dialagram empty response");
+    } catch (err: any) {
+      if (err.message === "rate_limit" || err.message === "credits") throw err;
+      if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
+      throw err;
+    }
+  }
+  throw new Error("ai_unavailable");
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -275,10 +338,15 @@ serve(async (req) => {
 
   try {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
+    const DIALAGRAM_API_KEY = Deno.env.get("DIALAGRAM_API_KEY");
 
-    const { pageImage, speedMode } = await req.json();
+    const { pageImage, speedMode, aiProvider, dialagramModel } = await req.json();
     const isFastMode = speedMode === 'fast';
+    const provider: "gemini" | "dialagram" = aiProvider === "dialagram" ? "dialagram" : "gemini";
+    const qwenModel = dialagramModel || "qwen-3.6-plus";
+
+    if (provider === "gemini" && !GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
+    if (provider === "dialagram" && !DIALAGRAM_API_KEY) throw new Error("DIALAGRAM_API_KEY not configured");
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
