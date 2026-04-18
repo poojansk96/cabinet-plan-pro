@@ -562,7 +562,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
     // to the FRONT cabinet-count type headers so renaming a type in the front
     // group automatically propagates everywhere via formula.
     const headerRowNum = cabHeader.number;
-    const linkedGroupStarts = [colPullsFirstType, colTotalCabFirstType, colCpuFirstType];
+    const linkedGroupStarts = [colPullsFirstType, colPricingFirstType, colTotalCabFirstType, colCpuFirstType];
     for (let i = 0; i < nTypes; i++) {
       const sourceRef = ref(colCabFirstType + i, headerRowNum);
       const sourceLabel = cabTypes[i] ?? '';
