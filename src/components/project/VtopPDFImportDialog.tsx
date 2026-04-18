@@ -78,16 +78,20 @@ async function renderPageToCanvasData(page: any, maxPx = 3200, maxScale = 4.5): 
   return { canvas, width, height };
 }
 
-async function canvasToBase64(canvas: OffscreenCanvas | HTMLCanvasElement, quality = 0.82): Promise<string> {
+async function canvasToBase64(
+  canvas: OffscreenCanvas | HTMLCanvasElement,
+  quality = 0.82,
+  mimeType: 'image/jpeg' | 'image/png' = 'image/jpeg',
+): Promise<string> {
   if (canvas instanceof OffscreenCanvas) {
-    const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality });
+    const blob = await canvas.convertToBlob({ type: mimeType, quality: mimeType === 'image/jpeg' ? quality : undefined });
     const buf = await blob.arrayBuffer();
     const bytes = new Uint8Array(buf);
     let binary = '';
     for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
     return btoa(binary);
   }
-  return (canvas as HTMLCanvasElement).toDataURL('image/jpeg', quality).split(',')[1];
+  return (canvas as HTMLCanvasElement).toDataURL(mimeType, mimeType === 'image/jpeg' ? quality : undefined).split(',')[1];
 }
 
 async function canvasCropToBase64(
