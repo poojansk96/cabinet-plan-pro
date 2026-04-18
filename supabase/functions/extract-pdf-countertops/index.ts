@@ -662,9 +662,18 @@ function scoreUnitTypeName(value: string): number {
   return score;
 }
 
+function sanitizeUnitTypeName(value: string): string {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^<.*>$/.test(raw)) return "";
+  if (/EXACT_TITLE_BLOCK_TEXT/i.test(raw)) return "";
+  if (/^(unknown|n\/?a|none|null|empty|tbd|untitled)$/i.test(raw)) return "";
+  return raw.replace(/^["']+|["']+$/g, "").trim();
+}
+
 function chooseBestUnitTypeName(values: string[]): string {
   const unique = values
-    .map((value) => String(value || "").trim())
+    .map(sanitizeUnitTypeName)
     .filter(Boolean)
     .filter((value, index, arr) => arr.indexOf(value) === index);
 
