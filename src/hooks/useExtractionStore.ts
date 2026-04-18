@@ -31,6 +31,7 @@ export interface ExtractionJob {
   error: string | null;
   fileNames: string[];
   startedAt: number;
+  finishedAt: number | null;
 }
 
 type Listener = () => void;
