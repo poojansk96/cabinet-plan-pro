@@ -10,9 +10,11 @@ type ModelAttempt = { name: string; retries: number };
 
 type NormalizedCountertop = {
   label: string;
-  length: number;
-  depth: number;
-  backsplashLength: number;
+  roomName?: string;
+  instanceKey?: string;
+  length: number | null;
+  depth: number | null;
+  backsplashLength: number | null;
   isIsland: boolean;
   category: "kitchen" | "bath";
 };
@@ -263,6 +265,8 @@ Extract:
 
 For each countertop section return:
 - label
+- roomName
+- instanceKey
 - length (inches)
 - depth (inches)
 - backsplashLength (wall backsplash inches only)
@@ -273,6 +277,8 @@ Rules:
 - Scan the ENTIRE page before answering. Do not stop after the first countertop.
 - Count kitchen sections and bath/vanity sections separately.
 - Small vanity tops matter — return each vanity separately even if it is similar to another vanity.
+- Capture the exact room name when visible: KITCHEN, MASTER BATH, BATH 2, POWDER, LAUNDRY, BAR, etc.
+- Return a stable instanceKey for each physical top, e.g. MASTER_BATH_VANITY_1 or KITCHEN_ISLAND_1.
 - Use visible dimensions if present; otherwise estimate reasonably from the drawing.
 - Split L-shaped or U-shaped tops into straight segments.
 - Wall runs usually have backsplashLength equal to the full wall-contact length.
@@ -282,7 +288,7 @@ Rules:
 - Only return an empty list if there is truly no countertop drawing on the page.
 
 Return ONLY valid JSON:
-{"unitTypeName":"TYPE A","countertops":[{"label":"Perimeter","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"}]}`;
+{"unitTypeName":"TYPE A","countertops":[{"label":"Perimeter","roomName":"KITCHEN","instanceKey":"KITCHEN_PERIMETER_1","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"}]}`;
   }
 
   return `You are an expert millwork estimator analyzing a 2020 countertop shop drawing.
@@ -353,15 +359,18 @@ function buildDialagramCategoryPrompt(category: "kitchen" | "bath"): string {
 
 Find ONLY bath / vanity countertop sections on this page.
 
-Rules:
-- Count EACH vanity separately. Do not merge two bathrooms into one section just because the sizes match.
-- Focus on vanity, bath, bathroom, lav, powder, WC, or tops that are about 19" or 22" deep.
+Important estimator rules:
+- Count every physical vanity separately, even if two or more have identical sizes.
+- Never merge different bathrooms into one item.
+- For each item, capture the exact room name if visible: MASTER BATH, BATH 2, POWDER, WC, etc.
+- If multiple vanities exist with same room name, return separate instance keys like MASTER_BATH_VANITY_1 and MASTER_BATH_VANITY_2.
+- Focus on vanity, bath, bathroom, lav, powder, WC, or tops about 19" or 22" deep.
 - Ignore kitchen perimeter runs, islands, peninsulas, laundry tops, and bar tops.
-- If a bath top is visible but only partly dimensioned, estimate using the drawing and standard bath depths.
+- If partly dimensioned, estimate reasonably from visible geometry and nearby dimensions.
 - backsplashLength is the full wall-contact length.
 
 Return ONLY valid JSON:
-{"unitTypeName":"TYPE A","countertops":[{"label":"Vanity","length":36,"depth":22,"backsplashLength":36,"isIsland":false,"category":"bath"}]}`;
+{"unitTypeName":"TYPE A","countertops":[{"label":"Vanity","roomName":"MASTER BATH","instanceKey":"MASTER_BATH_VANITY_1","length":36,"depth":22,"backsplashLength":36,"isIsland":false,"category":"bath"}]}`;
   }
 
   return `You are reading ONE 2020 countertop shop drawing image.
@@ -371,12 +380,13 @@ Find ONLY kitchen / laundry / bar / island countertop sections on this page.
 Rules:
 - Count EVERY kitchen section visible on the page. Do not stop after the first perimeter run.
 - Include perimeter runs, islands, peninsulas, bar tops, and laundry counters.
+- Capture roomName and a stable instanceKey for each physical top.
 - Ignore bath / vanity tops.
 - Split L-shaped or U-shaped tops into straight segments.
 - backsplashLength is the full wall-contact length for wall runs; islands usually have 0 backsplash.
 
 Return ONLY valid JSON:
-{"unitTypeName":"TYPE A","countertops":[{"label":"Perimeter","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"},{"label":"Island","length":72,"depth":36,"backsplashLength":0,"isIsland":true,"category":"kitchen"}]}`;
+{"unitTypeName":"TYPE A","countertops":[{"label":"Perimeter","roomName":"KITCHEN","instanceKey":"KITCHEN_PERIMETER_1","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"},{"label":"Island","roomName":"KITCHEN","instanceKey":"KITCHEN_ISLAND_1","length":72,"depth":36,"backsplashLength":0,"isIsland":true,"category":"kitchen"}]}`;
 }
 
 function buildDialagramFinalizePrompt(unitTypeName: string, countertops: NormalizedCountertop[]): string {
@@ -391,6 +401,7 @@ Rules:
 - Keep kitchen sections and bath/vanity sections separate.
 - Small vanity tops matter; count each vanity separately.
 - Do not merge separate rooms just because dimensions match.
+- Preserve roomName and instanceKey for each physical top.
 - Add missing sections, remove duplicates, and correct dimensions/categories.
 - Split L-shaped or U-shaped tops into straight segments.
 
@@ -434,22 +445,40 @@ function parseCountertopJSON(content: string): { unitTypeName: string; counterto
   };
 }
 
+function normalizeText(v: unknown): string {
+  return String(v || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function numOrNull(v: unknown): number | null {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.round(n * 2) / 2 : null;
+}
+
 function normalizeCountertop(ct: any) {
-  const depth = Math.round((Number(ct.depth) || 25.5) * 2) / 2;
+  const depth = numOrNull(ct.depth);
+  const length = numOrNull(ct.length);
+  const backsplashLength = numOrNull(ct.backsplashLength);
   let category = String(ct.category || "").toLowerCase().trim();
+  const label = String(ct.label || "Section").trim();
+  const roomName = String(ct.roomName || "").trim();
+  const instanceKey = String(ct.instanceKey || "").trim();
+
   if (!category || (category !== "kitchen" && category !== "bath")) {
-    const label = String(ct.label || "").toLowerCase();
-    if (depth <= 22 || /vanity|bath|lav|powder/.test(label)) {
+    const hint = `${label} ${roomName}`.toLowerCase();
+    if ((depth != null && depth <= 22) || /vanity|bath|lav|powder|wc/.test(hint)) {
       category = "bath";
     } else {
       category = "kitchen";
     }
   }
+
   return {
-    label: String(ct.label || "Section").trim(),
-    length: Math.round((Number(ct.length) || 96) * 2) / 2,
+    label,
+    roomName: roomName || undefined,
+    instanceKey: instanceKey || undefined,
+    length,
     depth,
-    backsplashLength: Math.round((Number(ct.backsplashLength) || 0) * 2) / 2,
+    backsplashLength,
     isIsland: Boolean(ct.isIsland),
     category,
   };
