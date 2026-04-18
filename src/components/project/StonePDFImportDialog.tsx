@@ -233,72 +233,113 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
           const pageImage = renderedPage.base64;
           const pageImageMimeType = renderedPage.mimeType;
 
-          const MAX_CLIENT_RETRIES = 5;
-          let pageSuccess = false;
-          for (let attempt = 0; attempt < MAX_CLIENT_RETRIES && !pageSuccess; attempt++) {
-            try {
-              if (attempt > 0) {
-                const delay = Math.min(3000 * attempt, 15000);
-                update({ statusText: `Retrying ${file.name} — page ${p}/${pdf.numPages} (attempt ${attempt + 1}/${MAX_CLIENT_RETRIES})` });
-                await new Promise(r => setTimeout(r, delay));
-              }
-              const controller = new AbortController();
-              const timeout = setTimeout(() => controller.abort(), 180000);
-              const resp = await fetch(`${SUPABASE_URL}/functions/v1/extract-pdf-countertops`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${SUPABASE_KEY}`,
-                },
-                body: JSON.stringify({
-                  pageImage,
-                  pageImageMimeType,
-                  provider: aiProvider,
-                  dialagramModel,
-                  pageTextHint: pageText,
-                  unitTypeNameHint: hintedUnitType,
-                }),
-                signal: controller.signal,
-              });
-              clearTimeout(timeout);
-
-              if (resp.status === 429) { update({ status: 'error', error: 'Rate limit reached. Please wait and try again.' }); clearInterval(quoteInterval); processingRef.current = false; return; }
-              if (resp.status === 402) { update({ status: 'error', error: 'AI credits exhausted.' }); clearInterval(quoteInterval); processingRef.current = false; return; }
-
-              if (resp.ok) {
-                const data = await resp.json();
-                const rawUnitType = sanitizeDetectedType(data.unitTypeName);
-                const pageUnitType = hintedUnitType || rawUnitType || `${file.name.replace(/\.pdf$/i, '')} — Page ${p}`;
-                if (!detectedTypesOrder.includes(pageUnitType)) {
-                  detectedTypesOrder.push(pageUnitType);
+          // ── Per-page request helper (so we can fall back from Qwen → Gemini when needed) ──
+          type PageOutcome = { ok: boolean; rawUnitType: string; countertops: any[]; rateLimited?: boolean; creditsExhausted?: boolean };
+          const runPageRequest = async (providerToUse: 'gemini' | 'dialagram', img: string, mime: string): Promise<PageOutcome> => {
+            const MAX_CLIENT_RETRIES = 5;
+            for (let attempt = 0; attempt < MAX_CLIENT_RETRIES; attempt++) {
+              try {
+                if (attempt > 0) {
+                  const delay = Math.min(3000 * attempt, 15000);
+                  update({ statusText: `Retrying ${file.name} — page ${p}/${pdf.numPages} (${providerToUse}, attempt ${attempt + 1}/${MAX_CLIENT_RETRIES})` });
+                  await new Promise(r => setTimeout(r, delay));
                 }
-                for (const ct of (data.countertops ?? [])) {
-                  allRows.push({
-                    label: ct.label,
-                    length: ct.length,
-                    depth: ct.depth,
-                    backsplashLength: ct.backsplashLength ?? 0,
-                    isIsland: ct.isIsland,
-                    category: ct.category === 'bath' ? 'bath' : 'kitchen',
-                    selected: true,
-                    sourceFile: file.name,
-                    unitType: pageUnitType,
-                  });
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 180000);
+                const resp = await fetch(`${SUPABASE_URL}/functions/v1/extract-pdf-countertops`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_KEY}` },
+                  body: JSON.stringify({
+                    pageImage: img,
+                    pageImageMimeType: mime,
+                    provider: providerToUse,
+                    dialagramModel,
+                    pageTextHint: pageText,
+                    unitTypeNameHint: hintedUnitType,
+                  }),
+                  signal: controller.signal,
+                });
+                clearTimeout(timeout);
+                if (resp.status === 429) return { ok: false, rawUnitType: '', countertops: [], rateLimited: true };
+                if (resp.status === 402) return { ok: false, rawUnitType: '', countertops: [], creditsExhausted: true };
+                if (resp.ok) {
+                  const data = await resp.json();
+                  return {
+                    ok: true,
+                    rawUnitType: sanitizeDetectedType(data.unitTypeName),
+                    countertops: Array.isArray(data.countertops) ? data.countertops : [],
+                  };
                 }
-                pageSuccess = true;
-              } else if (resp.status === 503) {
-                console.warn(`Server 503 on page ${p}, attempt ${attempt + 1}/${MAX_CLIENT_RETRIES}`);
-                continue;
-              }
-            } catch (err) {
-              console.error(`Error processing page ${p} (attempt ${attempt + 1}):`, err);
-              if (attempt >= MAX_CLIENT_RETRIES - 1) {
-                console.error(`Failed page ${p} after ${MAX_CLIENT_RETRIES} attempts`);
+                if (resp.status === 503) {
+                  console.warn(`Server 503 on page ${p} (${providerToUse}), attempt ${attempt + 1}`);
+                  continue;
+                }
+              } catch (err) {
+                console.error(`Error processing page ${p} (${providerToUse}, attempt ${attempt + 1}):`, err);
               }
             }
+            return { ok: false, rawUnitType: '', countertops: [] };
+          };
+
+          // ── Primary attempt with selected provider ──
+          let outcome = await runPageRequest(aiProvider, pageImage, pageImageMimeType);
+          if (outcome.rateLimited) { update({ status: 'error', error: 'Rate limit reached. Please wait and try again.' }); clearInterval(quoteInterval); processingRef.current = false; return; }
+          if (outcome.creditsExhausted) { update({ status: 'error', error: 'AI credits exhausted.' }); clearInterval(quoteInterval); processingRef.current = false; return; }
+
+          // ── Fallback: if primary returned 0 countertops AND we know this page has a real type
+          //     from the PDF text layer, retry with the OTHER provider so we never silently drop a type ──
+          if (outcome.ok && outcome.countertops.length === 0 && hintedUnitType) {
+            const fallbackProvider: 'gemini' | 'dialagram' = aiProvider === 'dialagram' ? 'gemini' : 'dialagram';
+            update({ statusText: `Page ${p} empty — falling back to ${fallbackProvider} for ${hintedUnitType}…` });
+            console.warn(`⚠️ Page ${p} (${hintedUnitType}) returned 0 sections from ${aiProvider}, retrying with ${fallbackProvider}`);
+            // For Gemini fallback we keep the JPEG image; render once if mime mismatches.
+            let fbImg = pageImage;
+            let fbMime: 'image/jpeg' | 'image/png' = pageImageMimeType;
+            if (fallbackProvider === 'gemini' && pageImageMimeType !== 'image/jpeg') {
+              const r = await renderPageToBase64(page, { scale: 3, mimeType: 'image/jpeg', quality: 0.85, maxBase64Length: 3_500_000 });
+              fbImg = r.base64; fbMime = r.mimeType;
+            }
+            const fb = await runPageRequest(fallbackProvider, fbImg, fbMime);
+            if (fb.rateLimited) { update({ status: 'error', error: 'Rate limit reached. Please wait and try again.' }); clearInterval(quoteInterval); processingRef.current = false; return; }
+            if (fb.creditsExhausted) { update({ status: 'error', error: 'AI credits exhausted.' }); clearInterval(quoteInterval); processingRef.current = false; return; }
+            if (fb.ok && fb.countertops.length > 0) {
+              outcome = fb;
+              console.log(`✅ Fallback ${fallbackProvider} recovered ${fb.countertops.length} sections for ${hintedUnitType}`);
+            }
           }
-          if (!pageSuccess) {
-            console.warn(`⚠️ Page ${p} of ${file.name} could not be processed after ${MAX_CLIENT_RETRIES} attempts`);
+
+          const pageUnitType = hintedUnitType || outcome.rawUnitType || `${file.name.replace(/\.pdf$/i, '')} — Page ${p}`;
+          if (!detectedTypesOrder.includes(pageUnitType)) detectedTypesOrder.push(pageUnitType);
+
+          if (outcome.ok && outcome.countertops.length > 0) {
+            for (const ct of outcome.countertops) {
+              allRows.push({
+                label: ct.label,
+                length: ct.length,
+                depth: ct.depth,
+                backsplashLength: ct.backsplashLength ?? 0,
+                isIsland: ct.isIsland,
+                category: ct.category === 'bath' ? 'bath' : 'kitchen',
+                selected: true,
+                sourceFile: file.name,
+                unitType: pageUnitType,
+              });
+            }
+          } else if (hintedUnitType) {
+            // ── Last resort: insert a visible placeholder so the user can SEE the type was found
+            //     in the PDF but no sections were extracted, and fill it in manually. ──
+            console.warn(`⚠️ Page ${p} (${pageUnitType}) → 0 sections after all retries. Adding placeholder.`);
+            allRows.push({
+              label: '⚠️ NEEDS REVIEW (0 sections detected)',
+              length: 0,
+              depth: 0,
+              backsplashLength: 0,
+              isIsland: false,
+              category: 'kitchen',
+              selected: false,
+              sourceFile: file.name,
+              unitType: pageUnitType,
+            });
           }
 
           pagesDone++;
