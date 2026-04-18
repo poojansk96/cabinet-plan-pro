@@ -28,7 +28,8 @@ interface CabinetRow {
 interface Props {
   onImport: (
     unitRows: { unitNumber: string; unitType: string; bldg: string }[],
-    cabinetRows: Omit<LabelRow, 'selected' | 'sourceFile'>[]
+    cabinetRows: Omit<LabelRow, 'selected' | 'sourceFile'>[],
+    typeOrder?: string[]
   ) => void;
   onClose: () => void;
 }
@@ -102,6 +103,7 @@ export default function CombinedImportDialog({ onImport, onClose }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [unitRows, setUnitRows] = useState<UnitRow[]>([]);
   const [cabinetRows, setCabinetRows] = useState<CabinetRow[]>([]);
+  const [typeOrder, setTypeOrder] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -123,10 +125,11 @@ export default function CombinedImportDialog({ onImport, onClose }: Props) {
       setProcessingStatus(bgJob.statusText);
     } else if (bgJob.status === 'done') {
       bgPickedUpRef.current = true;
-      const r = bgJob.results as { unitRows: UnitRow[]; cabinetRows: CabinetRow[] } | null;
+      const r = bgJob.results as { unitRows: UnitRow[]; cabinetRows: CabinetRow[]; typeOrder: string[] } | null;
       if (r) {
         setUnitRows(r.unitRows);
         setCabinetRows(r.cabinetRows);
+        setTypeOrder(r.typeOrder ?? []);
         setReviewTab(r.unitRows.length > 0 ? 'units' : 'cabinets');
       }
       setProgress(100);
@@ -191,6 +194,9 @@ export default function CombinedImportDialog({ onImport, onClose }: Props) {
         // ── PASS 1: Unit extraction ──
         update({ statusText: 'Extracting unit types…' });
         const unitSightings = new Map<string, { unitNumber: string; unitType: string; bldg: string; floor: string; pages: { page: number; file: string; unitType: string; bldg: string; floor: string }[] }>();
+        const pageOrderTypes: string[] = []; // unit types in PDF page order (first-seen wins)
+        const seenTypes = new Set<string>();
+        const normTypeKey = (v: string) => v.toUpperCase().replace(/\s+/g, '').trim();
 
         for (const { file, pdf } of pdfs) {
           for (let p = 1; p <= pdf.numPages; p++) {
@@ -212,6 +218,12 @@ export default function CombinedImportDialog({ onImport, onClose }: Props) {
                   const bldg = String(u.bldg ?? '').trim();
                   const floor = String(u.floor ?? '').trim();
                   if (!num || !type) continue;
+                  // Track type by PDF page order
+                  const tKey = normTypeKey(type);
+                  if (tKey && !seenTypes.has(tKey)) {
+                    seenTypes.add(tKey);
+                    pageOrderTypes.push(type);
+                  }
                   const key = `${keyPart(num)}|${keyPart(bldg)}|${keyPart(floor)}`;
                   const existing = unitSightings.get(key);
                   const sighting = { page: p, file: file.name, unitType: type, bldg, floor };
@@ -275,6 +287,13 @@ export default function CombinedImportDialog({ onImport, onClose }: Props) {
                 if (data.error === 'credits') { aborted = { reason: 'AI credits exhausted.' }; break; }
                 const items = data.items ?? [];
                 const detectedType = data.unitTypeName || undefined;
+                if (detectedType) {
+                  const tKey = normTypeKey(detectedType);
+                  if (tKey && !seenTypes.has(tKey)) {
+                    seenTypes.add(tKey);
+                    pageOrderTypes.push(detectedType);
+                  }
+                }
                 for (const item of items) {
                   const normSku = (item.sku || '').toUpperCase().trim().replace(/\s*-\s*/g, '-').replace(/\s+/g, '');
                   const unitTypeKey = detectedType || '__none__';
@@ -321,7 +340,7 @@ export default function CombinedImportDialog({ onImport, onClose }: Props) {
           status: 'done',
           progress: 100,
           statusText: 'Extraction complete',
-          results: { unitRows: finalUnitRows, cabinetRows: finalCabinetRows },
+          results: { unitRows: finalUnitRows, cabinetRows: finalCabinetRows, typeOrder: pageOrderTypes },
         });
       } catch (err) {
         console.error(err);
@@ -345,7 +364,7 @@ export default function CombinedImportDialog({ onImport, onClose }: Props) {
   const handleImport = () => {
     const selectedUnits = unitRows.filter(r => r.selected).map(({ selected: _, conflict: __, ...rest }) => rest);
     const selectedCabinets = cabinetRows.filter(r => r.selected).map(({ selected: _, ...rest }) => rest);
-    onImport(selectedUnits, selectedCabinets);
+    onImport(selectedUnits, selectedCabinets, typeOrder.length > 0 ? typeOrder : undefined);
   };
 
   const unitSelectedCount = unitRows.filter(r => r.selected).length;
