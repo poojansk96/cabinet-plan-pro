@@ -501,22 +501,38 @@ Verify:
 Return the corrected JSON (same format), no other text. Each entry MUST have a "bldg" field:
 {"bldg":null,"units":[{"unitNumber":"1A","unitType":"TYPE 1 - AS","floor":"1","bldg":"BLDG 1"}]}`;
 
-        const verifyBody = JSON.stringify({
-          contents: [{ role: "user", parts: [
-            { inlineData: { mimeType: "image/jpeg", data: pageImage } },
-            { text: VERIFY_PROMPT + "\n\nPreviously extracted data:\n" + JSON.stringify({ bldg: parsed.bldg || null, units: firstPassUnits }) },
-          ]}],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
-        });
+        const verifyPromptText = VERIFY_PROMPT + "\n\nPreviously extracted data:\n" + JSON.stringify({ bldg: parsed.bldg || null, units: firstPassUnits });
+        let verifyContent = "";
 
-        const verifyRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-preview:generateContent?key=${GEMINI_API_KEY}`,
-          { method: "POST", headers: { "Content-Type": "application/json" }, body: verifyBody }
-        );
+        if (provider === "dialagram") {
+          const DIALAGRAM_API_KEY = Deno.env.get("DIALAGRAM_API_KEY");
+          if (!DIALAGRAM_API_KEY) throw new Error("DIALAGRAM_API_KEY not configured");
+          try {
+            verifyContent = await requestDialagram(DIALAGRAM_API_KEY, pageImage, verifyPromptText, dialagramModel, 0.1, 8192);
+          } catch (err: any) {
+            console.warn("Qwen verification pass failed:", err?.message ?? err);
+          }
+        } else {
+          const verifyBody = JSON.stringify({
+            contents: [{ role: "user", parts: [
+              { inlineData: { mimeType: "image/jpeg", data: pageImage } },
+              { text: verifyPromptText },
+            ]}],
+            generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
+          });
+          const verifyRes = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-preview:generateContent?key=${GEMINI_API_KEY}`,
+            { method: "POST", headers: { "Content-Type": "application/json" }, body: verifyBody }
+          );
+          if (verifyRes.ok) {
+            const verifyData = await verifyRes.json();
+            verifyContent = verifyData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+          } else {
+            console.warn("Verification pass failed with status:", verifyRes.status, "— using Pass 1 results");
+          }
+        }
 
-        if (verifyRes.ok) {
-          const verifyData = await verifyRes.json();
-          const verifyContent = verifyData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+        if (verifyContent) {
           console.log("AI Pass 2 (verify) response:", verifyContent.slice(0, 500));
           const verifyParsed = extractJSON(verifyContent);
           const verifiedUnits = cleanUnits(verifyParsed.units, verifyParsed.bldg || parsed.bldg || null);
@@ -542,8 +558,6 @@ Return the corrected JSON (same format), no other text. Each entry MUST have a "
             console.log("Pass 2 returned empty — keeping Pass 1 results");
           }
           console.log("Pass 2 verified units:", finalUnits.length);
-        } else {
-          console.warn("Verification pass failed with status:", verifyRes.status, "— using Pass 1 results");
         }
       } catch (verifyErr) {
         console.warn("Verification pass error:", verifyErr, "— using Pass 1 results");
