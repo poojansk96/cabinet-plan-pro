@@ -707,6 +707,29 @@ serve(async (req) => {
     let extracted: { unitTypeName: string; countertops: any[] } = { unitTypeName: "", countertops: [] };
     let countertops: NormalizedCountertop[] = [];
     const dialagramPassResults: CountertopPassResult[] = [];
+    let dialagramTitleBlockName = "";
+
+    // ── Dedicated title-block pass (Qwen only) ──
+    // Runs FIRST so we have an authoritative unit type name before extraction passes
+    // can hallucinate "TYPE A" from the prompt example.
+    if (provider === "dialagram") {
+      try {
+        const titleBlockContent = await callAI("dialagram", pageImage, imageMimeType, buildDialagramTitleBlockPrompt(), {
+          temperature: 0.0,
+          maxOutputTokens: 256,
+          geminiModels: PRIMARY_MODELS,
+          dialagramModel: getDialagramAccuracyModel(dialagramModel),
+        });
+        console.log("Dialagram title-block raw:", titleBlockContent.slice(0, 300));
+        const tb = parseCountertopJSON(titleBlockContent);
+        dialagramTitleBlockName = sanitizeUnitTypeName(tb.unitTypeName);
+        console.log("Dialagram title-block detected:", dialagramTitleBlockName || "(none)");
+      } catch (tbErr) {
+        const knownErrorResponse = buildKnownAIErrorResponse(tbErr);
+        if (knownErrorResponse) return knownErrorResponse;
+        console.warn("Dialagram title-block pass failed:", tbErr);
+      }
+    }
 
     try {
       extractionContent = await callAI(provider, pageImage, imageMimeType, extractionPrompt, {
