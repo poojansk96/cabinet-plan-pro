@@ -954,6 +954,23 @@ serve(async (req) => {
       }
     }
 
+    // ── Hallucination filter: drop Qwen rows whose dimensions don't match printed dims ──
+    if (provider === "dialagram" && printedDims.length && countertops.length) {
+      const before = countertops.length;
+      countertops = countertops.filter((ct) => {
+        const lengthOk = isDimensionPrinted(ct.length, printedDims);
+        const depthOk = isDimensionPrinted(ct.depth, printedDims);
+        if (!lengthOk || !depthOk) {
+          console.warn(`Dropping hallucinated row: label="${ct.label}" length=${ct.length} depth=${ct.depth} (not in printed dims)`);
+          return false;
+        }
+        return true;
+      });
+      if (countertops.length !== before) {
+        console.log(`Hallucination filter: ${before} -> ${countertops.length} rows`);
+      }
+    }
+
     // Skip verification for Dialagram when results look healthy — saves ~25s and avoids 504s.
     const skipVerification = provider === "dialagram"
       && countertops.length >= 2
