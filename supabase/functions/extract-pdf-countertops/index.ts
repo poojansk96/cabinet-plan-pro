@@ -320,7 +320,7 @@ function buildCountertopExtractionPrompt(provider: "gemini" | "dialagram", print
     : "";
 
   if (provider === "dialagram") {
-    return `You are a millwork estimator looking at ONE 2020 countertop shop drawing image.
+    return `You are a millwork estimator looking at ONE 2020 countertop shop drawing image.${dimsBlock}
 
 CRITICAL — READ DIMENSIONS FROM THIS IMAGE ONLY:
 - DO NOT invent or guess any number. Every length / depth / backsplashLength MUST come from a dimension label literally printed on THIS image.
