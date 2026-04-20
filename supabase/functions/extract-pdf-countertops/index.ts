@@ -817,7 +817,7 @@ serve(async (req) => {
     }
     try {
       extractionContent = await callAI(provider, pageImage, imageMimeType, extractionPrompt, {
-        temperature: provider === "dialagram" ? 0.2 : 0.2,
+        temperature: provider === "dialagram" ? 0.0 : 0.2,
         maxOutputTokens: 8192,
         geminiModels: PRIMARY_MODELS,
         dialagramModel: activeDialagramModel,
@@ -839,7 +839,7 @@ serve(async (req) => {
         console.log("Fast Qwen returned empty — retrying with thinking model...");
         try {
           const retryContent = await callAI("dialagram", pageImage, imageMimeType, extractionPrompt, {
-            temperature: 0.2,
+            temperature: 0.0,
             maxOutputTokens: 8192,
             geminiModels: PRIMARY_MODELS,
             dialagramModel: thinkingModel,
