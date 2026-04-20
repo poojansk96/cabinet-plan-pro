@@ -394,12 +394,15 @@ Return ONLY valid JSON — no markdown fences, no explanation:
 {"unitTypeName":"<from title block>","countertops":[{"label":"<from drawing>","length":<from drawing>,"depth":<from drawing>,"backsplashLength":<from drawing>,"isIsland":false,"category":"kitchen"}]}`;
 }
 
-function buildDialagramRescuePrompt(previousContent: string): string {
+function buildDialagramRescuePrompt(previousContent: string, printedDims: number[] = []): string {
+  const dimsBlock = printedDims.length
+    ? `\n\nGROUND-TRUTH DIMENSIONS PRINTED ON THIS IMAGE: ${printedDims.map(formatDimensionForPrompt).join(", ")}\nEvery returned length / depth / backsplashLength MUST come from this list. Do NOT invent values.\n`
+    : "";
   const previous = previousContent.trim()
     ? previousContent.trim().slice(0, 400)
     : '{"unitTypeName":"","countertops":[]}';
 
-  return `Re-check the SAME countertop shop drawing. Previous pass returned: ${previous}
+  return `Re-check the SAME countertop shop drawing. Previous pass returned: ${previous}${dimsBlock}
 
 READ DIMENSIONS LITERALLY FROM THE IMAGE. Do not invent values. Numbers in this drawing look like 76 1/2", 25 1/4", 39 3/4", etc. Convert fractions to decimals.
 
@@ -410,7 +413,10 @@ Also read unitTypeName from the title block VERBATIM (e.g. "TYPE 2.1C"); return 
 Return ONLY valid JSON, no markdown.`;
 }
 
-function buildDialagramCategoryPrompt(category: "kitchen" | "bath"): string {
+function buildDialagramCategoryPrompt(category: "kitchen" | "bath", printedDims: number[] = []): string {
+  const dimsBlock = printedDims.length
+    ? `\n\nGROUND-TRUTH DIMENSIONS PRINTED ON THIS IMAGE: ${printedDims.map(formatDimensionForPrompt).join(", ")}\nEvery returned length / depth / backsplashLength MUST come from this list. Do NOT invent values.\n`
+    : "";
   if (category === "bath") {
     return `Look at this countertop shop drawing. Find every BATH / VANITY top.
 
