@@ -257,29 +257,37 @@ function buildKnownAIErrorResponse(err: unknown): Response | null {
 
 function buildCountertopExtractionPrompt(provider: "gemini" | "dialagram"): string {
   if (provider === "dialagram") {
-    return `You are an expert countertop estimator looking at ONE 2020 shop drawing image.
+    return `You are a millwork estimator looking at ONE 2020 countertop shop drawing image.
 
-Extract EVERY countertop section visible on the page. Be generous — it is much worse to miss a section than to include an extra one.
+CRITICAL — READ DIMENSIONS FROM THIS IMAGE ONLY:
+- DO NOT invent or guess any number. Every length / depth / backsplashLength MUST come from a dimension label literally printed on THIS image.
+- Dimensions in the drawing are written in inches with fraction notation like 76 1/2", 25 1/4", 39 3/4", 47 1/2". Convert fractions to decimals (1/4=0.25, 1/2=0.5, 3/4=0.75).
+- If you cannot find a printed dimension for a value, return null for that field. NEVER use 96, 108, 120, 60, 72, 36, 25.5 as a "safe default" — those are forbidden defaults unless that exact number is printed on the image.
+- For each countertop section, you MUST also return a field "dimensionEvidence": the EXACT dimension text strings you read from the drawing (e.g. ["129\\"", "25 1/4\\""]). If this list is empty, the section will be discarded.
+
+UNIT TYPE NAME (REQUIRED):
+- Find the unit/type label printed on THIS page (usually in the title block or near "TYPE ___"). Real examples on shop drawings: "TYPE 2.1C", "TYPE 1.1B-AS", "1BR-A", "STUDIO", "2BR-ADA".
+- Copy it VERBATIM — do not shorten, do not invent. If you cannot read it on this page, return "".
+- FORBIDDEN: never return "TYPE A", "TYPE B", "Perimeter", or any value from this prompt's examples unless that exact text is actually printed on the image.
 
 For each countertop section return:
-- label (short name, e.g. "Perimeter", "Island", "Vanity", "Bar Top", "L-Section")
-- roomName (e.g. "KITCHEN", "MASTER BATH", "BATH 2", "POWDER", "LAUNDRY") — use "" if you cannot tell
-- length (inches, number)
-- depth (inches, number) — kitchen perimeter ~25.5, island ~36, vanity ~22, bar ~12-18
-- backsplashLength (wall backsplash inches; 0 for islands/peninsulas)
+- label (short descriptive name based on the drawing — e.g. "Top Run", "Return", "Vanity", "Bar")
+- roomName (e.g. "KITCHEN", "MASTER BATH", "POWDER") — "" if you cannot tell
+- length (inches, decimal — read from the drawing)
+- depth (inches, decimal — read from the drawing; do NOT assume 25.5)
+- backsplashLength (inches against the wall; 0 for islands/peninsulas)
 - isIsland (true/false)
 - category ("kitchen" or "bath") — depth <=22 OR vanity/bath/lav/powder => "bath", else "kitchen"
-
-Also return unitTypeName: the exact text from the title block on THIS page (e.g. "TYPE A", "1.1B-AS", "STUDIO"). If you cannot read it on this page, return "" — do not guess.
+- dimensionEvidence (array of dimension strings literally visible on the page that justify length/depth)
 
 Rules:
-- Scan the ENTIRE page. Do not stop after the first section.
-- Split L-shaped or U-shaped runs into straight segments. For length, deduct depth at one corner; for backsplashLength, do NOT deduct corners.
-- Count every vanity separately, even if same size.
-- If you see ANY countertop, kitchen, vanity, bar top, island — return it. Only return an empty list if the page is truly not a countertop drawing.
+- Scan the ENTIRE page. Split L-shaped or U-shaped runs into straight segments based on the dimension chains shown.
+- For length, deduct depth at one corner of an L; for backsplashLength, do NOT deduct corners.
+- Count every vanity separately.
+- If the image shows no countertops at all, return {"unitTypeName":"<actual or empty>","countertops":[]}.
 
 Return ONLY valid JSON, no markdown:
-{"unitTypeName":"TYPE A","countertops":[{"label":"Perimeter","roomName":"KITCHEN","length":120,"depth":25.5,"backsplashLength":120,"isIsland":false,"category":"kitchen"},{"label":"Island","roomName":"KITCHEN","length":72,"depth":36,"backsplashLength":0,"isIsland":true,"category":"kitchen"},{"label":"Vanity","roomName":"MASTER BATH","length":60,"depth":22,"backsplashLength":60,"isIsland":false,"category":"bath"}]}`;
+{"unitTypeName":"<copy from image or empty>","countertops":[{"label":"<from image>","roomName":"<from image or empty>","length":<from image>,"depth":<from image>,"backsplashLength":<from image>,"isIsland":false,"category":"kitchen","dimensionEvidence":["<exact dimension text from image>"]}]}`;
   }
 
   return `You are an expert millwork estimator analyzing a 2020 countertop shop drawing.
@@ -320,7 +328,7 @@ RULES:
 - IMPORTANT: Scan the ENTIRE page thoroughly. Do not skip any countertop sections, especially smaller segments or sections in corners of the drawing.
 
 Return ONLY valid JSON — no markdown fences, no explanation:
-{"unitTypeName":"1.1B-AS","countertops":[{"label":"Perimeter Left","length":96,"depth":25.5,"backsplashLength":96,"isIsland":false,"category":"kitchen"}]}`;
+{"unitTypeName":"<from title block>","countertops":[{"label":"<from drawing>","length":<from drawing>,"depth":<from drawing>,"backsplashLength":<from drawing>,"isIsland":false,"category":"kitchen"}]}`;
 }
 
 function buildDialagramRescuePrompt(previousContent: string): string {
@@ -328,63 +336,56 @@ function buildDialagramRescuePrompt(previousContent: string): string {
     ? previousContent.trim().slice(0, 400)
     : '{"unitTypeName":"","countertops":[]}';
 
-  return `Re-check the same 2020 countertop shop drawing. The previous pass returned: ${previous}
+  return `Re-check the SAME countertop shop drawing. Previous pass returned: ${previous}
 
-This is a countertop shop drawing — there ARE countertops on this page. Find them.
+READ DIMENSIONS LITERALLY FROM THE IMAGE. Do not invent values. Numbers in this drawing look like 76 1/2", 25 1/4", 39 3/4", etc. Convert fractions to decimals.
 
-Look for:
-- Kitchen perimeter runs (long rectangles ~25.5" deep against walls)
-- Islands or peninsulas (free-standing rectangles, often 36"+ deep)
-- Vanity tops in bathrooms (~22" deep, often 30"-72" long)
-- Bar tops, laundry counters, powder room vanities
-- Dimension lines, hatched fills, double lines along walls (= backsplash)
+Find every countertop section. For each return: label, roomName (or ""), length, depth, backsplashLength, isIsland, category, and dimensionEvidence (array of dimension strings actually visible on the page).
 
-For each section return: label, roomName (or ""), length, depth, backsplashLength, isIsland, category ("kitchen" or "bath").
-Also try to read unitTypeName from the title block; return "" if you cannot.
+Also read unitTypeName from the title block VERBATIM (e.g. "TYPE 2.1C"); return "" if not visible. Never default to "TYPE A".
 
-Return ONLY valid JSON, no markdown fences:
-{"unitTypeName":"TYPE A","countertops":[{"label":"Perimeter","roomName":"KITCHEN","length":120,"depth":25.5,"backsplashLength":120,"isIsland":false,"category":"kitchen"}]}`;
+Return ONLY valid JSON, no markdown.`;
 }
 
 function buildDialagramCategoryPrompt(category: "kitchen" | "bath"): string {
   if (category === "bath") {
-    return `Look at this 2020 countertop shop drawing. Find every BATH / VANITY top on the page.
+    return `Look at this countertop shop drawing. Find every BATH / VANITY top.
 
-Bath/vanity tops are typically 19"-22" deep, found in MASTER BATH, BATH 2, POWDER, WC, etc.
+Bath/vanity tops are 19"-22" deep, in MASTER BATH, BATH 2, POWDER, WC, etc.
 
-For each one return: label ("Vanity"), roomName (the bathroom name, or ""), length, depth, backsplashLength (= length for wall vanities), isIsland (false), category ("bath").
+READ DIMENSIONS LITERALLY from the image — never guess. If a dimension isn't printed, return null.
 
-Count every vanity separately even if sizes match (different bathrooms = different items).
+For each one return: label ("Vanity"), roomName, length, depth, backsplashLength (= length for wall vanities), isIsland (false), category ("bath"), dimensionEvidence (array of dimension strings from the image).
 
-Also return unitTypeName from the title block (e.g. "TYPE A"), or "" if not visible.
+Also return unitTypeName from the title block VERBATIM, or "" if not visible. Never default to "TYPE A".
 
-Return ONLY valid JSON, no markdown:
-{"unitTypeName":"TYPE A","countertops":[{"label":"Vanity","roomName":"MASTER BATH","length":60,"depth":22,"backsplashLength":60,"isIsland":false,"category":"bath"}]}`;
+Return ONLY valid JSON, no markdown.`;
   }
 
-  return `Look at this 2020 countertop shop drawing. Find every KITCHEN / ISLAND / BAR / LAUNDRY top on the page.
+  return `Look at this countertop shop drawing. Find every KITCHEN / ISLAND / BAR / LAUNDRY top.
 
-Kitchen perimeter is ~25.5" deep against a wall. Islands/peninsulas are 30"+ deep, free-standing. Bar tops are 12"-18" deep.
+Kitchen perimeter is ~25"-26" deep against a wall. Islands/peninsulas are 30"+ deep, free-standing. Bar tops are 12"-18" deep.
 
-For each section return: label, roomName (e.g. "KITCHEN", or ""), length, depth, backsplashLength (= length for wall runs, 0 for islands), isIsland, category ("kitchen").
+READ DIMENSIONS LITERALLY from the image — never guess. If a dimension isn't printed, return null.
 
-Split L/U-shaped runs into straight segments. Count every section.
+For each section return: label, roomName, length, depth, backsplashLength (= length for wall runs, 0 for islands), isIsland, category ("kitchen"), dimensionEvidence (array of dimension strings from the image).
 
-Also return unitTypeName from the title block (e.g. "TYPE A"), or "" if not visible.
+Split L/U-shaped runs into straight segments using the dimension chains shown.
 
-Return ONLY valid JSON, no markdown:
-{"unitTypeName":"TYPE A","countertops":[{"label":"Perimeter","roomName":"KITCHEN","length":120,"depth":25.5,"backsplashLength":120,"isIsland":false,"category":"kitchen"},{"label":"Island","roomName":"KITCHEN","length":72,"depth":36,"backsplashLength":0,"isIsland":true,"category":"kitchen"}]}`;
+Also return unitTypeName from the title block VERBATIM, or "" if not visible. Never default to "TYPE A".
+
+Return ONLY valid JSON, no markdown.`;
 }
 
 function buildDialagramTitleBlockPrompt(): string {
   return `Find the unit / plan type name printed on this shop drawing page.
 
-Look in the title block (usually bottom-right corner) or sheet header. Examples: "TYPE A", "TYPE B", "1.1B-AS", "2BR-ADA", "STUDIO", "PENTHOUSE A".
+Look in the title block (usually bottom-right corner) or sheet header. Real examples that appear on shop drawings: "TYPE 2.1C", "TYPE 1.1B-AS", "1BR-A", "2BR-ADA", "STUDIO", "PENTHOUSE A".
 
-Copy the text exactly as printed. If you cannot find a clear unit type name on this page, return "".
+Copy the text EXACTLY as printed on this page. Do NOT default to "TYPE A". If you cannot find a clear unit/plan type name on this page, return "".
 
 Return ONLY valid JSON:
-{"unitTypeName":"TYPE A"}`;
+{"unitTypeName":"<exact text or empty>"}`;
 }
 
 function buildDialagramFinalizePrompt(unitTypeName: string, countertops: NormalizedCountertop[]): string {
