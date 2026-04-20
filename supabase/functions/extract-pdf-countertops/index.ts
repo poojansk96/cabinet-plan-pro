@@ -418,7 +418,7 @@ function buildDialagramCategoryPrompt(category: "kitchen" | "bath", printedDims:
     ? `\n\nGROUND-TRUTH DIMENSIONS PRINTED ON THIS IMAGE: ${printedDims.map(formatDimensionForPrompt).join(", ")}\nEvery returned length / depth / backsplashLength MUST come from this list. Do NOT invent values.\n`
     : "";
   if (category === "bath") {
-    return `Look at this countertop shop drawing. Find every BATH / VANITY top.
+    return `Look at this countertop shop drawing. Find every BATH / VANITY top.${dimsBlock}
 
 Bath/vanity tops are 19"-22" deep, in MASTER BATH, BATH 2, POWDER, WC, etc.
 
@@ -431,7 +431,7 @@ Also return unitTypeName from the title block VERBATIM, or "" if not visible. Ne
 Return ONLY valid JSON, no markdown.`;
   }
 
-  return `Look at this countertop shop drawing. Find every KITCHEN / ISLAND / BAR / LAUNDRY top.
+  return `Look at this countertop shop drawing. Find every KITCHEN / ISLAND / BAR / LAUNDRY top.${dimsBlock}
 
 Kitchen perimeter is ~25"-26" deep against a wall. Islands/peninsulas are 30"+ deep, free-standing. Bar tops are 12"-18" deep.
 
@@ -882,8 +882,8 @@ serve(async (req) => {
       // Only run focused passes if broad result is weak — and only the missing category.
       if (!broadIsHealthy) {
         const focusedPasses: Array<{ label: string; prompt: string; model: string }> = [];
-        if (!broadHasKitchen) focusedPasses.push({ label: "kitchen-focus", prompt: buildDialagramCategoryPrompt("kitchen"), model: focusedModel });
-        if (!broadHasBath) focusedPasses.push({ label: "bath-focus", prompt: buildDialagramCategoryPrompt("bath"), model: focusedModel });
+        if (!broadHasKitchen) focusedPasses.push({ label: "kitchen-focus", prompt: buildDialagramCategoryPrompt("kitchen", printedDims), model: focusedModel });
+        if (!broadHasBath) focusedPasses.push({ label: "bath-focus", prompt: buildDialagramCategoryPrompt("bath", printedDims), model: focusedModel });
 
         // Run kitchen + bath focused passes IN PARALLEL — saves ~25s when both are needed.
         const passResults = await Promise.all(focusedPasses.map(async (pass) => {
@@ -924,7 +924,7 @@ serve(async (req) => {
 
       if (shouldRescue) {
         console.log("Dialagram extraction looks incomplete, running single rescue pass...");
-        const rescuePrompt = buildDialagramRescuePrompt(extractionContent);
+        const rescuePrompt = buildDialagramRescuePrompt(extractionContent, printedDims);
         // Only ONE rescue attempt to stay under 150s timeout.
         const rescueModel = getDialagramFallbackModels(focusedModel)[0];
         if (rescueModel) {
