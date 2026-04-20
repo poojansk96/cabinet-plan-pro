@@ -775,7 +775,11 @@ serve(async (req) => {
       });
     }
 
-    const extractionPrompt = buildCountertopExtractionPrompt(provider);
+    const printedDims = provider === "dialagram" ? extractPrintedDimensionsFromPageText(String(pageTextHint || "")) : [];
+    if (printedDims.length) {
+      console.log(`Printed dimensions from PDF text (${printedDims.length}):`, printedDims.join(", "));
+    }
+    const extractionPrompt = buildCountertopExtractionPrompt(provider, printedDims);
 
     let extractionContent = "";
     let extracted: { unitTypeName: string; countertops: any[] } = { unitTypeName: "", countertops: [] };
