@@ -255,7 +255,70 @@ function buildKnownAIErrorResponse(err: unknown): Response | null {
   return null;
 }
 
-function buildCountertopExtractionPrompt(provider: "gemini" | "dialagram"): string {
+// ── Extract printed dimension values from raw page text (PDF text layer) ──
+// Returns numeric inch values (decimals) printed as labels on the drawing.
+// Used as ground truth for Qwen anchoring + post-extraction validation.
+function extractPrintedDimensionsFromPageText(text: string): number[] {
+  if (!text) return [];
+  const cleaned = String(text).replace(/[\u00A0]/g, " ");
+  const found = new Set<number>();
+  // Handle "76 1/2"" or "25 1/4"" or "129"" or "47 1/2"" — quote may be missing
+  // Patterns:
+  // - whole + space + fraction: "76 1/2"
+  // - whole only: "129"
+  // - just fraction: "1/2"
+  const pattern = /(\d+)\s*(?:(\d)\s*\/\s*(\d))?\s*"/g;
+  let m: RegExpExecArray | null;
+  while ((m = pattern.exec(cleaned)) !== null) {
+    const whole = parseInt(m[1], 10);
+    let value = whole;
+    if (m[2] && m[3]) {
+      const num = parseInt(m[2], 10);
+      const den = parseInt(m[3], 10);
+      if (den > 0) value += num / den;
+    }
+    if (value >= 6 && value <= 600) {
+      found.add(Math.round(value * 4) / 4); // round to nearest 1/4"
+    }
+  }
+  // Also handle stacked fractions like "76\n12\n" (where 12 is over 2 implicitly) — common in 2020 drawings
+  // Pattern: number, newline/space, "1 2" or "1 4" or "3 4" sequences (PDF text fragmentation)
+  const stackedPattern = /(\d+)\s+(?:1\s*4|1\s*2|3\s*4)\s*"/g;
+  let s: RegExpExecArray | null;
+  while ((s = stackedPattern.exec(cleaned)) !== null) {
+    const whole = parseInt(s[1], 10);
+    const frag = s[0].replace(/[^\d]/g, "");
+    let frac = 0;
+    if (frag.endsWith("14")) frac = 0.25;
+    else if (frag.endsWith("12")) frac = 0.5;
+    else if (frag.endsWith("34")) frac = 0.75;
+    const value = whole + frac;
+    if (value >= 6 && value <= 600) found.add(Math.round(value * 4) / 4);
+  }
+  return Array.from(found).sort((a, b) => a - b);
+}
+
+function formatDimensionForPrompt(n: number): string {
+  if (Number.isInteger(n)) return `${n}"`;
+  const whole = Math.floor(n);
+  const frac = n - whole;
+  if (frac === 0.25) return `${whole} 1/4"`;
+  if (frac === 0.5) return `${whole} 1/2"`;
+  if (frac === 0.75) return `${whole} 3/4"`;
+  return `${n}"`;
+}
+
+// Returns true if the value (or a near-by ±0.5 variant) appears in the printed dimensions list.
+function isDimensionPrinted(value: number | null, printed: number[]): boolean {
+  if (value == null || !printed.length) return true; // can't validate -> permit
+  return printed.some((p) => Math.abs(p - value) <= 0.5);
+}
+
+function buildCountertopExtractionPrompt(provider: "gemini" | "dialagram", printedDims: number[] = []): string {
+  const dimsBlock = printedDims.length
+    ? `\n\nGROUND-TRUTH DIMENSIONS PRINTED ON THIS IMAGE (extracted from the PDF text layer):\n${printedDims.map(formatDimensionForPrompt).join(", ")}\nEvery length / depth / backsplashLength you return MUST come from this list (or be a sum of values from this list for L-shaped run totals). Do NOT invent values that are not in this list.\n`
+    : "";
+
   if (provider === "dialagram") {
     return `You are a millwork estimator looking at ONE 2020 countertop shop drawing image.
 
