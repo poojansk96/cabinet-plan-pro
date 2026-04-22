@@ -15,7 +15,18 @@ interface Props {
 const CAB_TYPE_ORDER = ['Wall', 'Base', 'Tall', 'Vanity', 'Accessory'];
 
 function parseSkuDims(sku: string): { width: number; height: number } {
-  const match = sku.replace(/\s/g, '').match(/^[A-Za-z]+(\d+)/);
+  const cleaned = sku.replace(/\s/g, '').toUpperCase();
+  // Special handling for BLW/BRW/BLB/HABLB pattern: "BLW27/3030-L" or "HABLB42/4530-R"
+  // The first number group is the corner cabinet width; the second group encodes the
+  // referenced wall cabinet (last 2 digits = height). e.g. BLW27/3030 → height 30.
+  const blwMatch = cleaned.match(/^(?:HA)?(?:BLW|BRW|BLB)(\d+)\/(\d+)/);
+  if (blwMatch) {
+    const width = Number(blwMatch[1]);
+    const second = blwMatch[2];
+    const height = second.length >= 2 ? Number(second.slice(-2)) : Number(second);
+    return { width, height };
+  }
+  const match = cleaned.match(/^[A-Z]+(\d+)/);
   if (!match) return { width: 0, height: 0 };
   const digits = match[1];
   if (digits.length === 4) return { width: Number(digits.slice(0, 2)), height: Number(digits.slice(2, 4)) };
