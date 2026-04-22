@@ -622,11 +622,12 @@ rightWallYesConfidence: probability 0.0-1.0 that the RIGHT end has a wall`;
 TASK:
 1. Find the UNIT TYPE NAME from the drawing's title block (usually bottom-right or top). Examples: "TYPE 1.1A (ADA)", "TYPE 2.1B-AS", "STUDIO", etc. Extract the EXACT and COMPLETE name. If none visible, use "".
 
-2. Extract ONLY vanity tops (bathroom tops). Ignore all kitchen countertops. Vanity tops are identified by:
-   - Depth of 22" or less (commonly 22", 19", 18")
-   - Labels mentioning "vanity", "bath", "lav", "powder"
-   - Typically have an oval or round bowl cutout drawn
-   - Boxed/separate from kitchen countertop runs
+2. Extract ONLY vanity tops (bathroom tops). NEVER extract kitchen countertops, corridor counters, work-station desks, break/community/mail room counters, or any top deeper than 22.5". A vanity top is identified by ALL of:
+   - Depth of 17.5" to 22.5" (usually 22") — STRICT, never 25"+ or 24"
+   - A ROUND or OVAL bowl cutout drawn inside the rectangle (NOT square or rectangular — that is a kitchen sink)
+   - Located in a room labeled bath / vanity / lav / powder / unisex bath / Bath-1 / Bath-2 etc.
+   A page can contain BOTH a kitchen run AND a separate vanity (e.g. 1BR-1 (ADA) pages). Return ONLY the vanity piece.
+   A page can contain MULTIPLE vanities (e.g. 2BR (ADA) → Bath-1 and Bath-2). Return ALL of them.
 
 3. For EACH vanity top, extract:
    a. **length** — total length in inches (e.g., 47.5, 31, 25)
