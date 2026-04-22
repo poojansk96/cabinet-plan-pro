@@ -2,6 +2,28 @@ import { describe, expect, it } from 'vitest';
 
 import { extractPlanSkuCountsFromTextItems, mergePrefinalExtractionPasses } from '@/lib/prefinalCabinetMerge';
 
+function classifyPrefinalCabinetSku(value: string): string {
+  const sku = String(value || '')
+    .toUpperCase()
+    .trim()
+    .replace(/\s*-\s*/g, '-')
+    .replace(/\s+/g, '');
+  if (!sku) return 'Base';
+  if (/^(BLW|BRW)/i.test(sku)) return 'Wall';
+  if (/^(W|WDC|UB|WC|OH)\d/i.test(sku)) return 'Wall';
+  if (/^(HAW|HAWDC)\d/i.test(sku)) return 'Wall';
+  if (/^HCW\d/i.test(sku)) return 'Wall';
+  if (/^HW\d/i.test(sku)) return 'Wall';
+  if (/^(T|UT|TC|PT|PTC|UC)(\d|$)/i.test(sku)) return 'Tall';
+  if (/^(HALC|HAUC|HCUC|HCYC)\d/i.test(sku)) return 'Tall';
+  if (/^(V|VB|VD|VDB|VDC)\d/i.test(sku)) return 'Vanity';
+  if (/^(HAV|HAVDB)\d/i.test(sku)) return 'Vanity';
+  if (/^(BP|SCRIBE)$/i.test(sku)) return 'Accessory';
+  if (/^(FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|TF|APPRON|UREP|REP)\d/i.test(sku)) return 'Accessory';
+  if (/^(HAB|HADB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HCDB|HCLS|HWSB|HWS)\d/i.test(sku)) return 'Base';
+  return 'Base';
+}
+
 describe('extractPlanSkuCountsFromTextItems', () => {
   it('keeps the main plan cluster and ignores a remote duplicate occurrence', () => {
     const counts = extractPlanSkuCountsFromTextItems([
@@ -35,6 +57,10 @@ describe('extractPlanSkuCountsFromTextItems', () => {
 
     expect(counts.V3021B).toBe(1);
     expect(counts.VDB15).toBe(1);
+  });
+
+  it('classifies VDB15 under vanity, not base', () => {
+    expect(classifyPrefinalCabinetSku('VDB15')).toBe('Vanity');
   });
 });
 
@@ -141,6 +167,19 @@ describe('mergePrefinalExtractionPasses', () => {
 
     expect(merged).toHaveLength(1);
     expect(merged[0].sku).toBe('UC18X84-');
+    expect(merged[0].quantity).toBe(1);
+  });
+
+  it('does not turn a single vanity label into qty 2 when text layer shows only one', () => {
+    const merged = mergePrefinalExtractionPasses([
+      [{ sku: 'V3021', room: 'Bath', type: 'Vanity', quantity: 1 }],
+      [{ sku: 'V3021', room: 'Bath', type: 'Vanity', quantity: 1 }],
+      [{ sku: 'V3021', room: 'Bath', type: 'Vanity', quantity: 1 }],
+    ], {
+      V3021: 1,
+    });
+
+    expect(merged).toHaveLength(1);
     expect(merged[0].quantity).toBe(1);
   });
 });
