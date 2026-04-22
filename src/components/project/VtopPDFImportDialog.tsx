@@ -540,7 +540,13 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson,
           const aiCanvas = await renderPageToCanvasData(page, 2500, 3.5);
           const pageImage = await canvasToBase64(aiCanvas.canvas, 0.85, aiMimeType);
 
-          const MAX_CLIENT_RETRIES = 5;
+          // Qwen extraction + optional rescue pass can take 60–120s per page on slow pages.
+          // The previous 90s timeout was firing mid-rescue, producing the DOMException
+          // "operation was aborted" error before the server could respond. Bump to 180s,
+          // which is still under the Supabase edge function ceiling and matches observed
+          // worst-case server timings (~120s for Qwen + rescue).
+          const CLIENT_TIMEOUT_MS = 180000;
+          const MAX_CLIENT_RETRIES = 3;
           let pageSuccess = false;
           for (let attempt = 0; attempt < MAX_CLIENT_RETRIES && !pageSuccess; attempt++) {
             try {
@@ -549,7 +555,7 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson,
                 await new Promise(r => setTimeout(r, delay));
               }
               const controller = new AbortController();
-              const timeout = setTimeout(() => controller.abort(), 90000);
+              const timeout = setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS);
               const resp = await fetch(`${SUPABASE_URL}/functions/v1/extract-pdf-vtops`, {
                 method: 'POST',
                 headers: {
