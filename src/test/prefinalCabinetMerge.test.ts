@@ -25,6 +25,68 @@ describe('extractPlanSkuCountsFromTextItems', () => {
     expect(counts['BLB42/45FH-R']).toBe(2);
     expect(counts['HABLB42/45FH-R']).toBe(1);
   });
+
+  it('extracts VDB15 vanity drawer-base SKU from text items (regression)', () => {
+    const counts = extractPlanSkuCountsFromTextItems([
+      { str: 'V3021B', transform: [1, 0, 0, 1, 320, 420] },
+      { str: 'VDB15', transform: [1, 0, 0, 1, 360, 410] },
+      { str: 'BF3', transform: [1, 0, 0, 1, 380, 405] },
+    ]);
+
+    expect(counts.V3021B).toBe(1);
+    expect(counts.VDB15).toBe(1);
+  });
+});
+
+describe('BLW height parsing for sorting', () => {
+  // Mirror the parseSkuDims used in PreFinalModule/PreFinalSummaryModule
+  function parseSkuDims(sku: string): { width: number; height: number } {
+    const cleaned = sku.replace(/\s/g, '').toUpperCase();
+    const blwMatch = cleaned.match(/^(?:HA)?(?:BLW|BRW|BLB)(\d+)\/(\d+)/);
+    if (blwMatch) {
+      const width = Number(blwMatch[1]);
+      const second = blwMatch[2];
+      const height = second.length >= 2 ? Number(second.slice(-2)) : Number(second);
+      return { width, height };
+    }
+    const match = cleaned.match(/^[A-Z]+(\d+)/);
+    if (!match) return { width: 0, height: 0 };
+    const digits = match[1];
+    if (digits.length === 4) return { width: Number(digits.slice(0, 2)), height: Number(digits.slice(2, 4)) };
+    if (digits.length === 3) return { width: Number(digits.slice(0, 1)), height: Number(digits.slice(1, 3)) };
+    if (digits.length === 2) return { width: Number(digits), height: 0 };
+    return { width: Number(digits), height: 0 };
+  }
+
+  it('parses BLW27/3030-L as height 30 (not 0)', () => {
+    expect(parseSkuDims('BLW27/3030-L').height).toBe(30);
+    expect(parseSkuDims('BLW27/3030-L').width).toBe(27);
+  });
+
+  it('parses BLW27/3036-L as height 36', () => {
+    expect(parseSkuDims('BLW27/3036-L').height).toBe(36);
+  });
+
+  it('parses HABLB42/4530-R as height 30', () => {
+    expect(parseSkuDims('HABLB42/4530-R').height).toBe(30);
+    expect(parseSkuDims('HABLB42/4530-R').width).toBe(42);
+  });
+
+  it('sorts BLW after W cabinets at the same height', () => {
+    const skus = ['W3018B', 'W2430', 'W3030', 'BLW27/3030-L', 'W1542', 'BLW27/3036-L'];
+    const sorted = [...skus].sort((a, b) => {
+      const da = parseSkuDims(a), db = parseSkuDims(b);
+      if (da.height !== db.height) return da.height - db.height;
+      const isBLW = (s: string) => /^(?:HA)?(?:BLW|BRW|BLB)/i.test(s);
+      const pa = isBLW(a) ? 1 : 0, pb = isBLW(b) ? 1 : 0;
+      if (pa !== pb) return pa - pb;
+      return da.width - db.width;
+    });
+    // Expected: W3018B(h18), W2430(h30), W3030(h30), BLW27/3030-L(h30), BLW27/3036-L(h36), W1542(h42)
+    expect(sorted.indexOf('BLW27/3030-L')).toBeGreaterThan(sorted.indexOf('W3030'));
+    expect(sorted.indexOf('BLW27/3030-L')).toBeGreaterThan(sorted.indexOf('W2430'));
+    expect(sorted.indexOf('BLW27/3036-L')).toBeGreaterThan(sorted.indexOf('BLW27/3030-L'));
+  });
 });
 
 describe('mergePrefinalExtractionPasses', () => {

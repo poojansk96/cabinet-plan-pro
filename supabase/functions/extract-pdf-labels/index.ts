@@ -231,7 +231,7 @@ async function callAI(
 
 // ── SKU Helpers ──
 
-const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|WDC|UB|WC|OH|BLB|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS)\d[\w\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
+const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|WDC|UB|WC|OH|BLB|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDB|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS)\d[\w\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
 // Secondary pattern for APPRON with space before dimensions (e.g. "APPRON 59X21")
 const APPRON_DIM_PATTERN = /\bAPPRON\s+(\d+X\d+)\b/gi;
 const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
@@ -328,7 +328,7 @@ function classifySku(sku: string): string {
   if (/^HW\d/i.test(normalizedSku)) return "Wall";
   if (/^(T|UT|TC|PT|PTC|UC)(\d|$)/i.test(normalizedSku)) return "Tall";
   if (/^(HALC|HAUC|HCUC|HCYC)\d/i.test(normalizedSku)) return "Tall";
-  if (/^(V|VB|VD|VDC)\d/i.test(normalizedSku)) return "Vanity";
+  if (/^(V|VB|VD|VDB|VDC)\d/i.test(normalizedSku)) return "Vanity";
   if (/^(HAV|HAVDB)\d/i.test(normalizedSku)) return "Vanity";
   if (/^(BP|SCRIBE)$/i.test(normalizedSku)) return "Accessory";
   if (/^(FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|TF|APPRON|UREP|REP)\d/i.test(normalizedSku)) return "Accessory";
@@ -625,6 +625,31 @@ serve(async (req) => {
       if (splitVariant) return splitVariant;
       if (textLayerSkuSet.has(normalized)) return normalized;
 
+      // OCR misread: AI commonly reads "L" suffix as "I" (e.g. UC18X84-L → UC18X84-I).
+      // "-I" is NEVER a valid cabinet suffix. If the same base with -L exists in text layer,
+      // canonicalize to -L. Otherwise, strip the bogus -I suffix.
+      const iSuffixMatch = normalized.match(/^(.+?)-I$/);
+      if (iSuffixMatch) {
+        const baseWithoutI = iSuffixMatch[1];
+        const lVariant = `${baseWithoutI}-L`;
+        const rVariant = `${baseWithoutI}-R`;
+        if (textLayerSkuSet.has(lVariant)) {
+          console.log(`Canonicalized OCR misread: "${normalized}" → "${lVariant}" (-I read as -L)`);
+          return lVariant;
+        }
+        if (textLayerSkuSet.has(rVariant)) {
+          console.log(`Canonicalized OCR misread: "${normalized}" → "${rVariant}" (-I read as -R)`);
+          return rVariant;
+        }
+        if (textLayerSkuSet.has(baseWithoutI)) {
+          console.log(`Stripped bogus -I suffix: "${normalized}" → "${baseWithoutI}"`);
+          return baseWithoutI;
+        }
+        // No match — strip bogus -I suffix anyway since it's never a real cabinet code
+        console.log(`Stripped invalid -I suffix (no text-layer match): "${normalized}" → "${baseWithoutI}"`);
+        return baseWithoutI;
+      }
+
       const fuzzyTextMatch = findNearTextLayerSku(normalized);
 
       if (fuzzyTextMatch && fuzzyTextMatch !== normalized) {
@@ -748,7 +773,7 @@ For each cabinet found, provide:
    - "Base" → B, DB, SB, CB, EB, LS, LSB, HCDB, HCLS, HWS, HWSB, HAB, HABLB, HADB, HAOC, HASB, HACB, HAEB (but NOT BLB/BLW/BRW — those are Wall, NOT HAV — those are Vanity)
     - "Wall" → W, WDC, UB, WC, OH, BLB, BLW, BRW, HAW, HAWDC, HCW, HW (ONLY when the prefix is exactly HW followed immediately by digits; HWS/HWSB are Base)
      - "Tall" → T, UT, TC, PT, PTC, UC, HALC, HAUC, HCUC, HCYC (HCUC15X82, HAUC1818X72, HCYC15S82-L = Tall, NOT Wall)
-     - "Vanity" → V, VB, VD, VDC, HAV, HAVDB (HAV/HAVDB = Vanity, NOT Base)
+     - "Vanity" → V, VB, VD, VDB, VDC, HAV, HAVDB (HAV/HAVDB = Vanity, NOT Base. VDB15/VDB18 = drawer-base vanity, often appears under a vanity top — DO NOT skip)
    - "Accessory" → FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR, TF, APPRON
 3. room: From room labels on the plan (Kitchen, Bath, Laundry, Pantry — capitalize first letter only)
 4. quantity: Count EVERY separate label occurrence of this SKU on this page
@@ -789,6 +814,8 @@ PRESERVE FULL SKU LABELS — CRITICAL:
 - "W3030B" → report "W3030B" exactly as written
 - Do NOT strip trailing letters, "-1D", "-2D", "-REM", "-L", "-R", "-FB" or any other suffix.
 - Each unique label on the drawing = one unique SKU entry. Do NOT report both a truncated and full version.
+- VALID SUFFIX LETTERS: only "-L" (Left) or "-R" (Right) for handed cabinets. NEVER use "-I" — that letter does NOT exist as a cabinet suffix. If a label looks like "-I", it is actually "-L" (the lowercase L misread). Report it as "-L".
+- IMPORTANT: If a cabinet label is partially hidden, faint, or you cannot clearly determine the -L or -R suffix, report the BARE SKU without any suffix (e.g. "UC18X84") rather than guessing or fabricating "-I". Do NOT add a suffix you cannot read clearly.
 
 SKIP THESE — NOT CABINET SKUs:
 - Appliances: REF, REFRIG, DW, DISHWASHER, RANGE, HOOD, MICRO, OTR, OVEN, VENT, DISP, CKT
@@ -802,7 +829,7 @@ Also accept manufacturer-specific longer prefixes (e.g. HA, HAV, HAVDB, HALC, HA
 VALID NO-DIGIT SKUS:
 UC, SCRIBE, BP
 
-FINAL SWEEP: After your initial scan, go back and specifically look for: B09FH, B06FH, B12FH, BF3, BF6, WF3X30, WF6X30, TF3X96, DWR1, DWR3, DWR6, CM8, TK, TKRUN, EP, LR, UC, SCRIBE, BP, HAVDB12, HAVDB18, HAVDB15, APPRON (with dimensions like "APPRON 59X21" — report as "APPRON59X21" without the space). These appear as very small labels on narrow shapes. DWR labels are often rotated vertically — scan rotated text carefully.
+FINAL SWEEP: After your initial scan, go back and specifically look for: B09FH, B06FH, B12FH, BF3, BF6, WF3X30, WF6X30, TF3X96, DWR1, DWR3, DWR6, CM8, TK, TKRUN, EP, LR, UC, SCRIBE, BP, HAVDB12, HAVDB18, HAVDB15, VDB12, VDB15, VDB18 (vanity drawer-base — small narrow rectangles under vanity tops, very commonly missed), APPRON (with dimensions like "APPRON 59X21" — report as "APPRON59X21" without the space). These appear as very small labels on narrow shapes. DWR labels are often rotated vertically — scan rotated text carefully.
 ${isStrip ? '\nNOTE: This image shows a CROPPED SECTION of a larger drawing page. Extract all cabinet labels visible in this cropped section.\n' : ''}${textLayerSkus.length > 0 ? `\nTEXT LAYER CROSS-REFERENCE — the PDF text layer detected these SKUs on this page:\n${textLayerSkus.join(', ')}\nMake sure ALL of these appear in your results if they are visible as labels on the drawing. If any are missing from your results, look harder for them.\n` : ''}${unitType ? `\nUnit type context: ${unitType}` : ""}
 If no cabinet SKUs are found, return {"items":[]}`;
 
