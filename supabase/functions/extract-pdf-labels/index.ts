@@ -1309,6 +1309,15 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
     // base SKU instead of two directional variants.
     {
       const groupedByBase = new Map<string, typeof items>();
+      const roomPriorityForDirectionalCollapse = (room: string): number => {
+        const normalized = String(room || '').trim().toLowerCase();
+        if (normalized === 'kitchen') return 0;
+        if (normalized === 'bath') return 1;
+        if (normalized === 'laundry') return 2;
+        if (normalized === 'pantry') return 3;
+        if (normalized === 'other') return 4;
+        return 5;
+      };
       for (const item of items) {
         const base = stripDirectionalSuffix(item.sku);
         const group = groupedByBase.get(base) ?? [];
@@ -1338,7 +1347,7 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
             const preferred = group.reduce((best, current) => {
               if (!best) return current;
               if (current.quantity !== best.quantity) return current.quantity > best.quantity ? current : best;
-              return roomPriority(current.room) < roomPriority(best.room) ? current : best;
+              return roomPriorityForDirectionalCollapse(current.room) < roomPriorityForDirectionalCollapse(best.room) ? current : best;
             }, group[0]);
 
             nextItems.push({
