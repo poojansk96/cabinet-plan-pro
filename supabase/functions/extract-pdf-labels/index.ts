@@ -1345,8 +1345,9 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
           const qtysAreSingle = group.every((entry) => Math.max(1, entry.quantity || 1) === 1);
           const exactDirectionalCount = (textLayerSkuCounts[`${base}-L`] ?? 0) + (textLayerSkuCounts[`${base}-R`] ?? 0);
           const baseCount = textLayerSkuCounts[base] ?? 0;
+          const totalDirectionalEvidence = exactDirectionalCount + baseCount;
 
-          if (hasLeftAndRight && qtysAreSingle && exactDirectionalCount === 0 && baseCount <= 1) {
+          if (hasLeftAndRight && qtysAreSingle && totalDirectionalEvidence <= 1) {
             const preferred = group.reduce((best, current) => {
               if (!best) return current;
               if (current.quantity !== best.quantity) return current.quantity > best.quantity ? current : best;
