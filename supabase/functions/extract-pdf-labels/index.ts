@@ -625,6 +625,31 @@ serve(async (req) => {
       if (splitVariant) return splitVariant;
       if (textLayerSkuSet.has(normalized)) return normalized;
 
+      // OCR misread: AI commonly reads "L" suffix as "I" (e.g. UC18X84-L → UC18X84-I).
+      // "-I" is NEVER a valid cabinet suffix. If the same base with -L exists in text layer,
+      // canonicalize to -L. Otherwise, strip the bogus -I suffix.
+      const iSuffixMatch = normalized.match(/^(.+?)-I$/);
+      if (iSuffixMatch) {
+        const baseWithoutI = iSuffixMatch[1];
+        const lVariant = `${baseWithoutI}-L`;
+        const rVariant = `${baseWithoutI}-R`;
+        if (textLayerSkuSet.has(lVariant)) {
+          console.log(`Canonicalized OCR misread: "${normalized}" → "${lVariant}" (-I read as -L)`);
+          return lVariant;
+        }
+        if (textLayerSkuSet.has(rVariant)) {
+          console.log(`Canonicalized OCR misread: "${normalized}" → "${rVariant}" (-I read as -R)`);
+          return rVariant;
+        }
+        if (textLayerSkuSet.has(baseWithoutI)) {
+          console.log(`Stripped bogus -I suffix: "${normalized}" → "${baseWithoutI}"`);
+          return baseWithoutI;
+        }
+        // No match — strip bogus -I suffix anyway since it's never a real cabinet code
+        console.log(`Stripped invalid -I suffix (no text-layer match): "${normalized}" → "${baseWithoutI}"`);
+        return baseWithoutI;
+      }
+
       const fuzzyTextMatch = findNearTextLayerSku(normalized);
 
       if (fuzzyTextMatch && fuzzyTextMatch !== normalized) {
