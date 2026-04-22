@@ -198,16 +198,26 @@ function extractUnitTypeFromPageText(text: string): string {
   if (!cleaned) return "";
 
   const patterns = [
+    // "TYPE 1.1A (ADA) UNIT# ..." or "PARCEL X TYPE ... UNIT#"
     /(?:parcel\s+[a-z0-9]+(?:\s+[a-z0-9]+)*\s+)?type\s*-?\s*([a-z0-9().\/-]+(?:\s+[a-z0-9().\/-]+){0,4})\s+unit#/i,
     /countertops\s+type\s*-?\s*([a-z0-9().\/-]+(?:\s+[a-z0-9().\/-]+){0,4})\s+(?:parcel|unit#)/i,
+    // "Judd Homestead - CT 1BR-1 (ADA) - AS UNIT# BLDG ..." (no "TYPE" keyword)
+    /(?:^|[\s-])((?:\d+br|studio|efficiency|penthouse)[a-z0-9().\/\s-]{0,40}?)\s+unit#/i,
+    // Footer: "<NAME> Countertops Drawing #: 1 No Scale."
+    /([a-z0-9][a-z0-9().\/\s-]{1,60}?)\s+countertops\s+drawing\s*#/i,
+    // Generic: "Countertops <NAME> <dim>"
     /countertops\s+([a-z][a-z0-9().\/-]*(?:\s+[a-z0-9().\/-]+){0,4})\s+(?:\d+(?:\s+\d+\s+\d+)?\s*"|parcel\s+[a-z0-9]+|type\s+-?)/i,
   ];
 
   for (const pattern of patterns) {
     const match = cleaned.match(pattern);
     if (!match) continue;
-    const candidate = sanitizeDetectedType(match[1]);
-    if (candidate) return candidate;
+    let candidate = sanitizeDetectedType(match[1]);
+    // Strip leading "Judd Homestead - CT " or other project preamble
+    candidate = candidate.replace(/^(?:judd\s+homestead\s*-?\s*ct\s*-?\s*)/i, "").trim();
+    // Strip trailing "Drawing #" remnants
+    candidate = candidate.replace(/\s*(?:no\s+scale|drawing\s*#?.*)$/i, "").trim();
+    if (candidate && candidate.length >= 2 && candidate.length <= 60) return candidate;
   }
 
   return "";
@@ -238,15 +248,15 @@ function extractDimensionsFromHintText(text: string): number[] {
   return values;
 }
 
-const VANITY_DEPTH_MIN = 18;
+const VANITY_DEPTH_MIN = 17.5;
 const VANITY_DEPTH_MAX = 22.5;
 
 function hasBathroomContext(text: string): boolean {
-  return /\b(vanity|lav(?:atory)?|bath(?:room)?|powder(?: room)?|restroom|wc)\b/i.test(text);
+  return /\b(vanity|lav(?:atory)?|bath(?:room)?|powder(?:\s*room)?|restroom|wc|unisex\s*bath|half\s*bath)\b/i.test(text);
 }
 
 function hasExcludedCounterContext(text: string): boolean {
-  return /\b(kitchen|break\s*room|mail\s*room|community\s*room|island|pantry|bar\s*top|bartop)\b/i.test(text);
+  return /\b(kitchen|break\s*room|mail\s*room|community(?:\s*(?:room|building))?|island|pantry|bar\s*top|bartop|corridor|hallway|work\s*station|workstation|lobby|lounge|reception|cafe|coffee|nurse\s*station|laundry|janitor)\b/i.test(text);
 }
 
 function isVanityDepth(depth: number): boolean {
@@ -256,13 +266,21 @@ function isVanityDepth(depth: number): boolean {
 function isVanityCandidate(row: VtopRow, unitTypeName: string, pageTextHint: string): boolean {
   const context = `${unitTypeName} ${pageTextHint}`.trim();
   const bathroomContext = hasBathroomContext(context);
-  const excludedContext = hasExcludedCounterContext(context) && !bathroomContext;
+  const excludedContext = hasExcludedCounterContext(context);
   const sinkEvidence = Boolean(row.hasSink) || row.bowlOffset != null || row.bowlPosition !== "center";
 
+  // Hard depth gate — vanities are 22" or less.
   if (!isVanityDepth(row.depth)) return false;
-  if (excludedContext) return false;
+
+  // Exclude rooms that are clearly not bathrooms — even if they have a sink (kitchen, break room, etc.)
+  // unless the page also explicitly mentions a bathroom (multi-room pages like "2BR (ADA)" with kitchen + Bath-1 + Bath-2).
+  if (excludedContext && !bathroomContext) return false;
+
+  // Require sink evidence OR clear bathroom context. A naked rectangle with no bowl
+  // and no bathroom keywords is NOT a vanity.
   if (sinkEvidence) return true;
-  return bathroomContext;
+  if (bathroomContext) return true;
+  return false;
 }
 
 function filterVanityCandidates(rows: VtopRow[], unitTypeName: string, pageTextHint: string): VtopRow[] {
@@ -604,11 +622,12 @@ rightWallYesConfidence: probability 0.0-1.0 that the RIGHT end has a wall`;
 TASK:
 1. Find the UNIT TYPE NAME from the drawing's title block (usually bottom-right or top). Examples: "TYPE 1.1A (ADA)", "TYPE 2.1B-AS", "STUDIO", etc. Extract the EXACT and COMPLETE name. If none visible, use "".
 
-2. Extract ONLY vanity tops (bathroom tops). Ignore all kitchen countertops. Vanity tops are identified by:
-   - Depth of 22" or less (commonly 22", 19", 18")
-   - Labels mentioning "vanity", "bath", "lav", "powder"
-   - Typically have an oval or round bowl cutout drawn
-   - Boxed/separate from kitchen countertop runs
+2. Extract ONLY vanity tops (bathroom tops). NEVER extract kitchen countertops, corridor counters, work-station desks, break/community/mail room counters, or any top deeper than 22.5". A vanity top is identified by ALL of:
+   - Depth of 17.5" to 22.5" (usually 22") — STRICT, never 25"+ or 24"
+   - A ROUND or OVAL bowl cutout drawn inside the rectangle (NOT square or rectangular — that is a kitchen sink)
+   - Located in a room labeled bath / vanity / lav / powder / unisex bath / Bath-1 / Bath-2 etc.
+   A page can contain BOTH a kitchen run AND a separate vanity (e.g. 1BR-1 (ADA) pages). Return ONLY the vanity piece.
+   A page can contain MULTIPLE vanities (e.g. 2BR (ADA) → Bath-1 and Bath-2). Return ALL of them.
 
 3. For EACH vanity top, extract:
    a. **length** — total length in inches (e.g., 47.5, 31, 25)
@@ -676,28 +695,38 @@ Return ONLY valid JSON — no markdown fences, no explanation:
 
     // QWEN PROMPT: short, direct, but STRICTLY vanity-only.
     // We still keep it concise for Qwen stability, but do not allow kitchen/community/mail counters.
-    const qwenPrompt = `Look at this 2020 countertop shop drawing page and extract ONLY vanity tops / lavatory tops.
+    const qwenPrompt = `Look at this 2020 countertop shop drawing page and extract ONLY VANITY TOPS / LAVATORY TOPS.
 
-A top counts as a vanity top ONLY if it matches these rules:
-- depth is about 18" to 22.5" (usually 19" or 22")
-- AND it has a sink / bowl cutout shown, OR the page/title uses bathroom words like vanity, bath, powder, lav, lavatory
-- DO NOT include kitchen tops, break room tops, mail room tops, community room tops, islands, or any top deeper than 22.5"
+STRICT RULES — a top counts as a vanity top ONLY when ALL of these are true:
+1. Depth (shorter edge) is BETWEEN 17.5" AND 22.5" inclusive (usually 22"). NEVER 25"+, NEVER 24".
+2. The drawing shows a ROUND or OVAL bowl/sink cutout inside the rectangle (an oval/ellipse, NOT a square or rounded-rectangle sink — square/rectangular cutouts are kitchen sinks).
+3. The room/page is a bathroom-type space: vanity, bath, powder, lav, lavatory, unisex bath, half bath, Bath-1, Bath-2, etc.
 
-For each vanity top, return:
+EXPLICIT EXCLUSIONS — never return these even if they fit on the page:
+- Kitchen counters (depth ~25.25", square sink, "KITCHEN" label)
+- Corridor counters / shelves (no sink)
+- Work station / workstation desks (no sink)
+- Break room / community room / mail room / lobby / reception / nurse station / coffee bar / bartop / island
+- Anything deeper than 22.5"
+- Anything with a SQUARE or RECTANGULAR sink cutout (kitchen)
+
+A page can contain BOTH a kitchen run AND a separate small vanity (e.g. 1BR-1 (ADA) pages have a 25.5" deep L-shape kitchen plus a separate ~44.5" x 22" vanity with an oval bowl). Return ONLY the vanity piece, NEVER the kitchen run.
+
+A page can contain MULTIPLE vanities (e.g. 2BR (ADA) has Bath-1 AND Bath-2). Return ALL of them as separate items.
+
+For each vanity top return:
 - length: longer edge in inches
-- depth: shorter edge in inches
-- hasSink: true if a sink/bowl cutout is visible or clearly implied, else false
+- depth: shorter edge in inches (must be 17.5–22.5)
+- hasSink: true (must be true — vanities always have an oval bowl)
 - bowlPosition: "offset-left" | "offset-right" | "center"
 - bowlOffset: number or null
 - leftWall: true if the LEFT end has a wall/double-line, else false (default true if uncertain)
 - rightWall: true if the RIGHT end has a wall/double-line, else false (default true if uncertain)
 
-Also extract unitTypeName from the title block after TYPE.
-
-Return ONLY actual vanity tops. If the page only shows kitchen/break-room/mail-room/community counters, return empty.
+Also extract unitTypeName from the title block — use the room/unit label (e.g. "POWDER ROOM", "UNISEX BATH", "1BR-1 (ADA) - AS", "2BR (ADA)"). If the page only shows kitchen/corridor/work-station/community counters with no oval-bowl vanity, return {"unitTypeName":"","vtops":[]}.
 
 Return ONLY valid JSON:
-{"unitTypeName":"1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"hasSink":true,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true}]} `;
+{"unitTypeName":"1BR-1 (ADA) - AS","vtops":[{"length":44.5,"depth":22,"hasSink":true,"bowlPosition":"offset-left","bowlOffset":16,"leftWall":true,"rightWall":true}]} `;
 
     const fullPrompt = provider === "dialagram" ? qwenPrompt : geminiPrompt;
 
