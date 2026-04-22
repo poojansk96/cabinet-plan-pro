@@ -186,11 +186,26 @@ export function mergePrefinalExtractionPasses(
   const map = new Map<string, ExtractedCabinetPassItem>();
   const stripOnly = new Map<string, { item: ExtractedCabinetPassItem; support: number; maxQty: number }>();
   const stripStats = new Map<string, { support: number; maxQty: number }>();
+  const qtyObservations = new Map<string, number[]>();
 
   const keyOf = (item: ExtractedCabinetPassItem) =>
     `${normalizePrefinalSkuLabel(item.sku)}|${String(item.room || 'Kitchen')}`;
   const isHavSku = (sku: string) => /^HAV\d|^HAVDB\d/i.test(normalizePrefinalSkuLabel(sku));
   const isRoomFragileManufacturerSku = (sku: string) => /^(?:HAV\d|HAVDB\d|HC|HS|HW)/i.test(normalizePrefinalSkuLabel(sku));
+  const recordQtyObservation = (key: string, qty: number) => {
+    const existing = qtyObservations.get(key) ?? [];
+    existing.push(Math.max(1, qty || 1));
+    qtyObservations.set(key, existing);
+  };
+  const roomPriorityForDirectionalCollapse = (room: string): number => {
+    const normalized = String(room || '').trim().toLowerCase();
+    if (normalized === 'kitchen') return 0;
+    if (normalized === 'bath') return 1;
+    if (normalized === 'laundry') return 2;
+    if (normalized === 'pantry') return 3;
+    if (normalized === 'other') return 4;
+    return 5;
+  };
 
   const findExistingSkuKeys = (sku: string): string[] => {
     const upper = normalizePrefinalSkuLabel(sku);
@@ -209,12 +224,18 @@ export function mergePrefinalExtractionPasses(
     }
   }
 
+  for (const [key, item] of map.entries()) {
+    recordQtyObservation(key, Number(item.quantity) || 1);
+  }
+
   for (const items of passes.slice(1)) {
     const seenInThisStrip = new Set<string>();
+    const passMaxQtyByKey = new Map<string, number>();
+
     for (const item of items) {
       if (!item?.sku) continue;
       const key = keyOf(item);
-      const qty = Number(item.quantity) || 1;
+      const qty = Math.max(1, Number(item.quantity) || 1);
       const stats = stripStats.get(key) ?? { support: 0, maxQty: 0 };
 
       if (!seenInThisStrip.has(key)) {
@@ -222,6 +243,7 @@ export function mergePrefinalExtractionPasses(
       }
       stats.maxQty = Math.max(stats.maxQty, qty);
       stripStats.set(key, stats);
+      passMaxQtyByKey.set(key, Math.max(passMaxQtyByKey.get(key) ?? 0, qty));
 
       const existing = map.get(key);
       if (existing) {
@@ -247,6 +269,10 @@ export function mergePrefinalExtractionPasses(
       candidate.maxQty = Math.max(candidate.maxQty, qty);
       stripOnly.set(key, candidate);
       seenInThisStrip.add(key);
+    }
+
+    for (const [key, qty] of passMaxQtyByKey.entries()) {
+      recordQtyObservation(key, qty);
     }
   }
 
@@ -308,6 +334,8 @@ export function mergePrefinalExtractionPasses(
 
     const currentQty = Math.max(1, Number(existing.quantity) || 1);
     const support = stripStats.get(key)?.support ?? 0;
+    const observedQtys = qtyObservations.get(key) ?? [currentQty];
+    const reinforcingHighQtyPasses = observedQtys.filter((qty) => qty >= Math.max(2, currentQty - 1)).length;
 
     // Promote up: text layer shows one more than AI detected, with enough confidence
     const canPromoteByOne = planTextCount === currentQty + 1 && (currentQty >= 3 || support >= 3);
@@ -315,20 +343,16 @@ export function mergePrefinalExtractionPasses(
       existing.quantity = planTextCount;
     }
 
-    // Cap down carefully: clustered plan-text counts can undercount repeated SKUs that
-    // are spread across the drawing. A singleton plan-text count is only reliable for
-    // trimming small overcounts (e.g. 2 → 1), not for collapsing strong multi-detections
-    // like 3 → 1.
-    // Universal rule (applies to every SKU, not just W2430B):
-    //   Trust the AI when the SKU is strongly supported across passes (support ≥ 3),
-    //   or when it has been detected with quantity ≥ 3, even if the clustered text
-    //   layer only saw it once. Otherwise we still let the text layer trim small
-    //   overcounts (2 → 1) so we don't double-count obvious AI duplicates.
-    const hasStrongSupport = support >= 3 || currentQty >= 3;
+    // Cap down carefully:
+    // - still trim obvious small overcounts (2 → 1)
+    // - allow bigger quantities (3+) to survive ONLY when the higher count is reinforced
+    //   by another pass at the same or nearly the same quantity
+    // This blocks single-pass hallucinated qty=3 cases while preserving real repeated labels
+    // like W2430B 3,2,1 where the plan-text cluster only saw one label.
+    const hasReliableHighQtySupport = currentQty >= 3 && reinforcingHighQtyPasses >= 2;
     const shouldCapDown = currentQty > planTextCount
       && planTextCount >= 1
-      && !hasStrongSupport
-      && (planTextCount >= 2 || currentQty <= 2);
+      && (currentQty <= 2 || !hasReliableHighQtySupport);
     if (shouldCapDown) {
       existing.quantity = planTextCount;
     }
@@ -339,25 +363,21 @@ export function mergePrefinalExtractionPasses(
 
   for (const row of mergedRows) {
     if (!isAmbiguousDirectionalUcSku(row.sku)) continue;
-    const room = String(row.room || 'Kitchen');
     const base = stripDirectionalSuffix(row.sku);
-    const key = `${base}|${room}`;
-    const group = groupedDirectionalUc.get(key) ?? [];
+    const group = groupedDirectionalUc.get(base) ?? [];
     group.push(row);
-    groupedDirectionalUc.set(key, group);
+    groupedDirectionalUc.set(base, group);
   }
 
-  const collapsedKeys = new Set<string>();
+  const collapsedBases = new Set<string>();
   const output: ExtractedCabinetPassItem[] = [];
 
   for (const row of mergedRows) {
     const normalizedSku = normalizePrefinalSkuLabel(row.sku);
-    const room = String(row.room || 'Kitchen');
     const base = stripDirectionalSuffix(row.sku);
-    const groupKey = `${base}|${room}`;
-    const group = groupedDirectionalUc.get(groupKey) ?? [];
+    const group = groupedDirectionalUc.get(base) ?? [];
 
-    if (isAmbiguousDirectionalUcSku(row.sku) && group.length === 2) {
+    if (isAmbiguousDirectionalUcSku(row.sku) && group.length >= 2) {
       const suffixes = new Set(group.map((item) => normalizePrefinalSkuLabel(item.sku).match(/-([LR])$/i)?.[1]));
       const hasLeftAndRight = suffixes.has('L') && suffixes.has('R');
       const qtysAreSingle = group.every((item) => Math.max(1, Number(item.quantity) || 1) === 1);
@@ -365,19 +385,26 @@ export function mergePrefinalExtractionPasses(
       const baseCount = planTextSkuCounts[base] ?? 0;
 
       if (hasLeftAndRight && qtysAreSingle && exactDirectionalCount === 0 && baseCount <= 1) {
-        if (!collapsedKeys.has(groupKey)) {
+        if (!collapsedBases.has(base)) {
+          const preferred = group.reduce((best, current) => {
+            if (!best) return current;
+            return roomPriorityForDirectionalCollapse(String(current.room || 'Kitchen')) < roomPriorityForDirectionalCollapse(String(best.room || 'Kitchen'))
+              ? current
+              : best;
+          }, group[0]);
+
           output.push({
-            ...group[0],
+            ...preferred,
             sku: `${base}-`,
             quantity: Math.max(1, baseCount),
           });
-          collapsedKeys.add(groupKey);
+          collapsedBases.add(base);
         }
         continue;
       }
     }
 
-    if (!collapsedKeys.has(groupKey) || !isAmbiguousDirectionalUcSku(normalizedSku)) {
+    if (!collapsedBases.has(base) || !isAmbiguousDirectionalUcSku(normalizedSku)) {
       output.push(row);
     }
   }
