@@ -248,15 +248,15 @@ function extractDimensionsFromHintText(text: string): number[] {
   return values;
 }
 
-const VANITY_DEPTH_MIN = 18;
+const VANITY_DEPTH_MIN = 17.5;
 const VANITY_DEPTH_MAX = 22.5;
 
 function hasBathroomContext(text: string): boolean {
-  return /\b(vanity|lav(?:atory)?|bath(?:room)?|powder(?: room)?|restroom|wc)\b/i.test(text);
+  return /\b(vanity|lav(?:atory)?|bath(?:room)?|powder(?:\s*room)?|restroom|wc|unisex\s*bath|half\s*bath)\b/i.test(text);
 }
 
 function hasExcludedCounterContext(text: string): boolean {
-  return /\b(kitchen|break\s*room|mail\s*room|community\s*room|island|pantry|bar\s*top|bartop)\b/i.test(text);
+  return /\b(kitchen|break\s*room|mail\s*room|community(?:\s*(?:room|building))?|island|pantry|bar\s*top|bartop|corridor|hallway|work\s*station|workstation|lobby|lounge|reception|cafe|coffee|nurse\s*station|laundry|janitor)\b/i.test(text);
 }
 
 function isVanityDepth(depth: number): boolean {
@@ -266,13 +266,21 @@ function isVanityDepth(depth: number): boolean {
 function isVanityCandidate(row: VtopRow, unitTypeName: string, pageTextHint: string): boolean {
   const context = `${unitTypeName} ${pageTextHint}`.trim();
   const bathroomContext = hasBathroomContext(context);
-  const excludedContext = hasExcludedCounterContext(context) && !bathroomContext;
+  const excludedContext = hasExcludedCounterContext(context);
   const sinkEvidence = Boolean(row.hasSink) || row.bowlOffset != null || row.bowlPosition !== "center";
 
+  // Hard depth gate — vanities are 22" or less.
   if (!isVanityDepth(row.depth)) return false;
-  if (excludedContext) return false;
+
+  // Exclude rooms that are clearly not bathrooms — even if they have a sink (kitchen, break room, etc.)
+  // unless the page also explicitly mentions a bathroom (multi-room pages like "2BR (ADA)" with kitchen + Bath-1 + Bath-2).
+  if (excludedContext && !bathroomContext) return false;
+
+  // Require sink evidence OR clear bathroom context. A naked rectangle with no bowl
+  // and no bathroom keywords is NOT a vanity.
   if (sinkEvidence) return true;
-  return bathroomContext;
+  if (bathroomContext) return true;
+  return false;
 }
 
 function filterVanityCandidates(rows: VtopRow[], unitTypeName: string, pageTextHint: string): VtopRow[] {
