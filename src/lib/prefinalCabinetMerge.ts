@@ -319,7 +319,15 @@ export function mergePrefinalExtractionPasses(
     // are spread across the drawing. A singleton plan-text count is only reliable for
     // trimming small overcounts (e.g. 2 → 1), not for collapsing strong multi-detections
     // like 3 → 1.
+    // Universal rule (applies to every SKU, not just W2430B):
+    //   Trust the AI when the SKU is strongly supported across passes (support ≥ 3),
+    //   or when it has been detected with quantity ≥ 3, even if the clustered text
+    //   layer only saw it once. Otherwise we still let the text layer trim small
+    //   overcounts (2 → 1) so we don't double-count obvious AI duplicates.
+    const hasStrongSupport = support >= 3 || currentQty >= 3;
     const shouldCapDown = currentQty > planTextCount
+      && planTextCount >= 1
+      && !hasStrongSupport
       && (planTextCount >= 2 || currentQty <= 2);
     if (shouldCapDown) {
       existing.quantity = planTextCount;
