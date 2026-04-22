@@ -694,28 +694,38 @@ Return ONLY valid JSON — no markdown fences, no explanation:
 
     // QWEN PROMPT: short, direct, but STRICTLY vanity-only.
     // We still keep it concise for Qwen stability, but do not allow kitchen/community/mail counters.
-    const qwenPrompt = `Look at this 2020 countertop shop drawing page and extract ONLY vanity tops / lavatory tops.
+    const qwenPrompt = `Look at this 2020 countertop shop drawing page and extract ONLY VANITY TOPS / LAVATORY TOPS.
 
-A top counts as a vanity top ONLY if it matches these rules:
-- depth is about 18" to 22.5" (usually 19" or 22")
-- AND it has a sink / bowl cutout shown, OR the page/title uses bathroom words like vanity, bath, powder, lav, lavatory
-- DO NOT include kitchen tops, break room tops, mail room tops, community room tops, islands, or any top deeper than 22.5"
+STRICT RULES — a top counts as a vanity top ONLY when ALL of these are true:
+1. Depth (shorter edge) is BETWEEN 17.5" AND 22.5" inclusive (usually 22"). NEVER 25"+, NEVER 24".
+2. The drawing shows a ROUND or OVAL bowl/sink cutout inside the rectangle (an oval/ellipse, NOT a square or rounded-rectangle sink — square/rectangular cutouts are kitchen sinks).
+3. The room/page is a bathroom-type space: vanity, bath, powder, lav, lavatory, unisex bath, half bath, Bath-1, Bath-2, etc.
 
-For each vanity top, return:
+EXPLICIT EXCLUSIONS — never return these even if they fit on the page:
+- Kitchen counters (depth ~25.25", square sink, "KITCHEN" label)
+- Corridor counters / shelves (no sink)
+- Work station / workstation desks (no sink)
+- Break room / community room / mail room / lobby / reception / nurse station / coffee bar / bartop / island
+- Anything deeper than 22.5"
+- Anything with a SQUARE or RECTANGULAR sink cutout (kitchen)
+
+A page can contain BOTH a kitchen run AND a separate small vanity (e.g. 1BR-1 (ADA) pages have a 25.5" deep L-shape kitchen plus a separate ~44.5" x 22" vanity with an oval bowl). Return ONLY the vanity piece, NEVER the kitchen run.
+
+A page can contain MULTIPLE vanities (e.g. 2BR (ADA) has Bath-1 AND Bath-2). Return ALL of them as separate items.
+
+For each vanity top return:
 - length: longer edge in inches
-- depth: shorter edge in inches
-- hasSink: true if a sink/bowl cutout is visible or clearly implied, else false
+- depth: shorter edge in inches (must be 17.5–22.5)
+- hasSink: true (must be true — vanities always have an oval bowl)
 - bowlPosition: "offset-left" | "offset-right" | "center"
 - bowlOffset: number or null
 - leftWall: true if the LEFT end has a wall/double-line, else false (default true if uncertain)
 - rightWall: true if the RIGHT end has a wall/double-line, else false (default true if uncertain)
 
-Also extract unitTypeName from the title block after TYPE.
-
-Return ONLY actual vanity tops. If the page only shows kitchen/break-room/mail-room/community counters, return empty.
+Also extract unitTypeName from the title block — use the room/unit label (e.g. "POWDER ROOM", "UNISEX BATH", "1BR-1 (ADA) - AS", "2BR (ADA)"). If the page only shows kitchen/corridor/work-station/community counters with no oval-bowl vanity, return {"unitTypeName":"","vtops":[]}.
 
 Return ONLY valid JSON:
-{"unitTypeName":"1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"hasSink":true,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true}]} `;
+{"unitTypeName":"1BR-1 (ADA) - AS","vtops":[{"length":44.5,"depth":22,"hasSink":true,"bowlPosition":"offset-left","bowlOffset":16,"leftWall":true,"rightWall":true}]} `;
 
     const fullPrompt = provider === "dialagram" ? qwenPrompt : geminiPrompt;
 
