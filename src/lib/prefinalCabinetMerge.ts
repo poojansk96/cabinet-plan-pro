@@ -383,8 +383,9 @@ export function mergePrefinalExtractionPasses(
       const qtysAreSingle = group.every((item) => Math.max(1, Number(item.quantity) || 1) === 1);
       const exactDirectionalCount = (planTextSkuCounts[`${base}-L`] ?? 0) + (planTextSkuCounts[`${base}-R`] ?? 0);
       const baseCount = planTextSkuCounts[base] ?? 0;
+      const totalDirectionalEvidence = exactDirectionalCount + baseCount;
 
-      if (hasLeftAndRight && qtysAreSingle && exactDirectionalCount === 0 && baseCount <= 1) {
+      if (hasLeftAndRight && qtysAreSingle && totalDirectionalEvidence <= 1) {
         if (!collapsedBases.has(base)) {
           const preferred = group.reduce((best, current) => {
             if (!best) return current;
