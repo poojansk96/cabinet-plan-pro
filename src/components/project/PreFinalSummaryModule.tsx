@@ -1094,6 +1094,10 @@ export default function PreFinalSummaryModule({ project }: Props) {
       { width: 3 }, { width: 16 },
     ];
 
+    // Freeze top 3 rows (section titles + headers + rate row) AND first 3 columns
+    // (blank | Type | Qty) so unit type and qty stay visible when scrolling right
+    wsCosting.views = [{ state: 'frozen', xSplit: 3, ySplit: 3 }];
+
     // Row 1: Section titles
     const secTitleRow = wsCosting.addRow([]);
     secTitleRow.getCell(cc.plamLft).value = 'PLAM KTOP';
