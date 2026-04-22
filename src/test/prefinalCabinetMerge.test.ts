@@ -182,4 +182,17 @@ describe('mergePrefinalExtractionPasses', () => {
     expect(merged).toHaveLength(1);
     expect(merged[0].quantity).toBe(1);
   });
+
+  it('does not collapse strong repeated W2430B detections to one when clustered plan text undercounts', () => {
+    const merged = mergePrefinalExtractionPasses([
+      [{ sku: 'W2430B', room: 'Kitchen', type: 'Wall', quantity: 3 }],
+      [{ sku: 'W2430B', room: 'Kitchen', type: 'Wall', quantity: 2 }],
+      [{ sku: 'W2430B', room: 'Kitchen', type: 'Wall', quantity: 1 }],
+    ], {
+      W2430B: 1,
+    });
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0].quantity).toBe(3);
+  });
 });
