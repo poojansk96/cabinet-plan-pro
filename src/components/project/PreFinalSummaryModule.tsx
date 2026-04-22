@@ -318,8 +318,9 @@ export default function PreFinalSummaryModule({ project }: Props) {
       }
     });
 
-    // Freeze rows 1-4 (header area) so headings stay visible when scrolling
-    wsUnits.views = [{ state: 'frozen', xSplit: 0, ySplit: 4 }];
+    // Freeze top 4 rows (header area) AND first 4 columns (blank | Bldg | Floor | Unit #)
+    // so unit identifiers stay visible when scrolling right through unit type columns
+    wsUnits.views = [{ state: 'frozen', xSplit: 4, ySplit: 4 }];
 
     const sortedUnits = [...store.unitNumbers].sort((a, b) => {
       const bldgA = (a.bldg || '').toUpperCase();
