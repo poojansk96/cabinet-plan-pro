@@ -195,4 +195,39 @@ describe('mergePrefinalExtractionPasses', () => {
     expect(merged).toHaveLength(1);
     expect(merged[0].quantity).toBe(3);
   });
+
+  it('preserves strong repeated detections across many SKU shapes (universal rule)', () => {
+    const samples: Array<{ sku: string; type: string; room: string }> = [
+      { sku: 'B24B', type: 'Base', room: 'Kitchen' },
+      { sku: 'SB30B', type: 'Base', room: 'Kitchen' },
+      { sku: 'W3018B', type: 'Wall', room: 'Kitchen' },
+      { sku: 'WF3X30', type: 'Accessory', room: 'Kitchen' },
+      { sku: 'V3621B', type: 'Vanity', room: 'Bath' },
+      { sku: 'BLW27/3030-L', type: 'Wall', room: 'Kitchen' },
+    ];
+
+    for (const sample of samples) {
+      const merged = mergePrefinalExtractionPasses([
+        [{ ...sample, quantity: 3 }],
+        [{ ...sample, quantity: 2 }],
+        [{ ...sample, quantity: 2 }],
+      ], {
+        [sample.sku.toUpperCase()]: 1,
+      });
+
+      expect(merged).toHaveLength(1);
+      expect(merged[0].quantity, `expected ${sample.sku} to keep qty 3`).toBe(3);
+    }
+  });
+
+  it('still trims a 2 → 1 overcount when only one label exists in the plan text', () => {
+    const merged = mergePrefinalExtractionPasses([
+      [{ sku: 'B24B', room: 'Kitchen', type: 'Base', quantity: 2 }],
+    ], {
+      B24B: 1,
+    });
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0].quantity).toBe(1);
+  });
 });
