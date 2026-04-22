@@ -1384,8 +1384,9 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
         } else {
           const textCap = getTextOccurrenceCap(item.sku);
           const nextQty = existing.quantity + item.quantity;
-          // Apply +1 tolerance (consistent with per-item cap) — OCR can miss rotated/overlapping labels
-          const capValue = textCap > 0 ? textCap + 1 : 0;
+            // Full-page merge should trust text counts strictly; strip passes already got
+            // their looser tolerance earlier in the pipeline.
+            const capValue = textCap > 0 ? textCap : 0;
           existing.quantity = capValue > 0 ? Math.min(nextQty, capValue) : nextQty;
         }
       } else {
