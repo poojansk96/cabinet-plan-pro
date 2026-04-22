@@ -198,16 +198,26 @@ function extractUnitTypeFromPageText(text: string): string {
   if (!cleaned) return "";
 
   const patterns = [
+    // "TYPE 1.1A (ADA) UNIT# ..." or "PARCEL X TYPE ... UNIT#"
     /(?:parcel\s+[a-z0-9]+(?:\s+[a-z0-9]+)*\s+)?type\s*-?\s*([a-z0-9().\/-]+(?:\s+[a-z0-9().\/-]+){0,4})\s+unit#/i,
     /countertops\s+type\s*-?\s*([a-z0-9().\/-]+(?:\s+[a-z0-9().\/-]+){0,4})\s+(?:parcel|unit#)/i,
+    // "Judd Homestead - CT 1BR-1 (ADA) - AS UNIT# BLDG ..." (no "TYPE" keyword)
+    /(?:^|[\s-])((?:\d+br|studio|efficiency|penthouse)[a-z0-9().\/\s-]{0,40}?)\s+unit#/i,
+    // Footer: "<NAME> Countertops Drawing #: 1 No Scale."
+    /([a-z0-9][a-z0-9().\/\s-]{1,60}?)\s+countertops\s+drawing\s*#/i,
+    // Generic: "Countertops <NAME> <dim>"
     /countertops\s+([a-z][a-z0-9().\/-]*(?:\s+[a-z0-9().\/-]+){0,4})\s+(?:\d+(?:\s+\d+\s+\d+)?\s*"|parcel\s+[a-z0-9]+|type\s+-?)/i,
   ];
 
   for (const pattern of patterns) {
     const match = cleaned.match(pattern);
     if (!match) continue;
-    const candidate = sanitizeDetectedType(match[1]);
-    if (candidate) return candidate;
+    let candidate = sanitizeDetectedType(match[1]);
+    // Strip leading "Judd Homestead - CT " or other project preamble
+    candidate = candidate.replace(/^(?:judd\s+homestead\s*-?\s*ct\s*-?\s*)/i, "").trim();
+    // Strip trailing "Drawing #" remnants
+    candidate = candidate.replace(/\s*(?:no\s+scale|drawing\s*#?.*)$/i, "").trim();
+    if (candidate && candidate.length >= 2 && candidate.length <= 60) return candidate;
   }
 
   return "";
