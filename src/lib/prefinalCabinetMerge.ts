@@ -315,9 +315,13 @@ export function mergePrefinalExtractionPasses(
       existing.quantity = planTextCount;
     }
 
-    // Cap down: if AI detected more than the text layer shows, trust the text layer
-    // The text layer is ground truth for how many physical labels exist in the drawing
-    if (currentQty > planTextCount) {
+    // Cap down carefully: clustered plan-text counts can undercount repeated SKUs that
+    // are spread across the drawing. A singleton plan-text count is only reliable for
+    // trimming small overcounts (e.g. 2 → 1), not for collapsing strong multi-detections
+    // like 3 → 1.
+    const shouldCapDown = currentQty > planTextCount
+      && (planTextCount >= 2 || currentQty <= 2);
+    if (shouldCapDown) {
       existing.quantity = planTextCount;
     }
   }
