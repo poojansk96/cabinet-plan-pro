@@ -129,4 +129,18 @@ describe('mergePrefinalExtractionPasses', () => {
     expect(merged).toHaveLength(1);
     expect(merged[0].quantity).toBe(1);
   });
+
+  it('collapses ambiguous UC left/right variants into one hidden-label base row', () => {
+    const merged = mergePrefinalExtractionPasses([
+      [{ sku: 'UC18X84-L', room: 'Kitchen', type: 'Tall', quantity: 1 }],
+      [{ sku: 'UC18X84-R', room: 'Kitchen', type: 'Tall', quantity: 1 }],
+      [{ sku: 'UC18X84-L', room: 'Kitchen', type: 'Tall', quantity: 1 }],
+    ], {
+      UC18X84: 1,
+    });
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0].sku).toBe('UC18X84-');
+    expect(merged[0].quantity).toBe(1);
+  });
 });
