@@ -230,4 +230,28 @@ describe('mergePrefinalExtractionPasses', () => {
     expect(merged).toHaveLength(1);
     expect(merged[0].quantity).toBe(1);
   });
+
+  it('caps a single-pass qty 3 hallucination back to the plan-text count of 1', () => {
+    const merged = mergePrefinalExtractionPasses([
+      [{ sku: 'W3018B', room: 'Kitchen', type: 'Wall', quantity: 3 }],
+    ], {
+      W3018B: 1,
+    });
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0].quantity).toBe(1);
+  });
+
+  it('collapses ambiguous UC left/right rows into one hidden-label row even if rooms differ', () => {
+    const merged = mergePrefinalExtractionPasses([
+      [{ sku: 'UC18X84-L', room: 'Kitchen', type: 'Tall', quantity: 1 }],
+      [{ sku: 'UC18X84-R', room: 'Other', type: 'Tall', quantity: 1 }],
+    ], {
+      UC18X84: 1,
+    });
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0].sku).toBe('UC18X84-');
+    expect(merged[0].quantity).toBe(1);
+  });
 });
