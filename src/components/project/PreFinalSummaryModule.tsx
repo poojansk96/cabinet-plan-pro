@@ -1219,6 +1219,16 @@ export default function PreFinalSummaryModule({ project }: Props) {
     });
     saffronCostCols.forEach(col => { costRateRow.getCell(col).numFmt = '$#,##0.00'; });
 
+    // Add borders to ALL cells across the rate row (skip the leading blank col 1
+    // and the spacer columns) so the row reads as a single bordered band like
+    // the reference screenshot.
+    const rateRowSpacerCols = new Set([cc.blank, cc.spacer, cc.spacer2, cc.spacer3, cc.spacer4]);
+    const rateRowLastCol = cc.sumCost;
+    for (let col = 2; col <= rateRowLastCol; col++) {
+      if (rateRowSpacerCols.has(col)) continue;
+      costRateRow.getCell(col).border = allBorders;
+    }
+
     const costRateRowNum = costRateRow.number;
     const costDataStart = costRateRowNum + 1;
 
