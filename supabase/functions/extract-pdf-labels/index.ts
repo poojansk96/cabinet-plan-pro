@@ -1305,8 +1305,8 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
 
     // ── Collapse ambiguous hidden-suffix UC tall cabinets ──
     // When the plan label is unclear, vision can produce both -L and -R for the same
-    // single UC dimension cabinet. In these hidden-label cases, return one unsuffixed
-    // base SKU instead of two directional variants.
+    // single UC dimension cabinet. In these hidden-label cases, return one hidden-label
+    // base SKU (trailing dash preserved) instead of two directional variants.
     {
       const groupedByBase = new Map<string, typeof items>();
       const roomPriorityForDirectionalCollapse = (room: string): number => {
@@ -1340,10 +1340,13 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
         ) {
           if (collapsedDirectionalUc.has(base)) continue;
 
-          const textHasDirectionalEvidence = group.some((entry) => textLayerSkuSet.has(entry.sku));
-          const textHasBaseEvidence = textLayerSkuSet.has(base);
+          const suffixes = new Set(group.map((entry) => normalizeSkuLabel(entry.sku).match(/-([LR])$/i)?.[1]));
+          const hasLeftAndRight = suffixes.has('L') && suffixes.has('R');
+          const qtysAreSingle = group.every((entry) => Math.max(1, entry.quantity || 1) === 1);
+          const exactDirectionalCount = (textLayerSkuCounts[`${base}-L`] ?? 0) + (textLayerSkuCounts[`${base}-R`] ?? 0);
+          const baseCount = textLayerSkuCounts[base] ?? 0;
 
-          if (!textHasDirectionalEvidence || textHasBaseEvidence) {
+          if (hasLeftAndRight && qtysAreSingle && exactDirectionalCount === 0 && baseCount <= 1) {
             const preferred = group.reduce((best, current) => {
               if (!best) return current;
               if (current.quantity !== best.quantity) return current.quantity > best.quantity ? current : best;
@@ -1352,11 +1355,11 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
 
             nextItems.push({
               ...preferred,
-              sku: base,
-              quantity: Math.max(1, ...group.map((entry) => entry.quantity || 1)),
+              sku: `${base}-`,
+              quantity: Math.max(1, baseCount),
             });
             collapsedDirectionalUc.add(base);
-            console.log(`Collapsed ambiguous hidden-label UC variants: ${group.map((entry) => entry.sku).join(', ')} → ${base}`);
+            console.log(`Collapsed ambiguous hidden-label UC variants: ${group.map((entry) => entry.sku).join(', ')} → ${base}-`);
             continue;
           }
         }
