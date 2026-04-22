@@ -169,6 +169,14 @@ export function extractPlanSkuCountsFromTextItems(textItems: PositionedPdfTextIt
   return countOccurrences(clusteredOccurrences.length > 0 ? clusteredOccurrences : primaryCluster);
 }
 
+function isAmbiguousDirectionalUcSku(value: unknown): boolean {
+  return /^UC\d+X\d+-[LR]$/i.test(String(value || '').trim());
+}
+
+function stripDirectionalSuffix(value: unknown): string {
+  return normalizePrefinalSkuLabel(String(value || '')).replace(/-[LR]$/i, '');
+}
+
 export function mergePrefinalExtractionPasses(
   passes: ExtractedCabinetPassItem[][],
   planTextSkuCounts: Record<string, number> = {},
@@ -314,5 +322,53 @@ export function mergePrefinalExtractionPasses(
     }
   }
 
-  return Array.from(map.values());
+  const mergedRows = Array.from(map.values());
+  const groupedDirectionalUc = new Map<string, ExtractedCabinetPassItem[]>();
+
+  for (const row of mergedRows) {
+    if (!isAmbiguousDirectionalUcSku(row.sku)) continue;
+    const room = String(row.room || 'Kitchen');
+    const base = stripDirectionalSuffix(row.sku);
+    const key = `${base}|${room}`;
+    const group = groupedDirectionalUc.get(key) ?? [];
+    group.push(row);
+    groupedDirectionalUc.set(key, group);
+  }
+
+  const collapsedKeys = new Set<string>();
+  const output: ExtractedCabinetPassItem[] = [];
+
+  for (const row of mergedRows) {
+    const normalizedSku = normalizePrefinalSkuLabel(row.sku);
+    const room = String(row.room || 'Kitchen');
+    const base = stripDirectionalSuffix(row.sku);
+    const groupKey = `${base}|${room}`;
+    const group = groupedDirectionalUc.get(groupKey) ?? [];
+
+    if (isAmbiguousDirectionalUcSku(row.sku) && group.length === 2) {
+      const suffixes = new Set(group.map((item) => normalizePrefinalSkuLabel(item.sku).match(/-([LR])$/i)?.[1]));
+      const hasLeftAndRight = suffixes.has('L') && suffixes.has('R');
+      const qtysAreSingle = group.every((item) => Math.max(1, Number(item.quantity) || 1) === 1);
+      const exactDirectionalCount = (planTextSkuCounts[`${base}-L`] ?? 0) + (planTextSkuCounts[`${base}-R`] ?? 0);
+      const baseCount = planTextSkuCounts[base] ?? 0;
+
+      if (hasLeftAndRight && qtysAreSingle && exactDirectionalCount === 0 && baseCount <= 1) {
+        if (!collapsedKeys.has(groupKey)) {
+          output.push({
+            ...group[0],
+            sku: `${base}-`,
+            quantity: Math.max(1, baseCount),
+          });
+          collapsedKeys.add(groupKey);
+        }
+        continue;
+      }
+    }
+
+    if (!collapsedKeys.has(groupKey) || !isAmbiguousDirectionalUcSku(normalizedSku)) {
+      output.push(row);
+    }
+  }
+
+  return output;
 }

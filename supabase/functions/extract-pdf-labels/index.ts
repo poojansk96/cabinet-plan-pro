@@ -255,6 +255,18 @@ function stripSplitSuffix(value: string): string {
   return normalizeSkuLabel(value).replace(SPLIT_SUFFIX_RE, '');
 }
 
+function isDirectionalVariantSku(value: string): boolean {
+  return /-[LR]$/i.test(normalizeSkuLabel(value));
+}
+
+function stripDirectionalSuffix(value: string): string {
+  return normalizeSkuLabel(value).replace(/-[LR]$/i, '');
+}
+
+function isDimensionUcSku(value: string): boolean {
+  return /^UC\d+X\d+(?:-[LR])?$/i.test(normalizeSkuLabel(value));
+}
+
 function isValidSku(s: string): boolean {
   const upper = s.toUpperCase().trim();
   if (!upper || upper.length < 2) return false;
@@ -1290,6 +1302,72 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
       const baseCount = baseSku !== sku ? (textLayerSkuCounts[baseSku] ?? 0) : 0;
       return Math.max(exactCount, baseCount);
     };
+
+    // ── Collapse ambiguous hidden-suffix UC tall cabinets ──
+    // When the plan label is unclear, vision can produce both -L and -R for the same
+    // single UC dimension cabinet. In these hidden-label cases, return one unsuffixed
+    // base SKU instead of two directional variants.
+    {
+      const groupedByBase = new Map<string, typeof items>();
+      const roomPriorityForDirectionalCollapse = (room: string): number => {
+        const normalized = String(room || '').trim().toLowerCase();
+        if (normalized === 'kitchen') return 0;
+        if (normalized === 'bath') return 1;
+        if (normalized === 'laundry') return 2;
+        if (normalized === 'pantry') return 3;
+        if (normalized === 'other') return 4;
+        return 5;
+      };
+      for (const item of items) {
+        const base = stripDirectionalSuffix(item.sku);
+        const group = groupedByBase.get(base) ?? [];
+        group.push(item);
+        groupedByBase.set(base, group);
+      }
+
+      const collapsedDirectionalUc = new Set<string>();
+      const nextItems: typeof items = [];
+
+      for (const item of items) {
+        const base = stripDirectionalSuffix(item.sku);
+        const group = groupedByBase.get(base) ?? [];
+
+        if (
+          isDimensionUcSku(item.sku)
+          && isDirectionalVariantSku(item.sku)
+          && group.length >= 2
+          && group.every((entry) => isDimensionUcSku(entry.sku) && isDirectionalVariantSku(entry.sku))
+        ) {
+          if (collapsedDirectionalUc.has(base)) continue;
+
+          const textHasDirectionalEvidence = group.some((entry) => textLayerSkuSet.has(entry.sku));
+          const textHasBaseEvidence = textLayerSkuSet.has(base);
+
+          if (!textHasDirectionalEvidence || textHasBaseEvidence) {
+            const preferred = group.reduce((best, current) => {
+              if (!best) return current;
+              if (current.quantity !== best.quantity) return current.quantity > best.quantity ? current : best;
+              return roomPriorityForDirectionalCollapse(current.room) < roomPriorityForDirectionalCollapse(best.room) ? current : best;
+            }, group[0]);
+
+            nextItems.push({
+              ...preferred,
+              sku: base,
+              quantity: Math.max(1, ...group.map((entry) => entry.quantity || 1)),
+            });
+            collapsedDirectionalUc.add(base);
+            console.log(`Collapsed ambiguous hidden-label UC variants: ${group.map((entry) => entry.sku).join(', ')} → ${base}`);
+            continue;
+          }
+        }
+
+        if (!collapsedDirectionalUc.has(base)) {
+          nextItems.push(item);
+        }
+      }
+
+      items = nextItems;
+    }
 
     // ── Deduplicate ──
     // For most SKUs, duplicate entries are summed (multiple distinct labels on page).
