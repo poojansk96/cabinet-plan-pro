@@ -328,7 +328,7 @@ function classifySku(sku: string): string {
   if (/^HW\d/i.test(normalizedSku)) return "Wall";
   if (/^(T|UT|TC|PT|PTC|UC)(\d|$)/i.test(normalizedSku)) return "Tall";
   if (/^(HALC|HAUC|HCUC|HCYC)\d/i.test(normalizedSku)) return "Tall";
-  if (/^(V|VB|VD|VDC)\d/i.test(normalizedSku)) return "Vanity";
+  if (/^(V|VB|VD|VDB|VDC)\d/i.test(normalizedSku)) return "Vanity";
   if (/^(HAV|HAVDB)\d/i.test(normalizedSku)) return "Vanity";
   if (/^(BP|SCRIBE)$/i.test(normalizedSku)) return "Accessory";
   if (/^(FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|TF|APPRON|UREP|REP)\d/i.test(normalizedSku)) return "Accessory";
@@ -773,7 +773,7 @@ For each cabinet found, provide:
    - "Base" → B, DB, SB, CB, EB, LS, LSB, HCDB, HCLS, HWS, HWSB, HAB, HABLB, HADB, HAOC, HASB, HACB, HAEB (but NOT BLB/BLW/BRW — those are Wall, NOT HAV — those are Vanity)
     - "Wall" → W, WDC, UB, WC, OH, BLB, BLW, BRW, HAW, HAWDC, HCW, HW (ONLY when the prefix is exactly HW followed immediately by digits; HWS/HWSB are Base)
      - "Tall" → T, UT, TC, PT, PTC, UC, HALC, HAUC, HCUC, HCYC (HCUC15X82, HAUC1818X72, HCYC15S82-L = Tall, NOT Wall)
-     - "Vanity" → V, VB, VD, VDC, HAV, HAVDB (HAV/HAVDB = Vanity, NOT Base)
+     - "Vanity" → V, VB, VD, VDB, VDC, HAV, HAVDB (HAV/HAVDB = Vanity, NOT Base. VDB15/VDB18 = drawer-base vanity, often appears under a vanity top — DO NOT skip)
    - "Accessory" → FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR, TF, APPRON
 3. room: From room labels on the plan (Kitchen, Bath, Laundry, Pantry — capitalize first letter only)
 4. quantity: Count EVERY separate label occurrence of this SKU on this page
