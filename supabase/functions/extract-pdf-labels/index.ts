@@ -814,6 +814,8 @@ PRESERVE FULL SKU LABELS — CRITICAL:
 - "W3030B" → report "W3030B" exactly as written
 - Do NOT strip trailing letters, "-1D", "-2D", "-REM", "-L", "-R", "-FB" or any other suffix.
 - Each unique label on the drawing = one unique SKU entry. Do NOT report both a truncated and full version.
+- VALID SUFFIX LETTERS: only "-L" (Left) or "-R" (Right) for handed cabinets. NEVER use "-I" — that letter does NOT exist as a cabinet suffix. If a label looks like "-I", it is actually "-L" (the lowercase L misread). Report it as "-L".
+- IMPORTANT: If a cabinet label is partially hidden, faint, or you cannot clearly determine the -L or -R suffix, report the BARE SKU without any suffix (e.g. "UC18X84") rather than guessing or fabricating "-I". Do NOT add a suffix you cannot read clearly.
 
 SKIP THESE — NOT CABINET SKUs:
 - Appliances: REF, REFRIG, DW, DISHWASHER, RANGE, HOOD, MICRO, OTR, OVEN, VENT, DISP, CKT
