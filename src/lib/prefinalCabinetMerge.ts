@@ -121,7 +121,7 @@ function pickPrimaryPlanCluster(occurrences: SkuOccurrence[]): SkuOccurrence[] {
 
   if (components.length <= 1) return occurrences;
 
-  return components.sort((left, right) => {
+  const sorted = components.sort((left, right) => {
     if (right.length !== left.length) return right.length - left.length;
     const rightUnique = new Set(right.map(({ sku }) => sku)).size;
     const leftUnique = new Set(left.map(({ sku }) => sku)).size;
@@ -131,7 +131,29 @@ function pickPrimaryPlanCluster(occurrences: SkuOccurrence[]): SkuOccurrence[] {
     const rightArea = rightBounds.spanX * rightBounds.spanY;
     const leftArea = leftBounds.spanX * leftBounds.spanY;
     return rightArea - leftArea;
-  })[0];
+  });
+
+  // Merge in any secondary clusters that share the primary cluster's X-column.
+  // Vertical-column elevations are commonly broken into 2+ pieces by gaps from
+  // appliance regions (RANGE, SINK, FRIDGE) that have no SKU labels — keeping
+  // those together preserves repeated SKUs like W1530-L drawn twice in the
+  // same column. We only re-attach clusters that overlap the primary's X-band
+  // so we never re-include legend/title-block text from far away.
+  const primary = sorted[0];
+  const primaryBounds = getBounds(primary);
+  const xBandMargin = Math.max(40, primaryBounds.spanX * 0.5 + 40);
+
+  const merged: SkuOccurrence[] = [...primary];
+  for (let i = 1; i < sorted.length; i += 1) {
+    const candidate = sorted[i];
+    const candidateBounds = getBounds(candidate);
+    const xOverlap =
+      candidateBounds.maxX >= primaryBounds.minX - xBandMargin &&
+      candidateBounds.minX <= primaryBounds.maxX + xBandMargin;
+    if (xOverlap) merged.push(...candidate);
+  }
+
+  return merged;
 }
 
 export function extractPlanSkuCountsFromTextItems(textItems: PositionedPdfTextItem[]): Record<string, number> {
