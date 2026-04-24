@@ -795,7 +795,8 @@ COUNTING — CRITICAL:
 - If "BF3" label appears once → quantity 1. If "BF3" appears in TWO different spots → quantity 2. Do NOT skip small accessories.
 - ACCESSORIES MATTER: BF3, BF6, WF3X30, WF6X30, DWR1, DWR3, DWR6, FIL3, APPRON — count EVERY single one. Scan the ENTIRE drawing including corners, edges, and narrow gaps between cabinets. These labels often appear on BOTH sides of a kitchen run — check LEFT side AND RIGHT side of counter runs. DWR labels are often ROTATED VERTICALLY — look for vertically oriented text.
 - BF (Base Filler) labels commonly appear in PAIRS — one on each end of a cabinet run. Scan every end-of-run and corner transition for BF labels.
-- FILLER-HEAD CABINETS: B09FH, B06FH, B12FH — these are VERY NARROW rectangles (6"-12" wide). They appear as thin slivers between larger cabinets or at the end of a run. ACTIVELY LOOK FOR THESE — they are commonly missed.
+- FILLER-HEAD CABINETS: B09FH, B06FH, B12FH, B15FH, B18FH — these are VERY NARROW rectangles (6"-18" wide). They appear as thin slivers between larger cabinets or at the end of a run. ACTIVELY LOOK FOR THESE — they are commonly missed.
+- VANITY-ADJACENT FILLER-HEAD: In bathroom elevations, a B##FH (e.g. B09FH, B12FH) is OFTEN drawn directly NEXT TO a vanity SKU like V3021B, VB30, VD24, VDB18. The label is tiny and vertical/rotated. WHENEVER you see a vanity (V/VB/VD/VDB/VDC) cabinet, scan the BOTH sides of it for a narrow B##FH sliver — this is the single most commonly missed cabinet on bath elevations. If found, classify the B##FH as "Base" with room "Bath".
 - Corner cabinets (LS, LSB) at wall junction = count ONCE even if label appears at junction of two wall runs.
 - Look for "xN" or "(2)" multiplier notation next to labels.
 
@@ -841,7 +842,7 @@ Also accept manufacturer-specific longer prefixes (e.g. HA, HAV, HAVDB, HALC, HA
 VALID NO-DIGIT SKUS:
 UC, SCRIBE, BP
 
-FINAL SWEEP: After your initial scan, go back and specifically look for: B09FH, B06FH, B12FH, BF3, BF6, WF3X30, WF6X30, TF3X96, DWR1, DWR3, DWR6, CM8, TK, TKRUN, EP, LR, UC, SCRIBE, BP, HAVDB12, HAVDB18, HAVDB15, VDB12, VDB15, VDB18 (vanity drawer-base — small narrow rectangles under vanity tops, very commonly missed), APPRON (with dimensions like "APPRON 59X21" — report as "APPRON59X21" without the space). These appear as very small labels on narrow shapes. DWR labels are often rotated vertically — scan rotated text carefully.
+FINAL SWEEP: After your initial scan, go back and specifically look for: B09FH, B06FH, B12FH, B15FH, B18FH (filler-head base — VERY commonly missed when adjacent to vanity SKUs like V3021B, VB30, VD24 in bath elevations — ALWAYS scan beside every vanity cabinet for a narrow B##FH sliver), BF3, BF6, WF3X30, WF6X30, TF3X96, DWR1, DWR3, DWR6, CM8, TK, TKRUN, EP, LR, UC, SCRIBE, BP, HAVDB12, HAVDB18, HAVDB15, VDB12, VDB15, VDB18 (vanity drawer-base — small narrow rectangles under vanity tops, very commonly missed), APPRON (with dimensions like "APPRON 59X21" — report as "APPRON59X21" without the space). These appear as very small labels on narrow shapes. DWR labels are often rotated vertically — scan rotated text carefully.
 ${isStrip ? '\nNOTE: This image shows a CROPPED SECTION of a larger drawing page. Extract all cabinet labels visible in this cropped section.\n' : ''}${textLayerSkus.length > 0 ? `\nTEXT LAYER CROSS-REFERENCE — the PDF text layer detected these SKUs on this page:\n${textLayerSkus.join(', ')}\nMake sure ALL of these appear in your results if they are visible as labels on the drawing. If any are missing from your results, look harder for them.\n` : ''}${unitType ? `\nUnit type context: ${unitType}` : ""}
 If no cabinet SKUs are found, return {"items":[]}`;
 
@@ -885,7 +886,7 @@ Your job:
    - SKUs from title blocks, legends, or notes that aren't actual cabinet labels on the plan
 2. ADD any cabinet SKU labels visible on the drawing that were MISSED by the fast model. Scan carefully for:
    - Small accessories: BF3, BF6, WF3X30, DWR1, DWR3, FIL3, CM8, TK, EP, LR, UC, SCRIBE, BP
-   - Filler-head cabinets: B09FH, B06FH, B12FH (very narrow rectangles)
+   - Filler-head cabinets: B09FH, B06FH, B12FH, B15FH, B18FH (very narrow rectangles — ESPECIALLY common adjacent to vanity SKUs like V3021B/VB30/VD24 in bath elevations; always scan beside every vanity for a tiny B##FH sliver)
    - APPRON labels (report as "APPRON59X21" without space)
    - Cabinets in ALL rooms including kitchenette, laundry, bath — not just the main kitchen
 3. CORRECT any wrong quantities — count each separate label occurrence on the drawing.
@@ -1026,9 +1027,16 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
         }
         if (covered) continue;
 
-        // Determine room: use Bath for vanity SKUs, majority room for others
+        // Determine room: use Bath for vanity SKUs, also use Bath for filler-head
+        // base cabinets (B##FH) when ANY vanity SKU is present on this page —
+        // these tiny fillers are almost always drawn next to a vanity in bath
+        // elevations and were previously misrouted to Kitchen via majority room.
         const skuType = classifySku(normalized);
-        const room = skuType === 'Vanity' ? 'Bath' : majorityRoom;
+        const isFillerHeadBase = /^B\d{1,2}FH$/i.test(normalized);
+        const pageHasVanity = finalItems.some((i: any) => classifySku(String(i.sku || '')) === 'Vanity');
+        const room = skuType === 'Vanity'
+          ? 'Bath'
+          : (isFillerHeadBase && pageHasVanity ? 'Bath' : majorityRoom);
 
         finalItems.push({ sku: normalized, type: skuType, room, quantity: 1 });
         extractedSkuSet.add(normalized);

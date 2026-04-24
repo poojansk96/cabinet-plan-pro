@@ -280,6 +280,10 @@ export function mergePrefinalExtractionPasses(
     const upper = String(sku || '').toUpperCase().trim();
     return /^(UC|BP|SCRIBE)$/.test(upper)
       || /^(?:DWR|BF|FIL|CM|EP|FP|LR)\d(?:[A-Z0-9\-\/]*)$/.test(upper)
+      // Filler-head base cabinets like B09FH, B06FH, B12FH, B15FH, B18FH —
+      // very narrow rectangles drawn beside vanities; commonly only seen on a
+      // single strip pass but always real when present.
+      || /^B\d{1,2}FH$/.test(upper)
       || /^[A-Z]{2,8}\d[A-Z0-9\-\/]{2,}$/.test(upper);
   };
 
