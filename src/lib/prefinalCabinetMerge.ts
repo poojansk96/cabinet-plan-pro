@@ -89,8 +89,13 @@ function pickPrimaryPlanCluster(occurrences: SkuOccurrence[]): SkuOccurrence[] {
   if (occurrences.length <= 2) return occurrences;
 
   const allBounds = getBounds(occurrences);
-  const xThreshold = Math.max(40, allBounds.spanX * 0.18);
-  const yThreshold = Math.max(40, allBounds.spanY * 0.18);
+  // More generous neighbor thresholds. Real elevation drawings often place
+  // cabinet labels 80-150 px apart horizontally and 30-60 px apart vertically;
+  // overly tight thresholds split a single elevation into many tiny clusters
+  // and we end up dropping real labels (e.g. B15-R drawn twice in a kitchen
+  // top + bottom elevation on the same page).
+  const xThreshold = Math.max(120, allBounds.spanX * 0.35);
+  const yThreshold = Math.max(80, allBounds.spanY * 0.35);
   const visited = new Set<number>();
   const components: SkuOccurrence[][] = [];
 
@@ -133,24 +138,21 @@ function pickPrimaryPlanCluster(occurrences: SkuOccurrence[]): SkuOccurrence[] {
     return rightArea - leftArea;
   });
 
-  // Merge in any secondary clusters that share the primary cluster's X-column.
-  // Vertical-column elevations are commonly broken into 2+ pieces by gaps from
-  // appliance regions (RANGE, SINK, FRIDGE) that have no SKU labels — keeping
-  // those together preserves repeated SKUs like W1530-L drawn twice in the
-  // same column. We only re-attach clusters that overlap the primary's X-band
-  // so we never re-include legend/title-block text from far away.
+  // Keep all clusters except clearly remote outliers — defined as singleton
+  // clusters (a single isolated occurrence far from any other label). These
+  // are usually legend / title-block / page-stamp duplicates of a SKU that's
+  // really drawn elsewhere on the page. Anything with 2+ occurrences is
+  // treated as a real second elevation drawn on the same page and merged in.
+  // This preserves repeated SKUs like B15-R / W1530-L drawn in two elevations
+  // of one drawing while still ignoring stray duplicates.
   const primary = sorted[0];
-  const primaryBounds = getBounds(primary);
-  const xBandMargin = Math.max(40, primaryBounds.spanX * 0.5 + 40);
-
   const merged: SkuOccurrence[] = [...primary];
+
   for (let i = 1; i < sorted.length; i += 1) {
     const candidate = sorted[i];
-    const candidateBounds = getBounds(candidate);
-    const xOverlap =
-      candidateBounds.maxX >= primaryBounds.minX - xBandMargin &&
-      candidateBounds.minX <= primaryBounds.maxX + xBandMargin;
-    if (xOverlap) merged.push(...candidate);
+    const isRemoteSingleton = candidate.length === 1 && primary.length >= 3;
+    if (isRemoteSingleton) continue;
+    merged.push(...candidate);
   }
 
   return merged;
