@@ -186,7 +186,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
     // ── Sheet 1: Project Info ───────────────────────────────────────
     const wsInfo = wb.addWorksheet('1-Project Info');
-    wsInfo.columns = [{ width: 22 }, { width: 40 }, { width: 30 }];
+    // Col A: blank spacer | Col B: label | Col C: value | Col D: notes
+    wsInfo.columns = [{ width: 3 }, { width: 22 }, { width: 40 }, { width: 30 }];
     const sp = project.specs as Record<string, any> | undefined;
 
     const boldUnderlineLabels = new Set([
@@ -256,21 +257,40 @@ export default function PreFinalSummaryModule({ project }: Props) {
     ];
 
     const redFont: Partial<ExcelJS.Font> = { color: { argb: 'FFCC0000' } };
+    const redBorderSide = { style: 'medium' as const, color: { argb: 'FFCC0000' } };
+
+    // Row 1: blank spacer row
+    wsInfo.addRow([]);
 
     infoRows.forEach(({ cells: r, pendingNote }) => {
-      const row = wsInfo.addRow(r);
-      if (r.length > 0 && r[0] && boldUnderlineLabels.has(r[0])) {
-        const cell = row.getCell(1);
+      // Prepend empty cell to shift everything to col B (col A is blank spacer)
+      const shifted = r.length > 0 ? ['', ...r] : [];
+      const row = wsInfo.addRow(shifted);
+      const label = r[0];
+      if (label && boldUnderlineLabels.has(label)) {
+        const cell = row.getCell(2);
         cell.font = { bold: true, underline: true };
       }
-      // If value is empty/pending, color value cell red and add pending note in col C
+      // Project Name: yellow value cell + saffron next cell + red border box
+      if (label === 'Project Name') {
+        const valCell = row.getCell(3);
+        valCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+        const saffronCell = row.getCell(4);
+        saffronCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF4A300' } };
+        // Thick red border around the 3-cell range (label + value + saffron)
+        const labelCell = row.getCell(2);
+        labelCell.border = { top: redBorderSide, bottom: redBorderSide, left: redBorderSide };
+        valCell.border = { top: redBorderSide, bottom: redBorderSide };
+        saffronCell.border = { top: redBorderSide, bottom: redBorderSide, right: redBorderSide };
+      }
+      // If value is empty/pending, color value cell red and add pending note in col D
       if (pendingNote) {
-        const valCell = row.getCell(2);
+        const valCell = row.getCell(3);
         if (!valCell.value || String(valCell.value).trim() === '') {
           valCell.value = '—';
         }
         valCell.font = { ...valCell.font as any, ...redFont };
-        const noteCell = row.getCell(3);
+        const noteCell = row.getCell(4);
         noteCell.value = pendingNote;
         noteCell.font = { italic: true, ...redFont };
       }
