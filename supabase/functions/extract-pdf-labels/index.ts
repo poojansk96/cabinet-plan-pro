@@ -1027,9 +1027,16 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
         }
         if (covered) continue;
 
-        // Determine room: use Bath for vanity SKUs, majority room for others
+        // Determine room: use Bath for vanity SKUs, also use Bath for filler-head
+        // base cabinets (B##FH) when ANY vanity SKU is present on this page —
+        // these tiny fillers are almost always drawn next to a vanity in bath
+        // elevations and were previously misrouted to Kitchen via majority room.
         const skuType = classifySku(normalized);
-        const room = skuType === 'Vanity' ? 'Bath' : majorityRoom;
+        const isFillerHeadBase = /^B\d{1,2}FH$/i.test(normalized);
+        const pageHasVanity = finalItems.some((i: any) => classifySku(String(i.sku || '')) === 'Vanity');
+        const room = skuType === 'Vanity'
+          ? 'Bath'
+          : (isFillerHeadBase && pageHasVanity ? 'Bath' : majorityRoom);
 
         finalItems.push({ sku: normalized, type: skuType, room, quantity: 1 });
         extractedSkuSet.add(normalized);
