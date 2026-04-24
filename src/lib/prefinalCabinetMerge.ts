@@ -414,5 +414,35 @@ export function mergePrefinalExtractionPasses(
     }
   }
 
-  return output;
+  // ── Phantom substring filter (cross-pass) ──
+  // The AI vision passes sometimes misread a long manufacturer SKU like
+  // "HASB36B-REM" as the bare suffix "SB36B-REM" on a single strip pass. The
+  // edge function already strips these per-pass, but when separate strips
+  // independently return the suffix and the full SKU, the merged output ends up
+  // containing both. Drop the bare suffix when:
+  //   1. it is a strict suffix of another extracted SKU (e.g. SB36B-REM is the
+  //      suffix of HASB36B-REM, B09FH is NOT a suffix of HAB09FH, etc.), AND
+  //   2. the plan text layer does NOT independently confirm the bare suffix.
+  // We only drop low-quantity (≤1) marginal detections to stay safe.
+  const finalSkus = output.map((row) => normalizePrefinalSkuLabel(row.sku));
+  const filteredOutput = output.filter((row, index) => {
+    const sku = finalSkus[index];
+    if (!sku) return true;
+    const qty = Math.max(1, Number(row.quantity) || 1);
+    if (qty > 1) return true;
+
+    const isSuffixOfOther = finalSkus.some((other, otherIndex) => {
+      if (otherIndex === index) return false;
+      if (!other || other.length <= sku.length) return false;
+      return other.endsWith(sku);
+    });
+    if (!isSuffixOfOther) return true;
+
+    const planConfirmed = (planTextSkuCounts[sku] ?? 0) >= 1;
+    if (planConfirmed) return true;
+
+    return false;
+  });
+
+  return filteredOutput;
 }
