@@ -795,7 +795,8 @@ COUNTING — CRITICAL:
 - If "BF3" label appears once → quantity 1. If "BF3" appears in TWO different spots → quantity 2. Do NOT skip small accessories.
 - ACCESSORIES MATTER: BF3, BF6, WF3X30, WF6X30, DWR1, DWR3, DWR6, FIL3, APPRON — count EVERY single one. Scan the ENTIRE drawing including corners, edges, and narrow gaps between cabinets. These labels often appear on BOTH sides of a kitchen run — check LEFT side AND RIGHT side of counter runs. DWR labels are often ROTATED VERTICALLY — look for vertically oriented text.
 - BF (Base Filler) labels commonly appear in PAIRS — one on each end of a cabinet run. Scan every end-of-run and corner transition for BF labels.
-- FILLER-HEAD CABINETS: B09FH, B06FH, B12FH — these are VERY NARROW rectangles (6"-12" wide). They appear as thin slivers between larger cabinets or at the end of a run. ACTIVELY LOOK FOR THESE — they are commonly missed.
+- FILLER-HEAD CABINETS: B09FH, B06FH, B12FH, B15FH, B18FH — these are VERY NARROW rectangles (6"-18" wide). They appear as thin slivers between larger cabinets or at the end of a run. ACTIVELY LOOK FOR THESE — they are commonly missed.
+- VANITY-ADJACENT FILLER-HEAD: In bathroom elevations, a B##FH (e.g. B09FH, B12FH) is OFTEN drawn directly NEXT TO a vanity SKU like V3021B, VB30, VD24, VDB18. The label is tiny and vertical/rotated. WHENEVER you see a vanity (V/VB/VD/VDB/VDC) cabinet, scan the BOTH sides of it for a narrow B##FH sliver — this is the single most commonly missed cabinet on bath elevations. If found, classify the B##FH as "Base" with room "Bath".
 - Corner cabinets (LS, LSB) at wall junction = count ONCE even if label appears at junction of two wall runs.
 - Look for "xN" or "(2)" multiplier notation next to labels.
 
