@@ -886,7 +886,7 @@ Your job:
    - SKUs from title blocks, legends, or notes that aren't actual cabinet labels on the plan
 2. ADD any cabinet SKU labels visible on the drawing that were MISSED by the fast model. Scan carefully for:
    - Small accessories: BF3, BF6, WF3X30, DWR1, DWR3, FIL3, CM8, TK, EP, LR, UC, SCRIBE, BP
-   - Filler-head cabinets: B09FH, B06FH, B12FH (very narrow rectangles)
+   - Filler-head cabinets: B09FH, B06FH, B12FH, B15FH, B18FH (very narrow rectangles — ESPECIALLY common adjacent to vanity SKUs like V3021B/VB30/VD24 in bath elevations; always scan beside every vanity for a tiny B##FH sliver)
    - APPRON labels (report as "APPRON59X21" without space)
    - Cabinets in ALL rooms including kitchenette, laundry, bath — not just the main kitchen
 3. CORRECT any wrong quantities — count each separate label occurrence on the drawing.
