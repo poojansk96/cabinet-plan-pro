@@ -138,20 +138,20 @@ function pickPrimaryPlanCluster(occurrences: SkuOccurrence[]): SkuOccurrence[] {
     return rightArea - leftArea;
   });
 
-  // Keep all clusters except clearly remote outliers — defined as tiny
-  // (≤ 2 SKU occurrences AND ≤ 25% of the primary's size) clusters that sit
-  // far enough away to plausibly be legend / title-block / page-stamp text.
-  // Anything bigger is treated as a real second elevation on the same page
-  // and merged in. This preserves repeated SKUs like B15-R / W1530-L drawn
-  // in two elevations of one drawing while still ignoring stray duplicates.
+  // Keep all clusters except clearly remote outliers — defined as singleton
+  // clusters (a single isolated occurrence far from any other label). These
+  // are usually legend / title-block / page-stamp duplicates of a SKU that's
+  // really drawn elsewhere on the page. Anything with 2+ occurrences is
+  // treated as a real second elevation drawn on the same page and merged in.
+  // This preserves repeated SKUs like B15-R / W1530-L drawn in two elevations
+  // of one drawing while still ignoring stray duplicates.
   const primary = sorted[0];
-  const primaryCount = primary.length;
   const merged: SkuOccurrence[] = [...primary];
 
   for (let i = 1; i < sorted.length; i += 1) {
     const candidate = sorted[i];
-    const isTinyOutlier = candidate.length <= 2 && candidate.length * 4 <= primaryCount;
-    if (isTinyOutlier) continue;
+    const isRemoteSingleton = candidate.length === 1 && primary.length >= 3;
+    if (isRemoteSingleton) continue;
     merged.push(...candidate);
   }
 
