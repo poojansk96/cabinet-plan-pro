@@ -347,6 +347,22 @@ export function mergePrefinalExtractionPasses(
       existing.quantity = planTextCount;
     }
 
+    // Promote up (repeated-label case): the AI vision often returns qty=1 for
+    // a SKU even when the SAME label appears multiple times on the plan in
+    // different regions (e.g. W1530-L drawn twice in a tall vertical column).
+    // The text layer is authoritative here — when the plan text shows the SKU
+    // 2 or 3 times and the AI detected at least one occurrence, trust the
+    // plan-text count. We require support ≥ 1 so a hallucinated single-pass
+    // detection doesn't get inflated by a noisy text layer.
+    const canPromoteToPlanText = planTextCount > currentQty
+      && planTextCount - currentQty <= 2
+      && planTextCount <= 4
+      && support >= 1
+      && currentQty <= 2;
+    if (canPromoteToPlanText && existing.quantity !== planTextCount) {
+      existing.quantity = planTextCount;
+    }
+
     // Cap down carefully:
     // - still trim obvious small overcounts (2 → 1)
     // - allow bigger quantities (3+) to survive ONLY when the higher count is reinforced
