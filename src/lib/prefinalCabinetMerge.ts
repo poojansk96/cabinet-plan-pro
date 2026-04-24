@@ -89,13 +89,8 @@ function pickPrimaryPlanCluster(occurrences: SkuOccurrence[]): SkuOccurrence[] {
   if (occurrences.length <= 2) return occurrences;
 
   const allBounds = getBounds(occurrences);
-  // More generous neighbor thresholds. Real elevation drawings often place
-  // cabinet labels 80-150 px apart horizontally and 30-60 px apart vertically;
-  // overly tight thresholds split a single elevation into many tiny clusters
-  // and we end up dropping real labels (e.g. B15-R drawn twice in a kitchen
-  // top + bottom elevation on the same page).
-  const xThreshold = Math.max(120, allBounds.spanX * 0.35);
-  const yThreshold = Math.max(80, allBounds.spanY * 0.35);
+  const xThreshold = Math.max(40, allBounds.spanX * 0.18);
+  const yThreshold = Math.max(40, allBounds.spanY * 0.18);
   const visited = new Set<number>();
   const components: SkuOccurrence[][] = [];
 
@@ -126,7 +121,7 @@ function pickPrimaryPlanCluster(occurrences: SkuOccurrence[]): SkuOccurrence[] {
 
   if (components.length <= 1) return occurrences;
 
-  const sorted = components.sort((left, right) => {
+  return components.sort((left, right) => {
     if (right.length !== left.length) return right.length - left.length;
     const rightUnique = new Set(right.map(({ sku }) => sku)).size;
     const leftUnique = new Set(left.map(({ sku }) => sku)).size;
@@ -136,26 +131,7 @@ function pickPrimaryPlanCluster(occurrences: SkuOccurrence[]): SkuOccurrence[] {
     const rightArea = rightBounds.spanX * rightBounds.spanY;
     const leftArea = leftBounds.spanX * leftBounds.spanY;
     return rightArea - leftArea;
-  });
-
-  // Keep all clusters except clearly remote outliers — defined as singleton
-  // clusters (a single isolated occurrence far from any other label). These
-  // are usually legend / title-block / page-stamp duplicates of a SKU that's
-  // really drawn elsewhere on the page. Anything with 2+ occurrences is
-  // treated as a real second elevation drawn on the same page and merged in.
-  // This preserves repeated SKUs like B15-R / W1530-L drawn in two elevations
-  // of one drawing while still ignoring stray duplicates.
-  const primary = sorted[0];
-  const merged: SkuOccurrence[] = [...primary];
-
-  for (let i = 1; i < sorted.length; i += 1) {
-    const candidate = sorted[i];
-    const isRemoteSingleton = candidate.length === 1 && primary.length >= 3;
-    if (isRemoteSingleton) continue;
-    merged.push(...candidate);
-  }
-
-  return merged;
+  })[0];
 }
 
 export function extractPlanSkuCountsFromTextItems(textItems: PositionedPdfTextItem[]): Record<string, number> {
@@ -368,22 +344,6 @@ export function mergePrefinalExtractionPasses(
     // Promote up: text layer shows one more than AI detected, with enough confidence
     const canPromoteByOne = planTextCount === currentQty + 1 && (currentQty >= 3 || support >= 3);
     if (canPromoteByOne) {
-      existing.quantity = planTextCount;
-    }
-
-    // Promote up (repeated-label case): the AI vision often returns qty=1 for
-    // a SKU even when the SAME label appears multiple times on the plan in
-    // different regions (e.g. W1530-L drawn twice in a tall vertical column).
-    // The text layer is authoritative here — when AI bottomed out at qty=1
-    // but the plan text shows the SKU 2-3 times, promote to the text count.
-    // We require support ≥ 1 so a hallucinated single-pass detection doesn't
-    // get inflated by a noisy text layer, and we cap currentQty at 1 to avoid
-    // re-introducing the old aggressive "+1 on consistent qty=2" regression.
-    const canPromoteToPlanText = currentQty === 1
-      && planTextCount > currentQty
-      && planTextCount <= 3
-      && support >= 1;
-    if (canPromoteToPlanText && existing.quantity !== planTextCount) {
       existing.quantity = planTextCount;
     }
 
