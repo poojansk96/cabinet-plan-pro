@@ -338,9 +338,12 @@ export default function PreFinalSummaryModule({ project }: Props) {
       }
     });
 
-    // Freeze top 4 rows (header area) AND first 4 columns (blank | Bldg | Floor | Unit #)
+    // Freeze top 5 rows (header + spacer) AND first 4 columns (blank | Bldg | Floor | Unit #)
     // so unit identifiers stay visible when scrolling right through unit type columns
-    wsUnits.views = [{ state: 'frozen', xSplit: 4, ySplit: 4 }];
+    wsUnits.views = [{ state: 'frozen', xSplit: 4, ySplit: 5 }];
+
+    // Row 5: blank spacer between header and data
+    wsUnits.addRow([]);
 
     const sortedUnits = [...store.unitNumbers].sort((a, b) => {
       const bldgA = (a.bldg || '').toUpperCase();
@@ -362,7 +365,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
     wsUnits.addRow([]);
     // Total row with SUM formulas so manual edits auto-update
-    const dataStartRow = 5; // row 5 is first data row (after blank, title, blank, header)
+    const dataStartRow = 6; // row 6 is first data row (after blank, title, blank, header, blank spacer)
     const dataEndRow = dataStartRow + sortedUnits.length - 1;
     const totRowValues: any[] = ['', '', '', `TOTAL (${store.unitNumbers.length})`];
     // Placeholder values for types + grand total (will be overwritten by formulas)
