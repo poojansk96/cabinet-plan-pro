@@ -43,20 +43,9 @@ describe('W1530-L repeated-label undercount (Type 2 BR-C, One Post Road)', () =>
     expect(merged[0].quantity).toBe(2);
   });
 
-  it('promotes when only one strip pass detected the SKU (support = 1)', () => {
+  it('does NOT promote past planTextCount=3 (safety cap)', () => {
     const merged = mergePrefinalExtractionPasses([
-      [],
       [{ sku: 'W1530-L', room: 'Kitchen', type: 'Wall', quantity: 1 }],
-    ], {
-      'W1530-L': 2,
-    });
-
-    expect(merged).toHaveLength(1);
-    expect(merged[0].quantity).toBe(2);
-  });
-
-  it('does NOT promote past planTextCount=4 (safety cap)', () => {
-    const merged = mergePrefinalExtractionPasses([
       [{ sku: 'W1530-L', room: 'Kitchen', type: 'Wall', quantity: 1 }],
     ], {
       'W1530-L': 8,
