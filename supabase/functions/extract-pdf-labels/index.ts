@@ -827,7 +827,6 @@ PRESERVE FULL SKU LABELS — CRITICAL:
 - "W3030B" → report "W3030B" exactly as written
 - Do NOT strip trailing letters, "-1D", "-2D", "-REM", "-L", "-R", "-FB" or any other suffix.
 - Each unique label on the drawing = one unique SKU entry. Do NOT report both a truncated and full version.
-- DO NOT strip the leading "HA" / "HC" / "HW" / "HAV" / "HASB" manufacturer prefix from a label. If the label is "HASB36B-REM", report "HASB36B-REM" — NEVER report just "SB36B-REM". If the label is "HAB30B", report "HAB30B" — NEVER "B30B". The "HA"/"HC"/"HW" prefix is part of the SKU and must always be preserved.
 - VALID SUFFIX LETTERS: only "-L" (Left) or "-R" (Right) for handed cabinets. NEVER use "-I" — that letter does NOT exist as a cabinet suffix. If a label looks like "-I", it is actually "-L" (the lowercase L misread). Report it as "-L".
 - IMPORTANT: If a cabinet label is partially hidden, faint, or you cannot clearly determine the -L or -R suffix, report the BARE SKU without any suffix (e.g. "UC18X84") rather than guessing or fabricating "-I". Do NOT add a suffix you cannot read clearly.
 
