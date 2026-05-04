@@ -380,7 +380,7 @@ function loadData(projectId: string): PrefinalData {
       assignments: normalizeAssignments(u.assignments || {}, dedupedUnitTypes),
     }));
 
-    const unitNumbers = dedupeSameTypeSameUnit(dedupeUnitNumbers(rawUnitNumbers));
+    const unitNumbers = normalizeUnitNumberRows(rawUnitNumbers);
 
     return {
       unitTypes: dedupedUnitTypes,
@@ -599,7 +599,7 @@ export function usePrefinalStore(projectId: string) {
         }
       }
 
-      const unitNumbers = dedupeSameTypeSameUnit(dedupeUnitNumbers(updatedNumbers));
+      const unitNumbers = normalizeUnitNumberRows(updatedNumbers);
       const next = { ...prev, unitNumbers };
       saveData(projectId, next);
       return next;
