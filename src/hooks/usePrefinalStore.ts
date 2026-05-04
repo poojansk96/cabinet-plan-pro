@@ -227,6 +227,23 @@ function dedupeUnitNumbers(unitNumbers: PrefinalUnitNumber[]): PrefinalUnitNumbe
   return Array.from(map.values());
 }
 
+export function splitPrefinalUnitRowsByAssignment(unitNumbers: PrefinalUnitNumber[]): PrefinalUnitNumber[] {
+  return unitNumbers.flatMap((unit) => {
+    const activeTypes = Object.entries(unit.assignments || {})
+      .filter(([, enabled]) => !!enabled)
+      .map(([type]) => type);
+
+    if (activeTypes.length === 0) {
+      return [{ ...unit, assignments: {} }];
+    }
+
+    return activeTypes.map((type) => ({
+      ...unit,
+      assignments: { [type]: true },
+    }));
+  });
+}
+
 function dedupeSameTypeSameUnit(unitNumbers: PrefinalUnitNumber[]): PrefinalUnitNumber[] {
   const byTypeAndUnit = new Map<string, PrefinalUnitNumber>();
 
@@ -273,6 +290,10 @@ function dedupeSameTypeSameUnit(unitNumbers: PrefinalUnitNumber[]): PrefinalUnit
   }
 
   return Array.from(new Set(byTypeAndUnit.values()));
+}
+
+function normalizeUnitNumberRows(unitNumbers: PrefinalUnitNumber[]): PrefinalUnitNumber[] {
+  return dedupeSameTypeSameUnit(splitPrefinalUnitRowsByAssignment(dedupeUnitNumbers(unitNumbers)));
 }
 
 /** Migrate old stone rows (had splashHeight/room, no backsplashLength/category) */
