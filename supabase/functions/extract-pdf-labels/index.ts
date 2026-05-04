@@ -690,7 +690,7 @@ serve(async (req) => {
       console.log("Skipping classification (skipClassify=true, assuming plan_view)");
       rawPageType = "plan_view";
       // Detect common area from text hints
-      const commonAreaPattern = /\b(LAUNDRY|MAIL\s*ROOM|RESTROOM|LOBBY|CLUBHOUSE|FITNESS|LEASING|BUSINESS\s*CENTER|POOL\s*BATH|TRASH|MAINTENANCE|MODEL|STORAGE|GARAGE|CORRIDOR|MECHANICAL|COMMUNITY|BREAK\s*ROOM|RECEPTION|OFFICE|KITCHEN\s*\(COMMON\)|COMMON\s*KITCHEN)\b/i;
+      const commonAreaPattern = /\b(LAUNDRY|MAIL\s*ROOM|RESTROOM|TOILET|LOBBY|CLUBHOUSE|FITNESS|LEASING|BUSINESS\s*CENTER|POOL\s*BATH|TRASH|MAINTENANCE|MODEL|STORAGE|GARAGE|CORRIDOR|MECHANICAL|COMMUNITY|BREAK\s*ROOM|RECEPTION|OFFICE|KITCHEN\s*\(COMMON\)|COMMON\s*KITCHEN|LIBRARY|SALOON|SALON|LOUNGE|GAME\s*ROOM|THEAT(?:RE|ER)|MEDIA\s*ROOM|CARD\s*ROOM|CRAFT\s*ROOM|ACTIVITY\s*ROOM|CONFERENCE\s*ROOM|DINING|CAFE|COFFEE\s*BAR|BAR|PUB|HAIR\s*SALON|WELLNESS|SPA|YOGA|MULTI[-\s]?PURPOSE|COMPUTER\s*ROOM|HOBBY\s*ROOM|MUSIC\s*ROOM)\b/i;
       isCommonArea = commonAreaPattern.test(pageText || '');
     } else if (classificationOverride) {
       const co = classificationOverride;
@@ -707,8 +707,9 @@ PAGE TYPES (return one of these exact strings for pageType):
 - "title_page": Cover page or title page with project info, unit type name, unit numbers list. No cabinet drawings visible.
 
 COMMON AREAS (set isCommonArea to true for ANY of these):
-Laundry, Mail Room, Restroom, Lobby, Clubhouse, Fitness Center, Leasing Office, Business Center, Pool Bath, Trash Room, Maintenance, Model, Storage, Garage, Corridor, Mechanical, Community Room, Break Room, Kitchen (Common), Reception, Office, any non-residential space.
-COMMON AREA VARIANTS: If a common area page has a variant suffix like "RESTROOM-AS", "RESTROOM-MIRROR", "RESTROOM (AS)", include the FULL variant in unitTypeName (e.g., return "RESTROOM-AS" not just "RESTROOM"). Same for Reception, Laundry, etc.
+Laundry, Mail Room, Restroom, Toilet, Bathroom (common), Lobby, Clubhouse, Fitness Center, Leasing Office, Business Center, Pool Bath, Trash Room, Maintenance, Model, Storage, Garage, Corridor, Mechanical, Community Room, Break Room, Kitchen (Common), Reception, Office, Library, Saloon, Salon, Lounge, Game Room, Theater, Theatre, Media Room, Card Room, Craft Room, Activity Room, Conference Room, Dining Room, Cafe, Coffee Bar, Bar, Pub, Hair Salon, Wellness, Spa, Yoga, Multi-Purpose Room, Multipurpose, Computer Room, Hobby Room, Music Room, any non-residential / amenity / common-building space (including any room with "ROOM", "AREA", "CENTER", "HALL", "BAR", "LOUNGE" in the title that isn't clearly a residential unit).
+COMMON AREA VARIANTS: If a common area page has a variant suffix like "RESTROOM-AS", "RESTROOM-MIRROR", "RESTROOM (AS)", "TOILET-AS", "TOILET - AS", include the FULL variant in unitTypeName (e.g., return "TOILET-AS" not just "TOILET"). Same for Reception, Laundry, Library, Saloon, etc.
+IMPORTANT: When in doubt about whether a page is residential vs common area, prefer COMMON AREA (isCommonArea=true) UNLESS the title clearly contains a residential indicator like "Type 1/2/3", "Unit A/B/C", "1BR", "2BR", "3BR", "Studio", "Bed", or a numbered apartment/floor plan reference. Pages labeled with single descriptive room names (TOILET, SALOON, LIBRARY, LOUNGE, GAME ROOM, etc.) followed by an optional "-AS"/"-MIRROR" variant and a UNIT # are ALWAYS common areas.
 
 RESIDENTIAL (set isCommonArea to false):
 Type 1, Type 2, Type 3, Studio, 1 Bed, 2 Bed, 1BR, 2BR, Unit A, Unit B, any numbered/lettered residential unit type including AS and MIRROR variants.
@@ -745,7 +746,25 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
 
     const isPlanView = rawPageType.includes("plan");
     const isElevation = rawPageType.includes("elev");
-    const shouldExtract = isPlanView || (isElevation && isCommonArea);
+
+    // Safety net: amenity / common-area pages (TOILET, SALOON, LIBRARY, LOUNGE, GAME ROOM,
+    // THEATER, CAFE, BAR, etc.) are sometimes misclassified as residential elevations.
+    // If the page text or detected unit-type name clearly matches an amenity room name,
+    // force isCommonArea=true so the page still gets extracted.
+    const AMENITY_ROOM_RE = /\b(TOILET|SALOON|SALON|LIBRARY|LOUNGE|GAME\s*ROOM|THEAT(?:RE|ER)|MEDIA\s*ROOM|CARD\s*ROOM|CRAFT\s*ROOM|ACTIVITY\s*ROOM|CONFERENCE\s*ROOM|DINING\s*(?:ROOM|HALL)|CAFE|COFFEE\s*BAR|BAR|PUB|HAIR\s*SALON|WELLNESS|SPA|YOGA|MULTI[-\s]?PURPOSE|COMPUTER\s*ROOM|HOBBY\s*ROOM|MUSIC\s*ROOM|CLUBHOUSE|FITNESS|RECEPTION|LEASING|BUSINESS\s*CENTER|COMMUNITY\s*ROOM|BREAK\s*ROOM|MAIL\s*ROOM)\b/i;
+    const amenityHint = AMENITY_ROOM_RE.test(detectedUnitType ?? '') || AMENITY_ROOM_RE.test(pageText ?? '');
+    if (amenityHint && !isCommonArea) {
+      console.log(`Amenity-room override: forcing isCommonArea=true (matched "${(detectedUnitType ?? pageText ?? '').match(AMENITY_ROOM_RE)?.[0]}")`);
+      isCommonArea = true;
+    }
+
+    // Extra safety: if it's an elevation with cabinet SKUs in the PDF text layer
+    // and there is no clear residential unit-type name, extract anyway.
+    const RESIDENTIAL_TYPE_RE = /\b(TYPE\s*\d|UNIT\s*[A-Z]\b|\d\s*BR\b|STUDIO|BED(?:ROOM)?|APARTMENT|APT)\b/i;
+    const looksResidential = RESIDENTIAL_TYPE_RE.test(detectedUnitType ?? '');
+    const elevationWithTextSkus = isElevation && !looksResidential && textLayerSkus.length > 0;
+
+    const shouldExtract = isPlanView || (isElevation && isCommonArea) || elevationWithTextSkus;
 
     if (!shouldExtract) {
       console.log(`Skipping extraction: pageType=${rawPageType}, isCommonArea=${isCommonArea}`);
