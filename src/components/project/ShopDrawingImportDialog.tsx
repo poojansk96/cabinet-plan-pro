@@ -423,7 +423,10 @@ function resolvePageUnitType(
 
   if (isCommonAreaPage) {
     const baseLabel = extractCommonAreaLabel(isCommonAreaType(ai) ? ai : (pageText || ''));
-    if (!baseLabel) return { primary: null, aliases: [] };
+    if (!baseLabel) {
+      const uploadedTypeLabel = extractUploadedTypeLabelFromText(ai || pageText);
+      return uploadedTypeLabel ? { primary: uploadedTypeLabel, aliases: [uploadedTypeLabel] } : { primary: null, aliases: [] };
+    }
 
     // Check for variant suffixes (AS, MIRROR, ADA, etc.) in AI type or page text
     const variantRe = /[-–—\s](AS|MIRROR|ADA|REV|ALT|OPTION)\s*$/i;
@@ -769,19 +772,26 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         const pageItems = Array.isArray(data.items) ? data.items : [];
         const hasCabinetRows = pageItems.length > 0;
         const isCommonAreaPage = Boolean((data as any).isCommonArea);
+      const fallbackUploadedType = hasCabinetRows && !resolvedPageType
+        ? extractUploadedTypeLabelFromText(pageText)
+        : null;
+      const effectiveResolvedPageType = resolvedPageType || fallbackUploadedType || '';
+      const effectiveResolvedAliases = resolvedTypeAliases.length > 0
+        ? resolvedTypeAliases
+        : (fallbackUploadedType ? [fallbackUploadedType] : []);
 
-        const shouldTrackType = Boolean(resolvedPageType) || resolvedTypeAliases.length > 0 || isCommonAreaPage || hasCabinetRows;
-        const typesForOrder = resolvedTypeAliases.length > 0
-          ? resolvedTypeAliases
-          : resolvedPageType
-            ? [resolvedPageType]
+        const shouldTrackType = Boolean(effectiveResolvedPageType) || effectiveResolvedAliases.length > 0 || isCommonAreaPage || hasCabinetRows;
+        const typesForOrder = effectiveResolvedAliases.length > 0
+          ? effectiveResolvedAliases
+          : effectiveResolvedPageType
+            ? [effectiveResolvedPageType]
             : [];
 
         // ── STRICT PAGE ORDER ──
         // Push this page's primary type FIRST (before any aliases) so order is stable per page.
         // If only aliases exist (no resolvedPageType), keep their natural order.
-        const orderedTypesThisPage = resolvedPageType
-          ? [resolvedPageType, ...resolvedTypeAliases.filter(a => a !== resolvedPageType)]
+        const orderedTypesThisPage = effectiveResolvedPageType
+          ? [effectiveResolvedPageType, ...effectiveResolvedAliases.filter(a => a !== effectiveResolvedPageType)]
           : typesForOrder;
 
         for (const t of orderedTypesThisPage) {
@@ -796,7 +806,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
           quantity: c.quantity,
           selected: true,
           sourceFile: file.name,
-          detectedUnitType: shouldTrackType ? (resolvedPageType || undefined) : undefined,
+          detectedUnitType: shouldTrackType ? (effectiveResolvedPageType || undefined) : undefined,
         }));
         allRows.push(...pageRows);
       } else {
