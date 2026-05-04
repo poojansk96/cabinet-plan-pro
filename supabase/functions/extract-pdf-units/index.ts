@@ -155,11 +155,33 @@ serve(async (req) => {
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
     const body = await req.json();
-    
+
     const pageText = body.pageText as string | undefined;
     const pageImage = body.pageImage as string | undefined; // base64 JPEG data URL
     const pageIndex = (body.pageIndex as number) ?? 0;
-    
+
+    // Input validation: cap payload sizes and validate types
+    const MAX_PAGE_TEXT_LENGTH = 100_000;
+    const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
+    if (pageText !== undefined && pageText !== null && (typeof pageText !== "string" || pageText.length > MAX_PAGE_TEXT_LENGTH)) {
+      return new Response(JSON.stringify({ error: `Invalid pageText (max ${MAX_PAGE_TEXT_LENGTH} chars)` }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (pageImage !== undefined && pageImage !== null && (typeof pageImage !== "string" || pageImage.length > MAX_IMAGE_BYTES)) {
+      return new Response(JSON.stringify({ error: "Invalid or oversized pageImage" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (typeof pageIndex !== "number" || !Number.isFinite(pageIndex) || pageIndex < 0 || pageIndex > 10000) {
+      return new Response(JSON.stringify({ error: "Invalid pageIndex" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if ((!pageText || pageText.trim().length < 20) && !pageImage) {
       return new Response(JSON.stringify({ units: [] }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
