@@ -746,7 +746,25 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
 
     const isPlanView = rawPageType.includes("plan");
     const isElevation = rawPageType.includes("elev");
-    const shouldExtract = isPlanView || (isElevation && isCommonArea);
+
+    // Safety net: amenity / common-area pages (TOILET, SALOON, LIBRARY, LOUNGE, GAME ROOM,
+    // THEATER, CAFE, BAR, etc.) are sometimes misclassified as residential elevations.
+    // If the page text or detected unit-type name clearly matches an amenity room name,
+    // force isCommonArea=true so the page still gets extracted.
+    const AMENITY_ROOM_RE = /\b(TOILET|SALOON|SALON|LIBRARY|LOUNGE|GAME\s*ROOM|THEAT(?:RE|ER)|MEDIA\s*ROOM|CARD\s*ROOM|CRAFT\s*ROOM|ACTIVITY\s*ROOM|CONFERENCE\s*ROOM|DINING\s*(?:ROOM|HALL)|CAFE|COFFEE\s*BAR|BAR|PUB|HAIR\s*SALON|WELLNESS|SPA|YOGA|MULTI[-\s]?PURPOSE|COMPUTER\s*ROOM|HOBBY\s*ROOM|MUSIC\s*ROOM|CLUBHOUSE|FITNESS|RECEPTION|LEASING|BUSINESS\s*CENTER|COMMUNITY\s*ROOM|BREAK\s*ROOM|MAIL\s*ROOM)\b/i;
+    const amenityHint = AMENITY_ROOM_RE.test(detectedUnitType ?? '') || AMENITY_ROOM_RE.test(pageText ?? '');
+    if (amenityHint && !isCommonArea) {
+      console.log(`Amenity-room override: forcing isCommonArea=true (matched "${(detectedUnitType ?? pageText ?? '').match(AMENITY_ROOM_RE)?.[0]}")`);
+      isCommonArea = true;
+    }
+
+    // Extra safety: if it's an elevation with cabinet SKUs in the PDF text layer
+    // and there is no clear residential unit-type name, extract anyway.
+    const RESIDENTIAL_TYPE_RE = /\b(TYPE\s*\d|UNIT\s*[A-Z]\b|\d\s*BR\b|STUDIO|BED(?:ROOM)?|APARTMENT|APT)\b/i;
+    const looksResidential = RESIDENTIAL_TYPE_RE.test(detectedUnitType ?? '');
+    const elevationWithTextSkus = isElevation && !looksResidential && textLayerSkus.length > 0;
+
+    const shouldExtract = isPlanView || (isElevation && isCommonArea) || elevationWithTextSkus;
 
     if (!shouldExtract) {
       console.log(`Skipping extraction: pageType=${rawPageType}, isCommonArea=${isCommonArea}`);
