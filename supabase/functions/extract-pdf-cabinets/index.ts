@@ -25,6 +25,33 @@ serve(async (req) => {
       });
     }
 
+    // Input validation: cap payload sizes and validate types to prevent abuse
+    const MAX_IMAGE_BYTES = 15 * 1024 * 1024; // ~15MB base64
+    if (pageImage.length > MAX_IMAGE_BYTES) {
+      return new Response(JSON.stringify({ error: "pageImage too large (max ~15MB)" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (scaleFactor !== undefined && (typeof scaleFactor !== "number" || !Number.isFinite(scaleFactor) || scaleFactor <= 0 || scaleFactor > 10000)) {
+      return new Response(JSON.stringify({ error: "Invalid scaleFactor" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (scaleLabel !== undefined && scaleLabel !== null && (typeof scaleLabel !== "string" || scaleLabel.length > 100)) {
+      return new Response(JSON.stringify({ error: "Invalid scaleLabel" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (unitType !== undefined && unitType !== null && (typeof unitType !== "string" || unitType.length > 200)) {
+      return new Response(JSON.stringify({ error: "Invalid unitType" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const prompt = `You are an expert millwork estimator analyzing a cabinet ELEVATION drawing image.
 
 Drawing scale: ${scaleLabel ?? `1:${scaleFactor}`}  — 1 inch on paper = ${scaleFactor} real inches.
