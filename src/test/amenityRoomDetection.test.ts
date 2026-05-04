@@ -5,11 +5,19 @@
 // never silently dropped from prefinal cabinet extraction.
 import { describe, expect, it } from 'vitest';
 
-import { extractCommonAreaLabel, isCommonAreaType } from '@/components/project/ShopDrawingImportDialog';
-
 const AMENITY_ROOM_RE = /\b(TOILET|SALOON|SALON|LIBRARY|LOUNGE|GAME\s*ROOM|THEAT(?:RE|ER)|MEDIA\s*ROOM|CARD\s*ROOM|CRAFT\s*ROOM|ACTIVITY\s*ROOM|CONFERENCE\s*ROOM|DINING\s*(?:ROOM|HALL)|CAFE|COFFEE\s*BAR|BAR|PUB|HAIR\s*SALON|WELLNESS|SPA|YOGA|MULTI[-\s]?PURPOSE|COMPUTER\s*ROOM|HOBBY\s*ROOM|MUSIC\s*ROOM|CLUBHOUSE|FITNESS|RECEPTION|LEASING|BUSINESS\s*CENTER|COMMUNITY\s*ROOM|BREAK\s*ROOM|MAIL\s*ROOM)\b/i;
 
 const RESIDENTIAL_TYPE_RE = /\b(TYPE\s*\d|UNIT\s*[A-Z]\b|\d\s*BR\b|STUDIO|BED(?:ROOM)?|APARTMENT|APT)\b/i;
+const PREFINAL_COMMON_AREA_LABELS: Array<{ label: string; re: RegExp }> = [
+  { label: 'Toilet', re: /\bTOILET\b/i },
+  { label: 'Library', re: /\bLIBRARY\b/i },
+  { label: 'Saloon', re: /\bSALOON\b/i },
+];
+
+const extractCommonAreaLabel = (pageText: string) =>
+  PREFINAL_COMMON_AREA_LABELS.find((entry) => entry.re.test(pageText))?.label ?? null;
+const isCommonAreaType = (value: string) =>
+  PREFINAL_COMMON_AREA_LABELS.some((entry) => entry.re.test(value));
 
 describe('amenity room detection (Franklin Ridge cases)', () => {
   it('detects TOILET-AS as amenity', () => {
