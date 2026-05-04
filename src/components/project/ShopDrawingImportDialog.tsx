@@ -198,7 +198,7 @@ function normalizeTypeComparison(value: string): string {
   return normalizeTypeText(value);
 }
 
-function isCommonAreaType(value: string): boolean {
+export function isCommonAreaType(value: string): boolean {
   return COMMON_AREA_LABELS.some((entry) => entry.re.test(String(value || '')));
 }
 
@@ -207,8 +207,8 @@ const COMMON_AREA_LABELS: Array<{ label: string; re: RegExp }> = [
   { label: 'Toilet', re: /\bTOILET\b/i },
   { label: 'Library', re: /\bLIBRARY\b/i },
   { label: 'Saloon', re: /\bSALOON\b/i },
-  { label: 'Salon', re: /\bSALON\b/i },
   { label: 'Hair Salon', re: /\bHAIR\s*SALON\b/i },
+  { label: 'Salon', re: /\bSALON\b/i },
   { label: 'Lounge', re: /\bLOUNGE\b/i },
   { label: 'Game Room', re: /\bGAME\s*ROOM\b/i },
   { label: 'Theater', re: /\bTHEAT(?:RE|ER)\b/i },
@@ -250,7 +250,7 @@ const COMMON_AREA_LABELS: Array<{ label: string; re: RegExp }> = [
   { label: 'Trash', re: /\bTRASH\b/i },
 ];
 
-function extractCommonAreaLabel(pageText: string): string | null {
+export function extractCommonAreaLabel(pageText: string): string | null {
   const text = String(pageText || '');
   for (const entry of COMMON_AREA_LABELS) {
     if (entry.re.test(text)) return entry.label;
@@ -258,7 +258,7 @@ function extractCommonAreaLabel(pageText: string): string | null {
   return null;
 }
 
-function extractUploadedTypeLabelFromText(pageText: string): string | null {
+export function extractUploadedTypeLabelFromText(pageText: string): string | null {
   const text = normalizeTypeText(pageText);
   if (!text) return null;
 
