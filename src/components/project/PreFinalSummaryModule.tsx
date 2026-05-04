@@ -4,7 +4,7 @@ import ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Project } from '@/types/project';
-import { usePrefinalStore, type PrefinalUnitNumber, type PrefinalCabinetRow, type PrefinalVtopRow } from '@/hooks/usePrefinalStore';
+import { splitPrefinalUnitRowsByAssignment, usePrefinalStore, type PrefinalUnitNumber, type PrefinalCabinetRow, type PrefinalVtopRow } from '@/hooks/usePrefinalStore';
 import { formatDoorStyle, formatKitchenTops, formatVanityTops, formatAdditionalTops, getDoorStylePendingFields } from '@/lib/formatSpecs';
 interface Props {
   project: Project;
@@ -352,22 +352,11 @@ export default function PreFinalSummaryModule({ project }: Props) {
       return (a.name || '').localeCompare(b.name || '', undefined, { numeric: true });
     });
 
-    // Expand each unit into one row per assigned type so units belonging to
-    // multiple types are NEVER collapsed into a single row with multiple 1's.
-    type ExpandedUnitRow = { unit: typeof sortedUnits[number]; activeType: string | null };
-    const expandedRows: ExpandedUnitRow[] = [];
-    sortedUnits.forEach(unit => {
-      const activeTypes = store.unitTypes.filter(t => unit.assignments[t]);
-      if (activeTypes.length === 0) {
-        expandedRows.push({ unit, activeType: null });
-      } else {
-        activeTypes.forEach(t => expandedRows.push({ unit, activeType: t }));
-      }
-    });
+    const expandedRows = splitPrefinalUnitRowsByAssignment(sortedUnits);
 
-    expandedRows.forEach(({ unit, activeType }) => {
-      const flags = store.unitTypes.map(t => (activeType && t === activeType ? 1 : ''));
-      const rowTotal = activeType ? 1 : 0;
+    expandedRows.forEach((unit) => {
+      const flags = store.unitTypes.map(t => (unit.assignments[t] ? 1 : ''));
+      const rowTotal = store.unitTypes.filter(t => unit.assignments[t]).length;
       const row = wsUnits.addRow(['', unit.bldg || '', unit.floor || '', unit.name, ...flags, rowTotal]);
       row.eachCell((cell, colNumber) => {
         if (colNumber <= 1) return;
