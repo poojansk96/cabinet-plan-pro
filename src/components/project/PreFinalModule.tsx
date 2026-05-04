@@ -142,13 +142,16 @@ export default function PreFinalModule({ project }: Props) {
       const incomingKey = toTypeKey(normalizedIncoming);
       const knownResolved = resolveKnownType(rawType) || resolveKnownType(normalizedIncoming);
 
-      // Only promote detected types that have structural validity (bedroom prefix, TYPE keyword, or underscore compound)
-      // This prevents AI hallucinations like "2BR-C" when no such type exists in unit count or PDF text
+      // Cabinet PDFs are user-selected source pages: if a page produced cabinet rows,
+      // keep its detected page/type label even when it is an amenity or odd custom name.
+      // This prevents uploaded SALOON / TOILET / LIBRARY-type pages from disappearing.
       const hasStructure = /\b(\d+BR|STUDIO)\b/i.test(normalizedIncoming) ||
         /\bTYPE\b/i.test(normalizedIncoming) ||
         /_/.test(normalizedIncoming) ||
         /\bKITCHENETTE\b/i.test(normalizedIncoming);
-      const canPromoteIncomingType = Boolean(incomingKey) && hasStructure;
+      const looksLikeNoise = /^(UNIT|ELEVATION|SHEET|DRAWING|PLAN)$/i.test(normalizedIncoming) ||
+        /^(B|DB|SB|CB|EB|LS|LSB|W|WDC|UB|WC|OH|T|UT|TC|PT|PTC|UC|V|VB|VD|VDB|VDC|FIL|BF|WF|TK|CM|LR|EP|FP|DWR)\d/i.test(normalizedIncoming);
+      const canPromoteIncomingType = Boolean(incomingKey) && !looksLikeNoise && (hasStructure || /[A-Z]/i.test(normalizedIncoming));
 
       const finalType = knownResolved || (canPromoteIncomingType ? normalizedIncoming : 'Unassigned');
 

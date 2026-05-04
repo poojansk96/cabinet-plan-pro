@@ -198,13 +198,37 @@ function normalizeTypeComparison(value: string): string {
   return normalizeTypeText(value);
 }
 
-function isCommonAreaType(value: string): boolean {
-  return /\b(KITCHENETTE|LAUNDRY|MAIL\s*ROOM|RESTROOM|LOBBY|CLUBHOUSE|FITNESS|LEASING|BUSINESS\s*CENTER|POOL\s*BATH|TRASH|MAINTENANCE|MODEL|STORAGE|GARAGE|CORRIDOR|MECHANICAL|COMMUNITY|BREAK\s*ROOM|OFFICE|RECEPTION)\b/i
-    .test(String(value || ''));
+export function isCommonAreaType(value: string): boolean {
+  return COMMON_AREA_LABELS.some((entry) => entry.re.test(String(value || '')));
 }
 
 const COMMON_AREA_LABELS: Array<{ label: string; re: RegExp }> = [
   { label: 'Kitchenette', re: /\bKITCHENETTE\b/i },
+  { label: 'Toilet', re: /\bTOILET\b/i },
+  { label: 'Library', re: /\bLIBRARY\b/i },
+  { label: 'Saloon', re: /\bSALOON\b/i },
+  { label: 'Hair Salon', re: /\bHAIR\s*SALON\b/i },
+  { label: 'Salon', re: /\bSALON\b/i },
+  { label: 'Lounge', re: /\bLOUNGE\b/i },
+  { label: 'Game Room', re: /\bGAME\s*ROOM\b/i },
+  { label: 'Theater', re: /\bTHEAT(?:RE|ER)\b/i },
+  { label: 'Media Room', re: /\bMEDIA\s*ROOM\b/i },
+  { label: 'Card Room', re: /\bCARD\s*ROOM\b/i },
+  { label: 'Craft Room', re: /\bCRAFT\s*ROOM\b/i },
+  { label: 'Activity Room', re: /\bACTIVITY\s*ROOM\b/i },
+  { label: 'Conference Room', re: /\bCONFERENCE\s*ROOM\b/i },
+  { label: 'Dining Room', re: /\bDINING\s*(?:ROOM|HALL)\b/i },
+  { label: 'Coffee Bar', re: /\bCOFFEE\s*BAR\b/i },
+  { label: 'Cafe', re: /\bCAFE\b/i },
+  { label: 'Bar', re: /\bBAR\b/i },
+  { label: 'Pub', re: /\bPUB\b/i },
+  { label: 'Wellness', re: /\bWELLNESS\b/i },
+  { label: 'Spa', re: /\bSPA\b/i },
+  { label: 'Yoga', re: /\bYOGA\b/i },
+  { label: 'Multi-Purpose Room', re: /\bMULTI[-\s]?PURPOSE\b/i },
+  { label: 'Computer Room', re: /\bCOMPUTER\s*ROOM\b/i },
+  { label: 'Hobby Room', re: /\bHOBBY\s*ROOM\b/i },
+  { label: 'Music Room', re: /\bMUSIC\s*ROOM\b/i },
   { label: 'Mail Room', re: /\bMAIL\s*ROOM\b/i },
   { label: 'Break Room', re: /\bBREAK\s*ROOM\b/i },
   { label: 'Business Center', re: /\bBUSINESS\s*CENTER\b/i },
@@ -226,12 +250,37 @@ const COMMON_AREA_LABELS: Array<{ label: string; re: RegExp }> = [
   { label: 'Trash', re: /\bTRASH\b/i },
 ];
 
-function extractCommonAreaLabel(pageText: string): string | null {
+export function extractCommonAreaLabel(pageText: string): string | null {
   const text = String(pageText || '');
   for (const entry of COMMON_AREA_LABELS) {
     if (entry.re.test(text)) return entry.label;
   }
   return null;
+}
+
+export function extractUploadedTypeLabelFromText(pageText: string): string | null {
+  const text = normalizeTypeText(pageText);
+  if (!text) return null;
+
+  const candidates: string[] = [];
+  const beforeUnitRe = /\b([A-Z][A-Z0-9&/ ]{1,70}?)(?:\s*[-–—]\s*(AS|MIRROR|ADA|REV|ALT|OPTION))?\s+UNIT\s*#?\s*\d+\b/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = beforeUnitRe.exec(text)) !== null) {
+    const rawWords = match[1]
+      .split(/\s+/)
+      .map((word) => word.trim())
+      .filter(Boolean)
+      .filter((word) => !/^(PROJECT|SENIOR|HOUSING|APARTMENT|APARTMENTS|BUILDING|BLDG|FLOOR|LEVEL|PHASE|THE|OF|AT)$/i.test(word));
+    const lastWord = rawWords.at(-1) || '';
+    const keepTwoWordLabel = /^(ROOM|HALL|CENTER|BAR|LOUNGE|SALON|OFFICE|BATH)$/i.test(lastWord) ||
+      /^(GAME|MEDIA|CARD|CRAFT|ACTIVITY|CONFERENCE|DINING|COFFEE|MAIL|BREAK|BUSINESS|COMMUNITY|POOL|HAIR)$/i.test(rawWords.at(-2) || '');
+    const tail = rawWords.slice(keepTwoWordLabel ? -2 : -1).join(' ').trim();
+    if (!tail || /^(UNIT|TYPE|ELEVATION|SHEET|PLAN|DRAWING)$/i.test(tail)) continue;
+    candidates.push(`${tail}${match[2] ? `-${match[2].toUpperCase()}` : ''}`);
+  }
+
+  return chooseMostSpecificType(candidates);
 }
 
 function extractTypeHintsFromText(pageText: string): string[] {
@@ -377,7 +426,10 @@ function resolvePageUnitType(
 
   if (isCommonAreaPage) {
     const baseLabel = extractCommonAreaLabel(isCommonAreaType(ai) ? ai : (pageText || ''));
-    if (!baseLabel) return { primary: null, aliases: [] };
+    if (!baseLabel) {
+      const uploadedTypeLabel = extractUploadedTypeLabelFromText(ai || pageText);
+      return uploadedTypeLabel ? { primary: uploadedTypeLabel, aliases: [uploadedTypeLabel] } : { primary: null, aliases: [] };
+    }
 
     // Check for variant suffixes (AS, MIRROR, ADA, etc.) in AI type or page text
     const variantRe = /[-–—\s](AS|MIRROR|ADA|REV|ALT|OPTION)\s*$/i;
@@ -624,6 +676,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
           ...fullData,
           unitTypeName: resolvedType.primary,
           unitTypeAliases: resolvedType.aliases,
+          pageText,
         };
       }
 
@@ -690,6 +743,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         unitTypeName: resolvedType.primary,
         unitTypeAliases: resolvedType.aliases,
         isCommonArea,
+        pageText,
       };
     };
 
@@ -723,19 +777,26 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         const pageItems = Array.isArray(data.items) ? data.items : [];
         const hasCabinetRows = pageItems.length > 0;
         const isCommonAreaPage = Boolean((data as any).isCommonArea);
-
-        const shouldTrackType = Boolean(resolvedPageType) || resolvedTypeAliases.length > 0 || isCommonAreaPage || hasCabinetRows;
-        const typesForOrder = resolvedTypeAliases.length > 0
+        const fallbackUploadedType = hasCabinetRows && !resolvedPageType
+          ? extractUploadedTypeLabelFromText(String((data as any).pageText || ''))
+          : null;
+        const effectiveResolvedPageType = resolvedPageType || fallbackUploadedType || '';
+        const effectiveResolvedAliases = resolvedTypeAliases.length > 0
           ? resolvedTypeAliases
-          : resolvedPageType
-            ? [resolvedPageType]
+          : (fallbackUploadedType ? [fallbackUploadedType] : []);
+
+        const shouldTrackType = Boolean(effectiveResolvedPageType) || effectiveResolvedAliases.length > 0 || isCommonAreaPage || hasCabinetRows;
+        const typesForOrder = effectiveResolvedAliases.length > 0
+          ? effectiveResolvedAliases
+          : effectiveResolvedPageType
+            ? [effectiveResolvedPageType]
             : [];
 
         // ── STRICT PAGE ORDER ──
         // Push this page's primary type FIRST (before any aliases) so order is stable per page.
         // If only aliases exist (no resolvedPageType), keep their natural order.
-        const orderedTypesThisPage = resolvedPageType
-          ? [resolvedPageType, ...resolvedTypeAliases.filter(a => a !== resolvedPageType)]
+        const orderedTypesThisPage = effectiveResolvedPageType
+          ? [effectiveResolvedPageType, ...effectiveResolvedAliases.filter(a => a !== effectiveResolvedPageType)]
           : typesForOrder;
 
         for (const t of orderedTypesThisPage) {
@@ -750,7 +811,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
           quantity: c.quantity,
           selected: true,
           sourceFile: file.name,
-          detectedUnitType: shouldTrackType ? (resolvedPageType || undefined) : undefined,
+          detectedUnitType: shouldTrackType ? (effectiveResolvedPageType || undefined) : undefined,
         }));
         allRows.push(...pageRows);
       } else {

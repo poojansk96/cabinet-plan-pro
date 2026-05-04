@@ -758,13 +758,15 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
       isCommonArea = true;
     }
 
-    // Extra safety: if it's an elevation with cabinet SKUs in the PDF text layer
-    // and there is no clear residential unit-type name, extract anyway.
+    // User-uploaded prefinal cabinet pages are intentional source pages. If the
+    // PDF text layer contains valid cabinet SKUs, extract the page even when the
+    // title/type wording is odd or the classifier names it something unexpected.
     const RESIDENTIAL_TYPE_RE = /\b(TYPE\s*\d|UNIT\s*[A-Z]\b|\d\s*BR\b|STUDIO|BED(?:ROOM)?|APARTMENT|APT)\b/i;
     const looksResidential = RESIDENTIAL_TYPE_RE.test(detectedUnitType ?? '');
     const elevationWithTextSkus = isElevation && !looksResidential && textLayerSkus.length > 0;
+    const uploadedPageWithTextSkus = textLayerSkus.length > 0;
 
-    const shouldExtract = isPlanView || (isElevation && isCommonArea) || elevationWithTextSkus;
+    const shouldExtract = isPlanView || (isElevation && isCommonArea) || elevationWithTextSkus || uploadedPageWithTextSkus;
 
     if (!shouldExtract) {
       console.log(`Skipping extraction: pageType=${rawPageType}, isCommonArea=${isCommonArea}`);
@@ -998,7 +1000,7 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
     // This catches MIRROR pages and cases where the AI fails to read labels.
     // Seed with qty=1 each (text counts are unreliable due to legends/notes).
     // SKIP for fixture-only common areas (Restroom, Lobby, etc.) — empty is correct.
-    if (!isStrip && finalItems.length === 0 && textLayerSkus.length > 0 && !isFixtureOnlyCommonArea) {
+    if (!isStrip && finalItems.length === 0 && textLayerSkus.length > 0) {
       console.log(`Extraction empty but text layer has ${textLayerSkus.length} SKUs — seeding with qty=1`);
       for (const sku of textLayerSkus) {
         if (isValidSku(sku)) {
@@ -1014,7 +1016,7 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
     // or simply overlooked by the vision model).
     // SKIP for fixture-only common areas — any AI-detected items on these pages
     // are likely hallucinations from dimension text, not real cabinet labels.
-    if (!isStrip && finalItems.length > 0 && textLayerSkus.length > 0 && !isFixtureOnlyCommonArea) {
+    if (!isStrip && finalItems.length > 0 && textLayerSkus.length > 0) {
       const extractedSkuSet = new Set(finalItems.map((i: any) => normalizeSkuLabel(String(i.sku || ''))));
       // Also track base SKUs (without -L/-R etc.) to avoid adding W1230 when W1230-L already exists
       const extractedBases = new Set(finalItems.map((i: any) => normalizeSkuLabel(String(i.sku || '')).replace(/[-+][A-Z0-9]+$/i, '')));
@@ -1074,7 +1076,7 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
     // Fixture-only common areas (Restroom, Lobby, etc.) should never have cabinets.
     // If the AI found a small number of items, they're almost certainly hallucinated
     // from dimension text, reference markers, or fixture labels.
-    if (isFixtureOnlyCommonArea && finalItems.length > 0 && finalItems.length <= 3) {
+    if (isFixtureOnlyCommonArea && textLayerSkus.length === 0 && finalItems.length > 0 && finalItems.length <= 3) {
       console.log(`Fixture-only common area guard: clearing ${finalItems.length} likely-hallucinated items for ${detectedUnitType ?? 'unknown'}`);
       finalItems = [];
     }
