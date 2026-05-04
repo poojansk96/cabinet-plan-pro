@@ -758,13 +758,15 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
       isCommonArea = true;
     }
 
-    // Extra safety: if it's an elevation with cabinet SKUs in the PDF text layer
-    // and there is no clear residential unit-type name, extract anyway.
+    // User-uploaded prefinal cabinet pages are intentional source pages. If the
+    // PDF text layer contains valid cabinet SKUs, extract the page even when the
+    // title/type wording is odd or the classifier names it something unexpected.
     const RESIDENTIAL_TYPE_RE = /\b(TYPE\s*\d|UNIT\s*[A-Z]\b|\d\s*BR\b|STUDIO|BED(?:ROOM)?|APARTMENT|APT)\b/i;
     const looksResidential = RESIDENTIAL_TYPE_RE.test(detectedUnitType ?? '');
     const elevationWithTextSkus = isElevation && !looksResidential && textLayerSkus.length > 0;
+    const uploadedPageWithTextSkus = textLayerSkus.length > 0;
 
-    const shouldExtract = isPlanView || (isElevation && isCommonArea) || elevationWithTextSkus;
+    const shouldExtract = isPlanView || (isElevation && isCommonArea) || elevationWithTextSkus || uploadedPageWithTextSkus;
 
     if (!shouldExtract) {
       console.log(`Skipping extraction: pageType=${rawPageType}, isCommonArea=${isCommonArea}`);
