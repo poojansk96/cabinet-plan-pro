@@ -227,6 +227,23 @@ function dedupeUnitNumbers(unitNumbers: PrefinalUnitNumber[]): PrefinalUnitNumbe
   return Array.from(map.values());
 }
 
+export function splitPrefinalUnitRowsByAssignment(unitNumbers: PrefinalUnitNumber[]): PrefinalUnitNumber[] {
+  return unitNumbers.flatMap((unit) => {
+    const activeTypes = Object.entries(unit.assignments || {})
+      .filter(([, enabled]) => !!enabled)
+      .map(([type]) => type);
+
+    if (activeTypes.length === 0) {
+      return [{ ...unit, assignments: {} }];
+    }
+
+    return activeTypes.map((type) => ({
+      ...unit,
+      assignments: { [type]: true },
+    }));
+  });
+}
+
 function dedupeSameTypeSameUnit(unitNumbers: PrefinalUnitNumber[]): PrefinalUnitNumber[] {
   const byTypeAndUnit = new Map<string, PrefinalUnitNumber>();
 
@@ -273,6 +290,10 @@ function dedupeSameTypeSameUnit(unitNumbers: PrefinalUnitNumber[]): PrefinalUnit
   }
 
   return Array.from(new Set(byTypeAndUnit.values()));
+}
+
+function normalizeUnitNumberRows(unitNumbers: PrefinalUnitNumber[]): PrefinalUnitNumber[] {
+  return dedupeSameTypeSameUnit(splitPrefinalUnitRowsByAssignment(dedupeUnitNumbers(unitNumbers)));
 }
 
 /** Migrate old stone rows (had splashHeight/room, no backsplashLength/category) */
@@ -359,7 +380,7 @@ function loadData(projectId: string): PrefinalData {
       assignments: normalizeAssignments(u.assignments || {}, dedupedUnitTypes),
     }));
 
-    const unitNumbers = dedupeSameTypeSameUnit(dedupeUnitNumbers(rawUnitNumbers));
+    const unitNumbers = normalizeUnitNumberRows(rawUnitNumbers);
 
     return {
       unitTypes: dedupedUnitTypes,
@@ -440,11 +461,11 @@ export function usePrefinalStore(projectId: string) {
   const deleteUnitType = useCallback((type: string) => {
     setData(prev => {
       const unitTypes = prev.unitTypes.filter(t => t !== type);
-      const unitNumbers = prev.unitNumbers.map(u => {
+      const unitNumbers = normalizeUnitNumberRows(prev.unitNumbers.map(u => {
         const assignments = { ...u.assignments };
         delete assignments[type];
         return { ...u, assignments };
-      });
+      }));
       const next = { ...prev, unitTypes, unitNumbers };
       saveData(projectId, next);
       return next;
@@ -522,12 +543,12 @@ export function usePrefinalStore(projectId: string) {
 
   const toggleAssignment = useCallback((unitIndex: number, unitType: string) => {
     setData(prev => {
-      const unitNumbers = prev.unitNumbers.map((u, i) => {
+      const unitNumbers = normalizeUnitNumberRows(prev.unitNumbers.map((u, i) => {
         if (i !== unitIndex) return u;
         const assignments = { ...u.assignments };
         assignments[unitType] = !assignments[unitType];
         return { ...u, assignments };
-      });
+      }));
       const next = { ...prev, unitNumbers };
       saveData(projectId, next);
       return next;
@@ -578,7 +599,7 @@ export function usePrefinalStore(projectId: string) {
         }
       }
 
-      const unitNumbers = dedupeSameTypeSameUnit(dedupeUnitNumbers(updatedNumbers));
+      const unitNumbers = normalizeUnitNumberRows(updatedNumbers);
       const next = { ...prev, unitNumbers };
       saveData(projectId, next);
       return next;
