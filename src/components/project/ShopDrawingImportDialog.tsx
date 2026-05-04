@@ -199,12 +199,36 @@ function normalizeTypeComparison(value: string): string {
 }
 
 function isCommonAreaType(value: string): boolean {
-  return /\b(KITCHENETTE|LAUNDRY|MAIL\s*ROOM|RESTROOM|LOBBY|CLUBHOUSE|FITNESS|LEASING|BUSINESS\s*CENTER|POOL\s*BATH|TRASH|MAINTENANCE|MODEL|STORAGE|GARAGE|CORRIDOR|MECHANICAL|COMMUNITY|BREAK\s*ROOM|OFFICE|RECEPTION)\b/i
-    .test(String(value || ''));
+  return COMMON_AREA_LABELS.some((entry) => entry.re.test(String(value || '')));
 }
 
 const COMMON_AREA_LABELS: Array<{ label: string; re: RegExp }> = [
   { label: 'Kitchenette', re: /\bKITCHENETTE\b/i },
+  { label: 'Toilet', re: /\bTOILET\b/i },
+  { label: 'Library', re: /\bLIBRARY\b/i },
+  { label: 'Saloon', re: /\bSALOON\b/i },
+  { label: 'Salon', re: /\bSALON\b/i },
+  { label: 'Hair Salon', re: /\bHAIR\s*SALON\b/i },
+  { label: 'Lounge', re: /\bLOUNGE\b/i },
+  { label: 'Game Room', re: /\bGAME\s*ROOM\b/i },
+  { label: 'Theater', re: /\bTHEAT(?:RE|ER)\b/i },
+  { label: 'Media Room', re: /\bMEDIA\s*ROOM\b/i },
+  { label: 'Card Room', re: /\bCARD\s*ROOM\b/i },
+  { label: 'Craft Room', re: /\bCRAFT\s*ROOM\b/i },
+  { label: 'Activity Room', re: /\bACTIVITY\s*ROOM\b/i },
+  { label: 'Conference Room', re: /\bCONFERENCE\s*ROOM\b/i },
+  { label: 'Dining Room', re: /\bDINING\s*(?:ROOM|HALL)\b/i },
+  { label: 'Coffee Bar', re: /\bCOFFEE\s*BAR\b/i },
+  { label: 'Cafe', re: /\bCAFE\b/i },
+  { label: 'Bar', re: /\bBAR\b/i },
+  { label: 'Pub', re: /\bPUB\b/i },
+  { label: 'Wellness', re: /\bWELLNESS\b/i },
+  { label: 'Spa', re: /\bSPA\b/i },
+  { label: 'Yoga', re: /\bYOGA\b/i },
+  { label: 'Multi-Purpose Room', re: /\bMULTI[-\s]?PURPOSE\b/i },
+  { label: 'Computer Room', re: /\bCOMPUTER\s*ROOM\b/i },
+  { label: 'Hobby Room', re: /\bHOBBY\s*ROOM\b/i },
+  { label: 'Music Room', re: /\bMUSIC\s*ROOM\b/i },
   { label: 'Mail Room', re: /\bMAIL\s*ROOM\b/i },
   { label: 'Break Room', re: /\bBREAK\s*ROOM\b/i },
   { label: 'Business Center', re: /\bBUSINESS\s*CENTER\b/i },
@@ -232,6 +256,28 @@ function extractCommonAreaLabel(pageText: string): string | null {
     if (entry.re.test(text)) return entry.label;
   }
   return null;
+}
+
+function extractUploadedTypeLabelFromText(pageText: string): string | null {
+  const text = normalizeTypeText(pageText);
+  if (!text) return null;
+
+  const candidates: string[] = [];
+  const beforeUnitRe = /\b([A-Z][A-Z0-9&/ ]{1,70}?)(?:\s*[-–—]\s*(AS|MIRROR|ADA|REV|ALT|OPTION))?\s+UNIT\s*#?\s*\d+\b/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = beforeUnitRe.exec(text)) !== null) {
+    const rawWords = match[1]
+      .split(/\s+/)
+      .map((word) => word.trim())
+      .filter(Boolean)
+      .filter((word) => !/^(PROJECT|SENIOR|HOUSING|APARTMENT|APARTMENTS|BUILDING|BLDG|FLOOR|LEVEL|PHASE|THE|OF|AT)$/i.test(word));
+    const tail = rawWords.slice(-2).join(' ').trim();
+    if (!tail || /^(UNIT|TYPE|ELEVATION|SHEET|PLAN|DRAWING)$/i.test(tail)) continue;
+    candidates.push(`${tail}${match[2] ? `-${match[2].toUpperCase()}` : ''}`);
+  }
+
+  return chooseMostSpecificType(candidates);
 }
 
 function extractTypeHintsFromText(pageText: string): string[] {
