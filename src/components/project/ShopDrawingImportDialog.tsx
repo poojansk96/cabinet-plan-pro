@@ -673,6 +673,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
           ...fullData,
           unitTypeName: resolvedType.primary,
           unitTypeAliases: resolvedType.aliases,
+          pageText,
         };
       }
 
@@ -739,6 +740,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         unitTypeName: resolvedType.primary,
         unitTypeAliases: resolvedType.aliases,
         isCommonArea,
+        pageText,
       };
     };
 
@@ -772,13 +774,13 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         const pageItems = Array.isArray(data.items) ? data.items : [];
         const hasCabinetRows = pageItems.length > 0;
         const isCommonAreaPage = Boolean((data as any).isCommonArea);
-      const fallbackUploadedType = hasCabinetRows && !resolvedPageType
-        ? extractUploadedTypeLabelFromText(pageText)
-        : null;
-      const effectiveResolvedPageType = resolvedPageType || fallbackUploadedType || '';
-      const effectiveResolvedAliases = resolvedTypeAliases.length > 0
-        ? resolvedTypeAliases
-        : (fallbackUploadedType ? [fallbackUploadedType] : []);
+        const fallbackUploadedType = hasCabinetRows && !resolvedPageType
+          ? extractUploadedTypeLabelFromText(String((data as any).pageText || ''))
+          : null;
+        const effectiveResolvedPageType = resolvedPageType || fallbackUploadedType || '';
+        const effectiveResolvedAliases = resolvedTypeAliases.length > 0
+          ? resolvedTypeAliases
+          : (fallbackUploadedType ? [fallbackUploadedType] : []);
 
         const shouldTrackType = Boolean(effectiveResolvedPageType) || effectiveResolvedAliases.length > 0 || isCommonAreaPage || hasCabinetRows;
         const typesForOrder = effectiveResolvedAliases.length > 0
