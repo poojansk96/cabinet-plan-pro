@@ -1000,7 +1000,7 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
     // This catches MIRROR pages and cases where the AI fails to read labels.
     // Seed with qty=1 each (text counts are unreliable due to legends/notes).
     // SKIP for fixture-only common areas (Restroom, Lobby, etc.) — empty is correct.
-    if (!isStrip && finalItems.length === 0 && textLayerSkus.length > 0 && !isFixtureOnlyCommonArea) {
+    if (!isStrip && finalItems.length === 0 && textLayerSkus.length > 0) {
       console.log(`Extraction empty but text layer has ${textLayerSkus.length} SKUs — seeding with qty=1`);
       for (const sku of textLayerSkus) {
         if (isValidSku(sku)) {
@@ -1016,7 +1016,7 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
     // or simply overlooked by the vision model).
     // SKIP for fixture-only common areas — any AI-detected items on these pages
     // are likely hallucinations from dimension text, not real cabinet labels.
-    if (!isStrip && finalItems.length > 0 && textLayerSkus.length > 0 && !isFixtureOnlyCommonArea) {
+    if (!isStrip && finalItems.length > 0 && textLayerSkus.length > 0) {
       const extractedSkuSet = new Set(finalItems.map((i: any) => normalizeSkuLabel(String(i.sku || ''))));
       // Also track base SKUs (without -L/-R etc.) to avoid adding W1230 when W1230-L already exists
       const extractedBases = new Set(finalItems.map((i: any) => normalizeSkuLabel(String(i.sku || '')).replace(/[-+][A-Z0-9]+$/i, '')));
@@ -1076,7 +1076,7 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
     // Fixture-only common areas (Restroom, Lobby, etc.) should never have cabinets.
     // If the AI found a small number of items, they're almost certainly hallucinated
     // from dimension text, reference markers, or fixture labels.
-    if (isFixtureOnlyCommonArea && finalItems.length > 0 && finalItems.length <= 3) {
+    if (isFixtureOnlyCommonArea && textLayerSkus.length === 0 && finalItems.length > 0 && finalItems.length <= 3) {
       console.log(`Fixture-only common area guard: clearing ${finalItems.length} likely-hallucinated items for ${detectedUnitType ?? 'unknown'}`);
       finalItems = [];
     }
