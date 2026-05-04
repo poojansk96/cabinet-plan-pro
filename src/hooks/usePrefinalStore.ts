@@ -461,11 +461,11 @@ export function usePrefinalStore(projectId: string) {
   const deleteUnitType = useCallback((type: string) => {
     setData(prev => {
       const unitTypes = prev.unitTypes.filter(t => t !== type);
-      const unitNumbers = prev.unitNumbers.map(u => {
+      const unitNumbers = normalizeUnitNumberRows(prev.unitNumbers.map(u => {
         const assignments = { ...u.assignments };
         delete assignments[type];
         return { ...u, assignments };
-      });
+      }));
       const next = { ...prev, unitTypes, unitNumbers };
       saveData(projectId, next);
       return next;
@@ -543,12 +543,12 @@ export function usePrefinalStore(projectId: string) {
 
   const toggleAssignment = useCallback((unitIndex: number, unitType: string) => {
     setData(prev => {
-      const unitNumbers = prev.unitNumbers.map((u, i) => {
+      const unitNumbers = normalizeUnitNumberRows(prev.unitNumbers.map((u, i) => {
         if (i !== unitIndex) return u;
         const assignments = { ...u.assignments };
         assignments[unitType] = !assignments[unitType];
         return { ...u, assignments };
-      });
+      }));
       const next = { ...prev, unitNumbers };
       saveData(projectId, next);
       return next;
