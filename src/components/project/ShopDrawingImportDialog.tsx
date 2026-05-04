@@ -272,7 +272,10 @@ export function extractUploadedTypeLabelFromText(pageText: string): string | nul
       .map((word) => word.trim())
       .filter(Boolean)
       .filter((word) => !/^(PROJECT|SENIOR|HOUSING|APARTMENT|APARTMENTS|BUILDING|BLDG|FLOOR|LEVEL|PHASE|THE|OF|AT)$/i.test(word));
-    const tail = rawWords.slice(-2).join(' ').trim();
+    const lastWord = rawWords.at(-1) || '';
+    const keepTwoWordLabel = /^(ROOM|HALL|CENTER|BAR|LOUNGE|SALON|OFFICE|BATH)$/i.test(lastWord) ||
+      /^(GAME|MEDIA|CARD|CRAFT|ACTIVITY|CONFERENCE|DINING|COFFEE|MAIL|BREAK|BUSINESS|COMMUNITY|POOL|HAIR)$/i.test(rawWords.at(-2) || '');
+    const tail = rawWords.slice(keepTwoWordLabel ? -2 : -1).join(' ').trim();
     if (!tail || /^(UNIT|TYPE|ELEVATION|SHEET|PLAN|DRAWING)$/i.test(tail)) continue;
     candidates.push(`${tail}${match[2] ? `-${match[2].toUpperCase()}` : ''}`);
   }
