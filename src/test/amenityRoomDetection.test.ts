@@ -5,6 +5,8 @@
 // never silently dropped from prefinal cabinet extraction.
 import { describe, expect, it } from 'vitest';
 
+import { extractCommonAreaLabel, isCommonAreaType } from '@/components/project/ShopDrawingImportDialog';
+
 const AMENITY_ROOM_RE = /\b(TOILET|SALOON|SALON|LIBRARY|LOUNGE|GAME\s*ROOM|THEAT(?:RE|ER)|MEDIA\s*ROOM|CARD\s*ROOM|CRAFT\s*ROOM|ACTIVITY\s*ROOM|CONFERENCE\s*ROOM|DINING\s*(?:ROOM|HALL)|CAFE|COFFEE\s*BAR|BAR|PUB|HAIR\s*SALON|WELLNESS|SPA|YOGA|MULTI[-\s]?PURPOSE|COMPUTER\s*ROOM|HOBBY\s*ROOM|MUSIC\s*ROOM|CLUBHOUSE|FITNESS|RECEPTION|LEASING|BUSINESS\s*CENTER|COMMUNITY\s*ROOM|BREAK\s*ROOM|MAIL\s*ROOM)\b/i;
 
 const RESIDENTIAL_TYPE_RE = /\b(TYPE\s*\d|UNIT\s*[A-Z]\b|\d\s*BR\b|STUDIO|BED(?:ROOM)?|APARTMENT|APT)\b/i;
@@ -43,5 +45,14 @@ describe('amenity room detection (Franklin Ridge cases)', () => {
     expect(AMENITY_ROOM_RE.test('LOUNGE AREA')).toBe(true);
     expect(AMENITY_ROOM_RE.test('THEATER')).toBe(true);
     expect(AMENITY_ROOM_RE.test('THEATRE')).toBe(true);
+  });
+
+  it('keeps uploaded amenity type names in the Prefinal import dialog', () => {
+    expect(extractCommonAreaLabel('Franklin Ridge Senior Housing TOILET - AS UNIT # 113')).toBe('Toilet');
+    expect(extractCommonAreaLabel('Franklin Ridge Senior Housing SALOON UNIT # 202')).toBe('Saloon');
+    expect(extractCommonAreaLabel('Franklin Ridge Senior Housing LIBRARY UNIT # 129')).toBe('Library');
+    expect(isCommonAreaType('Toilet-AS')).toBe(true);
+    expect(isCommonAreaType('Saloon')).toBe(true);
+    expect(isCommonAreaType('Library')).toBe(true);
   });
 });
