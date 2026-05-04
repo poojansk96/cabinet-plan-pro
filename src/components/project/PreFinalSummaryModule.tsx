@@ -352,9 +352,22 @@ export default function PreFinalSummaryModule({ project }: Props) {
       return (a.name || '').localeCompare(b.name || '', undefined, { numeric: true });
     });
 
+    // Expand each unit into one row per assigned type so units belonging to
+    // multiple types are NEVER collapsed into a single row with multiple 1's.
+    type ExpandedUnitRow = { unit: typeof sortedUnits[number]; activeType: string | null };
+    const expandedRows: ExpandedUnitRow[] = [];
     sortedUnits.forEach(unit => {
-      const flags = store.unitTypes.map(t => unit.assignments[t] ? 1 : '');
-      const rowTotal = store.unitTypes.filter(t => unit.assignments[t]).length;
+      const activeTypes = store.unitTypes.filter(t => unit.assignments[t]);
+      if (activeTypes.length === 0) {
+        expandedRows.push({ unit, activeType: null });
+      } else {
+        activeTypes.forEach(t => expandedRows.push({ unit, activeType: t }));
+      }
+    });
+
+    expandedRows.forEach(({ unit, activeType }) => {
+      const flags = store.unitTypes.map(t => (activeType && t === activeType ? 1 : ''));
+      const rowTotal = activeType ? 1 : 0;
       const row = wsUnits.addRow(['', unit.bldg || '', unit.floor || '', unit.name, ...flags, rowTotal]);
       row.eachCell((cell, colNumber) => {
         if (colNumber <= 1) return;
@@ -366,7 +379,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
     wsUnits.addRow([]);
     // Total row with SUM formulas so manual edits auto-update
     const dataStartRow = 6; // row 6 is first data row (after blank, title, blank, header, blank spacer)
-    const dataEndRow = dataStartRow + sortedUnits.length - 1;
+    const dataEndRow = dataStartRow + expandedRows.length - 1;
     const totRowValues: any[] = ['', '', '', `TOTAL (${store.unitNumbers.length})`];
     // Placeholder values for types + grand total (will be overwritten by formulas)
     for (let i = 0; i < store.unitTypes.length + 1; i++) totRowValues.push(0);
