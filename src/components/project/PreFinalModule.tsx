@@ -1772,8 +1772,20 @@ export default function PreFinalModule({ project }: Props) {
 
                         const ktopOverride = store.laminateManualMap[`${unitType}|ktopLft`];
                         const bartopOverride = store.laminateManualMap[`${unitType}|bartopLft`];
-                        const ktopTotalLft = ktopOverride && ktopOverride > 0 ? ktopOverride : ktopAutoLft;
-                        const bartopTotalLft = bartopOverride && bartopOverride > 0 ? bartopOverride : bartopAutoLft;
+                        const ktopExprStored = store.laminateManualExprMap?.[`${unitType}|ktopLft`];
+                        const bartopExprStored = store.laminateManualExprMap?.[`${unitType}|bartopLft`];
+                        const ktopAutoExpr = ktopLfts.length > 0 ? ktopLfts.join('+') : '';
+                        const bartopAutoExpr = bartopLfts.length > 0 ? bartopLfts.join('+') : '';
+                        const ktopExpr = ktopExprStored !== undefined ? ktopExprStored : ktopAutoExpr;
+                        const bartopExpr = bartopExprStored !== undefined ? bartopExprStored : bartopAutoExpr;
+                        const evalExpr = (s: string): number => {
+                          if (!s) return 0;
+                          const cleaned = s.replace(/\s+/g, '').replace(/,/g, '+');
+                          if (!/^[\d+.]+$/.test(cleaned)) return 0;
+                          return cleaned.split('+').filter(Boolean).reduce((a, b) => a + (parseFloat(b) || 0), 0);
+                        };
+                        const ktopTotalLft = ktopOverride && ktopOverride > 0 ? ktopOverride : evalExpr(ktopExpr);
+                        const bartopTotalLft = bartopOverride && bartopOverride > 0 ? bartopOverride : evalExpr(bartopExpr);
 
                         const ktopSlab = calcSlabUsage(ktopTotalLft);
                         const bartopSlab = calcSlabUsage(bartopTotalLft);
