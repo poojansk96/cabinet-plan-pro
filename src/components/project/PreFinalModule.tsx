@@ -1885,9 +1885,13 @@ export default function PreFinalModule({ project }: Props) {
                           <tbody>
                             {lamUnitTypes.map(type => {
                               const unitCount = store.unitNumbers.filter(u => u.assignments[type]).length || 1;
-                              const typeRows = store.laminateRows.filter(r => r.unitType === type);
-                              const ktopLft = typeRows.filter(r => !r.isIsland).reduce((s, r) => s + Math.ceil(r.length / 12), 0);
-                              const bartopLft = typeRows.filter(r => r.isIsland).reduce((s, r) => s + Math.ceil(r.length / 12), 0);
+                              const typeRows = store.laminateRows.filter(r => r.unitType === type && r.category !== 'bath');
+                              const ktopAuto = typeRows.filter(r => !r.isIsland).reduce((s, r) => s + Math.ceil(r.length / 12), 0);
+                              const bartopAuto = typeRows.filter(r => r.isIsland).reduce((s, r) => s + Math.ceil(r.length / 12), 0);
+                              const ktopOv = store.laminateManualMap[`${type}|ktopLft`];
+                              const bartopOv = store.laminateManualMap[`${type}|bartopLft`];
+                              const ktopLft = ktopOv && ktopOv > 0 ? ktopOv : ktopAuto;
+                              const bartopLft = bartopOv && bartopOv > 0 ? bartopOv : bartopAuto;
                               const kSlab = calcSlabUsage(ktopLft);
                               const bSlab = calcSlabUsage(bartopLft);
                               const ssQty = store.laminateManualMap[`${type}|ssQty`] || 0;
