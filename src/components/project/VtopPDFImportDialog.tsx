@@ -44,6 +44,8 @@ export interface VtopImportRow extends PrefinalVtopRow {
   selected: boolean;
   sourceFile?: string;
   bbox?: { x: number; y: number; width: number; height: number };
+  backSideOnPage?: 'top' | 'bottom' | 'left' | 'right';
+  closerEndOnPage?: 'top' | 'bottom' | 'left' | 'right' | 'center';
   leftWallConfidence?: number;
   rightWallConfidence?: number;
   sidesplashCount?: number;
@@ -179,35 +181,50 @@ function cropNormalizedRegion(
  * 5. One narrow tall band = open end (single line)
  * 6. Anything else = uncertain
  */
-function detectDoubleLineAtEdge(imageData: ImageData, side: 'left' | 'right'): number {
+type PageSide = 'left' | 'right' | 'top' | 'bottom';
+
+function pageSideForPersonEnd(backSideOnPage: PageSide | undefined, personEnd: 'left' | 'right'): PageSide {
+  if (backSideOnPage === 'top') return personEnd === 'left' ? 'left' : 'right';
+  if (backSideOnPage === 'bottom') return personEnd === 'left' ? 'right' : 'left';
+  if (backSideOnPage === 'left') return personEnd === 'left' ? 'bottom' : 'top';
+  if (backSideOnPage === 'right') return personEnd === 'left' ? 'top' : 'bottom';
+  return personEnd;
+}
+
+function detectDoubleLineAtEdge(imageData: ImageData, side: PageSide): number {
   const { data, width, height } = imageData;
   if (width < 6 || height < 10) return 0.5;
 
-  // Only analyze center 60% of height
-  const yStart = Math.floor(height * 0.2);
-  const yEnd = Math.floor(height * 0.8);
-  const analyzeHeight = yEnd - yStart;
-  if (analyzeHeight < 5) return 0.5;
+  const isVerticalEdge = side === 'left' || side === 'right';
+  const primarySize = isVerticalEdge ? width : height;
+  const secondarySize = isVerticalEdge ? height : width;
+
+  // Only analyze center 60% of the perpendicular axis to skip dimension-line noise
+  const secondaryStart = Math.floor(secondarySize * 0.2);
+  const secondaryEnd = Math.floor(secondarySize * 0.8);
+  const analyzeSpan = secondaryEnd - secondaryStart;
+  if (analyzeSpan < 5) return 0.5;
 
   // Inspect 45% of the end crop width to catch both lines
-  const edgeZoneWidth = Math.max(6, Math.floor(width * 0.45));
-  const xStart = side === 'left' ? 0 : width - edgeZoneWidth;
-  const xEnd = xStart + edgeZoneWidth;
+  const edgeZoneWidth = Math.max(6, Math.floor(primarySize * 0.45));
+  const primaryStart = side === 'left' || side === 'top' ? 0 : primarySize - edgeZoneWidth;
 
-  // Build column darkness profile in the edge zone
-  // For each column, count how many rows in the center zone are "dark"
+  // Build darkness profile in the edge zone.
+  // Vertical ends are scanned by columns; horizontal ends are scanned by rows.
   const darkThreshold = 180; // relaxed for anti-aliased PDF linework
   const columnDarkRatio = new Float64Array(edgeZoneWidth);
 
-  for (let localX = 0; localX < edgeZoneWidth; localX++) {
-    const absX = xStart + localX;
+  for (let localPrimary = 0; localPrimary < edgeZoneWidth; localPrimary++) {
+    const absPrimary = primaryStart + localPrimary;
     let darkCount = 0;
-    for (let y = yStart; y < yEnd; y++) {
+    for (let secondary = secondaryStart; secondary < secondaryEnd; secondary++) {
+      const x = isVerticalEdge ? absPrimary : secondary;
+      const y = isVerticalEdge ? secondary : absPrimary;
       const idx = (y * width + absX) * 4;
       const lum = data[idx] * 0.299 + data[idx + 1] * 0.587 + data[idx + 2] * 0.114;
       if (lum < darkThreshold) darkCount++;
     }
-    columnDarkRatio[localX] = darkCount / analyzeHeight;
+    columnDarkRatio[localPrimary] = darkCount / analyzeSpan;
   }
 
   // Find vertical bands: relaxed threshold for thin/gray PDF lines
@@ -264,7 +281,10 @@ function detectDoubleLineAtEdge(imageData: ImageData, side: 'left' | 'right'): n
     return 0.5; // large gap — unknown
   }
 
-  // 1 band or 0 bands = unknown (do NOT force false)
+  // One clean line at the actual end is an OPEN end: finish end, no sidesplash.
+  if (validBands.length === 1) return 0.15;
+
+  // No reliable edge line means the crop/AI bbox is likely imperfect; leave uncertain.
   return 0.5;
 }
 
