@@ -1006,6 +1006,7 @@ export function usePrefinalStore(projectId: string) {
     addLaminateImport,
     clearLaminate,
     setLaminateManual,
+    setLaminateManualExpr,
     addVtopUnitTypes,
     addVtopImport,
     deleteVtopRow,
