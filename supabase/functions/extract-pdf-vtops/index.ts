@@ -860,6 +860,7 @@ Look at the SAME shop drawing image and verify EACH item carefully:
    - Only set true when you see a CLEAR double line or wall return at that specific end.
    - It is common for one end to be finish end and the other end to need a sidesplash.
    - Update leftWallYesConfidence and rightWallYesConfidence accordingly.
+   - **MULTIPLE-VANITY PAGES (e.g. 2BR-AS, 2BR-MIRROR, 2BR (ADA), 3BR plans with Bath-1 + Bath-2):** EACH vanity has its OWN backsplash and its OWN person-in-front perspective. Re-derive backSideOnPage INDEPENDENTLY for each vanity by locating the double line on THAT vanity rectangle alone. Then re-derive person-LEFT / person-RIGHT for THAT vanity. NEVER assume both vanities share the same backSideOnPage or the same wall pattern. The two vanities are usually drawn in different orientations or with the backsplash on opposite page sides — verify each one separately.
 
 Return the CORRECTED complete JSON — same format:
 {"unitTypeName":"...","vtops":[...]}
