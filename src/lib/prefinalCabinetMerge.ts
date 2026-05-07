@@ -11,7 +11,9 @@ export interface PositionedPdfTextItem {
   transform?: number[];
 }
 
-const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|WDC|UB|WC|OH|BLB|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDB|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS)\d[\w\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
+// Includes legacy manufacturer SKUs: UF (utility/under filler), BEP (base end panel), WEP (wall end panel),
+// TEP (tall end panel), DP (decorative panel), SP (skin panel), PNL (panel), TKB (toe-kick base).
+const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|WDC|UB|WC|OH|BLB|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDB|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKB|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS|UF|BEP|WEP|TEP|DP|SP|PNL)\d[\w\-\/]*(?:\((?:SPLIT|O|OPEN|C|CLOSED)\)|\[(?:SPLIT)\]|_SPLIT|-\((?:O|OPEN|C|CLOSED)\))?/gi;
 const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
 const SKU_PREFIX_RE = /^[A-Z]{1,8}\d/i;
 const NO_DIGIT_OK = /^(BP|SCRIBE|UC)$/i;
@@ -28,6 +30,10 @@ export function normalizePrefinalSkuLabel(value: unknown): string {
     .trim()
     .replace(/\s*-\s*/g, '-')
     .replace(/\s+/g, '')
+    // Strip optional open/closed marker suffixes used by some legacy catalogs:
+    //   W3024WCM-(O), W3024WCM(O), W3024WCM-(OPEN), W3024WCM(C), etc.
+    // These should collapse to the base SKU so AI labels and text-layer labels match.
+    .replace(/-?\((?:O|OPEN|C|CLOSED)\)$/i, '')
     .replace(/-+$/g, '');
 }
 
