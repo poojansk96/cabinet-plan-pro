@@ -220,7 +220,7 @@ function detectDoubleLineAtEdge(imageData: ImageData, side: PageSide): number {
     for (let secondary = secondaryStart; secondary < secondaryEnd; secondary++) {
       const x = isVerticalEdge ? absPrimary : secondary;
       const y = isVerticalEdge ? secondary : absPrimary;
-      const idx = (y * width + absX) * 4;
+      const idx = (y * width + x) * 4;
       const lum = data[idx] * 0.299 + data[idx + 1] * 0.587 + data[idx + 2] * 0.114;
       if (lum < darkThreshold) darkCount++;
     }
