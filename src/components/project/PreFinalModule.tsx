@@ -1825,11 +1825,19 @@ export default function PreFinalModule({ project }: Props) {
                           if (!/^[\d+.]+$/.test(cleaned)) return 0;
                           return cleaned.split('+').filter(Boolean).reduce((a, b) => a + (parseFloat(b) || 0), 0);
                         };
+                        const exprToPieces = (s: string): number[] => {
+                          if (!s) return [];
+                          const cleaned = s.replace(/\s+/g, '').replace(/,/g, '+');
+                          if (!/^[\d+.]+$/.test(cleaned)) return [];
+                          return cleaned.split('+').filter(Boolean).map(p => parseFloat(p) || 0).filter(p => p > 0);
+                        };
                         const ktopTotalLft = ktopOverride && ktopOverride > 0 ? ktopOverride : evalExpr(ktopExpr);
                         const bartopTotalLft = bartopOverride && bartopOverride > 0 ? bartopOverride : evalExpr(bartopExpr);
 
-                        const ktopSlab = calcSlabUsage(ktopTotalLft);
-                        const bartopSlab = calcSlabUsage(bartopTotalLft);
+                        const ktopPiecesArr = ktopOverride && ktopOverride > 0 ? [ktopOverride] : exprToPieces(ktopExpr);
+                        const bartopPiecesArr = bartopOverride && bartopOverride > 0 ? [bartopOverride] : exprToPieces(bartopExpr);
+                        const ktopSlab = calcSlabUsageFromPieces(ktopPiecesArr);
+                        const bartopSlab = calcSlabUsageFromPieces(bartopPiecesArr);
 
                         const ssQty = store.laminateManualMap[`${unitType}|ssQty`] || 0;
 
