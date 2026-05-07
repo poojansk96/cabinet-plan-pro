@@ -30,6 +30,10 @@ export function normalizePrefinalSkuLabel(value: unknown): string {
     .trim()
     .replace(/\s*-\s*/g, '-')
     .replace(/\s+/g, '')
+    // Strip optional open/closed marker suffixes used by some legacy catalogs:
+    //   W3024WCM-(O), W3024WCM(O), W3024WCM-(OPEN), W3024WCM(C), etc.
+    // These should collapse to the base SKU so AI labels and text-layer labels match.
+    .replace(/-?\((?:O|OPEN|C|CLOSED)\)$/i, '')
     .replace(/-+$/g, '');
 }
 
