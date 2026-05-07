@@ -1736,20 +1736,61 @@ export default function PreFinalModule({ project }: Props) {
                     });
                   })();
 
-                  // Slab assignment: pick single slab size (8,10,12) that minimizes waste for total LFT
+                  // Per-piece slab assignment (no cutting unless piece > 12 LFT).
+                  // Rule: each piece gets the smallest slab (8/10/12) that fits without cutting.
+                  // Remaining capacity in opened slabs is reused via first-fit-decreasing for smaller pieces.
+                  // Pieces > 12 LFT require multiple 12' slabs (cut case).
                   const SLAB_SIZES = [8, 10, 12];
-                  const calcSlabUsage = (totalLft: number): { size: number; qty: number; totalSlabLft: number } => {
-                    if (totalLft <= 0) return { size: 8, qty: 0, totalSlabLft: 0 };
-                    let best = { size: 8, qty: Math.ceil(totalLft / 8), totalSlabLft: Math.ceil(totalLft / 8) * 8 };
-                    for (const size of SLAB_SIZES) {
-                      const qty = Math.ceil(totalLft / size);
-                      const total = qty * size;
-                      if (total < best.totalSlabLft || (total === best.totalSlabLft && size < best.size)) {
-                        best = { size, qty, totalSlabLft: total };
+                  type SlabBin = { size: number; remaining: number };
+                  const packPieces = (pieces: number[]): SlabBin[] => {
+                    const bins: SlabBin[] = [];
+                    const sorted = [...pieces].filter(p => p > 0).sort((a, b) => b - a);
+                    for (const p of sorted) {
+                      if (p > 12) {
+                        // Needs cutting: use as many 12' slabs as needed
+                        let remain = p;
+                        while (remain > 0) {
+                          const take = Math.min(12, remain);
+                          bins.push({ size: 12, remaining: 12 - take });
+                          remain -= take;
+                        }
+                        continue;
+                      }
+                      // Try to fit into existing bin's remaining capacity (first-fit, tightest)
+                      let bestIdx = -1;
+                      let bestRem = Infinity;
+                      for (let i = 0; i < bins.length; i++) {
+                        if (bins[i].remaining >= p && bins[i].remaining < bestRem) {
+                          bestRem = bins[i].remaining;
+                          bestIdx = i;
+                        }
+                      }
+                      if (bestIdx >= 0) {
+                        bins[bestIdx].remaining -= p;
+                      } else {
+                        // Open a new slab — smallest size that fits the piece
+                        const size = SLAB_SIZES.find(s => s >= p) ?? 12;
+                        bins.push({ size, remaining: size - p });
                       }
                     }
-                    return best;
+                    return bins;
                   };
+                  const summarizeBins = (bins: SlabBin[]): { display: string; totalSlabLft: number; qty: number } => {
+                    if (bins.length === 0) return { display: '', totalSlabLft: 0, qty: 0 };
+                    const counts: Record<number, number> = {};
+                    let totalSlabLft = 0;
+                    for (const b of bins) {
+                      counts[b.size] = (counts[b.size] || 0) + 1;
+                      totalSlabLft += b.size;
+                    }
+                    const display = [12, 10, 8]
+                      .filter(s => counts[s])
+                      .map(s => `${s}X${counts[s]}`)
+                      .join('+');
+                    return { display, totalSlabLft, qty: bins.length };
+                  };
+                  const calcSlabUsageFromPieces = (pieces: number[]) => summarizeBins(packPieces(pieces));
+                  const calcSlabUsage = (totalLft: number) => calcSlabUsageFromPieces(totalLft > 0 ? [totalLft] : []);
 
                   return (
                     <>
