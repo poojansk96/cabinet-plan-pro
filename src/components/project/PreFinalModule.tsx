@@ -1753,8 +1753,9 @@ export default function PreFinalModule({ project }: Props) {
 
                   return (
                     <>
-                      {lamUnitTypes.map(unitType => {
-                        const typeRows = store.laminateRows.filter(r => r.unitType === unitType);
+                       {lamUnitTypes.map(unitType => {
+                        // Exclude vanity tops (bath category) from laminate KTOP/BARTOP calcs
+                        const typeRows = store.laminateRows.filter(r => r.unitType === unitType && r.category !== 'bath');
                         if (typeRows.length === 0) return null;
                         const unitCount = store.unitNumbers.filter(u => u.assignments[unitType]).length;
 
@@ -1766,8 +1767,13 @@ export default function PreFinalModule({ project }: Props) {
                         const ktopLfts = ktopPieces.map(r => Math.ceil(r.length / 12));
                         const bartopLfts = bartopPieces.map(r => Math.ceil(r.length / 12));
 
-                        const ktopTotalLft = ktopLfts.reduce((s, v) => s + v, 0);
-                        const bartopTotalLft = bartopLfts.reduce((s, v) => s + v, 0);
+                        const ktopAutoLft = ktopLfts.reduce((s, v) => s + v, 0);
+                        const bartopAutoLft = bartopLfts.reduce((s, v) => s + v, 0);
+
+                        const ktopOverride = store.laminateManualMap[`${unitType}|ktopLft`];
+                        const bartopOverride = store.laminateManualMap[`${unitType}|bartopLft`];
+                        const ktopTotalLft = ktopOverride && ktopOverride > 0 ? ktopOverride : ktopAutoLft;
+                        const bartopTotalLft = bartopOverride && bartopOverride > 0 ? bartopOverride : bartopAutoLft;
 
                         const ktopSlab = calcSlabUsage(ktopTotalLft);
                         const bartopSlab = calcSlabUsage(bartopTotalLft);
@@ -1805,8 +1811,16 @@ export default function PreFinalModule({ project }: Props) {
                               </thead>
                               <tbody>
                                 <tr>
-                                  <td className="text-center font-mono text-xs">
-                                    {ktopLfts.length > 0 ? ktopLfts.join('+') : '—'}
+                                  <td className="text-center">
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      className="est-input w-16 text-xs text-center font-mono bg-background border border-input"
+                                      value={ktopOverride || ktopAutoLft || ''}
+                                      onChange={e => store.setLaminateManual(unitType, 'ktopLft', +e.target.value || 0)}
+                                      title={ktopLfts.length > 0 ? `Auto: ${ktopLfts.join('+')} = ${ktopAutoLft}` : 'Manual entry'}
+                                      placeholder="0"
+                                    />
                                   </td>
                                   <td className="text-center font-mono text-xs font-bold">
                                     {ktopSlab.qty > 0 ? `${ktopSlab.size}X${ktopSlab.qty}` : '—'}
@@ -1814,8 +1828,16 @@ export default function PreFinalModule({ project }: Props) {
                                   <td className="text-center font-mono text-xs">
                                     {ktopSlab.totalSlabLft || '—'}
                                   </td>
-                                  <td className="text-center font-mono text-xs">
-                                    {bartopLfts.length > 0 ? bartopLfts.join('+') : '—'}
+                                  <td className="text-center">
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      className="est-input w-16 text-xs text-center font-mono bg-background border border-input"
+                                      value={bartopOverride || bartopAutoLft || ''}
+                                      onChange={e => store.setLaminateManual(unitType, 'bartopLft', +e.target.value || 0)}
+                                      title={bartopLfts.length > 0 ? `Auto: ${bartopLfts.join('+')} = ${bartopAutoLft}` : 'Manual entry'}
+                                      placeholder="0"
+                                    />
                                   </td>
                                   <td className="text-center font-mono text-xs font-bold">
                                     {bartopSlab.qty > 0 ? `${bartopSlab.size}X${bartopSlab.qty}` : '—'}
@@ -1863,9 +1885,13 @@ export default function PreFinalModule({ project }: Props) {
                           <tbody>
                             {lamUnitTypes.map(type => {
                               const unitCount = store.unitNumbers.filter(u => u.assignments[type]).length || 1;
-                              const typeRows = store.laminateRows.filter(r => r.unitType === type);
-                              const ktopLft = typeRows.filter(r => !r.isIsland).reduce((s, r) => s + Math.ceil(r.length / 12), 0);
-                              const bartopLft = typeRows.filter(r => r.isIsland).reduce((s, r) => s + Math.ceil(r.length / 12), 0);
+                              const typeRows = store.laminateRows.filter(r => r.unitType === type && r.category !== 'bath');
+                              const ktopAuto = typeRows.filter(r => !r.isIsland).reduce((s, r) => s + Math.ceil(r.length / 12), 0);
+                              const bartopAuto = typeRows.filter(r => r.isIsland).reduce((s, r) => s + Math.ceil(r.length / 12), 0);
+                              const ktopOv = store.laminateManualMap[`${type}|ktopLft`];
+                              const bartopOv = store.laminateManualMap[`${type}|bartopLft`];
+                              const ktopLft = ktopOv && ktopOv > 0 ? ktopOv : ktopAuto;
+                              const bartopLft = bartopOv && bartopOv > 0 ? bartopOv : bartopAuto;
                               const kSlab = calcSlabUsage(ktopLft);
                               const bSlab = calcSlabUsage(bartopLft);
                               const ssQty = store.laminateManualMap[`${type}|ssQty`] || 0;
