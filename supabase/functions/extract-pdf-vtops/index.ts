@@ -663,23 +663,20 @@ TASK:
 
 RULES FOR WALL DETECTION (leftWall / rightWall):
 - Use the SAME "person standing in front" perspective as bowlPosition.
-- Look at EACH END of the vanity top along its LENGTH axis.
-- WALL (true) indicators — any of these means the end has a wall:
-  * DOUBLE PARALLEL LINES at the end edge (two lines close together = sidesplash/wall return)
-  * A WALL LINE drawn adjacent to and touching the vanity end
-  * The vanity end butts against a wall line in the floor plan
-  * A sidesplash or backsplash return is shown at that end
-  * Text labels like "SS" (sidesplash), "WALL", or hatching at the end
-- OPEN / NO WALL (false) indicators:
-  * SINGLE LINE at the end edge (just the vanity outline = finish end / open end)
-  * The vanity end is free-standing with no wall nearby
+- Look at EACH END of the vanity top along its LENGTH axis — judge each end INDEPENDENTLY.
+- WALL (true) — set true ONLY when you can clearly see at that end:
+  * DOUBLE PARALLEL LINES at the end edge (two lines close together = sidesplash / wall return)
+  * A WALL LINE drawn adjacent to and touching the vanity end (hatched wall, thicker line)
+  * An explicit sidesplash/backsplash return drawn at that end
+  * Text labels like "SS" (sidesplash), "WALL", or wall hatching at the end
+- OPEN / NO WALL (false) — set false when at that end you see:
+  * A SINGLE LINE at the end edge (just the vanity outline = finish end / open end)
+  * The vanity end is free-standing with no wall structure adjacent
   * Text labels like "FE" (finish end) or "OPEN"
-- MOST vanity tops in residential projects have BOTH walls (leftWall=true AND rightWall=true). This is the DEFAULT expectation.
-- Only set a wall to false if you see a CLEAR single line with NO adjacent wall structure.
-- If you see double lines at BOTH ends, set BOTH leftWall and rightWall to true.
-- In 2020 shop drawings, vanity tops between two walls in a bathroom alcove will have wall indicators (double lines or sidesplash marks) at BOTH ends.
-- Set leftWallYesConfidence and rightWallYesConfidence to reflect your certainty (0.0=definitely no wall, 1.0=definitely wall).
-- BIAS: Default to true (wall). Only set false when you are VERY confident there is no wall. Most vanities are installed in alcoves with walls on both sides.
+- IMPORTANT: It is VERY COMMON for one end to have a wall (double line / sidesplash) while the OTHER end is a finish end (single line). Do NOT assume both ends match.
+- Examples: a 32"x22" vanity with the bowl drawn against the LEFT side of the rectangle and a clear single line on the LEFT edge but a double line on the RIGHT edge = leftWall:false, rightWall:true (Left end finish + Right side sidesplash).
+- DO NOT default to true. Only set wall=true when you actually see double-line / wall evidence at that specific end.
+- Set leftWallYesConfidence and rightWallYesConfidence to your actual certainty (0.0=clearly single line / open, 1.0=clearly double line / wall, 0.5=truly ambiguous).
 
 RULES FOR BOWL POSITION:
 - ALWAYS use dimension callout lines to determine offset — do not guess from visual position alone.
