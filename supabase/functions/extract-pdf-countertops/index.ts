@@ -1004,7 +1004,7 @@ ${JSON.stringify({ unitTypeName: extracted.unitTypeName, countertops }, null, 2)
 Look at the SAME shop drawing image and verify:
 1. Is the unitTypeName correct? If not, provide the correct one.
 2. Are there any MISSING countertop sections that were not extracted? Add them.
-3. Are the dimensions (length, depth, backsplashLength) accurate? Correct any errors.
+3. Are the dimensions (length, depth, backsplashLength) accurate? Correct any errors. CRITICAL: backsplashLength must use the FULL OUTER wall length WITHOUT any corner deduction, even when length was reduced by depth (e.g. 25.5") at a corner. For an L-shape with outer legs 138" and 116.75" at depth 25.5", lengths are [138, 91.25] but backsplashLength must be [138, 116.75]. Backsplash and Top Inches are INDEPENDENT — never make backsplashLength match a corner-deducted length.
 4. Are the categories (kitchen/bath) correct?
 5. Are there any DUPLICATE sections that should be removed?
 6. Are any sections actually NOT countertops (e.g. appliance cutouts listed separately)?
