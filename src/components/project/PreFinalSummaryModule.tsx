@@ -1882,7 +1882,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
       const r = row.number;
       // Pull Unit Type Name from '2-Unit Count' via XLOOKUP keyed on Unit #
       row.getCell(sovColTypeName).value = {
-        formula: `IFERROR(XLOOKUP(${excelCol(sovColUnit)}${r},'2-Unit Count'!$${ucUnitNumColLetter}:$${ucUnitNumColLetter},'2-Unit Count'!$${ucUnitTypeColLetter}:$${ucUnitTypeColLetter},""),"")`,
+        formula: `IFERROR(INDEX('2-Unit Count'!$${ucUnitTypeColLetter}:$${ucUnitTypeColLetter},MATCH(${excelCol(sovColUnit)}${r},'2-Unit Count'!$${ucUnitNumColLetter}:$${ucUnitNumColLetter},0)),"")`,
         result: unitTypeName,
       } as any;
       // Total = MATERIAL + LABOR + TAX (safe)
@@ -1997,7 +1997,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
       const r = row.number;
       // Pull Unit Type Name from '2-Unit Count' via XLOOKUP keyed on Unit #
       row.getCell(instColTypeName).value = {
-        formula: `IFERROR(XLOOKUP(${excelCol(instColUnit)}${r},'2-Unit Count'!$${ucUnitNumColLetter}:$${ucUnitNumColLetter},'2-Unit Count'!$${ucUnitTypeColLetter}:$${ucUnitTypeColLetter},""),"")`,
+        formula: `IFERROR(INDEX('2-Unit Count'!$${ucUnitTypeColLetter}:$${ucUnitTypeColLetter},MATCH(${excelCol(instColUnit)}${r},'2-Unit Count'!$${ucUnitNumColLetter}:$${ucUnitNumColLetter},0)),"")`,
         result: unitTypeName,
       } as any;
       row.getCell(instColTotal).value = {
