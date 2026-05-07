@@ -183,7 +183,7 @@ function cropNormalizedRegion(
  */
 type PageSide = 'left' | 'right' | 'top' | 'bottom';
 
-function pageSideForPersonEnd(backSideOnPage: PageSide | undefined, personEnd: 'left' | 'right'): PageSide {
+export function pageSideForPersonEnd(backSideOnPage: PageSide | undefined, personEnd: 'left' | 'right'): PageSide {
   if (backSideOnPage === 'top') return personEnd === 'left' ? 'left' : 'right';
   if (backSideOnPage === 'bottom') return personEnd === 'left' ? 'right' : 'left';
   if (backSideOnPage === 'left') return personEnd === 'left' ? 'bottom' : 'top';
