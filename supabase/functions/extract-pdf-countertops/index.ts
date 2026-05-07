@@ -337,7 +337,7 @@ For each countertop section return:
 - label (short descriptive name based on the drawing — e.g. "Top Run", "Return", "Vanity", "Bar")
 - roomName (e.g. "KITCHEN", "MASTER BATH", "POWDER") — "" if you cannot tell
 - length (inches, decimal — read from the drawing)
-- depth (inches, decimal — read from the drawing; do NOT assume 25.5)
+- depth (inches, decimal — read from the drawing; do NOT assume 25.5. If a run has an explicit 30"-48" depth label, use that printed depth even if another nearby/inset line says 25 1/2")
 - backsplashLength (inches against the wall; 0 for islands/peninsulas)
 - isIsland (true/false)
 - category ("kitchen" or "bath") — depth <=22 OR vanity/bath/lav/powder => "bath", else "kitchen"
@@ -362,7 +362,7 @@ TASK:
 
 a. **label** — a short descriptive name based on its location (e.g. "Perimeter Left", "Perimeter Right", "Island", "Peninsula", "Bar Top", "Vanity", "L-Section", "U-Section"). If the drawing has text labels, use those.
 b. **length** — total linear length in inches. Read dimension labels first. If no label, estimate from the drawing.
-c. **depth** — depth in inches. Read from dimension labels. Standard kitchen countertop depth is 25.5". Vanity/bath tops are typically 22" or 19" deep. Islands are often 36-42".
+c. **depth** — depth in inches. Read from dimension labels first; do NOT force kitchen sections to 25.5". Standard perimeter can be 25.5", but returns/peninsulas/wide tops can be 30"-48" deep even when connected to a wall. If a section has an explicit 36" total depth, return depth=36 — do not replace it with a nearby 25 1/2" inset/standard-depth line.
 d. **backsplashLength** — the linear inches of WALL backsplash ONLY. This is CRITICAL — read carefully:
    - For EVERY countertop section that is against a wall, backsplash runs along the FULL wall edge.
    - KEY RULE: If a countertop section is against a wall (not an island), the backsplash length should generally EQUAL or be very close to the countertop LENGTH, because backsplash runs the entire length of the countertop along the wall.
@@ -389,7 +389,7 @@ RULES:
 - Do NOT include appliance surfaces (range top, sink cutout dimensions) as separate sections — they are part of the countertop run
 - If the page has no countertop information, return {"unitTypeName":"","countertops":[]}
 - Round all dimensions to nearest 0.5 inch
-- Standard depths: perimeter = 25.5", island = 36", bar = 12-18", vanity = 22"
+- Common depths only when truly unlabeled: perimeter often 25.5", island/peninsula/wide top often 30"-48", bar 12"-18", vanity 19"-22". NEVER let the common 25.5" perimeter depth override a printed 30"-48" depth label for that same section.
 - The unitTypeName field is REQUIRED — always look for it in the title block
 - IMPORTANT: Scan the ENTIRE page thoroughly. Do not skip any countertop sections, especially smaller segments or sections in corners of the drawing.
 
