@@ -145,6 +145,8 @@ export default function PreFinalSummaryModule({ project }: Props) {
   // ─── Excel Export ────────────────────────────────────────────────
   const handleExportExcel = async () => {
     const wb = new ExcelJS.Workbook();
+    // Force Excel to recalculate all formulas on open so XLOOKUP results aren't blank
+    (wb as any).calcProperties = { ...(wb as any).calcProperties, fullCalcOnLoad: true };
 
     const allBorders: Partial<ExcelJS.Borders> = {
       top: { style: 'thin', color: { argb: 'FF999999' } },
