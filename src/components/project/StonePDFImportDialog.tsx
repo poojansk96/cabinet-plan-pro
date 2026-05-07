@@ -337,6 +337,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
             }
           }
 
+          // Use AI-detected type as fallback when text-layer detection fails (Cyncly draws title-block as image)
           const pageUnitType = hintedUnitType || outcome.rawUnitType || `${file.name.replace(/\.pdf$/i, '')} — Page ${p}`;
           if (!detectedTypesOrder.includes(pageUnitType)) detectedTypesOrder.push(pageUnitType);
 
@@ -354,9 +355,11 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                 unitType: pageUnitType,
               });
             }
-          } else if (hintedUnitType) {
-            // ── Last resort: insert a visible placeholder so the user can SEE the type was found
-            //     in the PDF but no sections were extracted, and fill it in manually. ──
+          } else {
+            // ── ALWAYS insert a visible placeholder for any page with 0 sections, regardless of
+            //     whether we found a unit type from the text layer. This guarantees that EVERY
+            //     uploaded page becomes a row/column the user can see and fill in manually,
+            //     so types are never silently dropped (e.g. image-only title blocks).
             console.warn(`⚠️ Page ${p} (${pageUnitType}) → 0 sections after all retries. Adding placeholder.`);
             allRows.push({
               label: '⚠️ NEEDS REVIEW (0 sections detected)',
