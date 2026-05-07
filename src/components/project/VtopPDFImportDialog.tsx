@@ -191,6 +191,17 @@ export function pageSideForPersonEnd(backSideOnPage: PageSide | undefined, perso
   return personEnd;
 }
 
+function resolveBowlPositionFromPageSides(
+  backSideOnPage: PageSide | undefined,
+  closerEndOnPage: VtopImportRow['closerEndOnPage'],
+): 'offset-left' | 'offset-right' | 'center' | undefined {
+  if (!backSideOnPage || !closerEndOnPage) return undefined;
+  if (closerEndOnPage === 'center') return 'center';
+  if (pageSideForPersonEnd(backSideOnPage, 'left') === closerEndOnPage) return 'offset-left';
+  if (pageSideForPersonEnd(backSideOnPage, 'right') === closerEndOnPage) return 'offset-right';
+  return undefined;
+}
+
 export function detectDoubleLineAtEdge(imageData: ImageData, side: PageSide): number {
   const { data, width, height } = imageData;
   if (width < 6 || height < 10) return 0.5;
@@ -298,21 +309,42 @@ function analyzeEndCrop(
   bbox: { x: number; y: number; width: number; height: number },
   side: PageSide,
 ): { confidence: number; cropBase64: string } {
-  // Crop a narrow strip at the specified end of the vanity bbox
-  // Use 10% of vanity width, staying inside the bbox (not outside)
+  // Crop a strip that straddles the vanity edge. AI bboxes often stop on the
+  // inner outline, while the outer parallel sidesplash line is just outside it.
   const isVerticalEdge = side === 'left' || side === 'right';
-  const endWidthFrac = Math.max(0.05, bbox.width * 0.22);
-  const endHeightFrac = Math.max(0.05, bbox.height * 0.22);
+  const stripPrimaryFrac = Math.max(0.035, (isVerticalEdge ? bbox.width : bbox.height) * 0.14);
+  const insideFrac = stripPrimaryFrac * 0.6;
+  const outsideFrac = stripPrimaryFrac * 0.7;
   const endBbox = {
-    x: isVerticalEdge ? (side === 'left' ? bbox.x : bbox.x + bbox.width - endWidthFrac) : bbox.x,
-    y: isVerticalEdge ? bbox.y : (side === 'top' ? bbox.y : bbox.y + bbox.height - endHeightFrac),
-    width: isVerticalEdge ? endWidthFrac : bbox.width,
-    height: isVerticalEdge ? bbox.height : endHeightFrac,
+    x: isVerticalEdge
+      ? (side === 'left' ? bbox.x - outsideFrac : bbox.x + bbox.width - insideFrac)
+      : bbox.x,
+    y: isVerticalEdge
+      ? bbox.y
+      : (side === 'top' ? bbox.y - outsideFrac : bbox.y + bbox.height - insideFrac),
+    width: isVerticalEdge ? insideFrac + outsideFrac : bbox.width,
+    height: isVerticalEdge ? bbox.height : insideFrac + outsideFrac,
   };
 
   const { imageData, base64 } = cropNormalizedRegion(canvas, canvasW, canvasH, endBbox);
   const confidence = detectDoubleLineAtEdge(imageData, side);
   return { confidence, cropBase64: base64 };
+}
+
+function refineBackSideFromGeometry(
+  canvas: OffscreenCanvas | HTMLCanvasElement,
+  canvasW: number, canvasH: number,
+  bbox: { x: number; y: number; width: number; height: number },
+  current?: PageSide,
+): PageSide | undefined {
+  const candidates: [PageSide, PageSide] = bbox.width >= bbox.height ? ['top', 'bottom'] : ['left', 'right'];
+  const scored = candidates.map(side => ({ side, confidence: analyzeEndCrop(canvas, canvasW, canvasH, bbox, side).confidence }));
+  const [a, b] = scored;
+
+  if (a.confidence >= 0.75 && b.confidence <= 0.55) return a.side;
+  if (b.confidence >= 0.75 && a.confidence <= 0.55) return b.side;
+  if (a.confidence >= 0.75 && b.confidence >= 0.75) return current && candidates.includes(current) ? current : a.side;
+  return current;
 }
 
 /**
@@ -638,6 +670,14 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson,
                       const { base64: vanityCropB64 } = cropNormalizedRegion(
                         canvas, canvasW, canvasH, vt.bbox,
                       );
+                      const refinedBackSide = refineBackSideFromGeometry(
+                        canvas, canvasW, canvasH, vt.bbox, importRow.backSideOnPage,
+                      );
+                      if (refinedBackSide) {
+                        importRow.backSideOnPage = refinedBackSide;
+                        const resolvedBowl = resolveBowlPositionFromPageSides(refinedBackSide, importRow.closerEndOnPage);
+                        if (resolvedBowl) importRow.bowlPosition = resolvedBowl;
+                      }
                       const leftPageSide = pageSideForPersonEnd(importRow.backSideOnPage, 'left');
                       const rightPageSide = pageSideForPersonEnd(importRow.backSideOnPage, 'right');
                       const leftDet = analyzeEndCrop(canvas, canvasW, canvasH, vt.bbox, leftPageSide);
