@@ -21,19 +21,19 @@ const CABINET_TAKEOFF_TABS: { key: Tab; label: string; icon: React.ReactNode }[]
   { key: 'units', label: 'Units', icon: <Users size={14} /> },
   { key: 'cabinets', label: 'Cabinet', icon: <Layers size={14} /> },
   { key: 'countertops', label: 'Countertop', icon: <Square size={14} /> },
-  { key: 'summary', label: 'Summary', icon: <BarChart3 size={14} /> },
+  { key: 'summary', label: 'Takeoff Summary', icon: <BarChart3 size={14} /> },
 ];
 
 const APPLIANCE_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'app-units', label: 'Units', icon: <Users size={14} /> },
   { key: 'app-takeoff', label: 'Appliance', icon: <Zap size={14} /> },
-  { key: 'app-summary', label: 'Summary', icon: <BarChart3 size={14} /> },
+  { key: 'app-summary', label: 'Appliance Summary', icon: <BarChart3 size={14} /> },
 ];
 
 const PREFINAL_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'project-info', label: 'Project Info', icon: <FileText size={14} /> },
   { key: 'prefinal-units', label: 'Unit & Cabinet Count', icon: <ClipboardCheck size={14} /> },
-  { key: 'prefinal-summary', label: 'Summary', icon: <BarChart3 size={14} /> },
+  { key: 'prefinal-summary', label: 'Prefinal Summary', icon: <BarChart3 size={14} /> },
 ];
 
 export default function ProjectDetail() {
