@@ -142,18 +142,19 @@ export default function PreFinalModule({ project }: Props) {
       const incomingKey = toTypeKey(normalizedIncoming);
       const knownResolved = resolveKnownType(rawType) || resolveKnownType(normalizedIncoming);
 
-      // Cabinet PDFs are user-selected source pages: if a page produced cabinet rows,
-      // keep its detected page/type label even when it is an amenity or odd custom name.
-      // This prevents uploaded SALOON / TOILET / LIBRARY-type pages from disappearing.
-      const hasStructure = /\b(\d+BR|STUDIO)\b/i.test(normalizedIncoming) ||
-        /\bTYPE\b/i.test(normalizedIncoming) ||
-        /_/.test(normalizedIncoming) ||
-        /\bKITCHENETTE\b/i.test(normalizedIncoming);
-      const looksLikeNoise = /^(UNIT|ELEVATION|SHEET|DRAWING|PLAN)$/i.test(normalizedIncoming) ||
-        /^(B|DB|SB|CB|EB|LS|LSB|W|WDC|UB|WC|OH|T|UT|TC|PT|PTC|UC|V|VB|VD|VDB|VDC|FIL|BF|WF|TK|CM|LR|EP|FP|DWR)\d/i.test(normalizedIncoming);
-      const canPromoteIncomingType = Boolean(incomingKey) && !looksLikeNoise && (hasStructure || /[A-Z]/i.test(normalizedIncoming));
+      // Pre-Final cabinet uploads are user-curated FLOOR PLAN pages — every page
+      // that comes back with ANY label MUST become a column, even if the label
+      // is an unusual room name (STAIR, UNISEX BATH, CORRIDOR, etc.) and even
+      // if no cabinet SKUs were extracted. Only fall back to "Unassigned" when
+      // the dialog truly produced no label at all.
+      const finalType = knownResolved || (incomingKey ? normalizedIncoming : 'Unassigned');
 
-      const finalType = knownResolved || (canPromoteIncomingType ? normalizedIncoming : 'Unassigned');
+      // Skip placeholder rows used solely to carry the type through to the store.
+      if (row.sku === '__PLACEHOLDER__') {
+        if (!rowsByType.has(finalType)) rowsByType.set(finalType, []);
+        if (!orderedTypes.includes(finalType)) orderedTypes.push(finalType);
+        continue;
+      }
 
       if (!rowsByType.has(finalType)) rowsByType.set(finalType, []);
       rowsByType.get(finalType)!.push(row);
