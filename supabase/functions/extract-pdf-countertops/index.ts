@@ -740,9 +740,15 @@ function extractUnitTypeFromHintText(text: string): string {
   for (const pattern of patterns) {
     const match = cleaned.match(pattern);
     if (!match) continue;
-    const candidate = sanitizeUnitTypeName(match[1]);
-    if (candidate) return candidate;
+    let candidate = sanitizeUnitTypeName(match[1]);
+    candidate = candidate.replace(/^(?:judd\s+homestead\s*-?\s*ct\s*-?\s*)/i, '').trim();
+    candidate = candidate.replace(/^(?:judd\s+homestead\s*-?\s*)/i, '').trim();
+    candidate = candidate.replace(/\s*(?:no\s+scale|drawing\s*#?.*)$/i, '').trim();
+    if (candidate && candidate.length >= 2 && candidate.length <= 60) return candidate;
   }
+
+  return "";
+}
 
   return "";
 }
