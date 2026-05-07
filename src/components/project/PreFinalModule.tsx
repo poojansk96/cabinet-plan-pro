@@ -1736,20 +1736,61 @@ export default function PreFinalModule({ project }: Props) {
                     });
                   })();
 
-                  // Slab assignment: pick single slab size (8,10,12) that minimizes waste for total LFT
+                  // Per-piece slab assignment (no cutting unless piece > 12 LFT).
+                  // Rule: each piece gets the smallest slab (8/10/12) that fits without cutting.
+                  // Remaining capacity in opened slabs is reused via first-fit-decreasing for smaller pieces.
+                  // Pieces > 12 LFT require multiple 12' slabs (cut case).
                   const SLAB_SIZES = [8, 10, 12];
-                  const calcSlabUsage = (totalLft: number): { size: number; qty: number; totalSlabLft: number } => {
-                    if (totalLft <= 0) return { size: 8, qty: 0, totalSlabLft: 0 };
-                    let best = { size: 8, qty: Math.ceil(totalLft / 8), totalSlabLft: Math.ceil(totalLft / 8) * 8 };
-                    for (const size of SLAB_SIZES) {
-                      const qty = Math.ceil(totalLft / size);
-                      const total = qty * size;
-                      if (total < best.totalSlabLft || (total === best.totalSlabLft && size < best.size)) {
-                        best = { size, qty, totalSlabLft: total };
+                  type SlabBin = { size: number; remaining: number };
+                  const packPieces = (pieces: number[]): SlabBin[] => {
+                    const bins: SlabBin[] = [];
+                    const sorted = [...pieces].filter(p => p > 0).sort((a, b) => b - a);
+                    for (const p of sorted) {
+                      if (p > 12) {
+                        // Needs cutting: use as many 12' slabs as needed
+                        let remain = p;
+                        while (remain > 0) {
+                          const take = Math.min(12, remain);
+                          bins.push({ size: 12, remaining: 12 - take });
+                          remain -= take;
+                        }
+                        continue;
+                      }
+                      // Try to fit into existing bin's remaining capacity (first-fit, tightest)
+                      let bestIdx = -1;
+                      let bestRem = Infinity;
+                      for (let i = 0; i < bins.length; i++) {
+                        if (bins[i].remaining >= p && bins[i].remaining < bestRem) {
+                          bestRem = bins[i].remaining;
+                          bestIdx = i;
+                        }
+                      }
+                      if (bestIdx >= 0) {
+                        bins[bestIdx].remaining -= p;
+                      } else {
+                        // Open a new slab — smallest size that fits the piece
+                        const size = SLAB_SIZES.find(s => s >= p) ?? 12;
+                        bins.push({ size, remaining: size - p });
                       }
                     }
-                    return best;
+                    return bins;
                   };
+                  const summarizeBins = (bins: SlabBin[]): { display: string; totalSlabLft: number; qty: number } => {
+                    if (bins.length === 0) return { display: '', totalSlabLft: 0, qty: 0 };
+                    const counts: Record<number, number> = {};
+                    let totalSlabLft = 0;
+                    for (const b of bins) {
+                      counts[b.size] = (counts[b.size] || 0) + 1;
+                      totalSlabLft += b.size;
+                    }
+                    const display = [12, 10, 8]
+                      .filter(s => counts[s])
+                      .map(s => `${s}X${counts[s]}`)
+                      .join('+');
+                    return { display, totalSlabLft, qty: bins.length };
+                  };
+                  const calcSlabUsageFromPieces = (pieces: number[]) => summarizeBins(packPieces(pieces));
+                  const calcSlabUsage = (totalLft: number) => calcSlabUsageFromPieces(totalLft > 0 ? [totalLft] : []);
 
                   return (
                     <>
@@ -1784,11 +1825,19 @@ export default function PreFinalModule({ project }: Props) {
                           if (!/^[\d+.]+$/.test(cleaned)) return 0;
                           return cleaned.split('+').filter(Boolean).reduce((a, b) => a + (parseFloat(b) || 0), 0);
                         };
+                        const exprToPieces = (s: string): number[] => {
+                          if (!s) return [];
+                          const cleaned = s.replace(/\s+/g, '').replace(/,/g, '+');
+                          if (!/^[\d+.]+$/.test(cleaned)) return [];
+                          return cleaned.split('+').filter(Boolean).map(p => parseFloat(p) || 0).filter(p => p > 0);
+                        };
                         const ktopTotalLft = ktopOverride && ktopOverride > 0 ? ktopOverride : evalExpr(ktopExpr);
                         const bartopTotalLft = bartopOverride && bartopOverride > 0 ? bartopOverride : evalExpr(bartopExpr);
 
-                        const ktopSlab = calcSlabUsage(ktopTotalLft);
-                        const bartopSlab = calcSlabUsage(bartopTotalLft);
+                        const ktopPiecesArr = ktopOverride && ktopOverride > 0 ? [ktopOverride] : exprToPieces(ktopExpr);
+                        const bartopPiecesArr = bartopOverride && bartopOverride > 0 ? [bartopOverride] : exprToPieces(bartopExpr);
+                        const ktopSlab = calcSlabUsageFromPieces(ktopPiecesArr);
+                        const bartopSlab = calcSlabUsageFromPieces(bartopPiecesArr);
 
                         const ssQty = store.laminateManualMap[`${unitType}|ssQty`] || 0;
 
@@ -1834,7 +1883,7 @@ export default function PreFinalModule({ project }: Props) {
                                     />
                                   </td>
                                   <td className="text-center font-mono text-xs font-bold">
-                                    {ktopSlab.qty > 0 ? `${ktopSlab.size}X${ktopSlab.qty}` : '—'}
+                                    {ktopSlab.qty > 0 ? ktopSlab.display : '—'}
                                   </td>
                                   <td className="text-center font-mono text-xs">
                                     {ktopSlab.totalSlabLft || '—'}
@@ -1850,7 +1899,7 @@ export default function PreFinalModule({ project }: Props) {
                                     />
                                   </td>
                                   <td className="text-center font-mono text-xs font-bold">
-                                    {bartopSlab.qty > 0 ? `${bartopSlab.size}X${bartopSlab.qty}` : '—'}
+                                    {bartopSlab.qty > 0 ? bartopSlab.display : '—'}
                                   </td>
                                   <td className="text-center font-mono text-xs">
                                     {bartopSlab.totalSlabLft || '—'}
@@ -1896,21 +1945,28 @@ export default function PreFinalModule({ project }: Props) {
                             {lamUnitTypes.map(type => {
                               const unitCount = store.unitNumbers.filter(u => u.assignments[type]).length || 1;
                               const typeRows = store.laminateRows.filter(r => r.unitType === type && r.category !== 'bath');
-                              const ktopAuto = typeRows.filter(r => !r.isIsland).reduce((s, r) => s + Math.ceil(r.length / 12), 0);
-                              const bartopAuto = typeRows.filter(r => r.isIsland).reduce((s, r) => s + Math.ceil(r.length / 12), 0);
+                              const ktopAutoPieces = typeRows.filter(r => !r.isIsland).map(r => Math.ceil(r.length / 12));
+                              const bartopAutoPieces = typeRows.filter(r => r.isIsland).map(r => Math.ceil(r.length / 12));
                               const ktopOv = store.laminateManualMap[`${type}|ktopLft`];
                               const bartopOv = store.laminateManualMap[`${type}|bartopLft`];
-                              const ktopLft = ktopOv && ktopOv > 0 ? ktopOv : ktopAuto;
-                              const bartopLft = bartopOv && bartopOv > 0 ? bartopOv : bartopAuto;
-                              const kSlab = calcSlabUsage(ktopLft);
-                              const bSlab = calcSlabUsage(bartopLft);
+                              const ktopExprStored = store.laminateManualExprMap?.[`${type}|ktopLft`];
+                              const bartopExprStored = store.laminateManualExprMap?.[`${type}|bartopLft`];
+                              const parsePieces = (s: string): number[] => {
+                                const cleaned = (s || '').replace(/\s+/g, '').replace(/,/g, '+');
+                                if (!/^[\d+.]+$/.test(cleaned)) return [];
+                                return cleaned.split('+').filter(Boolean).map(p => parseFloat(p) || 0).filter(p => p > 0);
+                              };
+                              const ktopPieces = ktopOv && ktopOv > 0 ? [ktopOv] : (ktopExprStored !== undefined ? parsePieces(ktopExprStored) : ktopAutoPieces);
+                              const bartopPieces = bartopOv && bartopOv > 0 ? [bartopOv] : (bartopExprStored !== undefined ? parsePieces(bartopExprStored) : bartopAutoPieces);
+                              const kSlab = calcSlabUsageFromPieces(ktopPieces);
+                              const bSlab = calcSlabUsageFromPieces(bartopPieces);
                               const ssQty = store.laminateManualMap[`${type}|ssQty`] || 0;
                               return (
                                 <tr key={type}>
                                   <td className="font-bold">{type}</td>
                                   <td className="text-right font-mono">{unitCount}</td>
-                                  <td className="text-right font-mono">{kSlab.qty > 0 ? `${kSlab.size}'×${kSlab.qty}` : '—'}</td>
-                                  <td className="text-right font-mono">{bSlab.qty > 0 ? `${bSlab.size}'×${bSlab.qty}` : '—'}</td>
+                                  <td className="text-right font-mono">{kSlab.qty > 0 ? kSlab.display : '—'}</td>
+                                  <td className="text-right font-mono">{bSlab.qty > 0 ? bSlab.display : '—'}</td>
                                   <td className="text-right font-mono">{ssQty || '—'}</td>
                                 </tr>
                               );
