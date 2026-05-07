@@ -695,6 +695,17 @@ function hasNullCriticalDimensions(ct: NormalizedCountertop): boolean {
   return ct.length == null || ct.depth == null || ct.backsplashLength == null;
 }
 
+function hasPotentialWideDepthConflict(printedDims: number[], countertops: NormalizedCountertop[]): boolean {
+  const hasPrintedWideDepth = printedDims.some((d) => d >= 30 && d <= 48);
+  if (!hasPrintedWideDepth) return false;
+  return countertops.some((ct) =>
+    ct.category === "kitchen" &&
+    !ct.isIsland &&
+    ct.depth != null &&
+    Math.abs(ct.depth - 25.5) <= 0.5
+  );
+}
+
 function applyFinalCountertopFallbacks(ct: NormalizedCountertop): NormalizedCountertop {
   const isBath = ct.category === "bath";
   return {
