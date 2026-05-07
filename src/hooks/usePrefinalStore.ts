@@ -968,6 +968,7 @@ export function usePrefinalStore(projectId: string) {
     laminateRows: data.laminateRows,
     laminateUnitTypes: data.laminateUnitTypes,
     laminateManualMap: data.laminateManualMap,
+    laminateManualExprMap: data.laminateManualExprMap,
     vtopRows: data.vtopRows,
     vtopUnitTypes: data.vtopUnitTypes,
     addUnitTypes,
