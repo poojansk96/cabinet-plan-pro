@@ -1101,7 +1101,7 @@ export default function SummaryModule({ project }: Props) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <BarChart3 size={16} className="text-primary" />
-          <h2 className="font-semibold text-sm">Project Summary</h2>
+          <h2 className="font-semibold text-sm">Takeoff Summary</h2>
         </div>
         <div className="flex items-center gap-2">
           <button
