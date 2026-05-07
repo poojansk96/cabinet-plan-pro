@@ -621,6 +621,8 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson,
                     selected: true,
                     sourceFile: file.name,
                     bbox: vt.bbox,
+                    backSideOnPage: vt.backSideOnPage,
+                    closerEndOnPage: vt.closerEndOnPage,
                     leftWallConfidence: vt.leftWallYesConfidence ?? vt.leftWallConfidence ?? 0.5,
                     rightWallConfidence: vt.rightWallYesConfidence ?? vt.rightWallConfidence ?? 0.5,
                     sidesplashCount: vt.sidesplashCount,
@@ -636,8 +638,10 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson,
                       const { base64: vanityCropB64 } = cropNormalizedRegion(
                         canvas, canvasW, canvasH, vt.bbox,
                       );
-                      const leftDet = analyzeEndCrop(canvas, canvasW, canvasH, vt.bbox, 'left');
-                      const rightDet = analyzeEndCrop(canvas, canvasW, canvasH, vt.bbox, 'right');
+                      const leftPageSide = pageSideForPersonEnd(importRow.backSideOnPage, 'left');
+                      const rightPageSide = pageSideForPersonEnd(importRow.backSideOnPage, 'right');
+                      const leftDet = analyzeEndCrop(canvas, canvasW, canvasH, vt.bbox, leftPageSide);
+                      const rightDet = analyzeEndCrop(canvas, canvasW, canvasH, vt.bbox, rightPageSide);
 
                       importRow = finalizeWallDecision(importRow, leftDet, rightDet, vanityCropB64);
 
