@@ -597,7 +597,7 @@ rightWallYesConfidence: probability 0.0-1.0 that the RIGHT end has a wall`;
           {
             temperature: 0.1,
             maxOutputTokens: 256,
-            geminiModels: [{ name: "gemini-3-flash-preview", retries: 2 }],
+            geminiModels: [{ name: "gemini-3.1-flash-lite-preview", retries: 2 }],
             dialagramModel,
           },
         );
