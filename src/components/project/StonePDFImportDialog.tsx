@@ -273,6 +273,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                     dialagramModel,
                     pageTextHint: pageText,
                     unitTypeNameHint: hintedUnitType,
+                    extractionType,
                   }),
                   signal: controller.signal,
                 });
