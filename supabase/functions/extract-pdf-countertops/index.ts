@@ -409,6 +409,8 @@ function buildDialagramRescuePrompt(previousContent: string, printedDims: number
 
 READ DIMENSIONS LITERALLY FROM THE IMAGE. Do not invent values. Numbers in this drawing look like 76 1/2", 25 1/4", 39 3/4", etc. Convert fractions to decimals.
 
+Depth must come from the section's own printed total depth. Do NOT change a printed 36" deep run to 25.5" just because a connected perimeter leg is 25 1/2" deep.
+
 Find every countertop section. For each return: label, roomName (or ""), length, depth, backsplashLength, isIsland, category, and dimensionEvidence (array of dimension strings actually visible on the page).
 
 Also read unitTypeName from the title block VERBATIM (e.g. "TYPE 2.1C"); return "" if not visible. Never default to "TYPE A".
@@ -1005,7 +1007,7 @@ ${JSON.stringify({ unitTypeName: extracted.unitTypeName, countertops }, null, 2)
 Look at the SAME shop drawing image and verify:
 1. Is the unitTypeName correct? If not, provide the correct one.
 2. Are there any MISSING countertop sections that were not extracted? Add them.
-3. Are the dimensions (length, depth, backsplashLength) accurate? Correct any errors. CRITICAL: backsplashLength must use the FULL OUTER wall length WITHOUT any corner deduction, even when length was reduced by depth (e.g. 25.5") at a corner. For an L-shape with outer legs 138" and 116.75" at depth 25.5", lengths are [138, 91.25] but backsplashLength must be [138, 116.75]. Backsplash and Top Inches are INDEPENDENT — never make backsplashLength match a corner-deducted length.
+3. Are the dimensions (length, depth, backsplashLength) accurate? Correct any errors. CRITICAL: if a section's printed total depth is 30"-48" (such as a 69 1/4" lower return explicitly labeled 36" deep), keep that printed depth and NEVER downgrade it to the standard 25.5" perimeter depth. Also, backsplashLength must use the FULL OUTER wall length WITHOUT any corner deduction, even when length was reduced by depth (e.g. 25.5") at a corner. For an L-shape with outer legs 138" and 116.75" at depth 25.5", lengths are [138, 91.25] but backsplashLength must be [138, 116.75]. Backsplash and Top Inches are INDEPENDENT — never make backsplashLength match a corner-deducted length.
 4. Are the categories (kitchen/bath) correct?
 5. Are there any DUPLICATE sections that should be removed?
 6. Are any sections actually NOT countertops (e.g. appliance cutouts listed separately)?
