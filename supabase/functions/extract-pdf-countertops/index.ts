@@ -728,8 +728,12 @@ function extractUnitTypeFromHintText(text: string): string {
   if (!cleaned) return "";
 
   const patterns = [
+    // Cyncly 2020 footer pattern: "<NAME> Countertops Drawing #"
+    /([a-z0-9][a-z0-9().\/\s-]{1,60}?)\s+countertops\s+drawing\s*#/i,
+    /(corridor|powder\s*room|unisex\s*bath|half\s*bath|bath(?:room)?|kitchen|work\s*station|workstation|community(?:\s*(?:room|building))?|lobby|laundry|stair)\s+(?:community\s*building|countertops\s+drawing\s*#)/i,
     /(?:parcel\s+[a-z0-9]+(?:\s+[a-z0-9]+)*\s+)?type\s*-?\s*([a-z0-9().\/-]+(?:\s+[a-z0-9().\/-]+){0,4})\s+unit#/i,
     /countertops\s+type\s*-?\s*([a-z0-9().\/-]+(?:\s+[a-z0-9().\/-]+){0,4})\s+(?:parcel|unit#)/i,
+    /(?:^|[\s-])((?:\d+br|studio|efficiency|penthouse)[a-z0-9().\/\s-]{0,40}?)\s+unit#/i,
     /countertops\s+([a-z][a-z0-9().\/-]*(?:\s+[a-z0-9().\/-]+){0,4})\s+(?:\d+(?:\s+\d+\s+\d+)?\s*"|parcel\s+[a-z0-9]+|type\s+-?)/i,
   ];
 
