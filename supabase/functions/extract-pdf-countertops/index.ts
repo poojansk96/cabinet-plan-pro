@@ -750,9 +750,6 @@ function extractUnitTypeFromHintText(text: string): string {
   return "";
 }
 
-  return "";
-}
-
 function chooseBestUnitTypeName(values: string[]): string {
   const unique = values
     .map(sanitizeUnitTypeName)
