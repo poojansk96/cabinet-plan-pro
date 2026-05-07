@@ -303,18 +303,21 @@ function scoreWallEvidence(
   ai: number,
   aiHint: boolean,
 ): { wall: boolean; confidence: number; reviewRequired: boolean } {
-  // Strong deterministic → trust it
-  if (det >= 0.82) return { wall: true, confidence: det, reviewRequired: false };
-  if (det <= 0.18) return { wall: false, confidence: 1 - det, reviewRequired: false };
+  // Strong deterministic (double-line detector at the edge crop) → trust it
+  if (det >= 0.75) return { wall: true, confidence: det, reviewRequired: false };
+  if (det <= 0.25) return { wall: false, confidence: 1 - det, reviewRequired: false };
 
-  // AI leans wall (lowered threshold — most vanities DO have walls)
-  if (ai >= 0.6) return { wall: true, confidence: ai, reviewRequired: true };
-  // AI clearly says no wall
-  if (ai <= 0.2) return { wall: false, confidence: 1 - ai, reviewRequired: true };
+  // Otherwise judge each end independently from AI probability — NO default bias.
+  // A "wall" requires positive evidence (double parallel lines). A single line at
+  // the edge means a finish end and must NOT be turned into a sidesplash.
+  if (ai >= 0.7) return { wall: true, confidence: ai, reviewRequired: true };
+  if (ai <= 0.3) return { wall: false, confidence: 1 - ai, reviewRequired: true };
 
-  // Dead zone: bias toward wall=true (sidesplashes are more common than open ends)
+  // Dead zone: combine deterministic + AI signal (no thumb on the scale).
+  // Use the stronger of the two evidence directions.
+  const combined = (det + ai) / 2;
   return {
-    wall: true,
+    wall: combined >= 0.5,
     confidence: 0.5,
     reviewRequired: true,
   };
