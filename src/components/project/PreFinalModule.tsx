@@ -1811,8 +1811,16 @@ export default function PreFinalModule({ project }: Props) {
                               </thead>
                               <tbody>
                                 <tr>
-                                  <td className="text-center font-mono text-xs">
-                                    {ktopLfts.length > 0 ? ktopLfts.join('+') : '—'}
+                                  <td className="text-center">
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      className="est-input w-16 text-xs text-center font-mono bg-background border border-input"
+                                      value={ktopOverride || ktopAutoLft || ''}
+                                      onChange={e => store.setLaminateManual(unitType, 'ktopLft', +e.target.value || 0)}
+                                      title={ktopLfts.length > 0 ? `Auto: ${ktopLfts.join('+')} = ${ktopAutoLft}` : 'Manual entry'}
+                                      placeholder="0"
+                                    />
                                   </td>
                                   <td className="text-center font-mono text-xs font-bold">
                                     {ktopSlab.qty > 0 ? `${ktopSlab.size}X${ktopSlab.qty}` : '—'}
@@ -1820,8 +1828,16 @@ export default function PreFinalModule({ project }: Props) {
                                   <td className="text-center font-mono text-xs">
                                     {ktopSlab.totalSlabLft || '—'}
                                   </td>
-                                  <td className="text-center font-mono text-xs">
-                                    {bartopLfts.length > 0 ? bartopLfts.join('+') : '—'}
+                                  <td className="text-center">
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      className="est-input w-16 text-xs text-center font-mono bg-background border border-input"
+                                      value={bartopOverride || bartopAutoLft || ''}
+                                      onChange={e => store.setLaminateManual(unitType, 'bartopLft', +e.target.value || 0)}
+                                      title={bartopLfts.length > 0 ? `Auto: ${bartopLfts.join('+')} = ${bartopAutoLft}` : 'Manual entry'}
+                                      placeholder="0"
+                                    />
                                   </td>
                                   <td className="text-center font-mono text-xs font-bold">
                                     {bartopSlab.qty > 0 ? `${bartopSlab.size}X${bartopSlab.qty}` : '—'}
