@@ -388,7 +388,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
       const assignedType = store.unitTypes.find(t => unit.assignments[t]) || '';
       const typeCell = row.getCell(unitTypeNameColIdx);
       typeCell.value = {
-        formula: `IFERROR(XLOOKUP(1,${firstTypeColLetter}${rNum}:${lastTypeColLetter}${rNum},$${firstTypeColLetter}$4:$${lastTypeColLetter}$4,""),"")`,
+        formula: `IFERROR(INDEX($${firstTypeColLetter}$4:$${lastTypeColLetter}$4,MATCH(1,${firstTypeColLetter}${rNum}:${lastTypeColLetter}${rNum},0)),"")`,
         result: assignedType,
       } as any;
       row.eachCell((cell, colNumber) => {
