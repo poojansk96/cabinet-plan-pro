@@ -108,7 +108,7 @@ function normalizeVtop(vt: any): VtopRow {
   const aiLeft = Boolean(vt?.leftWall);
   const aiRight = Boolean(vt?.rightWall);
 
-  const row: VtopRow = {
+    const row: VtopRow = {
     length,
     depth,
     bowlPosition,
@@ -118,8 +118,8 @@ function normalizeVtop(vt: any): VtopRow {
     rightWall: aiRight,
     aiLeftWallHint: aiLeft,
     aiRightWallHint: aiRight,
-    leftWallYesConfidence: Math.max(0, Math.min(1, Number(vt?.leftWallYesConfidence) || 0.5)),
-    rightWallYesConfidence: Math.max(0, Math.min(1, Number(vt?.rightWallYesConfidence) || 0.5)),
+      leftWallYesConfidence: Math.max(0, Math.min(1, Number.isFinite(Number(vt?.leftWallYesConfidence)) ? Number(vt?.leftWallYesConfidence) : (aiLeft ? 0.85 : 0.15))),
+      rightWallYesConfidence: Math.max(0, Math.min(1, Number.isFinite(Number(vt?.rightWallYesConfidence)) ? Number(vt?.rightWallYesConfidence) : (aiRight ? 0.85 : 0.15))),
     backSideOnPage,
     closerEndOnPage,
   };
