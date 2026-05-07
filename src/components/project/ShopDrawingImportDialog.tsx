@@ -777,27 +777,39 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         const pageItems = Array.isArray(data.items) ? data.items : [];
         const hasCabinetRows = pageItems.length > 0;
         const isCommonAreaPage = Boolean((data as any).isCommonArea);
-        const fallbackUploadedType = hasCabinetRows && !resolvedPageType
-          ? extractUploadedTypeLabelFromText(String((data as any).pageText || ''))
+        const pageTextRaw = String((data as any).pageText || '');
+        const fallbackUploadedType = !resolvedPageType
+          ? extractUploadedTypeLabelFromText(pageTextRaw)
           : null;
-        const effectiveResolvedPageType = resolvedPageType || fallbackUploadedType || '';
+
+        // ── PREFINAL FLOOR-PLAN GUARANTEE ──────────────────────────────────
+        // The user uploads ONLY floor plans here. Every uploaded page MUST
+        // become a column even if the room label is unusual (STAIR, UNISEX
+        // BATH, CORRIDOR, etc.) and even if the page has zero cabinet SKUs.
+        // If neither AI nor text-hint produced a type, derive a label from
+        // the most prominent ALL-CAPS room/area text near the title block,
+        // and as a last resort use "<file> p<N>" so the page never disappears.
+        let derivedFromText = '';
+        if (!resolvedPageType && !fallbackUploadedType && pageTextRaw) {
+          const ROOM_LABEL_RE = /\b(STAIR(?:WELL|S|CASE)?|ELEVATOR|UNISEX\s*BATH|POWDER\s*ROOM|HALF\s*BATH|BATH(?:ROOM)?|KITCHEN(?:ETTE)?|CORRIDOR|HALLWAY|LAUNDRY|MAIL\s*ROOM|RESTROOM|TOILET|LOBBY|CLUBHOUSE|FITNESS|LEASING|BUSINESS\s*CENTER|POOL\s*BATH|TRASH|MAINTENANCE|STORAGE|GARAGE|MECHANICAL|COMMUNITY\s*ROOM|BREAK\s*ROOM|RECEPTION|OFFICE|LIBRARY|SALOON|SALON|LOUNGE|GAME\s*ROOM|THEAT(?:RE|ER)|MEDIA\s*ROOM|CARD\s*ROOM|CRAFT\s*ROOM|ACTIVITY\s*ROOM|CONFERENCE\s*ROOM|DINING(?:\s*(?:ROOM|HALL))?|CAFE|COFFEE\s*BAR|BAR|PUB|HAIR\s*SALON|WELLNESS|SPA|YOGA|MULTI[-\s]?PURPOSE|COMPUTER\s*ROOM|HOBBY\s*ROOM|MUSIC\s*ROOM|VESTIBULE|CLOSET|ELECTRICAL)\b/i;
+          const m = pageTextRaw.match(ROOM_LABEL_RE);
+          if (m) derivedFromText = m[0].toUpperCase().replace(/\s+/g, ' ').trim();
+        }
+        const lastResortLabel = `${file.name.replace(/\.pdf$/i, '')} p${task.p}`;
+        const effectiveResolvedPageType = resolvedPageType
+          || fallbackUploadedType
+          || derivedFromText
+          || lastResortLabel;
+
         const effectiveResolvedAliases = resolvedTypeAliases.length > 0
           ? resolvedTypeAliases
-          : (fallbackUploadedType ? [fallbackUploadedType] : []);
-
-        const shouldTrackType = Boolean(effectiveResolvedPageType) || effectiveResolvedAliases.length > 0 || isCommonAreaPage || hasCabinetRows;
-        const typesForOrder = effectiveResolvedAliases.length > 0
-          ? effectiveResolvedAliases
-          : effectiveResolvedPageType
-            ? [effectiveResolvedPageType]
-            : [];
+          : [effectiveResolvedPageType];
 
         // ── STRICT PAGE ORDER ──
-        // Push this page's primary type FIRST (before any aliases) so order is stable per page.
-        // If only aliases exist (no resolvedPageType), keep their natural order.
-        const orderedTypesThisPage = effectiveResolvedPageType
-          ? [effectiveResolvedPageType, ...effectiveResolvedAliases.filter(a => a !== effectiveResolvedPageType)]
-          : typesForOrder;
+        const orderedTypesThisPage = [
+          effectiveResolvedPageType,
+          ...effectiveResolvedAliases.filter(a => a !== effectiveResolvedPageType),
+        ];
 
         for (const t of orderedTypesThisPage) {
           if (!detectedType) detectedType = t;
@@ -811,9 +823,23 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
           quantity: c.quantity,
           selected: true,
           sourceFile: file.name,
-          detectedUnitType: shouldTrackType ? (effectiveResolvedPageType || undefined) : undefined,
+          detectedUnitType: effectiveResolvedPageType,
         }));
         allRows.push(...pageRows);
+
+        // If the page produced ZERO cabinet rows, push a hidden placeholder
+        // row so the type column still appears in Pre-Final (blank column).
+        if (!hasCabinetRows) {
+          allRows.push({
+            sku: '__PLACEHOLDER__',
+            type: 'Accessory',
+            room: 'Kitchen',
+            quantity: 0,
+            selected: false,
+            sourceFile: file.name,
+            detectedUnitType: effectiveResolvedPageType,
+          } as any);
+        }
       } else {
         console.warn(`Page ${task.p} of "${file.name}" failed after ${MAX_PAGE_RETRIES} attempts:`, lastError?.message);
       }
