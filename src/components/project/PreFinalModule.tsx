@@ -1883,7 +1883,7 @@ export default function PreFinalModule({ project }: Props) {
                                     />
                                   </td>
                                   <td className="text-center font-mono text-xs font-bold">
-                                    {ktopSlab.qty > 0 ? `${ktopSlab.size}X${ktopSlab.qty}` : '—'}
+                                    {ktopSlab.qty > 0 ? ktopSlab.display : '—'}
                                   </td>
                                   <td className="text-center font-mono text-xs">
                                     {ktopSlab.totalSlabLft || '—'}
@@ -1899,7 +1899,7 @@ export default function PreFinalModule({ project }: Props) {
                                     />
                                   </td>
                                   <td className="text-center font-mono text-xs font-bold">
-                                    {bartopSlab.qty > 0 ? `${bartopSlab.size}X${bartopSlab.qty}` : '—'}
+                                    {bartopSlab.qty > 0 ? bartopSlab.display : '—'}
                                   </td>
                                   <td className="text-center font-mono text-xs">
                                     {bartopSlab.totalSlabLft || '—'}
@@ -1958,8 +1958,8 @@ export default function PreFinalModule({ project }: Props) {
                                 <tr key={type}>
                                   <td className="font-bold">{type}</td>
                                   <td className="text-right font-mono">{unitCount}</td>
-                                  <td className="text-right font-mono">{kSlab.qty > 0 ? `${kSlab.size}'×${kSlab.qty}` : '—'}</td>
-                                  <td className="text-right font-mono">{bSlab.qty > 0 ? `${bSlab.size}'×${bSlab.qty}` : '—'}</td>
+                                  <td className="text-right font-mono">{kSlab.qty > 0 ? kSlab.display : '—'}</td>
+                                  <td className="text-right font-mono">{bSlab.qty > 0 ? bSlab.display : '—'}</td>
                                   <td className="text-right font-mono">{ssQty || '—'}</td>
                                 </tr>
                               );
