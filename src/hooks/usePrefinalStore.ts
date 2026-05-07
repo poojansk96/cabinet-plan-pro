@@ -321,7 +321,7 @@ function migrateStoneRow(r: any): PrefinalStoneRow {
 function loadData(projectId: string): PrefinalData {
   try {
     const raw = localStorage.getItem(`prefinal_${projectId}`);
-    if (!raw) return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [], kitchenBacksplashHeight: 4, bathBacksplashHeight: 4, sidesplashQtyMap: {}, typeBacksplashHeightMap: {}, stoneInchesOverrideMap: {}, laminateRows: [], laminateUnitTypes: [], laminateManualMap: {}, vtopRows: [], vtopUnitTypes: [] };
+    if (!raw) return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [], kitchenBacksplashHeight: 4, bathBacksplashHeight: 4, sidesplashQtyMap: {}, typeBacksplashHeightMap: {}, stoneInchesOverrideMap: {}, laminateRows: [], laminateUnitTypes: [], laminateManualMap: {}, laminateManualExprMap: {}, vtopRows: [], vtopUnitTypes: [] };
     const parsed = JSON.parse(raw);
     // Migration: old format had unitRows
     if (parsed.unitRows && !parsed.unitTypes) {
@@ -343,6 +343,7 @@ function loadData(projectId: string): PrefinalData {
         laminateRows: (parsed.laminateRows || []),
         laminateUnitTypes: parsed.laminateUnitTypes || [],
         laminateManualMap: parsed.laminateManualMap || {},
+        laminateManualExprMap: parsed.laminateManualExprMap || {},
         vtopRows: parsed.vtopRows || [],
         vtopUnitTypes: parsed.vtopUnitTypes || [],
       };
@@ -401,11 +402,12 @@ function loadData(projectId: string): PrefinalData {
       laminateRows: (parsed.laminateRows || []),
       laminateUnitTypes: parsed.laminateUnitTypes || [],
       laminateManualMap: parsed.laminateManualMap || {},
+        laminateManualExprMap: parsed.laminateManualExprMap || {},
       vtopRows: parsed.vtopRows || [],
       vtopUnitTypes: parsed.vtopUnitTypes || [],
     };
   } catch {
-    return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [], kitchenBacksplashHeight: 4, bathBacksplashHeight: 4, sidesplashQtyMap: {}, typeBacksplashHeightMap: {}, stoneInchesOverrideMap: {}, laminateRows: [], laminateUnitTypes: [], laminateManualMap: {}, vtopRows: [], vtopUnitTypes: [] };
+    return { unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [], kitchenBacksplashHeight: 4, bathBacksplashHeight: 4, sidesplashQtyMap: {}, typeBacksplashHeightMap: {}, stoneInchesOverrideMap: {}, laminateRows: [], laminateUnitTypes: [], laminateManualMap: {}, laminateManualExprMap: {}, vtopRows: [], vtopUnitTypes: [] };
   }
 }
 
@@ -848,7 +850,7 @@ export function usePrefinalStore(projectId: string) {
   }, [data.stoneInchesOverrideMap]);
 
   const clearAll = useCallback(() => {
-    commit({ unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [], kitchenBacksplashHeight: 4, bathBacksplashHeight: 4, sidesplashQtyMap: {}, typeBacksplashHeightMap: {}, stoneInchesOverrideMap: {}, laminateRows: [], laminateUnitTypes: [], laminateManualMap: {}, vtopRows: [], vtopUnitTypes: [] });
+    commit({ unitTypes: [], unitNumbers: [], cabinetRows: [], cabinetUnitTypes: [], handleQtyPerSku: {}, bidCostPerType: {}, additionalCostPerType: {}, stoneRows: [], stoneUnitTypes: [], kitchenBacksplashHeight: 4, bathBacksplashHeight: 4, sidesplashQtyMap: {}, typeBacksplashHeightMap: {}, stoneInchesOverrideMap: {}, laminateRows: [], laminateUnitTypes: [], laminateManualMap: {}, laminateManualExprMap: {}, vtopRows: [], vtopUnitTypes: [] });
   }, [commit]);
 
   // ── Laminate LFT ──────────────────────────────────────────────────────
@@ -881,7 +883,7 @@ export function usePrefinalStore(projectId: string) {
   }, [projectId]);
 
   const clearLaminate = useCallback(() => {
-    commit({ ...data, laminateRows: [], laminateUnitTypes: [], laminateManualMap: {} });
+    commit({ ...data, laminateRows: [], laminateUnitTypes: [], laminateManualMap: {}, laminateManualExprMap: {} });
   }, [commit, data]);
 
   const setLaminateManual = useCallback((unitType: string, field: string, value: number) => {
