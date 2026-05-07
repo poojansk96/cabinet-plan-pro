@@ -896,7 +896,15 @@ export function usePrefinalStore(projectId: string) {
     });
   }, [projectId]);
 
-  // ── Vtop (Cmarble/Swan) ──────────────────────────────────────────────
+  const setLaminateManualExpr = useCallback((unitType: string, field: string, expr: string) => {
+    const key = `${unitType}|${field}`;
+    setData(prev => {
+      const laminateManualExprMap = { ...prev.laminateManualExprMap, [key]: expr };
+      const next = { ...prev, laminateManualExprMap };
+      saveData(projectId, next);
+      return next;
+    });
+  }, [projectId]);
   const addVtopUnitTypes = useCallback((types: string[]) => {
     setData(prev => {
       const normalizeKey = (t: string) => t.toUpperCase().replace(/^TYPE\s+/, '').replace(/\s+/g, '').replace(/-/g, '').trim();
