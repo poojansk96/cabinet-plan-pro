@@ -631,7 +631,7 @@ TASK:
    A page can contain BOTH a kitchen run AND a separate vanity (e.g. 1BR-1 (ADA) pages). Return ONLY the vanity piece.
    A page can contain MULTIPLE vanities (e.g. 2BR (ADA) → Bath-1 and Bath-2). Return ALL of them.
 
-3. For EACH vanity top, extract:
+3. For EACH vanity top, extract (CRITICAL: when the page has MULTIPLE vanities — e.g. Bath-1 AND Bath-2 in a 2BR/3BR plan — evaluate EACH vanity COMPLETELY INDEPENDENTLY. Each vanity has its OWN backsplash orientation, its OWN backSideOnPage, and its OWN person-standing-in-front perspective. The two vanities are usually drawn in DIFFERENT orientations (one horizontal, one vertical, OR with the backsplash on opposite page sides). NEVER copy the perspective from one vanity to the other. Locate the double-line backsplash for THIS specific vanity rectangle, then derive backSideOnPage / leftWall / rightWall / bowlPosition for THIS vanity ONLY using its own backsplash position):
    a. **length** — total length in inches (e.g., 47.5, 31, 25)
    b. **depth** — depth in inches (usually 22")
    c. **backSideOnPage** — which PAGE SIDE contains the backsplash / back edge (double line along the long edge). Must be exactly one of: "top", "bottom", "left", "right".
@@ -715,7 +715,7 @@ EXPLICIT EXCLUSIONS — never return these even if they fit on the page:
 
 A page can contain BOTH a kitchen run AND a separate small vanity (e.g. 1BR-1 (ADA) pages have a 25.5" deep L-shape kitchen plus a separate ~44.5" x 22" vanity with an oval bowl). Return ONLY the vanity piece, NEVER the kitchen run.
 
-A page can contain MULTIPLE vanities (e.g. 2BR (ADA) has Bath-1 AND Bath-2). Return ALL of them as separate items.
+A page can contain MULTIPLE vanities (e.g. 2BR (ADA) has Bath-1 AND Bath-2, or 2BR-AS / 2BR-MIRROR plans show TWO separate vanities). Return ALL of them as separate items. CRITICAL: each vanity has its OWN backsplash orientation and its OWN person-in-front perspective — NEVER share backSideOnPage / leftWall / rightWall between the two vanities. Locate the double-line backsplash on EACH vanity rectangle separately, derive person-LEFT / person-RIGHT for THAT vanity alone, then assign leftWall/rightWall and bowlPosition independently. The two vanities are usually drawn in different orientations (e.g. one horizontal with backsplash on top, the other vertical with backsplash on left/right).
 
 For each vanity top return:
 - length: longer edge in inches
@@ -860,6 +860,7 @@ Look at the SAME shop drawing image and verify EACH item carefully:
    - Only set true when you see a CLEAR double line or wall return at that specific end.
    - It is common for one end to be finish end and the other end to need a sidesplash.
    - Update leftWallYesConfidence and rightWallYesConfidence accordingly.
+   - **MULTIPLE-VANITY PAGES (e.g. 2BR-AS, 2BR-MIRROR, 2BR (ADA), 3BR plans with Bath-1 + Bath-2):** EACH vanity has its OWN backsplash and its OWN person-in-front perspective. Re-derive backSideOnPage INDEPENDENTLY for each vanity by locating the double line on THAT vanity rectangle alone. Then re-derive person-LEFT / person-RIGHT for THAT vanity. NEVER assume both vanities share the same backSideOnPage or the same wall pattern. The two vanities are usually drawn in different orientations or with the backsplash on opposite page sides — verify each one separately.
 
 Return the CORRECTED complete JSON — same format:
 {"unitTypeName":"...","vtops":[...]}
