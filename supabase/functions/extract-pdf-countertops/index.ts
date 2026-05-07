@@ -379,10 +379,12 @@ d. **backsplashLength** — the linear inches of WALL backsplash ONLY. This is C
 
 RULES:
 - Look for dimension lines, annotations, and measurements in the drawing
-- For L-shaped or U-shaped runs, break them into individual straight segments
-- If a countertop wraps around a corner, create separate sections for each leg
+- CRITICAL — L/U-SHAPED RUNS: When you see an outer-perimeter dimension chain like "125 3/4" with sub-segments "56 3/4 + 69" along the TOP, AND another perpendicular chain "108" with sub-segments "54 + 30 + 24" along the SIDE — those are TWO SEPARATE LEGS of one L-shape. You MUST return BOTH legs as separate sections (one with length=125.75 depth=25.5, one with length=108 depth=25.5). NEVER return only the longer leg and drop the other. NEVER sum them into one section.
+- For L-shaped or U-shaped runs, break them into individual straight segments based on dimension chains.
+- If a countertop wraps around a corner, create separate sections for each leg.
 - IMPORTANT for **length** (Top Inches): When breaking L/U-shaped runs at a corner, deduct the depth (e.g. 25.5") from one leg to avoid double-counting the corner overlap. This is correct for top surface area.
 - IMPORTANT for **backsplashLength** (BS Inches): Do NOT deduct any depth for corners. Backsplash runs along the wall continuously — measure the FULL linear inches along the wall with NO corner deduction. Each wall-adjacent segment's backsplash = its full length.
+- CRITICAL — SINGLE-PIECE TOPS WITH ONE WALL LINE: For small standalone rectangles (corridor counters, powder rooms, work stations) where one long edge is drawn as a heavier/double line (the wall edge), ALWAYS set backsplashLength = length. Do NOT return backsplashLength=0 just because the page is simple. Only islands or peninsulas with no wall behind them get backsplashLength=0.
 - Do NOT include appliance surfaces (range top, sink cutout dimensions) as separate sections — they are part of the countertop run
 - If the page has no countertop information, return {"unitTypeName":"","countertops":[]}
 - Round all dimensions to nearest 0.5 inch
