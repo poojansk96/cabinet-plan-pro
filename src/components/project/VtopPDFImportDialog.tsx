@@ -357,7 +357,14 @@ function scoreWallEvidence(
   ai: number,
   aiHint: boolean,
 ): { wall: boolean; confidence: number; reviewRequired: boolean } {
-  // Strong deterministic (double-line detector at the edge crop) → trust it
+  // Strong AI/verification result is the source of truth. The crop detector can
+  // be fooled by dimension lines or a bbox that straddles nearby wall linework,
+  // which was turning real finish ends into false sidesplashes.
+  if (ai >= 0.8) return { wall: true, confidence: ai, reviewRequired: false };
+  if (ai <= 0.2) return { wall: false, confidence: 1 - ai, reviewRequired: false };
+
+  // Strong deterministic (double-line detector at the edge crop) → use only
+  // when AI is not already decisive.
   if (det >= 0.75) return { wall: true, confidence: det, reviewRequired: false };
   if (det <= 0.25) return { wall: false, confidence: 1 - det, reviewRequired: false };
 
@@ -670,7 +677,7 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson,
                       const { base64: vanityCropB64 } = cropNormalizedRegion(
                         canvas, canvasW, canvasH, vt.bbox,
                       );
-                      const refinedBackSide = refineBackSideFromGeometry(
+                      const refinedBackSide = importRow.backSideOnPage ? importRow.backSideOnPage : refineBackSideFromGeometry(
                         canvas, canvasW, canvasH, vt.bbox, importRow.backSideOnPage,
                       );
                       if (refinedBackSide) {
