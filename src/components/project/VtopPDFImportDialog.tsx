@@ -296,16 +296,18 @@ function analyzeEndCrop(
   canvas: OffscreenCanvas | HTMLCanvasElement,
   canvasW: number, canvasH: number,
   bbox: { x: number; y: number; width: number; height: number },
-  side: 'left' | 'right',
+  side: PageSide,
 ): { confidence: number; cropBase64: string } {
   // Crop a narrow strip at the specified end of the vanity bbox
   // Use 10% of vanity width, staying inside the bbox (not outside)
+  const isVerticalEdge = side === 'left' || side === 'right';
   const endWidthFrac = Math.max(0.05, bbox.width * 0.22);
+  const endHeightFrac = Math.max(0.05, bbox.height * 0.22);
   const endBbox = {
-    x: side === 'left' ? bbox.x : bbox.x + bbox.width - endWidthFrac,
-    y: bbox.y,
-    width: endWidthFrac,
-    height: bbox.height,
+    x: isVerticalEdge ? (side === 'left' ? bbox.x : bbox.x + bbox.width - endWidthFrac) : bbox.x,
+    y: isVerticalEdge ? bbox.y : (side === 'top' ? bbox.y : bbox.y + bbox.height - endHeightFrac),
+    width: isVerticalEdge ? endWidthFrac : bbox.width,
+    height: isVerticalEdge ? bbox.height : endHeightFrac,
   };
 
   const { imageData, base64 } = cropNormalizedRegion(canvas, canvasW, canvasH, endBbox);
