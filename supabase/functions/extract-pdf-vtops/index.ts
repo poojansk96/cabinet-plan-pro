@@ -723,8 +723,8 @@ For each vanity top return:
 - hasSink: true (must be true — vanities always have an oval bowl)
 - bowlPosition: "offset-left" | "offset-right" | "center"
 - bowlOffset: number or null
-- leftWall: true if the LEFT end has a wall/double-line, else false (default true if uncertain)
-- rightWall: true if the RIGHT end has a wall/double-line, else false (default true if uncertain)
+- leftWall: true ONLY if the LEFT end clearly shows a double parallel line / wall return / sidesplash. false if it shows a single line (finish end). Judge independently.
+- rightWall: true ONLY if the RIGHT end clearly shows a double parallel line / wall return / sidesplash. false if it shows a single line (finish end). Judge independently. It is common for ONE end to be walled and the other to be a finish end — do NOT assume both match.
 
 Also extract unitTypeName from the title block — use the room/unit label (e.g. "POWDER ROOM", "UNISEX BATH", "1BR-1 (ADA) - AS", "2BR (ADA)"). If the page only shows kitchen/corridor/work-station/community counters with no oval-bowl vanity, return {"unitTypeName":"","vtops":[]}.
 
