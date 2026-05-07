@@ -1368,6 +1368,9 @@ export default function PreFinalModule({ project }: Props) {
                       ))}
                     </select>
                   </label>
+                  <span className="text-xs font-semibold" style={{ color: 'hsl(0 84% 50%)' }}>
+                    User need to add Sidesplash qty (Not inches) manually. Sidesplash always will come 0
+                  </span>
                 </div>
 
                 {stoneUnitTypes.map(unitType => {
