@@ -56,6 +56,7 @@ interface PrefinalData {
   laminateRows: PrefinalStoneRow[];
   laminateUnitTypes: string[];
   laminateManualMap: Record<string, number>;
+  laminateManualExprMap: Record<string, string>;
   vtopRows: PrefinalVtopRow[];
   vtopUnitTypes: string[];
 }
