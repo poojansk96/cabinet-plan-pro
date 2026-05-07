@@ -114,16 +114,27 @@ function extractUnitTypeFromPageText(text: string): string | null {
   if (!cleaned) return null;
 
   const patterns = [
+    // Cyncly 2020 footer: "<NAME> Countertops Drawing #" — the most reliable signal
+    // Strip leading "Judd Homestead - CT" / "Judd Homestead" boilerplate inside the capture group later.
+    /([a-z0-9][a-z0-9().\/\s-]{1,60}?)\s+countertops\s+drawing\s*#/i,
+    // Community-room labels (CORRIDOR, POWDER ROOM, UNISEX BATH, KITCHEN, WORK STATION, etc.)
+    /(corridor|powder\s*room|unisex\s*bath|half\s*bath|bath(?:room)?|lav(?:atory)?|restroom|wc|vanity|kitchen|work\s*station|workstation|break\s*room|mail\s*room|community(?:\s*(?:room|building))?|lobby|lounge|reception|cafe|coffee|nurse\s*station|laundry|janitor|stair)\s+(?:community\s*building|countertops\s+drawing\s*#)/i,
     /(?:parcel\s+[a-z0-9]+(?:\s+[a-z0-9]+)*\s+)?type\s*-?\s*([a-z0-9().\/-]+(?:\s+[a-z0-9().\/-]+){0,4})\s+unit#/i,
     /countertops\s+type\s*-?\s*([a-z0-9().\/-]+(?:\s+[a-z0-9().\/-]+){0,4})\s+(?:parcel|unit#)/i,
+    // Residential type with UNIT# (covers "1BR-1 (ADA) - AS", "2BR (ADA)", "3BR (ADA)", "STUDIO")
+    /(?:^|[\s-])((?:\d+br|studio|efficiency|penthouse)[a-z0-9().\/\s-]{0,40}?)\s+unit#/i,
     /countertops\s+([a-z][a-z0-9().\/-]*(?:\s+[a-z0-9().\/-]+){0,4})\s+(?:\d+(?:\s+\d+\s+\d+)?\s*"|parcel\s+[a-z0-9]+|type\s+-?)/i,
   ];
 
   for (const pattern of patterns) {
     const match = cleaned.match(pattern);
     if (!match) continue;
-    const candidate = sanitizeDetectedType(match[1]);
-    if (candidate) return candidate.toUpperCase();
+    let candidate = sanitizeDetectedType(match[1]);
+    // Strip Cyncly project boilerplate prefixes that get captured by the greedy footer pattern
+    candidate = candidate.replace(/^(?:judd\s+homestead\s*-?\s*ct\s*-?\s*)/i, '').trim();
+    candidate = candidate.replace(/^(?:judd\s+homestead\s*-?\s*)/i, '').trim();
+    candidate = candidate.replace(/\s*(?:no\s+scale|drawing\s*#?.*)$/i, '').trim();
+    if (candidate && candidate.length >= 2 && candidate.length <= 60) return candidate.toUpperCase();
   }
 
   return null;
@@ -326,6 +337,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
             }
           }
 
+          // Use AI-detected type as fallback when text-layer detection fails (Cyncly draws title-block as image)
           const pageUnitType = hintedUnitType || outcome.rawUnitType || `${file.name.replace(/\.pdf$/i, '')} — Page ${p}`;
           if (!detectedTypesOrder.includes(pageUnitType)) detectedTypesOrder.push(pageUnitType);
 
@@ -343,9 +355,11 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
                 unitType: pageUnitType,
               });
             }
-          } else if (hintedUnitType) {
-            // ── Last resort: insert a visible placeholder so the user can SEE the type was found
-            //     in the PDF but no sections were extracted, and fill it in manually. ──
+          } else {
+            // ── ALWAYS insert a visible placeholder for any page with 0 sections, regardless of
+            //     whether we found a unit type from the text layer. This guarantees that EVERY
+            //     uploaded page becomes a row/column the user can see and fill in manually,
+            //     so types are never silently dropped (e.g. image-only title blocks).
             console.warn(`⚠️ Page ${p} (${pageUnitType}) → 0 sections after all retries. Adding placeholder.`);
             allRows.push({
               label: '⚠️ NEEDS REVIEW (0 sections detected)',
