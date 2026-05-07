@@ -301,9 +301,10 @@ export default function PreFinalSummaryModule({ project }: Props) {
     const unitTypeCols = store.unitTypes.length;
     wsUnits.columns = [
       { width: 3 },   // blank col A
-      { width: 10 },
-      { width: 10 },
-      { width: 14 },
+      { width: 10 },  // B Bldg
+      { width: 10 },  // C Floor
+      { width: 14 },  // D Unit #
+      { width: 18 },  // E Unit Type (new)
       ...store.unitTypes.map(() => ({ width: 6 })),
       { width: 8 },
     ];
@@ -321,26 +322,28 @@ export default function PreFinalSummaryModule({ project }: Props) {
     // Row 3: blank
     wsUnits.addRow([]);
 
-    // Row 4: header — [blank] | Bldg | Floor | Unit # | types... | Total
-    const unitHeader = wsUnits.addRow(['', 'Bldg', 'Floor', 'Unit #', ...store.unitTypes, 'Total']);
+    // Row 4: header — [blank] | Bldg | Floor | Unit # | Unit Type | types... | Total
+    const unitHeader = wsUnits.addRow(['', 'Bldg', 'Floor', 'Unit #', 'Unit Type', ...store.unitTypes, 'Total']);
     unitHeader.height = 120;
+    // Type flag columns now start at col 6 (after the new Unit Type col at 5)
+    const TYPE_COL_START = 6;
+    const totalColIdx = TYPE_COL_START + unitTypeCols;
     unitHeader.eachCell((cell, colNumber) => {
       if (colNumber <= 1) return;
       cell.font = { bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F0' } };
       cell.border = allBorders;
       cell.alignment = { vertical: 'bottom', wrapText: false };
-      if (colNumber > 4 && colNumber <= unitTypeCols + 4) {
+      if (colNumber >= TYPE_COL_START && colNumber < totalColIdx) {
         cell.alignment = { textRotation: 90, vertical: 'bottom', horizontal: 'center' };
       }
-      if (colNumber === unitTypeCols + 5) {
+      if (colNumber === totalColIdx) {
         cell.alignment = { vertical: 'bottom', horizontal: 'center' };
       }
     });
 
-    // Freeze top 5 rows (header + spacer) AND first 4 columns (blank | Bldg | Floor | Unit #)
-    // so unit identifiers stay visible when scrolling right through unit type columns
-    wsUnits.views = [{ state: 'frozen', xSplit: 4, ySplit: 5 }];
+    // Freeze top 5 rows AND first 5 columns (blank | Bldg | Floor | Unit # | Unit Type)
+    wsUnits.views = [{ state: 'frozen', xSplit: 5, ySplit: 5 }];
 
     // Row 5: blank spacer between header and data
     wsUnits.addRow([]);
@@ -354,27 +357,6 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
     const expandedRows = splitPrefinalUnitRowsByAssignment(sortedUnits);
 
-    expandedRows.forEach((unit) => {
-      const flags = store.unitTypes.map(t => (unit.assignments[t] ? 1 : ''));
-      const rowTotal = store.unitTypes.filter(t => unit.assignments[t]).length;
-      const row = wsUnits.addRow(['', unit.bldg || '', unit.floor || '', unit.name, ...flags, rowTotal]);
-      row.eachCell((cell, colNumber) => {
-        if (colNumber <= 1) return;
-        cell.border = allBorders;
-        if (colNumber > 4) cell.alignment = { horizontal: 'center', vertical: 'middle' };
-      });
-    });
-
-    wsUnits.addRow([]);
-    // Total row with SUM formulas so manual edits auto-update
-    const dataStartRow = 6; // row 6 is first data row (after blank, title, blank, header, blank spacer)
-    const dataEndRow = dataStartRow + expandedRows.length - 1;
-    const totRowValues: any[] = ['', '', '', `TOTAL (${store.unitNumbers.length})`];
-    // Placeholder values for types + grand total (will be overwritten by formulas)
-    for (let i = 0; i < store.unitTypes.length + 1; i++) totRowValues.push(0);
-    const totRow = wsUnits.addRow(totRowValues);
-    const ucTotRowNum = totRow.number;
-
     // Helper to convert 1-based column number to Excel letter(s)
     const ucColLetter = (col: number) => {
       let n = col; let s = '';
@@ -382,18 +364,52 @@ export default function PreFinalSummaryModule({ project }: Props) {
       return s;
     };
 
-    // Set SUM formulas for each type column (columns starting at col 5 = E)
+    const firstTypeColLetter = ucColLetter(TYPE_COL_START);
+    const lastTypeColLetter = ucColLetter(TYPE_COL_START + unitTypeCols - 1);
+
+    expandedRows.forEach((unit) => {
+      const flags = store.unitTypes.map(t => (unit.assignments[t] ? 1 : ''));
+      const rowTotal = store.unitTypes.filter(t => unit.assignments[t]).length;
+      // Placeholder for Unit Type column (col 5) — will set XLOOKUP formula after row added
+      const row = wsUnits.addRow(['', unit.bldg || '', unit.floor || '', unit.name, '', ...flags, rowTotal]);
+      // XLOOKUP: find first "1" in the type flag range and return matching header type name
+      const rNum = row.number;
+      const assignedType = store.unitTypes.find(t => unit.assignments[t]) || '';
+      const typeCell = row.getCell(5);
+      typeCell.value = {
+        formula: `IFERROR(XLOOKUP(1,${firstTypeColLetter}${rNum}:${lastTypeColLetter}${rNum},$${firstTypeColLetter}$4:$${lastTypeColLetter}$4,""),"")`,
+        result: assignedType,
+      } as any;
+      row.eachCell((cell, colNumber) => {
+        if (colNumber <= 1) return;
+        cell.border = allBorders;
+        if (colNumber === 5) cell.alignment = { horizontal: 'left', vertical: 'middle' };
+        else if (colNumber > 4) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      });
+    });
+
+    wsUnits.addRow([]);
+    // Total row with SUM formulas so manual edits auto-update
+    const dataStartRow = 6; // row 6 is first data row (after blank, title, blank, header, blank spacer)
+    const dataEndRow = dataStartRow + expandedRows.length - 1;
+    const totRowValues: any[] = ['', '', '', `TOTAL (${store.unitNumbers.length})`, ''];
+    // Placeholder values for types + grand total (will be overwritten by formulas)
+    for (let i = 0; i < store.unitTypes.length + 1; i++) totRowValues.push(0);
+    const totRow = wsUnits.addRow(totRowValues);
+    const ucTotRowNum = totRow.number;
+
+    // Set SUM formulas for each type column (columns starting at TYPE_COL_START)
     store.unitTypes.forEach((_t, idx) => {
-      const cl = ucColLetter(5 + idx);
-      const cell = totRow.getCell(5 + idx);
+      const cl = ucColLetter(TYPE_COL_START + idx);
+      const cell = totRow.getCell(TYPE_COL_START + idx);
       const total = unitTypeTotal(store.unitTypes[idx]);
       cell.value = { formula: `SUM(${cl}${dataStartRow}:${cl}${dataEndRow})`, result: total } as any;
     });
     // Grand total column = SUM of type totals in this row
-    const grandTotalCol = 5 + store.unitTypes.length;
+    const grandTotalCol = TYPE_COL_START + store.unitTypes.length;
     const grandTotalCell = totRow.getCell(grandTotalCol);
     const grandTotal = store.unitTypes.reduce((s, t) => s + unitTypeTotal(t), 0);
-    grandTotalCell.value = { formula: `SUM(${ucColLetter(5)}${ucTotRowNum}:${ucColLetter(4 + store.unitTypes.length)}${ucTotRowNum})`, result: grandTotal } as any;
+    grandTotalCell.value = { formula: `SUM(${firstTypeColLetter}${ucTotRowNum}:${lastTypeColLetter}${ucTotRowNum})`, result: grandTotal } as any;
 
     totRow.eachCell((cell, colNumber) => {
       if (colNumber <= 1) return;
