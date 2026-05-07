@@ -786,13 +786,14 @@ For each vanity top return:
 - length
 - depth
 - hasSink
+- backSideOnPage: page side with the backsplash / double line along the long edge ("top","bottom","left","right")
+- closerEndOnPage: page side with the shorter bowl-center dimension along the length axis ("top","bottom","left","right","center")
 - bowlPosition: "center" | "offset-left" | "offset-right"
 - bowlOffset
-- leftWall
-- rightWall
+- leftWall/rightWall from the person-standing-in-front perspective; double-line end = wall/sidesplash, single-line end = finish end.
 
 Return ONLY valid JSON:
-{"unitTypeName":"Type 1.1A","vtops":[{"length":47.5,"depth":22,"hasSink":true,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true}]}`;
+{"unitTypeName":"Type 1.1A","vtops":[{"length":47.5,"depth":22,"hasSink":true,"backSideOnPage":"left","closerEndOnPage":"bottom","bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":false,"rightWall":true}]}`;
 
       try {
         const rescueContent = await callAI(
