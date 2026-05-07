@@ -721,15 +721,18 @@ For each vanity top return:
 - length: longer edge in inches
 - depth: shorter edge in inches (must be 17.5–22.5)
 - hasSink: true (must be true — vanities always have an oval bowl)
+- backSideOnPage: page side containing the backsplash / double line along the LONG edge: "top" | "bottom" | "left" | "right"
+- closerEndOnPage: page side containing the shorter bowl-center dimension along the LENGTH axis: "top" | "bottom" | "left" | "right" | "center"
 - bowlPosition: "offset-left" | "offset-right" | "center"
 - bowlOffset: number or null
-- leftWall: true ONLY if the LEFT end clearly shows a double parallel line / wall return / sidesplash. false if it shows a single line (finish end). Judge independently.
-- rightWall: true ONLY if the RIGHT end clearly shows a double parallel line / wall return / sidesplash. false if it shows a single line (finish end). Judge independently. It is common for ONE end to be walled and the other to be a finish end — do NOT assume both match.
+- leftWall/rightWall use the perspective of a person standing in FRONT of the vanity, facing the backsplash. If backSideOnPage="left", person LEFT is page BOTTOM and person RIGHT is page TOP. If backSideOnPage="right", person LEFT is page TOP and person RIGHT is page BOTTOM.
+- leftWall: true ONLY if the person's LEFT end clearly shows a double parallel line / wall return / sidesplash. false if it shows a single line (finish end). Judge independently.
+- rightWall: true ONLY if the person's RIGHT end clearly shows a double parallel line / wall return / sidesplash. false if it shows a single line (finish end). Judge independently. It is common for ONE end to be walled and the other to be a finish end — do NOT assume both match.
 
 Also extract unitTypeName from the title block — use the room/unit label (e.g. "POWDER ROOM", "UNISEX BATH", "1BR-1 (ADA) - AS", "2BR (ADA)"). If the page only shows kitchen/corridor/work-station/community counters with no oval-bowl vanity, return {"unitTypeName":"","vtops":[]}.
 
 Return ONLY valid JSON:
-{"unitTypeName":"1BR-1 (ADA) - AS","vtops":[{"length":44.5,"depth":22,"hasSink":true,"bowlPosition":"offset-left","bowlOffset":16,"leftWall":true,"rightWall":true}]} `;
+{"unitTypeName":"1BR-1 (ADA) - AS","vtops":[{"length":44.5,"depth":22,"hasSink":true,"backSideOnPage":"left","closerEndOnPage":"bottom","bowlPosition":"offset-left","bowlOffset":16,"leftWall":false,"rightWall":true}]} `;
 
     const fullPrompt = provider === "dialagram" ? qwenPrompt : geminiPrompt;
 
@@ -783,13 +786,14 @@ For each vanity top return:
 - length
 - depth
 - hasSink
+- backSideOnPage: page side with the backsplash / double line along the long edge ("top","bottom","left","right")
+- closerEndOnPage: page side with the shorter bowl-center dimension along the length axis ("top","bottom","left","right","center")
 - bowlPosition: "center" | "offset-left" | "offset-right"
 - bowlOffset
-- leftWall
-- rightWall
+- leftWall/rightWall from the person-standing-in-front perspective; double-line end = wall/sidesplash, single-line end = finish end.
 
 Return ONLY valid JSON:
-{"unitTypeName":"Type 1.1A","vtops":[{"length":47.5,"depth":22,"hasSink":true,"bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true}]}`;
+{"unitTypeName":"Type 1.1A","vtops":[{"length":47.5,"depth":22,"hasSink":true,"backSideOnPage":"left","closerEndOnPage":"bottom","bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":false,"rightWall":true}]}`;
 
       try {
         const rescueContent = await callAI(
@@ -852,9 +856,9 @@ Look at the SAME shop drawing image and verify EACH item carefully:
    - leftWall = wall on the person's LEFT end. rightWall = wall on the person's RIGHT end.
    - DOUBLE LINES at an end = WALL (sidesplash). Set leftWall/rightWall to true.
    - SINGLE LINE at an end = OPEN (finish end). Set leftWall/rightWall to false.
-   - MOST vanity tops have BOTH walls (leftWall=true AND rightWall=true). This is the DEFAULT.
-   - Only set false when you see a CLEAR single line with no wall structure nearby.
-   - BIAS toward true (wall) — false negatives are worse than false positives.
+   - Do NOT default to both walls. A single line at an end means finish end / no sidesplash.
+   - Only set true when you see a CLEAR double line or wall return at that specific end.
+   - It is common for one end to be finish end and the other end to need a sidesplash.
    - Update leftWallYesConfidence and rightWallYesConfidence accordingly.
 
 Return the CORRECTED complete JSON — same format:
