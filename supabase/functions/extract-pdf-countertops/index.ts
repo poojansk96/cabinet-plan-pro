@@ -766,13 +766,19 @@ serve(async (req) => {
       dialagramModel: dialagramModelInput,
       pageTextHint,
       unitTypeNameHint,
+      extractionType: extractionTypeInput,
     } = await req.json();
     const provider: "gemini" | "dialagram" = providerInput === "dialagram" ? "dialagram" : "gemini";
     const dialagramModel = String(dialagramModelInput || "qwen-3.6-plus");
+    const extractionType = String(extractionTypeInput || "stone").toLowerCase();
     const imageMimeType = String(pageImageMimeType || "image/jpeg").trim() || "image/jpeg";
     const hintedUnitTypeName = sanitizeUnitTypeName(String(unitTypeNameHint || "")) || extractUnitTypeFromHintText(String(pageTextHint || ""));
     let activeDialagramModel = dialagramModel;
-    console.log(`extract-pdf-countertops provider=${provider}${provider === "dialagram" ? ` model=${dialagramModel}` : ""} mime=${imageMimeType}`);
+    // Stone SQFT specifically requested gemini-3-flash-preview as primary
+    const ACTIVE_PRIMARY_MODELS: ModelAttempt[] = extractionType === "stone"
+      ? [{ name: "gemini-3-flash-preview", retries: 3 }, { name: "gemini-3.1-flash-lite-preview", retries: 2 }]
+      : PRIMARY_MODELS;
+    console.log(`extract-pdf-countertops provider=${provider} extractionType=${extractionType} primary=${ACTIVE_PRIMARY_MODELS[0].name}${provider === "dialagram" ? ` model=${dialagramModel}` : ""} mime=${imageMimeType}`);
 
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage (base64 string) required" }), {
