@@ -1753,8 +1753,9 @@ export default function PreFinalModule({ project }: Props) {
 
                   return (
                     <>
-                      {lamUnitTypes.map(unitType => {
-                        const typeRows = store.laminateRows.filter(r => r.unitType === unitType);
+                       {lamUnitTypes.map(unitType => {
+                        // Exclude vanity tops (bath category) from laminate KTOP/BARTOP calcs
+                        const typeRows = store.laminateRows.filter(r => r.unitType === unitType && r.category !== 'bath');
                         if (typeRows.length === 0) return null;
                         const unitCount = store.unitNumbers.filter(u => u.assignments[unitType]).length;
 
@@ -1766,8 +1767,13 @@ export default function PreFinalModule({ project }: Props) {
                         const ktopLfts = ktopPieces.map(r => Math.ceil(r.length / 12));
                         const bartopLfts = bartopPieces.map(r => Math.ceil(r.length / 12));
 
-                        const ktopTotalLft = ktopLfts.reduce((s, v) => s + v, 0);
-                        const bartopTotalLft = bartopLfts.reduce((s, v) => s + v, 0);
+                        const ktopAutoLft = ktopLfts.reduce((s, v) => s + v, 0);
+                        const bartopAutoLft = bartopLfts.reduce((s, v) => s + v, 0);
+
+                        const ktopOverride = store.laminateManualMap[`${unitType}|ktopLft`];
+                        const bartopOverride = store.laminateManualMap[`${unitType}|bartopLft`];
+                        const ktopTotalLft = ktopOverride && ktopOverride > 0 ? ktopOverride : ktopAutoLft;
+                        const bartopTotalLft = bartopOverride && bartopOverride > 0 ? bartopOverride : bartopAutoLft;
 
                         const ktopSlab = calcSlabUsage(ktopTotalLft);
                         const bartopSlab = calcSlabUsage(bartopTotalLft);
