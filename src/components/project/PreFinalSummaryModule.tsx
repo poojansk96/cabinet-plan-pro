@@ -1990,9 +1990,14 @@ export default function PreFinalSummaryModule({ project }: Props) {
       const unitTypeName = assignedTypes.join(' / ');
 
       const row = wsInstaller.addRow([
-        '', unit.bldg || '', unit.floor || '', unit.name, '', unitTypeName, '', '', '', '', '', '',
+        '', unit.bldg || '', unit.floor || '', unit.name, '', '', '', '', '', '', '', '',
       ]);
       const r = row.number;
+      // Pull Unit Type Name from '2-Unit Count' via XLOOKUP keyed on Unit #
+      row.getCell(instColTypeName).value = {
+        formula: `IFERROR(XLOOKUP(${excelCol(instColUnit)}${r},'2-Unit Count'!$${ucUnitNumColLetter}:$${ucUnitNumColLetter},'2-Unit Count'!$${ucUnitTypeColLetter}:$${ucUnitTypeColLetter},""),"")`,
+        result: unitTypeName,
+      } as any;
       row.getCell(instColTotal).value = {
         formula: `IFERROR(${excelCol(instColMat)}${r}+${excelCol(instColLab)}${r}+${excelCol(instColTax)}${r},0)`,
         result: 0,
