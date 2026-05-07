@@ -808,7 +808,7 @@ serve(async (req) => {
         const titleBlockContent = await callAI("dialagram", pageImage, imageMimeType, buildDialagramTitleBlockPrompt(), {
           temperature: 0.0,
           maxOutputTokens: 256,
-          geminiModels: PRIMARY_MODELS,
+          geminiModels: ACTIVE_PRIMARY_MODELS,
           dialagramModel: getDialagramAccuracyModel(dialagramModel),
         });
         console.log("Dialagram title-block raw:", titleBlockContent.slice(0, 300));
@@ -831,7 +831,7 @@ serve(async (req) => {
       extractionContent = await callAI(provider, pageImage, imageMimeType, extractionPrompt, {
         temperature: provider === "dialagram" ? 0.0 : 0.2,
         maxOutputTokens: 8192,
-        geminiModels: PRIMARY_MODELS,
+        geminiModels: ACTIVE_PRIMARY_MODELS,
         dialagramModel: activeDialagramModel,
       });
     } catch (err) {
@@ -853,7 +853,7 @@ serve(async (req) => {
           const retryContent = await callAI("dialagram", pageImage, imageMimeType, extractionPrompt, {
             temperature: 0.0,
             maxOutputTokens: 8192,
-            geminiModels: PRIMARY_MODELS,
+            geminiModels: ACTIVE_PRIMARY_MODELS,
             dialagramModel: thinkingModel,
           });
           console.log("AI countertop thinking-retry raw:", retryContent.slice(0, 800));
@@ -897,7 +897,7 @@ serve(async (req) => {
             const passContent = await callAI("dialagram", pageImage, imageMimeType, pass.prompt, {
               temperature: 0.05,
               maxOutputTokens: 8192,
-              geminiModels: PRIMARY_MODELS,
+              geminiModels: ACTIVE_PRIMARY_MODELS,
               dialagramModel: pass.model,
             });
             console.log(`Dialagram ${pass.label} raw (${pass.model}):`, passContent.slice(0, 800));
@@ -938,7 +938,7 @@ serve(async (req) => {
             const rescueContent = await callAI("dialagram", pageImage, imageMimeType, rescuePrompt, {
               temperature: 0.05,
               maxOutputTokens: 8192,
-              geminiModels: PRIMARY_MODELS,
+              geminiModels: ACTIVE_PRIMARY_MODELS,
               dialagramModel: rescueModel,
             });
             console.log(`Dialagram rescue raw (${rescueModel}):`, rescueContent.slice(0, 800));
