@@ -835,11 +835,17 @@ Look at the SAME shop drawing image and verify EACH item carefully:
 1. Is the unitTypeName correct? If not, provide the correct one.
 2. Are the dimensions (length, depth) accurate? Correct any errors.
 3. **CRITICAL — RE-CHECK bowlPosition using "person standing in front" perspective:**
-   - Find the BACKSPLASH (double line along long edge) — that is the BACK of the vanity.
+   - Find the BACKSPLASH — it is the long edge with TWO PARALLEL LINES (double line) drawn close together. The opposite long edge is a SINGLE line (the front).
+   - DO NOT use dimension-callout placement to infer which side is the back. Use ONLY the double line.
    - Return that as backSideOnPage = "top" | "bottom" | "left" | "right".
    - Find which PAGE SIDE has the SHORTER bowl-center dimension along the LENGTH axis.
    - Return that as closerEndOnPage = "top" | "bottom" | "left" | "right" | "center".
-   - Then make bowlPosition consistent with those fields.
+   - Then map to bowlPosition using the person-in-front perspective:
+       • backSideOnPage="top"    → person LEFT=page LEFT,  RIGHT=page RIGHT (NOT mirrored)
+       • backSideOnPage="bottom" → person LEFT=page RIGHT, RIGHT=page LEFT  (MIRRORED — smaller dim on page-left = offset-RIGHT)
+       • backSideOnPage="left"   → person LEFT=page BOTTOM, RIGHT=page TOP
+       • backSideOnPage="right"  → person LEFT=page TOP,    RIGHT=page BOTTOM
+   - Worked example: horizontal 47.5"x22" vanity, double-line wall along the BOTTOM long edge, dimensions "17 3/4"" on page-LEFT and "29 3/4"" on page-RIGHT. backSideOnPage="bottom", closerEndOnPage="left" (page), but because back-is-bottom MIRRORS the view, bowlPosition MUST be "offset-right" with bowlOffset=17.75.
    - IMPORTANT vertical rule: if backSideOnPage="right" and closerEndOnPage="top", bowlPosition MUST be "offset-left".
 4. Is the bowlOffset value accurate?
 5. Are there any MISSING vanity tops not extracted? Add them.
