@@ -721,15 +721,18 @@ For each vanity top return:
 - length: longer edge in inches
 - depth: shorter edge in inches (must be 17.5–22.5)
 - hasSink: true (must be true — vanities always have an oval bowl)
+- backSideOnPage: page side containing the backsplash / double line along the LONG edge: "top" | "bottom" | "left" | "right"
+- closerEndOnPage: page side containing the shorter bowl-center dimension along the LENGTH axis: "top" | "bottom" | "left" | "right" | "center"
 - bowlPosition: "offset-left" | "offset-right" | "center"
 - bowlOffset: number or null
-- leftWall: true ONLY if the LEFT end clearly shows a double parallel line / wall return / sidesplash. false if it shows a single line (finish end). Judge independently.
-- rightWall: true ONLY if the RIGHT end clearly shows a double parallel line / wall return / sidesplash. false if it shows a single line (finish end). Judge independently. It is common for ONE end to be walled and the other to be a finish end — do NOT assume both match.
+- leftWall/rightWall use the perspective of a person standing in FRONT of the vanity, facing the backsplash. If backSideOnPage="left", person LEFT is page BOTTOM and person RIGHT is page TOP. If backSideOnPage="right", person LEFT is page TOP and person RIGHT is page BOTTOM.
+- leftWall: true ONLY if the person's LEFT end clearly shows a double parallel line / wall return / sidesplash. false if it shows a single line (finish end). Judge independently.
+- rightWall: true ONLY if the person's RIGHT end clearly shows a double parallel line / wall return / sidesplash. false if it shows a single line (finish end). Judge independently. It is common for ONE end to be walled and the other to be a finish end — do NOT assume both match.
 
 Also extract unitTypeName from the title block — use the room/unit label (e.g. "POWDER ROOM", "UNISEX BATH", "1BR-1 (ADA) - AS", "2BR (ADA)"). If the page only shows kitchen/corridor/work-station/community counters with no oval-bowl vanity, return {"unitTypeName":"","vtops":[]}.
 
 Return ONLY valid JSON:
-{"unitTypeName":"1BR-1 (ADA) - AS","vtops":[{"length":44.5,"depth":22,"hasSink":true,"bowlPosition":"offset-left","bowlOffset":16,"leftWall":true,"rightWall":true}]} `;
+{"unitTypeName":"1BR-1 (ADA) - AS","vtops":[{"length":44.5,"depth":22,"hasSink":true,"backSideOnPage":"left","closerEndOnPage":"bottom","bowlPosition":"offset-left","bowlOffset":16,"leftWall":false,"rightWall":true}]} `;
 
     const fullPrompt = provider === "dialagram" ? qwenPrompt : geminiPrompt;
 
