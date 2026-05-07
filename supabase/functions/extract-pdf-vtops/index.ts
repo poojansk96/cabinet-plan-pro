@@ -644,12 +644,16 @@ TASK:
         4. Find the dimension callouts showing distance from each end of the LENGTH axis to the bowl center.
         5. The end with the SHORTER dimension is the side the bowl is offset toward.
         6. Use backSideOnPage + closerEndOnPage consistently to determine bowlPosition.
-      ORIENTATION HANDLING:
-        - If the vanity is drawn HORIZONTALLY (wider than tall on page): backsplash is usually at top. Person stands at bottom facing up. Person's left = page left, right = page right.
-        - If the vanity is drawn VERTICALLY (taller than wide on page): backsplash is usually on one side. Person stands on the opposite side facing the backsplash.
-        - IMPORTANT vertical rule: if the backsplash/back is on PAGE RIGHT, the person stands on PAGE LEFT; then PERSON LEFT = PAGE TOP and PERSON RIGHT = PAGE BOTTOM.
-        - IMPORTANT vertical rule: if the backsplash/back is on PAGE LEFT, the person stands on PAGE RIGHT; then PERSON LEFT = PAGE BOTTOM and PERSON RIGHT = PAGE TOP.
-        - ALWAYS check where the backsplash/wall double-line is to establish the "back" first.
+      ORIENTATION HANDLING — DO NOT ASSUME. ALWAYS LOCATE THE ACTUAL DOUBLE-LINE WALL FIRST:
+        - The backsplash/wall is the LONG edge that has TWO PARALLEL LINES drawn close together (the double line). The opposite long edge is a SINGLE line — that is the FRONT.
+        - Dimension callouts (length/offset numbers) can appear on EITHER side of the rectangle. DO NOT use dimension-line position to infer where the back is — use the DOUBLE LINE only.
+        - If the vanity is drawn HORIZONTALLY (wider than tall on page):
+            • If double-line is on PAGE TOP → backSideOnPage="top". Person stands at PAGE BOTTOM facing UP. Person LEFT = PAGE LEFT, Person RIGHT = PAGE RIGHT.
+            • If double-line is on PAGE BOTTOM → backSideOnPage="bottom". Person stands at PAGE TOP facing DOWN. Person LEFT = PAGE RIGHT, Person RIGHT = PAGE LEFT (MIRRORED).
+        - If the vanity is drawn VERTICALLY (taller than wide on page):
+            • If double-line is on PAGE RIGHT → backSideOnPage="right". Person stands on PAGE LEFT. Person LEFT = PAGE TOP, Person RIGHT = PAGE BOTTOM.
+            • If double-line is on PAGE LEFT → backSideOnPage="left". Person stands on PAGE RIGHT. Person LEFT = PAGE BOTTOM, Person RIGHT = PAGE TOP.
+        - CRITICAL: When backSideOnPage is "bottom" or "right", the person/page mapping IS MIRRORED — the smaller dimension being on PAGE LEFT means the bowl is offset-RIGHT (not offset-left).
       - "offset-left" if bowl is closer to the person's LEFT end
       - "offset-right" if bowl is closer to the person's RIGHT end
       - "center" if bowl is centered along the length axis
