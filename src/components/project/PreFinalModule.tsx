@@ -1772,8 +1772,20 @@ export default function PreFinalModule({ project }: Props) {
 
                         const ktopOverride = store.laminateManualMap[`${unitType}|ktopLft`];
                         const bartopOverride = store.laminateManualMap[`${unitType}|bartopLft`];
-                        const ktopTotalLft = ktopOverride && ktopOverride > 0 ? ktopOverride : ktopAutoLft;
-                        const bartopTotalLft = bartopOverride && bartopOverride > 0 ? bartopOverride : bartopAutoLft;
+                        const ktopExprStored = store.laminateManualExprMap?.[`${unitType}|ktopLft`];
+                        const bartopExprStored = store.laminateManualExprMap?.[`${unitType}|bartopLft`];
+                        const ktopAutoExpr = ktopLfts.length > 0 ? ktopLfts.join('+') : '';
+                        const bartopAutoExpr = bartopLfts.length > 0 ? bartopLfts.join('+') : '';
+                        const ktopExpr = ktopExprStored !== undefined ? ktopExprStored : ktopAutoExpr;
+                        const bartopExpr = bartopExprStored !== undefined ? bartopExprStored : bartopAutoExpr;
+                        const evalExpr = (s: string): number => {
+                          if (!s) return 0;
+                          const cleaned = s.replace(/\s+/g, '').replace(/,/g, '+');
+                          if (!/^[\d+.]+$/.test(cleaned)) return 0;
+                          return cleaned.split('+').filter(Boolean).reduce((a, b) => a + (parseFloat(b) || 0), 0);
+                        };
+                        const ktopTotalLft = ktopOverride && ktopOverride > 0 ? ktopOverride : evalExpr(ktopExpr);
+                        const bartopTotalLft = bartopOverride && bartopOverride > 0 ? bartopOverride : evalExpr(bartopExpr);
 
                         const ktopSlab = calcSlabUsage(ktopTotalLft);
                         const bartopSlab = calcSlabUsage(bartopTotalLft);
@@ -1813,13 +1825,12 @@ export default function PreFinalModule({ project }: Props) {
                                 <tr>
                                   <td className="text-center">
                                     <input
-                                      type="number"
-                                      min={0}
-                                      className="est-input w-16 text-xs text-center font-mono bg-background border border-input"
-                                      value={ktopOverride || ktopAutoLft || ''}
-                                      onChange={e => store.setLaminateManual(unitType, 'ktopLft', +e.target.value || 0)}
-                                      title={ktopLfts.length > 0 ? `Auto: ${ktopLfts.join('+')} = ${ktopAutoLft}` : 'Manual entry'}
-                                      placeholder="0"
+                                      type="text"
+                                      className="est-input w-24 text-xs text-center font-mono bg-background border border-input"
+                                      value={ktopExpr}
+                                      onChange={e => store.setLaminateManualExpr(unitType, 'ktopLft', e.target.value)}
+                                      title={`Per-piece LFT: ${ktopAutoExpr || '—'} = ${evalExpr(ktopExpr)}`}
+                                      placeholder="0+0+0"
                                     />
                                   </td>
                                   <td className="text-center font-mono text-xs font-bold">
@@ -1830,13 +1841,12 @@ export default function PreFinalModule({ project }: Props) {
                                   </td>
                                   <td className="text-center">
                                     <input
-                                      type="number"
-                                      min={0}
-                                      className="est-input w-16 text-xs text-center font-mono bg-background border border-input"
-                                      value={bartopOverride || bartopAutoLft || ''}
-                                      onChange={e => store.setLaminateManual(unitType, 'bartopLft', +e.target.value || 0)}
-                                      title={bartopLfts.length > 0 ? `Auto: ${bartopLfts.join('+')} = ${bartopAutoLft}` : 'Manual entry'}
-                                      placeholder="0"
+                                      type="text"
+                                      className="est-input w-24 text-xs text-center font-mono bg-background border border-input"
+                                      value={bartopExpr}
+                                      onChange={e => store.setLaminateManualExpr(unitType, 'bartopLft', e.target.value)}
+                                      title={`Per-piece LFT: ${bartopAutoExpr || '—'} = ${evalExpr(bartopExpr)}`}
+                                      placeholder="0+0+0"
                                     />
                                   </td>
                                   <td className="text-center font-mono text-xs font-bold">
