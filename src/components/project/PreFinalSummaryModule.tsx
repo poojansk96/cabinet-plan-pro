@@ -542,7 +542,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
     const mismatchIdx = new Set<number>();
     for (let i = 0; i < nTypes; i++) {
       const cell = matchRow.getCell(colTotalCabFirstType + i);
-      const ucTypeCol = ucColLetter(6 + i);
+      const ucTypeCol = ucColLetter(5 + i);
       const ucCabType = store.unitTypes[i]; // same i in unit-count sheet
       const isMismatch = !ucCabType || ucCabType !== cabTypes[i];
       if (isMismatch) mismatchIdx.add(i);
