@@ -1945,14 +1945,21 @@ export default function PreFinalModule({ project }: Props) {
                             {lamUnitTypes.map(type => {
                               const unitCount = store.unitNumbers.filter(u => u.assignments[type]).length || 1;
                               const typeRows = store.laminateRows.filter(r => r.unitType === type && r.category !== 'bath');
-                              const ktopAuto = typeRows.filter(r => !r.isIsland).reduce((s, r) => s + Math.ceil(r.length / 12), 0);
-                              const bartopAuto = typeRows.filter(r => r.isIsland).reduce((s, r) => s + Math.ceil(r.length / 12), 0);
+                              const ktopAutoPieces = typeRows.filter(r => !r.isIsland).map(r => Math.ceil(r.length / 12));
+                              const bartopAutoPieces = typeRows.filter(r => r.isIsland).map(r => Math.ceil(r.length / 12));
                               const ktopOv = store.laminateManualMap[`${type}|ktopLft`];
                               const bartopOv = store.laminateManualMap[`${type}|bartopLft`];
-                              const ktopLft = ktopOv && ktopOv > 0 ? ktopOv : ktopAuto;
-                              const bartopLft = bartopOv && bartopOv > 0 ? bartopOv : bartopAuto;
-                              const kSlab = calcSlabUsage(ktopLft);
-                              const bSlab = calcSlabUsage(bartopLft);
+                              const ktopExprStored = store.laminateManualExprMap?.[`${type}|ktopLft`];
+                              const bartopExprStored = store.laminateManualExprMap?.[`${type}|bartopLft`];
+                              const parsePieces = (s: string): number[] => {
+                                const cleaned = (s || '').replace(/\s+/g, '').replace(/,/g, '+');
+                                if (!/^[\d+.]+$/.test(cleaned)) return [];
+                                return cleaned.split('+').filter(Boolean).map(p => parseFloat(p) || 0).filter(p => p > 0);
+                              };
+                              const ktopPieces = ktopOv && ktopOv > 0 ? [ktopOv] : (ktopExprStored !== undefined ? parsePieces(ktopExprStored) : ktopAutoPieces);
+                              const bartopPieces = bartopOv && bartopOv > 0 ? [bartopOv] : (bartopExprStored !== undefined ? parsePieces(bartopExprStored) : bartopAutoPieces);
+                              const kSlab = calcSlabUsageFromPieces(ktopPieces);
+                              const bSlab = calcSlabUsageFromPieces(bartopPieces);
                               const ssQty = store.laminateManualMap[`${type}|ssQty`] || 0;
                               return (
                                 <tr key={type}>
