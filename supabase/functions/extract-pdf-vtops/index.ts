@@ -645,7 +645,8 @@ TASK:
         5. The end with the SHORTER dimension is the side the bowl is offset toward.
         6. Use backSideOnPage + closerEndOnPage consistently to determine bowlPosition.
       ORIENTATION HANDLING — DO NOT ASSUME. ALWAYS LOCATE THE ACTUAL DOUBLE-LINE WALL FIRST:
-        - The backsplash/wall is the LONG edge that has TWO PARALLEL LINES drawn close together (the double line). The opposite long edge is a SINGLE line — that is the FRONT.
+      - The backsplash/wall is the LONG edge that has TWO PARALLEL LINES drawn close together (the double line). The opposite long edge is a SINGLE line — that is the FRONT.
+      - Do NOT confuse a short-end sidesplash return with the backSideOnPage. backSideOnPage is ONLY the long-edge backsplash; short-end double lines are leftWall/rightWall only.
         - Dimension callouts (length/offset numbers) can appear on EITHER side of the rectangle. DO NOT use dimension-line position to infer where the back is — use the DOUBLE LINE only.
         - If the vanity is drawn HORIZONTALLY (wider than tall on page):
             • If double-line is on PAGE TOP → backSideOnPage="top". Person stands at PAGE BOTTOM facing UP. Person LEFT = PAGE LEFT, Person RIGHT = PAGE RIGHT.
@@ -674,7 +675,8 @@ RULES FOR WALL DETECTION (leftWall / rightWall):
   * The vanity end is free-standing with no wall structure adjacent
   * Text labels like "FE" (finish end) or "OPEN"
 - IMPORTANT: It is VERY COMMON for one end to have a wall (double line / sidesplash) while the OTHER end is a finish end (single line). Do NOT assume both ends match.
-- Examples: a 32"x22" vanity with the bowl drawn against the LEFT side of the rectangle and a clear single line on the LEFT edge but a double line on the RIGHT edge = leftWall:false, rightWall:true (Left end finish + Right side sidesplash).
+- Examples: a 32"x22" center-bowl vanity with a single line on the LEFT short end and double parallel lines on the RIGHT short end = leftWall:false, rightWall:true (Left end finish + Right end sidesplash), NEVER both end finish.
+- Examples: a 49"x22" center-bowl vanity with a single line on the person's LEFT short end and double parallel lines on the person's RIGHT short end = leftWall:false, rightWall:true, even when another vanity is also on the same page.
 - DO NOT default to true. Only set wall=true when you actually see double-line / wall evidence at that specific end.
 - Set leftWallYesConfidence and rightWallYesConfidence to your actual certainty (0.0=clearly single line / open, 1.0=clearly double line / wall, 0.5=truly ambiguous).
 
