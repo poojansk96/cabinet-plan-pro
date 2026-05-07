@@ -191,7 +191,7 @@ export function pageSideForPersonEnd(backSideOnPage: PageSide | undefined, perso
   return personEnd;
 }
 
-function detectDoubleLineAtEdge(imageData: ImageData, side: PageSide): number {
+export function detectDoubleLineAtEdge(imageData: ImageData, side: PageSide): number {
   const { data, width, height } = imageData;
   if (width < 6 || height < 10) return 0.5;
 
