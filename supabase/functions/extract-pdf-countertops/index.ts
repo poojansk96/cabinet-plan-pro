@@ -436,7 +436,7 @@ Return ONLY valid JSON, no markdown.`;
 
   return `Look at this countertop shop drawing. Find every KITCHEN / ISLAND / BAR / LAUNDRY top.${dimsBlock}
 
-Kitchen perimeter is ~25"-26" deep against a wall. Islands/peninsulas are 30"+ deep, free-standing. Bar tops are 12"-18" deep.
+Kitchen perimeter is often ~25"-26" deep against a wall, but returns/peninsulas/wide tops can be 30"+ deep. If a run has an explicit 36" total depth label (for example a 69 1/4" lower return with 36" depth), return depth=36 even if another connected leg is 25 1/2" deep. Bar tops are 12"-18" deep.
 
 READ DIMENSIONS LITERALLY from the image — never guess. If a dimension isn't printed, return null.
 
@@ -470,6 +470,7 @@ Check the image and return the CORRECT complete JSON.
 
 Rules:
 - Keep kitchen sections and bath/vanity sections separate.
+- Correct any section whose printed total depth is 30"-48" but the candidate used 25.5"; printed depth wins over standard-depth assumptions.
 - Small vanity tops matter; count each vanity separately.
 - Do not merge separate rooms just because dimensions match.
 - Preserve roomName and instanceKey for each physical top.
