@@ -631,7 +631,7 @@ TASK:
    A page can contain BOTH a kitchen run AND a separate vanity (e.g. 1BR-1 (ADA) pages). Return ONLY the vanity piece.
    A page can contain MULTIPLE vanities (e.g. 2BR (ADA) → Bath-1 and Bath-2). Return ALL of them.
 
-3. For EACH vanity top, extract:
+3. For EACH vanity top, extract (CRITICAL: when the page has MULTIPLE vanities — e.g. Bath-1 AND Bath-2 in a 2BR/3BR plan — evaluate EACH vanity COMPLETELY INDEPENDENTLY. Each vanity has its OWN backsplash orientation, its OWN backSideOnPage, and its OWN person-standing-in-front perspective. The two vanities are usually drawn in DIFFERENT orientations (one horizontal, one vertical, OR with the backsplash on opposite page sides). NEVER copy the perspective from one vanity to the other. Locate the double-line backsplash for THIS specific vanity rectangle, then derive backSideOnPage / leftWall / rightWall / bowlPosition for THIS vanity ONLY using its own backsplash position):
    a. **length** — total length in inches (e.g., 47.5, 31, 25)
    b. **depth** — depth in inches (usually 22")
    c. **backSideOnPage** — which PAGE SIDE contains the backsplash / back edge (double line along the long edge). Must be exactly one of: "top", "bottom", "left", "right".
