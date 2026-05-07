@@ -1825,13 +1825,12 @@ export default function PreFinalModule({ project }: Props) {
                                 <tr>
                                   <td className="text-center">
                                     <input
-                                      type="number"
-                                      min={0}
-                                      className="est-input w-16 text-xs text-center font-mono bg-background border border-input"
-                                      value={ktopOverride || ktopAutoLft || ''}
-                                      onChange={e => store.setLaminateManual(unitType, 'ktopLft', +e.target.value || 0)}
-                                      title={ktopLfts.length > 0 ? `Auto: ${ktopLfts.join('+')} = ${ktopAutoLft}` : 'Manual entry'}
-                                      placeholder="0"
+                                      type="text"
+                                      className="est-input w-24 text-xs text-center font-mono bg-background border border-input"
+                                      value={ktopExpr}
+                                      onChange={e => store.setLaminateManualExpr(unitType, 'ktopLft', e.target.value)}
+                                      title={`Per-piece LFT: ${ktopAutoExpr || '—'} = ${evalExpr(ktopExpr)}`}
+                                      placeholder="0+0+0"
                                     />
                                   </td>
                                   <td className="text-center font-mono text-xs font-bold">
