@@ -1864,18 +1864,25 @@ export default function PreFinalSummaryModule({ project }: Props) {
     wsSov.views = [{ state: 'frozen', xSplit: 0, ySplit: 7 }];
 
     const sovDataStart = sovHeader.number + 1; // Excel row number of first data row
+    const ucUnitTypeColLetter = excelCol(unitTypeNameColIdx);
+    const ucUnitNumColLetter = 'D';
 
     sortedUnits.forEach(unit => {
-      // Resolve assigned type name(s) for this unit
+      // Resolve assigned type name(s) for this unit (used as fallback result)
       const assignedTypes = Object.entries(unit.assignments || {})
         .filter(([, v]) => v)
         .map(([k]) => k);
       const unitTypeName = assignedTypes.join(' / ');
 
       const row = wsSov.addRow([
-        '', unit.bldg || '', unit.floor || '', unit.name, '', unitTypeName, '', '', '',
+        '', unit.bldg || '', unit.floor || '', unit.name, '', '', '', '', '',
       ]);
       const r = row.number;
+      // Pull Unit Type Name from '2-Unit Count' via XLOOKUP keyed on Unit #
+      row.getCell(sovColTypeName).value = {
+        formula: `IFERROR(XLOOKUP(${excelCol(sovColUnit)}${r},'2-Unit Count'!$${ucUnitNumColLetter}:$${ucUnitNumColLetter},'2-Unit Count'!$${ucUnitTypeColLetter}:$${ucUnitTypeColLetter},""),"")`,
+        result: unitTypeName,
+      } as any;
       // Total = MATERIAL + LABOR + TAX (safe)
       row.getCell(sovColTotal).value = {
         formula: `IFERROR(${excelCol(sovColMat)}${r}+${excelCol(sovColLab)}${r}+${excelCol(sovColTax)}${r},0)`,
