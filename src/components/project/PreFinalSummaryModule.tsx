@@ -1293,7 +1293,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
       // TYPE NAME — reference Unit Count sheet header if possible
       const ucIdx = ucTypeIndexMap[normalizeTypeKey(t)];
       if (ucIdx !== undefined) {
-        const ucTypeCol = ucColLetter(6 + ucIdx);
+        const ucTypeCol = ucColLetter(5 + ucIdx);
         setFormula(row.getCell(cc.type), `'2-Unit Count'!${ucTypeCol}${ucHeaderRow}`, t);
       } else {
         row.getCell(cc.type).value = t;
@@ -1303,7 +1303,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
 
       // QTY — reference Unit Count sheet total row
       if (ucIdx !== undefined) {
-        const ucTypeCol = ucColLetter(6 + ucIdx);
+        const ucTypeCol = ucColLetter(5 + ucIdx);
         setFormula(row.getCell(cc.qty), `'2-Unit Count'!${ucTypeCol}${ucTotRowNum}`, unitTypeTotal(t));
       } else {
         setFormula(row.getCell(cc.qty), `'3-Cabinet Count'!${ref(colTotalCabFirstType + i, unitCountRow.number)}`, 0);
