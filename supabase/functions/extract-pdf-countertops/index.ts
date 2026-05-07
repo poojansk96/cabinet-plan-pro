@@ -783,8 +783,8 @@ serve(async (req) => {
     const imageMimeType = String(pageImageMimeType || "image/jpeg").trim() || "image/jpeg";
     const hintedUnitTypeName = sanitizeUnitTypeName(String(unitTypeNameHint || "")) || extractUnitTypeFromHintText(String(pageTextHint || ""));
     let activeDialagramModel = dialagramModel;
-    // Stone SQFT and Laminate both use gemini-3-flash-preview as primary for accuracy
-    const ACTIVE_PRIMARY_MODELS: ModelAttempt[] = (extractionType === "stone" || extractionType === "laminate")
+    // Stone SQFT uses gemini-3-flash-preview as primary for accuracy
+    const ACTIVE_PRIMARY_MODELS: ModelAttempt[] = extractionType === "stone"
       ? [{ name: "gemini-3-flash-preview", retries: 3 }, { name: "gemini-3.1-flash-lite-preview", retries: 2 }]
       : PRIMARY_MODELS;
     console.log(`extract-pdf-countertops provider=${provider} extractionType=${extractionType} primary=${ACTIVE_PRIMARY_MODELS[0].name}${provider === "dialagram" ? ` model=${dialagramModel}` : ""} mime=${imageMimeType}`);
