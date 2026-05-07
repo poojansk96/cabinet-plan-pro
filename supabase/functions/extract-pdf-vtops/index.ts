@@ -715,7 +715,7 @@ EXPLICIT EXCLUSIONS — never return these even if they fit on the page:
 
 A page can contain BOTH a kitchen run AND a separate small vanity (e.g. 1BR-1 (ADA) pages have a 25.5" deep L-shape kitchen plus a separate ~44.5" x 22" vanity with an oval bowl). Return ONLY the vanity piece, NEVER the kitchen run.
 
-A page can contain MULTIPLE vanities (e.g. 2BR (ADA) has Bath-1 AND Bath-2). Return ALL of them as separate items.
+A page can contain MULTIPLE vanities (e.g. 2BR (ADA) has Bath-1 AND Bath-2, or 2BR-AS / 2BR-MIRROR plans show TWO separate vanities). Return ALL of them as separate items. CRITICAL: each vanity has its OWN backsplash orientation and its OWN person-in-front perspective — NEVER share backSideOnPage / leftWall / rightWall between the two vanities. Locate the double-line backsplash on EACH vanity rectangle separately, derive person-LEFT / person-RIGHT for THAT vanity alone, then assign leftWall/rightWall and bowlPosition independently. The two vanities are usually drawn in different orientations (e.g. one horizontal with backsplash on top, the other vertical with backsplash on left/right).
 
 For each vanity top return:
 - length: longer edge in inches
