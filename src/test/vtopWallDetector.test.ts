@@ -33,4 +33,9 @@ describe('VTOP wall line detector', () => {
     expect(detectDoubleLineAtEdge(makeImageData(40, 120, [{ side: 'right', offset: 0 }, { side: 'right', offset: 4 }]), 'right')).toBeGreaterThan(0.75);
     expect(detectDoubleLineAtEdge(makeImageData(120, 40, [{ side: 'bottom', offset: 0 }, { side: 'bottom', offset: 4 }]), 'bottom')).toBeGreaterThan(0.75);
   });
+
+  it('keeps center-bowl tops with one open end and one sidesplash from becoming both finish', () => {
+    expect(detectDoubleLineAtEdge(makeImageData(80, 120, [{ side: 'left', offset: 0 }]), 'left')).toBeLessThan(0.25);
+    expect(detectDoubleLineAtEdge(makeImageData(80, 120, [{ side: 'right', offset: 0 }, { side: 'right', offset: 5 }]), 'right')).toBeGreaterThan(0.75);
+  });
 });
