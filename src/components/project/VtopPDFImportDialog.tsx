@@ -670,6 +670,14 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson,
                       const { base64: vanityCropB64 } = cropNormalizedRegion(
                         canvas, canvasW, canvasH, vt.bbox,
                       );
+                      const refinedBackSide = refineBackSideFromGeometry(
+                        canvas, canvasW, canvasH, vt.bbox, importRow.backSideOnPage,
+                      );
+                      if (refinedBackSide) {
+                        importRow.backSideOnPage = refinedBackSide;
+                        const resolvedBowl = resolveBowlPositionFromPageSides(refinedBackSide, importRow.closerEndOnPage);
+                        if (resolvedBowl) importRow.bowlPosition = resolvedBowl;
+                      }
                       const leftPageSide = pageSideForPersonEnd(importRow.backSideOnPage, 'left');
                       const rightPageSide = pageSideForPersonEnd(importRow.backSideOnPage, 'right');
                       const leftDet = analyzeEndCrop(canvas, canvasW, canvasH, vt.bbox, leftPageSide);
