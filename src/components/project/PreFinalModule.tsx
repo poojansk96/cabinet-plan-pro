@@ -73,10 +73,10 @@ export default function PreFinalModule({ project }: Props) {
   // AI provider toggles — Gemini default; Qwen (dialagram, qwen-3.6-plus) optional
   const [unitAiProvider, setUnitAiProvider] = useState<'gemini' | 'dialagram'>('gemini');
   const [cabinetAiProvider, setCabinetAiProvider] = useState<'gemini' | 'dialagram'>('gemini');
-  // Stone/Laminate/Vtop AI provider — Qwen (dialagram) is now the default for Stone SQFT
-  // because it handles dense 2020 shop-drawing dimension text more reliably than Gemini.
-  const [stoneAiProvider, setStoneAiProvider] = useState<'gemini' | 'dialagram'>('dialagram');
-  const [vtopAiProvider, setVtopAiProvider] = useState<'gemini' | 'dialagram'>('dialagram');
+  // Stone/Laminate/Vtop AI provider — Gemini is now the default across all sections
+  // (Stone SQFT, Laminate, CMarble/Swanstone, and Vtop) per user request.
+  const [stoneAiProvider, setStoneAiProvider] = useState<'gemini' | 'dialagram'>('gemini');
+  const [vtopAiProvider, setVtopAiProvider] = useState<'gemini' | 'dialagram'>('gemini');
 
   // ── Stone SQFT state ──────────────────────────────────────────────────
   const [showStoneImport, setShowStoneImport] = useState(false);
