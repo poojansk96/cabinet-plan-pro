@@ -27,7 +27,7 @@ type CountertopPassResult = {
 
 const PRIMARY_MODELS: ModelAttempt[] = [
   { name: "gemini-3.1-flash-lite-preview", retries: 3 },
-  { name: "gemini-2.5-flash", retries: 2 },
+  { name: "gemini-3-flash-preview", retries: 2 },
 ];
 
 const VERIFY_MODELS: ModelAttempt[] = [
