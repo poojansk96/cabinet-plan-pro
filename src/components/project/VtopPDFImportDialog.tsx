@@ -46,6 +46,7 @@ export interface VtopImportRow extends PrefinalVtopRow {
   bbox?: { x: number; y: number; width: number; height: number };
   backSideOnPage?: 'top' | 'bottom' | 'left' | 'right';
   closerEndOnPage?: 'top' | 'bottom' | 'left' | 'right' | 'center';
+  endWallOnPage?: { left: boolean | null; right: boolean | null; top: boolean | null; bottom: boolean | null };
   leftWallConfidence?: number;
   rightWallConfidence?: number;
   sidesplashCount?: number;
