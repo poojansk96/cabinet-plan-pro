@@ -710,7 +710,10 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson,
                       const leftDet = analyzeEndCrop(canvas, canvasW, canvasH, vt.bbox, leftPS);
                       const rightDet = analyzeEndCrop(canvas, canvasW, canvasH, vt.bbox, rightPS);
 
-                      importRow = finalizeWallDecision(importRow, leftDet, rightDet, vanityCropB64);
+                      // Mapped page-side evidence is PRIMARY — never downgraded by detector.
+                      const mappedLeft = endMap ? endMap[leftPS] : undefined;
+                      const mappedRight = endMap ? endMap[rightPS] : undefined;
+                      importRow = finalizeWallDecision(importRow, leftDet, rightDet, vanityCropB64, mappedLeft, mappedRight);
 
                       if (importRow.reviewRequired && importRow.debugImages?.leftEndCrop && importRow.debugImages?.rightEndCrop) {
                         const focused = await focusedWallAICall(
@@ -719,8 +722,8 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson,
                           importRow.debugImages.rightEndCrop,
                         );
                         if (focused) {
-                          const leftFocused = scoreWallEvidence(leftDet.confidence, focused.leftWallYesConfidence, Boolean(importRow.leftWall));
-                          const rightFocused = scoreWallEvidence(rightDet.confidence, focused.rightWallYesConfidence, Boolean(importRow.rightWall));
+                          const leftFocused = scoreWallEvidence(leftDet.confidence, focused.leftWallYesConfidence, mappedLeft);
+                          const rightFocused = scoreWallEvidence(rightDet.confidence, focused.rightWallYesConfidence, mappedRight);
                           
                           importRow.leftWall = leftFocused.wall;
                           importRow.rightWall = rightFocused.wall;
