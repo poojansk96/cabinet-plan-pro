@@ -1003,8 +1003,10 @@ export default function PreFinalSummaryModule({ project }: Props) {
           }
         }
 
-        // Vtop header row with rotated type names
+        // Vtop header row with rotated type names — align to cabinet columns:
+        // col1 blank, col2 SKU (ITEM LIST), col3 MOD NOTE, col4+ types
         const vtopHeaderValues: (string | number)[] = [];
+        vtopHeaderValues.push(''); // col1 blank (matches cabinet layout)
         vtopHeaderValues.push('ITEM LIST');
         vtopHeaderValues.push('MODIFICATION NOTE');
         vtopTypes.forEach(t => vtopHeaderValues.push(t));
@@ -1012,11 +1014,12 @@ export default function PreFinalSummaryModule({ project }: Props) {
         const vtopHeader = wsCabs.addRow(vtopHeaderValues);
         vtopHeader.height = 120;
         vtopHeader.eachCell((cell, colNumber) => {
+          if (colNumber === colBlank0) return;
           cell.font = { bold: true };
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F0' } };
           cell.border = { bottom: { style: 'thin', color: { argb: 'FF999999' } } };
           cell.alignment = { vertical: 'bottom', wrapText: false };
-          if (colNumber >= 3 && colNumber <= 2 + nVtopTypes) {
+          if (colNumber >= colCabFirstType && colNumber <= colCabFirstType - 1 + nVtopTypes) {
             cell.alignment = { textRotation: 90, vertical: 'bottom', horizontal: 'center' };
           }
         });
@@ -1024,6 +1027,7 @@ export default function PreFinalSummaryModule({ project }: Props) {
         // Vtop SKU rows
         for (const [, info] of vtopSkuMap) {
           const rowValues: (string | number)[] = [];
+          rowValues.push(''); // col1 blank
           rowValues.push(info.label);
           rowValues.push(info.modNote);
           vtopTypes.forEach(t => {
@@ -1031,32 +1035,32 @@ export default function PreFinalSummaryModule({ project }: Props) {
             rowValues.push(qty > 0 ? qty : '');
           });
           const row = wsCabs.addRow(rowValues);
-          row.getCell(1).font = { size: 9 };
-          row.getCell(1).border = { left: { style: 'thin', color: { argb: 'FF4472C4' } }, bottom: { style: 'thin', color: { argb: 'FF4472C4' } } };
-          row.getCell(2).font = { size: 9 };
+          row.getCell(colSku).font = { size: 9 };
+          row.getCell(colSku).border = { left: { style: 'thin', color: { argb: 'FF4472C4' } }, bottom: { style: 'thin', color: { argb: 'FF4472C4' } } };
+          row.getCell(colModNote).font = { size: 9 };
           for (let i = 0; i < nVtopTypes; i++) {
-            row.getCell(3 + i).alignment = { horizontal: 'center' };
+            row.getCell(colCabFirstType + i).alignment = { horizontal: 'center' };
           }
         }
 
         // Left end sidesplash row
         const hasLeftSs = Object.values(leftSsByType).some(v => v > 0);
         if (hasLeftSs) {
-          const vals: (string | number)[] = [`${vtopDepth}"D Left end sidesplash`, ''];
+          const vals: (string | number)[] = ['', `${vtopDepth}"D Left end sidesplash`, ''];
           vtopTypes.forEach(t => { const q = leftSsByType[t] || 0; vals.push(q > 0 ? q : ''); });
           const row = wsCabs.addRow(vals);
-          row.getCell(1).font = { size: 9 };
-          for (let i = 0; i < nVtopTypes; i++) row.getCell(3 + i).alignment = { horizontal: 'center' };
+          row.getCell(colSku).font = { size: 9 };
+          for (let i = 0; i < nVtopTypes; i++) row.getCell(colCabFirstType + i).alignment = { horizontal: 'center' };
         }
 
         // Right end sidesplash row
         const hasRightSs = Object.values(rightSsByType).some(v => v > 0);
         if (hasRightSs) {
-          const vals: (string | number)[] = [`${vtopDepth}"D Right end sidesplash`, ''];
+          const vals: (string | number)[] = ['', `${vtopDepth}"D Right end sidesplash`, ''];
           vtopTypes.forEach(t => { const q = rightSsByType[t] || 0; vals.push(q > 0 ? q : ''); });
           const row = wsCabs.addRow(vals);
-          row.getCell(1).font = { size: 9 };
-          for (let i = 0; i < nVtopTypes; i++) row.getCell(3 + i).alignment = { horizontal: 'center' };
+          row.getCell(colSku).font = { size: 9 };
+          for (let i = 0; i < nVtopTypes; i++) row.getCell(colCabFirstType + i).alignment = { horizontal: 'center' };
         }
       }
     }
