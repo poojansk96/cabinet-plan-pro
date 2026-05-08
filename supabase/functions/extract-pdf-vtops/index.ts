@@ -9,6 +9,12 @@ const corsHeaders = {
 type VtopBbox = { x: number; y: number; width: number; height: number };
 type PageSide = "top" | "bottom" | "left" | "right";
 type CloserEndOnPage = PageSide | "center";
+type EndWallOnPage = {
+  left: boolean | null;
+  right: boolean | null;
+  top: boolean | null;
+  bottom: boolean | null;
+};
 
 type VtopRow = {
   length: number;
@@ -25,7 +31,26 @@ type VtopRow = {
   rightWallYesConfidence?: number;
   backSideOnPage?: PageSide;
   closerEndOnPage?: CloserEndOnPage;
+  endWallOnPage?: EndWallOnPage;
+  reviewRequired?: boolean;
+  reviewReason?: string;
 };
+
+function normalizeEndWallOnPage(value: unknown): EndWallOnPage | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const v = value as Record<string, unknown>;
+  const norm = (x: unknown): boolean | null => {
+    if (x === true || x === "true" || x === 1) return true;
+    if (x === false || x === "false" || x === 0) return false;
+    return null;
+  };
+  return {
+    left: norm(v.left),
+    right: norm(v.right),
+    top: norm(v.top),
+    bottom: norm(v.bottom),
+  };
+}
 
 type ParsedExtraction = {
   unitTypeName: string;
