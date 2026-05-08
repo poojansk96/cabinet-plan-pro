@@ -133,20 +133,54 @@ function normalizeVtop(vt: any): VtopRow {
   const aiLeft = Boolean(vt?.leftWall);
   const aiRight = Boolean(vt?.rightWall);
 
+  const endWallOnPage = normalizeEndWallOnPage(vt?.endWallOnPage);
+
+  // Resolve final person-perspective leftWall/rightWall.
+  // Prefer endWallOnPage[mappedPageSide] when both backSideOnPage and endWallOnPage are present.
+  let leftWall = aiLeft;
+  let rightWall = aiRight;
+  let reviewRequired = false;
+  let reviewReason: string | undefined;
+
+  if (backSideOnPage && endWallOnPage) {
+    const mapPersonToPage = (personEnd: "left" | "right"): PageSide => {
+      if (backSideOnPage === "top") return personEnd === "left" ? "left" : "right";
+      if (backSideOnPage === "bottom") return personEnd === "left" ? "right" : "left";
+      if (backSideOnPage === "left") return personEnd === "left" ? "bottom" : "top";
+      return personEnd === "left" ? "top" : "bottom"; // right
+    };
+    const leftSide = mapPersonToPage("left");
+    const rightSide = mapPersonToPage("right");
+    const lv = endWallOnPage[leftSide];
+    const rv = endWallOnPage[rightSide];
+    if (lv === null || rv === null) {
+      reviewRequired = true;
+      reviewReason = "AI did not return wall evidence for both length-axis ends.";
+    }
+    leftWall = lv === true;
+    rightWall = rv === true;
+  } else if (!backSideOnPage) {
+    reviewRequired = true;
+    reviewReason = "backSideOnPage missing — cannot map page sides to person perspective.";
+  }
+
   const row: VtopRow = {
     length,
     depth,
     bowlPosition,
     bowlOffset,
     hasSink,
-    leftWall: aiLeft,
-    rightWall: aiRight,
+    leftWall,
+    rightWall,
     aiLeftWallHint: aiLeft,
     aiRightWallHint: aiRight,
     leftWallYesConfidence: Math.max(0, Math.min(1, Number(vt?.leftWallYesConfidence) || 0.5)),
     rightWallYesConfidence: Math.max(0, Math.min(1, Number(vt?.rightWallYesConfidence) || 0.5)),
     backSideOnPage,
     closerEndOnPage,
+    endWallOnPage,
+    reviewRequired: reviewRequired || undefined,
+    reviewReason,
   };
 
   if (vt?.bbox && typeof vt.bbox === "object") {
