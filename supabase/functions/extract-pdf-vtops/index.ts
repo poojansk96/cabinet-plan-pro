@@ -157,8 +157,11 @@ function normalizeVtop(vt: any): VtopRow {
       reviewRequired = true;
       reviewReason = "AI did not return wall evidence for both length-axis ends.";
     }
-    leftWall = lv === true;
-    rightWall = rv === true;
+    // Preserve unknown (null) — fall back to AI direct hint instead of coercing to false.
+    // "Both end finish" means both leftWall AND rightWall are explicitly false; do not
+    // manufacture a finish-end from missing evidence.
+    leftWall = lv === true ? true : (lv === false ? false : aiLeft);
+    rightWall = rv === true ? true : (rv === false ? false : aiRight);
   } else if (!backSideOnPage) {
     reviewRequired = true;
     reviewReason = "backSideOnPage missing — cannot map page sides to person perspective.";
