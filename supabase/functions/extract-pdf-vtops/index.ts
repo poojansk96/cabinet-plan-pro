@@ -790,14 +790,15 @@ For each vanity top return:
 - closerEndOnPage: page side containing the shorter bowl-center dimension along the LENGTH axis: "top" | "bottom" | "left" | "right" | "center"
 - bowlPosition: "offset-left" | "offset-right" | "center"
 - bowlOffset: number or null
-- leftWall/rightWall use the perspective of a person standing in FRONT of the vanity, facing the backsplash. If backSideOnPage="left", person LEFT is page BOTTOM and person RIGHT is page TOP. If backSideOnPage="right", person LEFT is page TOP and person RIGHT is page BOTTOM.
-- leftWall: true ONLY if the person's LEFT end clearly shows a double parallel line / wall return / sidesplash. false if it shows a single line (finish end). Judge independently.
-- rightWall: true ONLY if the person's RIGHT end clearly shows a double parallel line / wall return / sidesplash. false if it shows a single line (finish end). Judge independently. It is common for ONE end to be walled and the other to be a finish end — do NOT assume both match.
+- endWallOnPage: object {"left": bool|null, "right": bool|null, "top": bool|null, "bottom": bool|null}. For each PAGE SIDE that is a length-axis END of THIS vanity, set true (double parallel line / sidesplash) or false (single line / finish end). The two PAGE SIDES that correspond to the back (backsplash) and front of the vanity must be null. PROCESS EACH VANITY INDEPENDENTLY — two vanities on one page may have different orientations.
+- leftWall/rightWall (person perspective, kept for compat): If backSideOnPage="top", person LEFT=page LEFT, RIGHT=page RIGHT. If "bottom", MIRRORED (person LEFT=page RIGHT). If "left", person LEFT=page BOTTOM, RIGHT=page TOP. If "right", person LEFT=page TOP, RIGHT=page BOTTOM.
+- leftWall: true ONLY if the person's LEFT end clearly shows a double parallel line / wall return / sidesplash. false if a single line (finish end). Judge independently.
+- rightWall: true ONLY if the person's RIGHT end clearly shows a double parallel line / wall return / sidesplash. false if a single line (finish end). Judge independently. It is common for ONE end to be walled and the other to be a finish end — do NOT assume both match.
 
 Also extract unitTypeName from the title block — use the room/unit label (e.g. "POWDER ROOM", "UNISEX BATH", "1BR-1 (ADA) - AS", "2BR (ADA)"). If the page only shows kitchen/corridor/work-station/community counters with no oval-bowl vanity, return {"unitTypeName":"","vtops":[]}.
 
 Return ONLY valid JSON:
-{"unitTypeName":"1BR-1 (ADA) - AS","vtops":[{"length":44.5,"depth":22,"hasSink":true,"backSideOnPage":"left","closerEndOnPage":"bottom","bowlPosition":"offset-left","bowlOffset":16,"leftWall":false,"rightWall":true}]} `;
+{"unitTypeName":"1BR-1 (ADA) - AS","vtops":[{"length":44.5,"depth":22,"hasSink":true,"backSideOnPage":"left","closerEndOnPage":"bottom","bowlPosition":"offset-left","bowlOffset":16,"endWallOnPage":{"top":true,"bottom":false,"left":null,"right":null},"leftWall":false,"rightWall":true}]} `;
 
     const fullPrompt = provider === "dialagram" ? qwenPrompt : geminiPrompt;
 
