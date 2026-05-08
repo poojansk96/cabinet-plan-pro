@@ -394,17 +394,19 @@ function finalizeWallDecision(
   leftDet: { confidence: number; cropBase64: string },
   rightDet: { confidence: number; cropBase64: string },
   vanityCropBase64: string,
+  mappedLeft: boolean | null | undefined,
+  mappedRight: boolean | null | undefined,
 ): VtopImportRow {
   const aiLeftProb = row.leftWallConfidence ?? 0.5;
   const aiRightProb = row.rightWallConfidence ?? 0.5;
 
-  const left = scoreWallEvidence(leftDet.confidence, aiLeftProb, Boolean(row.leftWall));
-  const right = scoreWallEvidence(rightDet.confidence, aiRightProb, Boolean(row.rightWall));
+  const left = scoreWallEvidence(leftDet.confidence, aiLeftProb, mappedLeft);
+  const right = scoreWallEvidence(rightDet.confidence, aiRightProb, mappedRight);
 
   const reviewRequired = left.reviewRequired || right.reviewRequired;
   const reasons: string[] = [];
-  if (left.reviewRequired) reasons.push(`Left wall uncertain (det:${(leftDet.confidence * 100).toFixed(0)}%, ai:${(aiLeftProb * 100).toFixed(0)}%)`);
-  if (right.reviewRequired) reasons.push(`Right wall uncertain (det:${(rightDet.confidence * 100).toFixed(0)}%, ai:${(aiRightProb * 100).toFixed(0)}%)`);
+  if (left.reviewRequired) reasons.push(`Left wall uncertain (det:${(leftDet.confidence * 100).toFixed(0)}%, ai:${(aiLeftProb * 100).toFixed(0)}%, mapped:${String(mappedLeft)})`);
+  if (right.reviewRequired) reasons.push(`Right wall uncertain (det:${(rightDet.confidence * 100).toFixed(0)}%, ai:${(aiRightProb * 100).toFixed(0)}%, mapped:${String(mappedRight)})`);
 
   return {
     ...row,
