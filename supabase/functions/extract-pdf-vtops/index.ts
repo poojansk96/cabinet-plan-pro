@@ -717,11 +717,17 @@ TASK:
       - "offset-right" if bowl is closer to the person's RIGHT end
       - "center" if bowl is centered along the length axis
    f. **bowlOffset** — if offset, measure the distance in inches from the CLOSER end to the center of the bowl. If center, set to null.
-   g. **leftWall** and **rightWall** — CRITICAL: Detect whether each end of the vanity top has a wall, using the SAME "person standing in front" perspective.
+   g. **endWallOnPage** — CRITICAL NEW FIELD. Report wall evidence using PAGE SIDES, NOT person perspective. This is an object: {"left": bool|null, "right": bool|null, "top": bool|null, "bottom": bool|null}.
+      - For each PAGE SIDE that is a LENGTH-AXIS END of THIS specific vanity, set true if you see a double parallel line / sidesplash / wall return at that page side, false if you see a single line / finish end at that page side.
+      - For the two page sides that are the BACK (backsplash) and FRONT of the vanity, set null (those are not end-walls).
+      - Example: a HORIZONTAL vanity with backSideOnPage="top" → length-axis ends are PAGE LEFT and PAGE RIGHT → fill {"left": bool, "right": bool, "top": null, "bottom": null}.
+      - Example: a VERTICAL vanity with backSideOnPage="left" → length-axis ends are PAGE TOP and PAGE BOTTOM → fill {"top": bool, "bottom": bool, "left": null, "right": null}.
+      - PROCESS EACH VANITY ON THE PAGE INDEPENDENTLY. Two vanities on the same page may have different backSideOnPage values and therefore different length-axis ends. Do NOT use one orientation for all vanities.
+   h. **leftWall** and **rightWall** — also still return these from the person's perspective (kept for backward compatibility), but endWallOnPage is the SOURCE OF TRUTH.
       leftWall = wall on the person's LEFT end. rightWall = wall on the person's RIGHT end.
 
-RULES FOR WALL DETECTION (leftWall / rightWall):
-- Use the SAME "person standing in front" perspective as bowlPosition.
+RULES FOR WALL DETECTION (endWallOnPage / leftWall / rightWall):
+- Use the SAME "person standing in front" perspective as bowlPosition for leftWall/rightWall.
 - Look at EACH END of the vanity top along its LENGTH axis — judge each end INDEPENDENTLY.
 - WALL (true) — set true ONLY when you can clearly see at that end:
   * DOUBLE PARALLEL LINES at the end edge (two lines close together = sidesplash / wall return)
