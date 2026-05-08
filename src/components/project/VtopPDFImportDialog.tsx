@@ -299,45 +299,84 @@ function analyzeEndCrop(
   bbox: { x: number; y: number; width: number; height: number },
   side: PageSide,
 ): { confidence: number; cropBase64: string } {
-  // Crop a narrow strip at the specified end of the vanity bbox
-  // Use 10% of vanity width, staying inside the bbox (not outside)
+  // Crop a narrow strip at the specified end of the vanity bbox.
+  // Sidesplash / double-side lines often sit ON or just OUTSIDE the AI bbox edge,
+  // so extend the crop slightly outward (~6%) of the vanity dimension as well.
   const isVerticalEdge = side === 'left' || side === 'right';
   const endWidthFrac = Math.max(0.05, bbox.width * 0.22);
   const endHeightFrac = Math.max(0.05, bbox.height * 0.22);
-  const endBbox = {
-    x: isVerticalEdge ? (side === 'left' ? bbox.x : bbox.x + bbox.width - endWidthFrac) : bbox.x,
-    y: isVerticalEdge ? bbox.y : (side === 'top' ? bbox.y : bbox.y + bbox.height - endHeightFrac),
-    width: isVerticalEdge ? endWidthFrac : bbox.width,
-    height: isVerticalEdge ? bbox.height : endHeightFrac,
-  };
+  const outsideXPad = bbox.width * 0.06;
+  const outsideYPad = bbox.height * 0.06;
 
+  let ex: number, ey: number, ew: number, eh: number;
+  if (isVerticalEdge) {
+    eh = bbox.height;
+    ey = bbox.y;
+    if (side === 'left') {
+      ex = Math.max(0, bbox.x - outsideXPad);
+      ew = (bbox.x - ex) + endWidthFrac;
+    } else {
+      ex = bbox.x + bbox.width - endWidthFrac;
+      ew = endWidthFrac + outsideXPad;
+    }
+  } else {
+    ew = bbox.width;
+    ex = bbox.x;
+    if (side === 'top') {
+      ey = Math.max(0, bbox.y - outsideYPad);
+      eh = (bbox.y - ey) + endHeightFrac;
+    } else {
+      ey = bbox.y + bbox.height - endHeightFrac;
+      eh = endHeightFrac + outsideYPad;
+    }
+  }
+  // Final clamp so we never sample outside the canvas.
+  if (ex + ew > 1) ew = 1 - ex;
+  if (ey + eh > 1) eh = 1 - ey;
+
+  const endBbox = { x: ex, y: ey, width: ew, height: eh };
   const { imageData, base64 } = cropNormalizedRegion(canvas, canvasW, canvasH, endBbox);
   const confidence = detectDoubleLineAtEdge(imageData, side);
   return { confidence, cropBase64: base64 };
 }
 
 /**
- * Dead-zone scoring: deterministic first, then AI, then uncertain.
- * Biased toward wall=true because false negatives (missing sidesplash)
- * are more costly than false positives in practice.
+ * Wall scoring with mapped endWallOnPage as PRIMARY evidence.
+ *
+ * Priority:
+ *   1. mapped (AI page-side endWallOnPage mapped to person perspective) — never downgraded.
+ *      If detector disagrees, KEEP the mapped result and flag reviewRequired.
+ *   2. Deterministic edge detector — strong signal only.
+ *   3. AI direct leftWall/rightWall confidence — fallback.
+ *   4. Otherwise → uncertain, mark for review.
+ *
+ * Rule: "Both end finish" requires BOTH ends to be explicitly false. Unknown evidence
+ * must NOT collapse into a finish end.
  */
-function scoreWallEvidence(
+export function scoreWallEvidence(
   det: number,
   ai: number,
-  aiHint: boolean,
+  mapped: boolean | null | undefined,
 ): { wall: boolean; confidence: number; reviewRequired: boolean } {
-  // Strong deterministic (double-line detector at the edge crop) → trust it
+  // 1. Mapped page-side evidence is authoritative.
+  if (mapped === true) {
+    const detAgrees = det >= 0.5;
+    return { wall: true, confidence: detAgrees ? Math.max(det, 0.85) : 0.7, reviewRequired: !detAgrees };
+  }
+  if (mapped === false) {
+    const detAgrees = det <= 0.5;
+    return { wall: false, confidence: detAgrees ? Math.max(1 - det, 0.85) : 0.7, reviewRequired: !detAgrees };
+  }
+
+  // 2. No mapped evidence — strong deterministic detector.
   if (det >= 0.75) return { wall: true, confidence: det, reviewRequired: false };
   if (det <= 0.25) return { wall: false, confidence: 1 - det, reviewRequired: false };
 
-  // Otherwise judge each end independently from AI probability — NO default bias.
-  // A "wall" requires positive evidence (double parallel lines). A single line at
-  // the edge means a finish end and must NOT be turned into a sidesplash.
+  // 3. AI direct probability fallback.
   if (ai >= 0.7) return { wall: true, confidence: ai, reviewRequired: true };
   if (ai <= 0.3) return { wall: false, confidence: 1 - ai, reviewRequired: true };
 
-  // Dead zone: combine deterministic + AI signal (no thumb on the scale).
-  // Use the stronger of the two evidence directions.
+  // 4. Dead zone — combine, mark uncertain.
   const combined = (det + ai) / 2;
   return {
     wall: combined >= 0.5,
