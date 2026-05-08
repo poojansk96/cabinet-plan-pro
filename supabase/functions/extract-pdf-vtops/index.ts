@@ -759,7 +759,7 @@ IMPORTANT:
 - The bbox coordinates MUST be normalized 0..1 relative to the full page.
 
 Return ONLY valid JSON — no markdown fences, no explanation:
-{"unitTypeName":"TYPE 1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"backSideOnPage":"left","closerEndOnPage":"bottom","bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true,"leftWallYesConfidence":0.9,"rightWallYesConfidence":0.85,"bbox":{"x":0.05,"y":0.3,"width":0.35,"height":0.2}}]}`;
+{"unitTypeName":"TYPE 1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"backSideOnPage":"left","closerEndOnPage":"bottom","bowlPosition":"offset-left","bowlOffset":17.75,"endWallOnPage":{"top":true,"bottom":false,"left":null,"right":null},"leftWall":false,"rightWall":true,"leftWallYesConfidence":0.85,"rightWallYesConfidence":0.9,"bbox":{"x":0.05,"y":0.3,"width":0.35,"height":0.2}}]}`;
 
     // QWEN PROMPT: short, direct, but STRICTLY vanity-only.
     // We still keep it concise for Qwen stability, but do not allow kitchen/community/mail counters.
