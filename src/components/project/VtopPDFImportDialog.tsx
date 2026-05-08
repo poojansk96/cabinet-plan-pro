@@ -46,6 +46,7 @@ export interface VtopImportRow extends PrefinalVtopRow {
   bbox?: { x: number; y: number; width: number; height: number };
   backSideOnPage?: 'top' | 'bottom' | 'left' | 'right';
   closerEndOnPage?: 'top' | 'bottom' | 'left' | 'right' | 'center';
+  endWallOnPage?: { left: boolean | null; right: boolean | null; top: boolean | null; bottom: boolean | null };
   leftWallConfidence?: number;
   rightWallConfidence?: number;
   sidesplashCount?: number;
@@ -610,38 +611,63 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson,
                 }
 
                 for (const vt of (data.vtops ?? [])) {
+                  // Resolve AI per-page-side wall evidence from endWallOnPage,
+                  // mapped through the per-vanity backSideOnPage to person perspective.
+                  // Each vanity is processed independently — never share orientation across vtops.
+                  const endMap = vt.endWallOnPage as { left?: boolean|null; right?: boolean|null; top?: boolean|null; bottom?: boolean|null } | undefined;
+                  const back = vt.backSideOnPage as PageSide | undefined;
+
+                  const personSidePageSide = (personEnd: 'left' | 'right'): PageSide | undefined =>
+                    back ? pageSideForPersonEnd(back, personEnd) : undefined;
+
+                  const aiBoolToConfidence = (v: boolean | null | undefined): number | undefined => {
+                    if (v === true) return 0.9;
+                    if (v === false) return 0.1;
+                    return undefined;
+                  };
+
+                  const leftPageSide = personSidePageSide('left');
+                  const rightPageSide = personSidePageSide('right');
+                  const aiLeftConfFromMap = leftPageSide && endMap ? aiBoolToConfidence(endMap[leftPageSide]) : undefined;
+                  const aiRightConfFromMap = rightPageSide && endMap ? aiBoolToConfidence(endMap[rightPageSide]) : undefined;
+
+                  // If backSideOnPage missing, mark reviewRequired and DO NOT trust AI leftWall/rightWall.
+                  const backMissing = !back;
+
                   let importRow: VtopImportRow = {
                     length: vt.length,
                     depth: vt.depth,
                     bowlPosition: vt.bowlPosition,
                     bowlOffset: vt.bowlOffset,
-                    leftWall: vt.leftWall,
-                    rightWall: vt.rightWall,
+                    leftWall: backMissing ? false : Boolean(aiLeftConfFromMap != null ? aiLeftConfFromMap >= 0.5 : vt.leftWall),
+                    rightWall: backMissing ? false : Boolean(aiRightConfFromMap != null ? aiRightConfFromMap >= 0.5 : vt.rightWall),
                     unitType: pageUnitType || 'Unassigned',
                     selected: true,
                     sourceFile: file.name,
                     bbox: vt.bbox,
-                    backSideOnPage: vt.backSideOnPage,
+                    backSideOnPage: back,
                     closerEndOnPage: vt.closerEndOnPage,
-                    leftWallConfidence: vt.leftWallYesConfidence ?? vt.leftWallConfidence ?? 0.5,
-                    rightWallConfidence: vt.rightWallYesConfidence ?? vt.rightWallConfidence ?? 0.5,
+                    endWallOnPage: endMap as VtopImportRow['endWallOnPage'],
+                    // Prefer per-page-side mapped confidence; fall back to old fields.
+                    leftWallConfidence: aiLeftConfFromMap ?? vt.leftWallYesConfidence ?? vt.leftWallConfidence ?? 0.5,
+                    rightWallConfidence: aiRightConfFromMap ?? vt.rightWallYesConfidence ?? vt.rightWallConfidence ?? 0.5,
                     sidesplashCount: vt.sidesplashCount,
-                    reviewRequired: vt.reviewRequired,
-                    reviewReason: vt.reviewReason,
+                    reviewRequired: backMissing ? true : vt.reviewRequired,
+                    reviewReason: backMissing
+                      ? 'backSideOnPage missing — cannot determine person-perspective walls. Please review.'
+                      : vt.reviewReason,
                   };
 
-                  // Keep extractor orientation as-is; mirror types should not be flipped client-side.
-
                   // ── Deterministic wall detection using bbox crops ──
-                  if (vt.bbox && vt.bbox.width > 0.01 && vt.bbox.height > 0.01) {
+                  if (!backMissing && vt.bbox && vt.bbox.width > 0.01 && vt.bbox.height > 0.01) {
                     try {
                       const { base64: vanityCropB64 } = cropNormalizedRegion(
                         canvas, canvasW, canvasH, vt.bbox,
                       );
-                      const leftPageSide = pageSideForPersonEnd(importRow.backSideOnPage, 'left');
-                      const rightPageSide = pageSideForPersonEnd(importRow.backSideOnPage, 'right');
-                      const leftDet = analyzeEndCrop(canvas, canvasW, canvasH, vt.bbox, leftPageSide);
-                      const rightDet = analyzeEndCrop(canvas, canvasW, canvasH, vt.bbox, rightPageSide);
+                      const leftPS = leftPageSide!;
+                      const rightPS = rightPageSide!;
+                      const leftDet = analyzeEndCrop(canvas, canvasW, canvasH, vt.bbox, leftPS);
+                      const rightDet = analyzeEndCrop(canvas, canvasW, canvasH, vt.bbox, rightPS);
 
                       importRow = finalizeWallDecision(importRow, leftDet, rightDet, vanityCropB64);
 
@@ -672,7 +698,7 @@ export default function VtopPDFImportDialog({ onImport, onClose, prefinalPerson,
                       importRow.reviewRequired = true;
                       importRow.reviewReason = (importRow.reviewReason || '') + ' Deterministic detection failed.';
                     }
-                  } else {
+                  } else if (!backMissing) {
                     importRow.reviewRequired = true;
                     importRow.reviewReason = 'No bounding box — wall detection is AI-only.';
                   }

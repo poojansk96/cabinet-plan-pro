@@ -9,6 +9,12 @@ const corsHeaders = {
 type VtopBbox = { x: number; y: number; width: number; height: number };
 type PageSide = "top" | "bottom" | "left" | "right";
 type CloserEndOnPage = PageSide | "center";
+type EndWallOnPage = {
+  left: boolean | null;
+  right: boolean | null;
+  top: boolean | null;
+  bottom: boolean | null;
+};
 
 type VtopRow = {
   length: number;
@@ -25,7 +31,26 @@ type VtopRow = {
   rightWallYesConfidence?: number;
   backSideOnPage?: PageSide;
   closerEndOnPage?: CloserEndOnPage;
+  endWallOnPage?: EndWallOnPage;
+  reviewRequired?: boolean;
+  reviewReason?: string;
 };
+
+function normalizeEndWallOnPage(value: unknown): EndWallOnPage | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const v = value as Record<string, unknown>;
+  const norm = (x: unknown): boolean | null => {
+    if (x === true || x === "true" || x === 1) return true;
+    if (x === false || x === "false" || x === 0) return false;
+    return null;
+  };
+  return {
+    left: norm(v.left),
+    right: norm(v.right),
+    top: norm(v.top),
+    bottom: norm(v.bottom),
+  };
+}
 
 type ParsedExtraction = {
   unitTypeName: string;
@@ -108,20 +133,54 @@ function normalizeVtop(vt: any): VtopRow {
   const aiLeft = Boolean(vt?.leftWall);
   const aiRight = Boolean(vt?.rightWall);
 
+  const endWallOnPage = normalizeEndWallOnPage(vt?.endWallOnPage);
+
+  // Resolve final person-perspective leftWall/rightWall.
+  // Prefer endWallOnPage[mappedPageSide] when both backSideOnPage and endWallOnPage are present.
+  let leftWall = aiLeft;
+  let rightWall = aiRight;
+  let reviewRequired = false;
+  let reviewReason: string | undefined;
+
+  if (backSideOnPage && endWallOnPage) {
+    const mapPersonToPage = (personEnd: "left" | "right"): PageSide => {
+      if (backSideOnPage === "top") return personEnd === "left" ? "left" : "right";
+      if (backSideOnPage === "bottom") return personEnd === "left" ? "right" : "left";
+      if (backSideOnPage === "left") return personEnd === "left" ? "bottom" : "top";
+      return personEnd === "left" ? "top" : "bottom"; // right
+    };
+    const leftSide = mapPersonToPage("left");
+    const rightSide = mapPersonToPage("right");
+    const lv = endWallOnPage[leftSide];
+    const rv = endWallOnPage[rightSide];
+    if (lv === null || rv === null) {
+      reviewRequired = true;
+      reviewReason = "AI did not return wall evidence for both length-axis ends.";
+    }
+    leftWall = lv === true;
+    rightWall = rv === true;
+  } else if (!backSideOnPage) {
+    reviewRequired = true;
+    reviewReason = "backSideOnPage missing — cannot map page sides to person perspective.";
+  }
+
   const row: VtopRow = {
     length,
     depth,
     bowlPosition,
     bowlOffset,
     hasSink,
-    leftWall: aiLeft,
-    rightWall: aiRight,
+    leftWall,
+    rightWall,
     aiLeftWallHint: aiLeft,
     aiRightWallHint: aiRight,
     leftWallYesConfidence: Math.max(0, Math.min(1, Number(vt?.leftWallYesConfidence) || 0.5)),
     rightWallYesConfidence: Math.max(0, Math.min(1, Number(vt?.rightWallYesConfidence) || 0.5)),
     backSideOnPage,
     closerEndOnPage,
+    endWallOnPage,
+    reviewRequired: reviewRequired || undefined,
+    reviewReason,
   };
 
   if (vt?.bbox && typeof vt.bbox === "object") {
@@ -658,11 +717,17 @@ TASK:
       - "offset-right" if bowl is closer to the person's RIGHT end
       - "center" if bowl is centered along the length axis
    f. **bowlOffset** — if offset, measure the distance in inches from the CLOSER end to the center of the bowl. If center, set to null.
-   g. **leftWall** and **rightWall** — CRITICAL: Detect whether each end of the vanity top has a wall, using the SAME "person standing in front" perspective.
+   g. **endWallOnPage** — CRITICAL NEW FIELD. Report wall evidence using PAGE SIDES, NOT person perspective. This is an object: {"left": bool|null, "right": bool|null, "top": bool|null, "bottom": bool|null}.
+      - For each PAGE SIDE that is a LENGTH-AXIS END of THIS specific vanity, set true if you see a double parallel line / sidesplash / wall return at that page side, false if you see a single line / finish end at that page side.
+      - For the two page sides that are the BACK (backsplash) and FRONT of the vanity, set null (those are not end-walls).
+      - Example: a HORIZONTAL vanity with backSideOnPage="top" → length-axis ends are PAGE LEFT and PAGE RIGHT → fill {"left": bool, "right": bool, "top": null, "bottom": null}.
+      - Example: a VERTICAL vanity with backSideOnPage="left" → length-axis ends are PAGE TOP and PAGE BOTTOM → fill {"top": bool, "bottom": bool, "left": null, "right": null}.
+      - PROCESS EACH VANITY ON THE PAGE INDEPENDENTLY. Two vanities on the same page may have different backSideOnPage values and therefore different length-axis ends. Do NOT use one orientation for all vanities.
+   h. **leftWall** and **rightWall** — also still return these from the person's perspective (kept for backward compatibility), but endWallOnPage is the SOURCE OF TRUTH.
       leftWall = wall on the person's LEFT end. rightWall = wall on the person's RIGHT end.
 
-RULES FOR WALL DETECTION (leftWall / rightWall):
-- Use the SAME "person standing in front" perspective as bowlPosition.
+RULES FOR WALL DETECTION (endWallOnPage / leftWall / rightWall):
+- Use the SAME "person standing in front" perspective as bowlPosition for leftWall/rightWall.
 - Look at EACH END of the vanity top along its LENGTH axis — judge each end INDEPENDENTLY.
 - WALL (true) — set true ONLY when you can clearly see at that end:
   * DOUBLE PARALLEL LINES at the end edge (two lines close together = sidesplash / wall return)
@@ -694,7 +759,7 @@ IMPORTANT:
 - The bbox coordinates MUST be normalized 0..1 relative to the full page.
 
 Return ONLY valid JSON — no markdown fences, no explanation:
-{"unitTypeName":"TYPE 1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"backSideOnPage":"left","closerEndOnPage":"bottom","bowlPosition":"offset-left","bowlOffset":17.75,"leftWall":true,"rightWall":true,"leftWallYesConfidence":0.9,"rightWallYesConfidence":0.85,"bbox":{"x":0.05,"y":0.3,"width":0.35,"height":0.2}}]}`;
+{"unitTypeName":"TYPE 1.1A (ADA)","vtops":[{"length":47.5,"depth":22,"backSideOnPage":"left","closerEndOnPage":"bottom","bowlPosition":"offset-left","bowlOffset":17.75,"endWallOnPage":{"top":true,"bottom":false,"left":null,"right":null},"leftWall":false,"rightWall":true,"leftWallYesConfidence":0.85,"rightWallYesConfidence":0.9,"bbox":{"x":0.05,"y":0.3,"width":0.35,"height":0.2}}]}`;
 
     // QWEN PROMPT: short, direct, but STRICTLY vanity-only.
     // We still keep it concise for Qwen stability, but do not allow kitchen/community/mail counters.
@@ -725,14 +790,15 @@ For each vanity top return:
 - closerEndOnPage: page side containing the shorter bowl-center dimension along the LENGTH axis: "top" | "bottom" | "left" | "right" | "center"
 - bowlPosition: "offset-left" | "offset-right" | "center"
 - bowlOffset: number or null
-- leftWall/rightWall use the perspective of a person standing in FRONT of the vanity, facing the backsplash. If backSideOnPage="left", person LEFT is page BOTTOM and person RIGHT is page TOP. If backSideOnPage="right", person LEFT is page TOP and person RIGHT is page BOTTOM.
-- leftWall: true ONLY if the person's LEFT end clearly shows a double parallel line / wall return / sidesplash. false if it shows a single line (finish end). Judge independently.
-- rightWall: true ONLY if the person's RIGHT end clearly shows a double parallel line / wall return / sidesplash. false if it shows a single line (finish end). Judge independently. It is common for ONE end to be walled and the other to be a finish end — do NOT assume both match.
+- endWallOnPage: object {"left": bool|null, "right": bool|null, "top": bool|null, "bottom": bool|null}. For each PAGE SIDE that is a length-axis END of THIS vanity, set true (double parallel line / sidesplash) or false (single line / finish end). The two PAGE SIDES that correspond to the back (backsplash) and front of the vanity must be null. PROCESS EACH VANITY INDEPENDENTLY — two vanities on one page may have different orientations.
+- leftWall/rightWall (person perspective, kept for compat): If backSideOnPage="top", person LEFT=page LEFT, RIGHT=page RIGHT. If "bottom", MIRRORED (person LEFT=page RIGHT). If "left", person LEFT=page BOTTOM, RIGHT=page TOP. If "right", person LEFT=page TOP, RIGHT=page BOTTOM.
+- leftWall: true ONLY if the person's LEFT end clearly shows a double parallel line / wall return / sidesplash. false if a single line (finish end). Judge independently.
+- rightWall: true ONLY if the person's RIGHT end clearly shows a double parallel line / wall return / sidesplash. false if a single line (finish end). Judge independently. It is common for ONE end to be walled and the other to be a finish end — do NOT assume both match.
 
 Also extract unitTypeName from the title block — use the room/unit label (e.g. "POWDER ROOM", "UNISEX BATH", "1BR-1 (ADA) - AS", "2BR (ADA)"). If the page only shows kitchen/corridor/work-station/community counters with no oval-bowl vanity, return {"unitTypeName":"","vtops":[]}.
 
 Return ONLY valid JSON:
-{"unitTypeName":"1BR-1 (ADA) - AS","vtops":[{"length":44.5,"depth":22,"hasSink":true,"backSideOnPage":"left","closerEndOnPage":"bottom","bowlPosition":"offset-left","bowlOffset":16,"leftWall":false,"rightWall":true}]} `;
+{"unitTypeName":"1BR-1 (ADA) - AS","vtops":[{"length":44.5,"depth":22,"hasSink":true,"backSideOnPage":"left","closerEndOnPage":"bottom","bowlPosition":"offset-left","bowlOffset":16,"endWallOnPage":{"top":true,"bottom":false,"left":null,"right":null},"leftWall":false,"rightWall":true}]} `;
 
     const fullPrompt = provider === "dialagram" ? qwenPrompt : geminiPrompt;
 
