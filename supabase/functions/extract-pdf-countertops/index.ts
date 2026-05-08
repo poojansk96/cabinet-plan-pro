@@ -337,7 +337,7 @@ For each countertop section return:
 - label (short descriptive name based on the drawing — e.g. "Top Run", "Return", "Vanity", "Bar")
 - roomName (e.g. "KITCHEN", "MASTER BATH", "POWDER") — "" if you cannot tell
 - length (inches, decimal — read from the drawing)
-- depth (inches, decimal — read from the drawing; do NOT assume 25.5. If a run has an explicit 30"-48" depth label, use that printed depth even if another nearby/inset line says 25 1/2")
+- depth (inches, decimal — read from the drawing; do NOT assume 25.5)
 - backsplashLength (inches against the wall; 0 for islands/peninsulas)
 - isIsland (true/false)
 - category ("kitchen" or "bath") — depth <=22 OR vanity/bath/lav/powder => "bath", else "kitchen"
@@ -362,7 +362,7 @@ TASK:
 
 a. **label** — a short descriptive name based on its location (e.g. "Perimeter Left", "Perimeter Right", "Island", "Peninsula", "Bar Top", "Vanity", "L-Section", "U-Section"). If the drawing has text labels, use those.
 b. **length** — total linear length in inches. Read dimension labels first. If no label, estimate from the drawing.
-c. **depth** — depth in inches. Read from dimension labels first; do NOT force kitchen sections to 25.5". Standard perimeter can be 25.5", but returns/peninsulas/wide tops can be 30"-48" deep even when connected to a wall. If a section has an explicit 36" total depth, return depth=36 — do not replace it with a nearby 25 1/2" inset/standard-depth line.
+c. **depth** — depth in inches. Read from dimension labels. Standard kitchen countertop depth is 25.5". Vanity/bath tops are typically 22" or 19" deep. Islands are often 36-42".
 d. **backsplashLength** — the linear inches of WALL backsplash ONLY. This is CRITICAL — read carefully:
    - For EVERY countertop section that is against a wall, backsplash runs along the FULL wall edge.
    - KEY RULE: If a countertop section is against a wall (not an island), the backsplash length should generally EQUAL or be very close to the countertop LENGTH, because backsplash runs the entire length of the countertop along the wall.
@@ -389,7 +389,7 @@ RULES:
 - Do NOT include appliance surfaces (range top, sink cutout dimensions) as separate sections — they are part of the countertop run
 - If the page has no countertop information, return {"unitTypeName":"","countertops":[]}
 - Round all dimensions to nearest 0.5 inch
-- Common depths only when truly unlabeled: perimeter often 25.5", island/peninsula/wide top often 30"-48", bar 12"-18", vanity 19"-22". NEVER let the common 25.5" perimeter depth override a printed 30"-48" depth label for that same section.
+- Standard depths: perimeter = 25.5", island = 36", bar = 12-18", vanity = 22"
 - The unitTypeName field is REQUIRED — always look for it in the title block
 - IMPORTANT: Scan the ENTIRE page thoroughly. Do not skip any countertop sections, especially smaller segments or sections in corners of the drawing.
 
@@ -408,8 +408,6 @@ function buildDialagramRescuePrompt(previousContent: string, printedDims: number
   return `Re-check the SAME countertop shop drawing. Previous pass returned: ${previous}${dimsBlock}
 
 READ DIMENSIONS LITERALLY FROM THE IMAGE. Do not invent values. Numbers in this drawing look like 76 1/2", 25 1/4", 39 3/4", etc. Convert fractions to decimals.
-
-Depth must come from the section's own printed total depth. Do NOT change a printed 36" deep run to 25.5" just because a connected perimeter leg is 25 1/2" deep.
 
 Find every countertop section. For each return: label, roomName (or ""), length, depth, backsplashLength, isIsland, category, and dimensionEvidence (array of dimension strings actually visible on the page).
 
@@ -438,7 +436,7 @@ Return ONLY valid JSON, no markdown.`;
 
   return `Look at this countertop shop drawing. Find every KITCHEN / ISLAND / BAR / LAUNDRY top.${dimsBlock}
 
-Kitchen perimeter is often ~25"-26" deep against a wall, but returns/peninsulas/wide tops can be 30"+ deep. If a run has an explicit 36" total depth label (for example a 69 1/4" lower return with 36" depth), return depth=36 even if another connected leg is 25 1/2" deep. Bar tops are 12"-18" deep.
+Kitchen perimeter is ~25"-26" deep against a wall. Islands/peninsulas are 30"+ deep, free-standing. Bar tops are 12"-18" deep.
 
 READ DIMENSIONS LITERALLY from the image — never guess. If a dimension isn't printed, return null.
 
@@ -472,7 +470,6 @@ Check the image and return the CORRECT complete JSON.
 
 Rules:
 - Keep kitchen sections and bath/vanity sections separate.
-- Correct any section whose printed total depth is 30"-48" but the candidate used 25.5"; printed depth wins over standard-depth assumptions.
 - Small vanity tops matter; count each vanity separately.
 - Do not merge separate rooms just because dimensions match.
 - Preserve roomName and instanceKey for each physical top.
@@ -693,17 +690,6 @@ function mergeCountertopCandidateLists(lists: NormalizedCountertop[][]): Normali
 
 function hasNullCriticalDimensions(ct: NormalizedCountertop): boolean {
   return ct.length == null || ct.depth == null || ct.backsplashLength == null;
-}
-
-function hasPotentialWideDepthConflict(printedDims: number[], countertops: NormalizedCountertop[]): boolean {
-  const hasPrintedWideDepth = printedDims.some((d) => d >= 30 && d <= 48);
-  if (!hasPrintedWideDepth) return false;
-  return countertops.some((ct) =>
-    ct.category === "kitchen" &&
-    !ct.isIsland &&
-    ct.depth != null &&
-    Math.abs(ct.depth - 25.5) <= 0.5
-  );
 }
 
 function applyFinalCountertopFallbacks(ct: NormalizedCountertop): NormalizedCountertop {
@@ -1004,8 +990,7 @@ serve(async (req) => {
     // Skip verification for Dialagram when results look healthy — saves ~25s and avoids 504s.
     const skipVerification = provider === "dialagram"
       && countertops.length >= 2
-      && !countertops.some(hasNullCriticalDimensions)
-      && !hasPotentialWideDepthConflict(printedDims, countertops);
+      && !countertops.some(hasNullCriticalDimensions);
 
     if (countertops.length > 0 && !skipVerification) {
       console.log("Starting verification pass...");
@@ -1019,7 +1004,7 @@ ${JSON.stringify({ unitTypeName: extracted.unitTypeName, countertops }, null, 2)
 Look at the SAME shop drawing image and verify:
 1. Is the unitTypeName correct? If not, provide the correct one.
 2. Are there any MISSING countertop sections that were not extracted? Add them.
-3. Are the dimensions (length, depth, backsplashLength) accurate? Correct any errors. CRITICAL: if a section's printed total depth is 30"-48" (such as a 69 1/4" lower return explicitly labeled 36" deep), keep that printed depth and NEVER downgrade it to the standard 25.5" perimeter depth. Also, backsplashLength must use the FULL OUTER wall length WITHOUT any corner deduction, even when length was reduced by depth (e.g. 25.5") at a corner. For an L-shape with outer legs 138" and 116.75" at depth 25.5", lengths are [138, 91.25] but backsplashLength must be [138, 116.75]. Backsplash and Top Inches are INDEPENDENT — never make backsplashLength match a corner-deducted length.
+3. Are the dimensions (length, depth, backsplashLength) accurate? Correct any errors. CRITICAL: backsplashLength must use the FULL OUTER wall length WITHOUT any corner deduction, even when length was reduced by depth (e.g. 25.5") at a corner. For an L-shape with outer legs 138" and 116.75" at depth 25.5", lengths are [138, 91.25] but backsplashLength must be [138, 116.75]. Backsplash and Top Inches are INDEPENDENT — never make backsplashLength match a corner-deducted length.
 4. Are the categories (kitchen/bath) correct?
 5. Are there any DUPLICATE sections that should be removed?
 6. Are any sections actually NOT countertops (e.g. appliance cutouts listed separately)?

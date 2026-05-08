@@ -108,7 +108,7 @@ function normalizeVtop(vt: any): VtopRow {
   const aiLeft = Boolean(vt?.leftWall);
   const aiRight = Boolean(vt?.rightWall);
 
-    const row: VtopRow = {
+  const row: VtopRow = {
     length,
     depth,
     bowlPosition,
@@ -118,8 +118,8 @@ function normalizeVtop(vt: any): VtopRow {
     rightWall: aiRight,
     aiLeftWallHint: aiLeft,
     aiRightWallHint: aiRight,
-      leftWallYesConfidence: Math.max(0, Math.min(1, Number.isFinite(Number(vt?.leftWallYesConfidence)) ? Number(vt?.leftWallYesConfidence) : (aiLeft ? 0.85 : 0.15))),
-      rightWallYesConfidence: Math.max(0, Math.min(1, Number.isFinite(Number(vt?.rightWallYesConfidence)) ? Number(vt?.rightWallYesConfidence) : (aiRight ? 0.85 : 0.15))),
+    leftWallYesConfidence: Math.max(0, Math.min(1, Number(vt?.leftWallYesConfidence) || 0.5)),
+    rightWallYesConfidence: Math.max(0, Math.min(1, Number(vt?.rightWallYesConfidence) || 0.5)),
     backSideOnPage,
     closerEndOnPage,
   };
@@ -631,7 +631,7 @@ TASK:
    A page can contain BOTH a kitchen run AND a separate vanity (e.g. 1BR-1 (ADA) pages). Return ONLY the vanity piece.
    A page can contain MULTIPLE vanities (e.g. 2BR (ADA) → Bath-1 and Bath-2). Return ALL of them.
 
-3. For EACH vanity top, extract (CRITICAL: when the page has MULTIPLE vanities — e.g. Bath-1 AND Bath-2 in a 2BR/3BR plan — evaluate EACH vanity COMPLETELY INDEPENDENTLY. Each vanity has its OWN backsplash orientation, its OWN backSideOnPage, and its OWN person-standing-in-front perspective. The two vanities are usually drawn in DIFFERENT orientations (one horizontal, one vertical, OR with the backsplash on opposite page sides). NEVER copy the perspective from one vanity to the other. Locate the double-line backsplash for THIS specific vanity rectangle, then derive backSideOnPage / leftWall / rightWall / bowlPosition for THIS vanity ONLY using its own backsplash position):
+3. For EACH vanity top, extract:
    a. **length** — total length in inches (e.g., 47.5, 31, 25)
    b. **depth** — depth in inches (usually 22")
    c. **backSideOnPage** — which PAGE SIDE contains the backsplash / back edge (double line along the long edge). Must be exactly one of: "top", "bottom", "left", "right".
@@ -645,8 +645,7 @@ TASK:
         5. The end with the SHORTER dimension is the side the bowl is offset toward.
         6. Use backSideOnPage + closerEndOnPage consistently to determine bowlPosition.
       ORIENTATION HANDLING — DO NOT ASSUME. ALWAYS LOCATE THE ACTUAL DOUBLE-LINE WALL FIRST:
-      - The backsplash/wall is the LONG edge that has TWO PARALLEL LINES drawn close together (the double line). The opposite long edge is a SINGLE line — that is the FRONT.
-      - Do NOT confuse a short-end sidesplash return with the backSideOnPage. backSideOnPage is ONLY the long-edge backsplash; short-end double lines are leftWall/rightWall only.
+        - The backsplash/wall is the LONG edge that has TWO PARALLEL LINES drawn close together (the double line). The opposite long edge is a SINGLE line — that is the FRONT.
         - Dimension callouts (length/offset numbers) can appear on EITHER side of the rectangle. DO NOT use dimension-line position to infer where the back is — use the DOUBLE LINE only.
         - If the vanity is drawn HORIZONTALLY (wider than tall on page):
             • If double-line is on PAGE TOP → backSideOnPage="top". Person stands at PAGE BOTTOM facing UP. Person LEFT = PAGE LEFT, Person RIGHT = PAGE RIGHT.
@@ -675,8 +674,7 @@ RULES FOR WALL DETECTION (leftWall / rightWall):
   * The vanity end is free-standing with no wall structure adjacent
   * Text labels like "FE" (finish end) or "OPEN"
 - IMPORTANT: It is VERY COMMON for one end to have a wall (double line / sidesplash) while the OTHER end is a finish end (single line). Do NOT assume both ends match.
-- Examples: a 32"x22" center-bowl vanity with a single line on the LEFT short end and double parallel lines on the RIGHT short end = leftWall:false, rightWall:true (Left end finish + Right end sidesplash), NEVER both end finish.
-- Examples: a 49"x22" center-bowl vanity with a single line on the person's LEFT short end and double parallel lines on the person's RIGHT short end = leftWall:false, rightWall:true, even when another vanity is also on the same page.
+- Examples: a 32"x22" vanity with the bowl drawn against the LEFT side of the rectangle and a clear single line on the LEFT edge but a double line on the RIGHT edge = leftWall:false, rightWall:true (Left end finish + Right side sidesplash).
 - DO NOT default to true. Only set wall=true when you actually see double-line / wall evidence at that specific end.
 - Set leftWallYesConfidence and rightWallYesConfidence to your actual certainty (0.0=clearly single line / open, 1.0=clearly double line / wall, 0.5=truly ambiguous).
 
@@ -717,7 +715,7 @@ EXPLICIT EXCLUSIONS — never return these even if they fit on the page:
 
 A page can contain BOTH a kitchen run AND a separate small vanity (e.g. 1BR-1 (ADA) pages have a 25.5" deep L-shape kitchen plus a separate ~44.5" x 22" vanity with an oval bowl). Return ONLY the vanity piece, NEVER the kitchen run.
 
-A page can contain MULTIPLE vanities (e.g. 2BR (ADA) has Bath-1 AND Bath-2, or 2BR-AS / 2BR-MIRROR plans show TWO separate vanities). Return ALL of them as separate items. CRITICAL: each vanity has its OWN backsplash orientation and its OWN person-in-front perspective — NEVER share backSideOnPage / leftWall / rightWall between the two vanities. Locate the double-line backsplash on EACH vanity rectangle separately, derive person-LEFT / person-RIGHT for THAT vanity alone, then assign leftWall/rightWall and bowlPosition independently. The two vanities are usually drawn in different orientations (e.g. one horizontal with backsplash on top, the other vertical with backsplash on left/right).
+A page can contain MULTIPLE vanities (e.g. 2BR (ADA) has Bath-1 AND Bath-2). Return ALL of them as separate items.
 
 For each vanity top return:
 - length: longer edge in inches
@@ -839,7 +837,6 @@ Look at the SAME shop drawing image and verify EACH item carefully:
 2. Are the dimensions (length, depth) accurate? Correct any errors.
 3. **CRITICAL — RE-CHECK bowlPosition using "person standing in front" perspective:**
    - Find the BACKSPLASH — it is the long edge with TWO PARALLEL LINES (double line) drawn close together. The opposite long edge is a SINGLE line (the front).
-   - Do NOT use short-end double lines as backSideOnPage; those are sidesplash returns and belong only to leftWall/rightWall.
    - DO NOT use dimension-callout placement to infer which side is the back. Use ONLY the double line.
    - Return that as backSideOnPage = "top" | "bottom" | "left" | "right".
    - Find which PAGE SIDE has the SHORTER bowl-center dimension along the LENGTH axis.
@@ -863,7 +860,6 @@ Look at the SAME shop drawing image and verify EACH item carefully:
    - Only set true when you see a CLEAR double line or wall return at that specific end.
    - It is common for one end to be finish end and the other end to need a sidesplash.
    - Update leftWallYesConfidence and rightWallYesConfidence accordingly.
-   - **MULTIPLE-VANITY PAGES (e.g. 2BR-AS, 2BR-MIRROR, 2BR (ADA), 3BR plans with Bath-1 + Bath-2):** EACH vanity has its OWN backsplash and its OWN person-in-front perspective. Re-derive backSideOnPage INDEPENDENTLY for each vanity by locating the double line on THAT vanity rectangle alone. Then re-derive person-LEFT / person-RIGHT for THAT vanity. NEVER assume both vanities share the same backSideOnPage or the same wall pattern. The two vanities are usually drawn in different orientations or with the backsplash on opposite page sides — verify each one separately. For a center-bowl top, still judge the two short ends separately: a single line at one end plus double lines at the other end means exactly one finish end and one sidesplash, not both end finish.
 
 Return the CORRECTED complete JSON — same format:
 {"unitTypeName":"...","vtops":[...]}
