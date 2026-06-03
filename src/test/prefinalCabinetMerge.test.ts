@@ -37,6 +37,7 @@ describe('extractPlanSkuCountsFromTextItems', () => {
       { str: 'APN-DF', transform: [1, 0, 0, 1, 610, 340] },
       { str: 'FSH4210S', transform: [1, 0, 0, 1, 410, 260] },
       { str: 'SCB33R', transform: [1, 0, 0, 1, 500, 250] },
+      { str: 'SCB 33R', transform: [1, 0, 0, 1, 520, 250] },
     ]);
 
     expect(counts.RW4818BD).toBe(1);
@@ -47,7 +48,7 @@ describe('extractPlanSkuCountsFromTextItems', () => {
     expect(counts['APNL-DF']).toBe(1);
     expect(counts['APN-DF']).toBe(1);
     expect(counts.FSH4210S).toBe(1);
-    expect(counts.SCB33R).toBe(1);
+    expect(counts.SCB33R).toBe(2);
   });
 
   it('keeps the main plan cluster and ignores a remote duplicate occurrence', () => {
