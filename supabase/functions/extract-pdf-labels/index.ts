@@ -287,7 +287,7 @@ function extractSkusFromText(pageText: string): string[] {
   if (!pageText) return [];
   const matches = pageText.match(SKU_PATTERN) || [];
   const spacedMatches = Array.from(pageText.matchAll(SPACED_SKU_PATTERN), ([, prefix, suffix]) => `${prefix}${suffix}`);
-  const noDigitMatches = pageText.match(/\b(BP|SCRIBE|UC|APNL?-(?:DF|SDR))\b/gi) || [];
+  const noDigitMatches = pageText.match(/\b(BP(?!\s*\d)|SCRIBE|UC|APNL?-(?:DF|SDR))\b/gi) || [];
   // Catch APPRON with space before dimensions (e.g. "APPRON 59X21")
   const appronMatches: string[] = [];
   let appM: RegExpExecArray | null;
@@ -314,7 +314,7 @@ function countSkusFromText(pageText: string): Record<string, number> {
 
   const matches = pageText.match(SKU_PATTERN) || [];
   const spacedMatches = Array.from(pageText.matchAll(SPACED_SKU_PATTERN), ([, prefix, suffix]) => `${prefix}${suffix}`);
-  const noDigitMatches = pageText.match(/\b(BP|SCRIBE|UC|APNL?-(?:DF|SDR))\b/gi) || [];
+  const noDigitMatches = pageText.match(/\b(BP(?!\s*\d)|SCRIBE|UC|APNL?-(?:DF|SDR))\b/gi) || [];
   // Catch APPRON with space before dimensions
   const appronMatches: string[] = [];
   let appM2: RegExpExecArray | null;
