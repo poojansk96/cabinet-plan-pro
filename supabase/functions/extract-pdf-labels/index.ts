@@ -363,7 +363,7 @@ function countSkusFromText(pageText: string): Record<string, number> {
 function classifySku(sku: string): string {
   const normalizedSku = normalizeSkuLabel(sku);
   if (/^(BLB|BLW|BRW)/i.test(normalizedSku)) return "Wall";
-  if (/^(RW|W|WDC|UB|WC|OH)\d/i.test(normalizedSku)) return "Wall";
+  if (/^(RW|W|WDC|UB|WC|OH|SCW)\d/i.test(normalizedSku)) return "Wall";
   if (/^(HAW|HAWDC)\d/i.test(normalizedSku)) return "Wall";
   if (/^HCW\d/i.test(normalizedSku)) return "Wall";
   if (/^HW\d/i.test(normalizedSku)) return "Wall";
