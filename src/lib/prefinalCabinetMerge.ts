@@ -55,7 +55,28 @@ function isValidSku(value: string): boolean {
 function extractSkuMatches(text: string): string[] {
   if (!text) return [];
 
-  const matches = text.match(SKU_PATTERN) || [];
+  // Whitelist + generic fallback share digit-based tokens, so dedupe by character
+  // position (longer/more-specific match wins) to avoid double-counting the same SKU.
+  type Hit = { value: string; start: number; end: number };
+  const digitHits: Hit[] = [];
+  const pushHits = (pattern: RegExp) => {
+    for (const m of text.matchAll(new RegExp(pattern.source, 'gi'))) {
+      const start = m.index ?? 0;
+      digitHits.push({ value: m[0], start, end: start + m[0].length });
+    }
+  };
+  pushHits(SKU_PATTERN);
+  pushHits(GENERIC_SKU_PATTERN);
+  digitHits.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
+  const dedupedDigitMatches: string[] = [];
+  let lastEnd = -1;
+  for (const hit of digitHits) {
+    if (hit.start >= lastEnd) {
+      dedupedDigitMatches.push(hit.value);
+      lastEnd = hit.end;
+    }
+  }
+
   const spacedMatches = Array.from(text.matchAll(SPACED_SKU_PATTERN), ([, prefix, suffix]) => `${prefix}${suffix}`);
   const noDigitMatches = text.match(/\b(BP(?!\s*\d)|SCRIBE|UC|APNL?-(?:DF|SDR))\b/gi) || [];
   const appronMatches: string[] = [];
@@ -65,7 +86,7 @@ function extractSkuMatches(text: string): string[] {
     appronMatches.push(`APPRON${appronMatch[1]}`);
   }
 
-  return [...matches, ...spacedMatches, ...noDigitMatches, ...appronMatches]
+  return [...dedupedDigitMatches, ...spacedMatches, ...noDigitMatches, ...appronMatches]
     .map(normalizePrefinalSkuLabel)
     .filter((sku) => isValidSku(sku));
 }
