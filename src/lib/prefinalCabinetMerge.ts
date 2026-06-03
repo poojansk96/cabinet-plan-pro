@@ -171,7 +171,15 @@ export function extractPlanSkuCountsFromTextItems(textItems: PositionedPdfTextIt
     y <= bounds.maxY + marginY,
   );
 
-  return countOccurrences(clusteredOccurrences.length > 0 ? clusteredOccurrences : primaryCluster);
+  if (clusteredOccurrences.length === 0) return countOccurrences(primaryCluster);
+
+  const clusteredSkus = new Set(clusteredOccurrences.map(({ sku }) => sku));
+  const uniqueOutsideCluster = occurrences.filter(({ sku, x, y }) =>
+    !clusteredSkus.has(sku) &&
+    (x < bounds.minX - marginX || x > bounds.maxX + marginX || y < bounds.minY - marginY || y > bounds.maxY + marginY),
+  );
+
+  return countOccurrences([...clusteredOccurrences, ...uniqueOutsideCluster]);
 }
 
 function isAmbiguousDirectionalUcSku(value: unknown): boolean {
@@ -285,6 +293,7 @@ export function mergePrefinalExtractionPasses(
     const upper = String(sku || '').toUpperCase().trim();
     return /^(UC|BP|SCRIBE|APNL?-(?:DF|SDR))$/.test(upper)
       || /^(?:DWR|BF|FIL|CM|EP|FP|LR|RW|FSH|SCB|TEPF?|BP)\d(?:[A-Z0-9.\-\/]*)$/.test(upper)
+      || /^(?:W|B|T|V)\d{2,}[A-Z0-9.\-\/]*$/.test(upper)
       // Filler-head base cabinets like B09FH, B06FH, B12FH, B15FH, B18FH —
       // very narrow rectangles drawn beside vanities; commonly only seen on a
       // single strip pass but always real when present.
