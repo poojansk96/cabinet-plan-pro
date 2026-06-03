@@ -869,7 +869,9 @@ If no cabinet SKUs are found, return {"items":[]}`;
 
     // ── Step 2a: Initial extraction ──
     const useAccuModel = aiModel === 'accu';
-    const extractionModel = useAccuModel ? "gemini-3-flash-preview" : "gemini-3.1-flash-lite-preview";
+    // Pre-Final cabinet count uses the fast (non-accu) Gemini path. Upgraded to
+    // gemini-3.5-flash (latest release) for better unit-type detection and SKU reads.
+    const extractionModel = useAccuModel ? "gemini-3-flash-preview" : "gemini-3.5-flash";
     console.log(`Using provider: ${provider}, geminiModel: ${extractionModel}, qwenModel: ${qwenModel} (aiModel=${aiModel})`);
     let extracted: any = { items: [] };
     try {
