@@ -283,8 +283,8 @@ export function mergePrefinalExtractionPasses(
 
   const isStrongStripOnlySku = (sku: string): boolean => {
     const upper = String(sku || '').toUpperCase().trim();
-    return /^(UC|BP|SCRIBE)$/.test(upper)
-      || /^(?:DWR|BF|FIL|CM|EP|FP|LR)\d(?:[A-Z0-9\-\/]*)$/.test(upper)
+    return /^(UC|BP|SCRIBE|APNL?-(?:DF|SDR))$/.test(upper)
+      || /^(?:DWR|BF|FIL|CM|EP|FP|LR|RW|FSH|SCB|TEPF?|BP)\d(?:[A-Z0-9.\-\/]*)$/.test(upper)
       // Filler-head base cabinets like B09FH, B06FH, B12FH, B15FH, B18FH —
       // very narrow rectangles drawn beside vanities; commonly only seen on a
       // single strip pass but always real when present.
@@ -294,7 +294,8 @@ export function mergePrefinalExtractionPasses(
 
   const isShortAccessorySku = (sku: string): boolean => {
     const upper = String(sku || '').toUpperCase().trim();
-    return /^(?:DWR|BF|WF|FIL|CM|EP|FP|LR|TK|TF|APPRON)\d/i.test(upper);
+    return /^(?:DWR|BF|WF|FIL|CM|EP|FP|LR|TK|TF|TEPF|APPRON|RW|FSH|SCB|BP)\d/i.test(upper)
+      || /^APNL?-(?:DF|SDR)$/i.test(upper);
   };
 
   for (const [key, candidate] of stripOnly.entries()) {
