@@ -801,7 +801,7 @@ Return it as "unitTypeName" in your response. Return null if no unit type is fou
     const extractPrompt = `Extract ALL cabinet SKU labels from this 2020 Design shop drawing plan view.
 ${unitTypeDetectInstructions}
 For each cabinet found, provide:
-1. sku: The SKU label exactly as written (e.g. B24, W3036, DB15, BF3, WF6X30, LS36-L, BLW36/3930-L, B09FH, APPRON59X21, DWR1). For APPRON labels with dimensions like "APPRON 59X21", combine into one string without spaces: "APPRON59X21".
+1. sku: The SKU label exactly as written (e.g. B24, W3036, DB15, RW4818BD, BP12WP, TF1.52496L, APNL-DF, SCB33R, FSH4210S, BF3, WF6X30, LS36-L, BLW36/3930-L, B09FH, APPRON59X21, DWR1). For APPRON labels with dimensions like "APPRON 59X21", combine into one string without spaces: "APPRON59X21".
 2. type: Classify by prefix:
    - "Base" → B, DB, SB, CB, EB, LS, LSB, HCDB, HCLS, HWS, HWSB, HAB, HABLB, HADB, HAOC, HASB, HACB, HAEB (but NOT BLB/BLW/BRW — those are Wall, NOT HAV — those are Vanity)
     - "Wall" → W, WDC, UB, WC, OH, BLB, BLW, BRW, HAW, HAWDC, HCW, HW (ONLY when the prefix is exactly HW followed immediately by digits; HWS/HWSB are Base)
@@ -857,13 +857,13 @@ SKIP THESE — NOT CABINET SKUs:
 - Non-SKU text: unit numbers, elevation titles, dimension text, page numbers
 
 VALID SKU PREFIXES (a label must start with letters followed by a digit):
-B, DB, SB, CB, EB, LS, LSB, W, WDC, UB, WC, OH, BLB, BLW, BRW, T, TF, UT, TC, PT, PTC, UC, V, VB, VD, VDC, FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR, APPRON
+B, BP, DB, SB, SCB, CB, EB, LS, LSB, RW, W, WDC, UB, WC, OH, BLB, BLW, BRW, T, TF, TEP, TEPF, UT, TC, PT, PTC, UC, V, VB, VD, VDC, FIL, BF, WF, FSH, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR, APPRON
 Also accept manufacturer-specific longer prefixes (e.g. HA, HAV, HAVDB, HALC, HAUC, SA, SV) followed by digits.
 
 VALID NO-DIGIT SKUS:
-UC, SCRIBE, BP
+UC, SCRIBE, BP, APN-DF, APNL-DF, APN-SDR, APNL-SDR
 
-FINAL SWEEP: After your initial scan, go back and specifically look for: B09FH, B06FH, B12FH, B15FH, B18FH (filler-head base — VERY commonly missed when adjacent to vanity SKUs like V3021B, VB30, VD24 in bath elevations — ALWAYS scan beside every vanity cabinet for a narrow B##FH sliver), BF3, BF6, WF3X30, WF6X30, TF3X96, DWR1, DWR3, DWR6, CM8, TK, TKRUN, EP, LR, UC, SCRIBE, BP, HAVDB12, HAVDB18, HAVDB15, VDB12, VDB15, VDB18 (vanity drawer-base — small narrow rectangles under vanity tops, very commonly missed), APPRON (with dimensions like "APPRON 59X21" — report as "APPRON59X21" without the space). These appear as very small labels on narrow shapes. DWR labels are often rotated vertically — scan rotated text carefully.
+FINAL SWEEP: After your initial scan, go back and specifically look for: RW4818BD / RW4812BD / other RW labels, TF1.52496L or TEPF-style tall end panels, BP12WP, W181813R, APNL-DF / APN-DF, FSH4210S, SCB33R, B09FH, B06FH, B12FH, B15FH, B18FH (filler-head base — VERY commonly missed when adjacent to vanity SKUs like V3021B, VB30, VD24 in bath elevations — ALWAYS scan beside every vanity cabinet for a narrow B##FH sliver), BF3, BF6, WF3X30, WF6X30, TF3X96, DWR1, DWR3, DWR6, CM8, TK, TKRUN, EP, LR, UC, SCRIBE, BP, HAVDB12, HAVDB18, HAVDB15, VDB12, VDB15, VDB18 (vanity drawer-base — small narrow rectangles under vanity tops, very commonly missed), APPRON (with dimensions like "APPRON 59X21" — report as "APPRON59X21" without the space). These appear as very small labels on narrow shapes. DWR labels are often rotated vertically — scan rotated text carefully.
 ${isStrip ? '\nNOTE: This image shows a CROPPED SECTION of a larger drawing page. Extract all cabinet labels visible in this cropped section.\n' : ''}${textLayerSkus.length > 0 ? `\nTEXT LAYER CROSS-REFERENCE — the PDF text layer detected these SKUs on this page:\n${textLayerSkus.join(', ')}\nMake sure ALL of these appear in your results if they are visible as labels on the drawing. If any are missing from your results, look harder for them.\n` : ''}${unitType ? `\nUnit type context: ${unitType}` : ""}
 If no cabinet SKUs are found, return {"items":[]}`;
 
