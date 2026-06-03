@@ -285,7 +285,7 @@ function isValidSku(s: string): boolean {
 function extractSkusFromText(pageText: string): string[] {
   if (!pageText) return [];
   const matches = pageText.match(SKU_PATTERN) || [];
-  const noDigitMatches = pageText.match(/\b(BP|SCRIBE|UC)\b/gi) || [];
+  const noDigitMatches = pageText.match(/\b(BP|SCRIBE|UC|APNL?-(?:DF|SDR))\b/gi) || [];
   // Catch APPRON with space before dimensions (e.g. "APPRON 59X21")
   const appronMatches: string[] = [];
   let appM: RegExpExecArray | null;
@@ -311,7 +311,7 @@ function countSkusFromText(pageText: string): Record<string, number> {
   if (!pageText) return counts;
 
   const matches = pageText.match(SKU_PATTERN) || [];
-  const noDigitMatches = pageText.match(/\b(BP|SCRIBE|UC)\b/gi) || [];
+  const noDigitMatches = pageText.match(/\b(BP|SCRIBE|UC|APNL?-(?:DF|SDR))\b/gi) || [];
   // Catch APPRON with space before dimensions
   const appronMatches: string[] = [];
   let appM2: RegExpExecArray | null;
@@ -343,7 +343,7 @@ function classifySku(sku: string): string {
   if (/^(V|VB|VD|VDB|VDC)\d/i.test(normalizedSku)) return "Vanity";
   if (/^(HAV|HAVDB)\d/i.test(normalizedSku)) return "Vanity";
   if (/^(BP|SCRIBE)$/i.test(normalizedSku)) return "Accessory";
-  if (/^(FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|TF|APPRON|UREP|REP)\d/i.test(normalizedSku)) return "Accessory";
+  if (/^(FIL|BF|WF|FSH|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|TF|TEPF|APPRON|UREP|REP|BP)\d/i.test(normalizedSku)) return "Accessory";
   if (/^(HABLB|HAB|HADB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HCDB|HCLS|HWSB|HWS)\d/i.test(normalizedSku)) return "Base";
   return "Base";
 }
