@@ -232,6 +232,7 @@ async function callAI(
 // ── SKU Helpers ──
 
 const SKU_PATTERN = /\b(BP|DB|SB|SCB|CB|EB|LS|LSB|RW|W|WDC|UB|WC|OH|BLB|BLW|BRW|TEPF|TEP|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDB|VDC|FIL|BF|WF|FSH|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS|B)\d[\w.\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
+const SPACED_SKU_PATTERN = /\b(BP|SCB|RW|FSH|TEPF|TEP|TF|W|B|SB|BF|WF)\s+(\d[\w.\-\/]*)\b/gi;
 // Secondary pattern for APPRON with space before dimensions (e.g. "APPRON 59X21")
 const APPRON_DIM_PATTERN = /\bAPPRON\s+(\d+X\d+)\b/gi;
 const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
@@ -285,6 +286,7 @@ function isValidSku(s: string): boolean {
 function extractSkusFromText(pageText: string): string[] {
   if (!pageText) return [];
   const matches = pageText.match(SKU_PATTERN) || [];
+  const spacedMatches = Array.from(pageText.matchAll(SPACED_SKU_PATTERN), ([, prefix, suffix]) => `${prefix}${suffix}`);
   const noDigitMatches = pageText.match(/\b(BP|SCRIBE|UC|APNL?-(?:DF|SDR))\b/gi) || [];
   // Catch APPRON with space before dimensions (e.g. "APPRON 59X21")
   const appronMatches: string[] = [];
@@ -295,7 +297,7 @@ function extractSkusFromText(pageText: string): string[] {
   }
   const skus = new Set<string>();
 
-  for (const m of [...matches, ...noDigitMatches, ...appronMatches]) {
+  for (const m of [...matches, ...spacedMatches, ...noDigitMatches, ...appronMatches]) {
     const upper = normalizeSkuLabel(m);
     if (APPLIANCE_RE.test(upper)) continue;
     if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) continue;
@@ -311,6 +313,7 @@ function countSkusFromText(pageText: string): Record<string, number> {
   if (!pageText) return counts;
 
   const matches = pageText.match(SKU_PATTERN) || [];
+  const spacedMatches = Array.from(pageText.matchAll(SPACED_SKU_PATTERN), ([, prefix, suffix]) => `${prefix}${suffix}`);
   const noDigitMatches = pageText.match(/\b(BP|SCRIBE|UC|APNL?-(?:DF|SDR))\b/gi) || [];
   // Catch APPRON with space before dimensions
   const appronMatches: string[] = [];
@@ -320,7 +323,7 @@ function countSkusFromText(pageText: string): Record<string, number> {
     appronMatches.push(`APPRON${appM2[1]}`);
   }
 
-  for (const m of [...matches, ...noDigitMatches, ...appronMatches]) {
+  for (const m of [...matches, ...spacedMatches, ...noDigitMatches, ...appronMatches]) {
     const upper = normalizeSkuLabel(m);
     if (APPLIANCE_RE.test(upper)) continue;
     if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) continue;
