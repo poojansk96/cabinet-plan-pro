@@ -338,7 +338,7 @@ function countSkusFromText(pageText: string): Record<string, number> {
   const counts: Record<string, number> = {};
   if (!pageText) return counts;
 
-  const matches = pageText.match(SKU_PATTERN) || [];
+  const matches = digitSkuTokens(pageText);
   const spacedMatches = Array.from(pageText.matchAll(SPACED_SKU_PATTERN), ([, prefix, suffix]) => `${prefix}${suffix}`);
   const noDigitMatches = pageText.match(/\b(BP(?!\s*\d)|SCRIBE|UC|APNL?-(?:DF|SDR))\b/gi) || [];
   // Catch APPRON with space before dimensions
