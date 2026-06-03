@@ -397,8 +397,8 @@ const CABINET_PREFIXES = [
   'HCBMW','HCBM','HCOC','HCUC','HCYC','HCDB','HCLS','HWSB','HWS',
   'BFFIL','WFFIL','TKRUN',
   'HAB','HAW','HAV','HAL','HCB','HSS',
-  'BLB','BLW','BRW','WDC','PTC','VDC',
-  'DB','SB','CB','EB','LS','LSB','WC','UB','OH','BF','WF','TF','TK','UC','VB','VD','FIL','CM','LR','EP','FP','DWR','HC','HW','HS','HA','SA','SV','PT','TC','UT',
+  'BLB','BLW','BRW','WDC','PTC','VDC','TEPF',
+  'DB','SB','SCB','CB','EB','LS','LSB','RW','WC','UB','OH','BF','WF','FSH','TF','TEP','TK','UC','VB','VD','FIL','CM','LR','EP','FP','DWR','HC','HW','HS','HA','SA','SV','PT','TC','UT','BP',
   'APPRON','UREP','REP',
   'B','W','T','V',
 ];
