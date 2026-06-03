@@ -26,6 +26,30 @@ function classifyPrefinalCabinetSku(value: string): string {
 }
 
 describe('extractPlanSkuCountsFromTextItems', () => {
+  it('counts user-reported 2020 Design SKUs missed by the old parser', () => {
+    const counts = extractPlanSkuCountsFromTextItems([
+      { str: 'RW4818BD', transform: [1, 0, 0, 1, 510, 420] },
+      { str: 'RW4812BD', transform: [1, 0, 0, 1, 512, 385] },
+      { str: 'TF1.52496L', transform: [1, 0, 0, 1, 430, 520] },
+      { str: 'BP12WP', transform: [1, 0, 0, 1, 120, 120] },
+      { str: 'W181813R', transform: [1, 0, 0, 1, 690, 420] },
+      { str: 'APNL-DF', transform: [1, 0, 0, 1, 600, 350] },
+      { str: 'APN-DF', transform: [1, 0, 0, 1, 610, 340] },
+      { str: 'FSH4210S', transform: [1, 0, 0, 1, 410, 260] },
+      { str: 'SCB33R', transform: [1, 0, 0, 1, 500, 250] },
+    ]);
+
+    expect(counts.RW4818BD).toBe(1);
+    expect(counts.RW4812BD).toBe(1);
+    expect(counts['TF1.52496L']).toBe(1);
+    expect(counts.BP12WP).toBe(1);
+    expect(counts.W181813R).toBe(1);
+    expect(counts['APNL-DF']).toBe(1);
+    expect(counts['APN-DF']).toBe(1);
+    expect(counts.FSH4210S).toBe(1);
+    expect(counts.SCB33R).toBe(1);
+  });
+
   it('keeps the main plan cluster and ignores a remote duplicate occurrence', () => {
     const counts = extractPlanSkuCountsFromTextItems([
       { str: 'W2430B', transform: [1, 0, 0, 1, 320, 420] },
@@ -117,6 +141,32 @@ describe('BLW height parsing for sorting', () => {
 });
 
 describe('mergePrefinalExtractionPasses', () => {
+  it('preserves user-reported strip-only SKUs through the merge', () => {
+    const merged = mergePrefinalExtractionPasses([
+      [{ sku: 'B24BD', room: 'Kitchen', type: 'Base', quantity: 1 }],
+      [
+        { sku: 'RW4818BD', room: 'Kitchen', type: 'Wall', quantity: 1 },
+        { sku: 'RW4812BD', room: 'Kitchen', type: 'Wall', quantity: 1 },
+        { sku: 'TF1.52496L', room: 'Kitchen', type: 'Accessory', quantity: 1 },
+        { sku: 'BP12WP', room: 'Kitchen', type: 'Accessory', quantity: 1 },
+        { sku: 'W181813R', room: 'Kitchen', type: 'Wall', quantity: 1 },
+        { sku: 'APNL-DF', room: 'Kitchen', type: 'Accessory', quantity: 1 },
+        { sku: 'FSH4210S', room: 'Kitchen', type: 'Accessory', quantity: 2 },
+        { sku: 'SCB33R', room: 'Laundry', type: 'Base', quantity: 1 },
+      ],
+    ]);
+
+    const bySku = Object.fromEntries(merged.map((row) => [row.sku, row.quantity]));
+    expect(bySku.RW4818BD).toBe(1);
+    expect(bySku.RW4812BD).toBe(1);
+    expect(bySku['TF1.52496L']).toBe(1);
+    expect(bySku.BP12WP).toBe(1);
+    expect(bySku.W181813R).toBe(1);
+    expect(bySku['APNL-DF']).toBe(1);
+    expect(bySku.FSH4210S).toBe(2);
+    expect(bySku.SCB33R).toBe(1);
+  });
+
   it('recovers the missing +1 on higher-quantity repeated SKUs', () => {
     const merged = mergePrefinalExtractionPasses([
       [{ sku: 'W2430B', room: 'Kitchen', type: 'Wall', quantity: 3 }],
