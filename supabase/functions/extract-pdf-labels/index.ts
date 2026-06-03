@@ -287,9 +287,31 @@ function isValidSku(s: string): boolean {
   return SKU_PREFIX_RE.test(upper);
 }
 
+// Returns whitelist + generic-fallback SKU tokens, deduped by character position so the same
+// substring isn't counted twice (longer/more-specific match wins on overlap).
+function digitSkuTokens(pageText: string): string[] {
+  const hits: { value: string; start: number; end: number }[] = [];
+  for (const pattern of [SKU_PATTERN, GENERIC_SKU_PATTERN]) {
+    for (const m of pageText.matchAll(new RegExp(pattern.source, 'gi'))) {
+      const start = m.index ?? 0;
+      hits.push({ value: m[0], start, end: start + m[0].length });
+    }
+  }
+  hits.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
+  const out: string[] = [];
+  let lastEnd = -1;
+  for (const hit of hits) {
+    if (hit.start >= lastEnd) {
+      out.push(hit.value);
+      lastEnd = hit.end;
+    }
+  }
+  return out;
+}
+
 function extractSkusFromText(pageText: string): string[] {
   if (!pageText) return [];
-  const matches = pageText.match(SKU_PATTERN) || [];
+  const matches = digitSkuTokens(pageText);
   const spacedMatches = Array.from(pageText.matchAll(SPACED_SKU_PATTERN), ([, prefix, suffix]) => `${prefix}${suffix}`);
   const noDigitMatches = pageText.match(/\b(BP(?!\s*\d)|SCRIBE|UC|APNL?-(?:DF|SDR))\b/gi) || [];
   // Catch APPRON with space before dimensions (e.g. "APPRON 59X21")
