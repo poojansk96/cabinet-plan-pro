@@ -11,12 +11,11 @@ export interface PositionedPdfTextItem {
   transform?: number[];
 }
 
-// Includes legacy manufacturer SKUs: UF (utility/under filler), BEP (base end panel), WEP (wall end panel),
-// TEP (tall end panel), DP (decorative panel), SP (skin panel), PNL (panel), TKB (toe-kick base).
-const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|WDC|UB|WC|OH|BLB|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDB|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKB|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS|UF|BEP|WEP|TEP|DP|SP|PNL)\d[\w\-\/]*(?:\((?:SPLIT|O|OPEN|C|CLOSED)\)|\[(?:SPLIT)\]|_SPLIT|-\((?:O|OPEN|C|CLOSED)\))?/gi;
+// Includes legacy/manufacturer SKUs: RW, SCB, FSH, BP12WP, TEP/TEPF panels, UF/BEP/WEP/DP/SP/PNL/TKB.
+const SKU_PATTERN = /\b(BP|DB|SB|SCB|CB|EB|LS|LSB|RW|W|WDC|UB|WC|OH|BLB|BLW|BRW|TEPF|TEP|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDB|VDC|FIL|BF|WF|FSH|BFFIL|WFFIL|TK|TKB|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS|UF|BEP|WEP|DP|SP|PNL|B)\d[\w.\-\/]*(?:\((?:SPLIT|O|OPEN|C|CLOSED)\)|\[(?:SPLIT)\]|_SPLIT|-\((?:O|OPEN|C|CLOSED)\))?/gi;
 const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
 const SKU_PREFIX_RE = /^[A-Z]{1,8}\d/i;
-const NO_DIGIT_OK = /^(BP|SCRIBE|UC)$/i;
+const NO_DIGIT_OK = /^(BP|SCRIBE|UC|APNL?-(?:DF|SDR))$/i;
 
 type SkuOccurrence = {
   sku: string;
@@ -53,7 +52,7 @@ function extractSkuMatches(text: string): string[] {
   if (!text) return [];
 
   const matches = text.match(SKU_PATTERN) || [];
-  const noDigitMatches = text.match(/\b(BP|SCRIBE|UC)\b/gi) || [];
+  const noDigitMatches = text.match(/\b(BP|SCRIBE|UC|APNL?-(?:DF|SDR))\b/gi) || [];
   const appronMatches: string[] = [];
   let appronMatch: RegExpExecArray | null;
   const appronPattern = /\bAPPRON\s+(\d+X\d+)\b/gi;
