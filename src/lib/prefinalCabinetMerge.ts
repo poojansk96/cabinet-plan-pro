@@ -14,9 +14,11 @@ export interface PositionedPdfTextItem {
 // Includes legacy/manufacturer SKUs: RW, SCB, SCW, FSH, BP12WP, TEP/TEPF panels, UF/BEP/WEP/DP/SP/PNL/TKB.
 const SKU_PATTERN = /\b(BP|DB|SB|SCB|SCW|CB|EB|LS|LSB|RW|W|WDC|UB|WC|OH|BLB|BLW|BRW|TEPF|TEP|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDB|VDC|FIL|BF|WF|FSH|BFFIL|WFFIL|TK|TKB|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS|UF|BEP|WEP|DP|SP|PNL|B)\d[\w.\-\/]*(?:\((?:SPLIT|O|OPEN|C|CLOSED)\)|\[(?:SPLIT)\]|_SPLIT|-\((?:O|OPEN|C|CLOSED)\))?/gi;
 const SPACED_SKU_PATTERN = /\b(BP|SCB|SCW|RW|FSH|TEPF|TEP|TF|W|B|SB|BF|WF)\s+(\d[\w.\-\/]*)\b/gi;
-// Generic cabinet/accessory fallback: 1-6 letters + a 2+ digit dimension cluster (e.g. SCW244213R, W334213BD).
-// Appliances are still excluded downstream by APPLIANCE_RE inside isValidSku.
-const GENERIC_SKU_PATTERN = /\b[A-Z]{1,6}\d{2,}[\w.\-\/]*/gi;
+// Generic cabinet/accessory fallback for unknown prefixes: 1-6 letters + a 2+ digit dimension
+// cluster + a trailing letter suffix (e.g. SCW244213R, B24R, W334213BD). Requiring a trailing
+// letter avoids capturing architectural sheet numbers (A101, S200). Appliances are still
+// excluded downstream by APPLIANCE_RE inside isValidSku.
+const GENERIC_SKU_PATTERN = /\b[A-Z]{1,6}\d{2,}[\w.\-\/]*[A-Z]\b/gi;
 const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
 const SKU_PREFIX_RE = /^[A-Z]{1,8}\d/i;
 const NO_DIGIT_OK = /^(BP|SCRIBE|UC|APNL?-(?:DF|SDR))$/i;
