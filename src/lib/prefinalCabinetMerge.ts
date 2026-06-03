@@ -11,12 +11,12 @@ export interface PositionedPdfTextItem {
   transform?: number[];
 }
 
-// Includes legacy manufacturer SKUs: UF (utility/under filler), BEP (base end panel), WEP (wall end panel),
-// TEP (tall end panel), DP (decorative panel), SP (skin panel), PNL (panel), TKB (toe-kick base).
-const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|WDC|UB|WC|OH|BLB|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDB|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKB|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS|UF|BEP|WEP|TEP|DP|SP|PNL)\d[\w\-\/]*(?:\((?:SPLIT|O|OPEN|C|CLOSED)\)|\[(?:SPLIT)\]|_SPLIT|-\((?:O|OPEN|C|CLOSED)\))?/gi;
+// Includes legacy/manufacturer SKUs: RW, SCB, FSH, BP12WP, TEP/TEPF panels, UF/BEP/WEP/DP/SP/PNL/TKB.
+const SKU_PATTERN = /\b(BP|DB|SB|SCB|CB|EB|LS|LSB|RW|W|WDC|UB|WC|OH|BLB|BLW|BRW|TEPF|TEP|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDB|VDC|FIL|BF|WF|FSH|BFFIL|WFFIL|TK|TKB|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS|UF|BEP|WEP|DP|SP|PNL|B)\d[\w.\-\/]*(?:\((?:SPLIT|O|OPEN|C|CLOSED)\)|\[(?:SPLIT)\]|_SPLIT|-\((?:O|OPEN|C|CLOSED)\))?/gi;
+const SPACED_SKU_PATTERN = /\b(BP|SCB|RW|FSH|TEPF|TEP|TF|W|B|SB|BF|WF)\s+(\d[\w.\-\/]*)\b/gi;
 const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
 const SKU_PREFIX_RE = /^[A-Z]{1,8}\d/i;
-const NO_DIGIT_OK = /^(BP|SCRIBE|UC)$/i;
+const NO_DIGIT_OK = /^(BP|SCRIBE|UC|APNL?-(?:DF|SDR))$/i;
 
 type SkuOccurrence = {
   sku: string;
@@ -53,7 +53,8 @@ function extractSkuMatches(text: string): string[] {
   if (!text) return [];
 
   const matches = text.match(SKU_PATTERN) || [];
-  const noDigitMatches = text.match(/\b(BP|SCRIBE|UC)\b/gi) || [];
+  const spacedMatches = Array.from(text.matchAll(SPACED_SKU_PATTERN), ([, prefix, suffix]) => `${prefix}${suffix}`);
+  const noDigitMatches = text.match(/\b(BP(?!\s*\d)|SCRIBE|UC|APNL?-(?:DF|SDR))\b/gi) || [];
   const appronMatches: string[] = [];
   let appronMatch: RegExpExecArray | null;
   const appronPattern = /\bAPPRON\s+(\d+X\d+)\b/gi;
@@ -61,7 +62,7 @@ function extractSkuMatches(text: string): string[] {
     appronMatches.push(`APPRON${appronMatch[1]}`);
   }
 
-  return [...matches, ...noDigitMatches, ...appronMatches]
+  return [...matches, ...spacedMatches, ...noDigitMatches, ...appronMatches]
     .map(normalizePrefinalSkuLabel)
     .filter((sku) => isValidSku(sku));
 }
@@ -172,7 +173,15 @@ export function extractPlanSkuCountsFromTextItems(textItems: PositionedPdfTextIt
     y <= bounds.maxY + marginY,
   );
 
-  return countOccurrences(clusteredOccurrences.length > 0 ? clusteredOccurrences : primaryCluster);
+  if (clusteredOccurrences.length === 0) return countOccurrences(primaryCluster);
+
+  const clusteredSkus = new Set(clusteredOccurrences.map(({ sku }) => sku));
+  const uniqueOutsideCluster = occurrences.filter(({ sku, x, y }) =>
+    !clusteredSkus.has(sku) &&
+    (x < bounds.minX - marginX || x > bounds.maxX + marginX || y < bounds.minY - marginY || y > bounds.maxY + marginY),
+  );
+
+  return countOccurrences([...clusteredOccurrences, ...uniqueOutsideCluster]);
 }
 
 function isAmbiguousDirectionalUcSku(value: unknown): boolean {
@@ -284,8 +293,9 @@ export function mergePrefinalExtractionPasses(
 
   const isStrongStripOnlySku = (sku: string): boolean => {
     const upper = String(sku || '').toUpperCase().trim();
-    return /^(UC|BP|SCRIBE)$/.test(upper)
-      || /^(?:DWR|BF|FIL|CM|EP|FP|LR)\d(?:[A-Z0-9\-\/]*)$/.test(upper)
+    return /^(UC|BP|SCRIBE|APNL?-(?:DF|SDR))$/.test(upper)
+      || /^(?:DWR|BF|FIL|CM|EP|FP|LR|RW|FSH|SCB|TEPF?|BP)\d(?:[A-Z0-9.\-\/]*)$/.test(upper)
+      || /^(?:W|B|T|V)\d{2,}[A-Z0-9.\-\/]*$/.test(upper)
       // Filler-head base cabinets like B09FH, B06FH, B12FH, B15FH, B18FH —
       // very narrow rectangles drawn beside vanities; commonly only seen on a
       // single strip pass but always real when present.
@@ -295,7 +305,8 @@ export function mergePrefinalExtractionPasses(
 
   const isShortAccessorySku = (sku: string): boolean => {
     const upper = String(sku || '').toUpperCase().trim();
-    return /^(?:DWR|BF|WF|FIL|CM|EP|FP|LR|TK|TF|APPRON)\d/i.test(upper);
+    return /^(?:DWR|BF|WF|FIL|CM|EP|FP|LR|TK|TF|TEPF|APPRON|RW|FSH|SCB|BP)\d/i.test(upper)
+      || /^APNL?-(?:DF|SDR)$/i.test(upper);
   };
 
   for (const [key, candidate] of stripOnly.entries()) {

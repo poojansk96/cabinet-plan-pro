@@ -231,15 +231,16 @@ async function callAI(
 
 // ── SKU Helpers ──
 
-const SKU_PATTERN = /\b(B|DB|SB|CB|EB|LS|LSB|W|WDC|UB|WC|OH|BLB|BLW|BRW|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDB|VDC|FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS)\d[\w\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
+const SKU_PATTERN = /\b(BP|DB|SB|SCB|CB|EB|LS|LSB|RW|W|WDC|UB|WC|OH|BLB|BLW|BRW|TEPF|TEP|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDB|VDC|FIL|BF|WF|FSH|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS|B)\d[\w.\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
+const SPACED_SKU_PATTERN = /\b(BP|SCB|RW|FSH|TEPF|TEP|TF|W|B|SB|BF|WF)\s+(\d[\w.\-\/]*)\b/gi;
 // Secondary pattern for APPRON with space before dimensions (e.g. "APPRON 59X21")
 const APPRON_DIM_PATTERN = /\bAPPRON\s+(\d+X\d+)\b/gi;
 const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
 // Relaxed: accept any 1-8 letter prefix followed by a digit (catches manufacturer-specific SKUs like HAV, HALC)
 const SKU_PREFIX_RE = /^[A-Z]{1,8}\d/i;
-const NO_DIGIT_OK = /^(BP|SCRIBE|UC)$/i;
-const SHORT_ACCESSORY_STRIP_SKU_RE = /^(?:DWR|BF|FIL|CM|EP|FP|LR)\d(?:[A-Z0-9\-\/]*)$/i;
-const STRONG_STRIP_SKU_RE = /^(?:UC|BP|SCRIBE|APPRON|UREP|REP|(?:DWR|BF|FIL|CM|EP|FP|LR)\d(?:[A-Z0-9\-\/]*)|[A-Z]{2,8}\d[A-Z0-9\-\/]{2,})$/i;
+const NO_DIGIT_OK = /^(BP|SCRIBE|UC|APNL?-(?:DF|SDR))$/i;
+const SHORT_ACCESSORY_STRIP_SKU_RE = /^(?:DWR|BF|FIL|CM|EP|FP|LR|RW|FSH|SCB|TEPF?|BP)\d(?:[A-Z0-9.\-\/]*)$/i;
+const STRONG_STRIP_SKU_RE = /^(?:UC|BP|SCRIBE|APNL?-(?:DF|SDR)|APPRON|UREP|REP|(?:DWR|BF|FIL|CM|EP|FP|LR|RW|FSH|SCB|TEPF?|BP)\d(?:[A-Z0-9.\-\/]*)|(?:W|B|T|V)\d{2,}[A-Z0-9.\-\/]*|[A-Z]{2,8}\d[A-Z0-9.\-\/]{2,})$/i;
 const SPLIT_SUFFIX_RE = /(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)$/i;
 
 function normalizeSkuLabel(value: string): string {
@@ -285,7 +286,8 @@ function isValidSku(s: string): boolean {
 function extractSkusFromText(pageText: string): string[] {
   if (!pageText) return [];
   const matches = pageText.match(SKU_PATTERN) || [];
-  const noDigitMatches = pageText.match(/\b(BP|SCRIBE|UC)\b/gi) || [];
+  const spacedMatches = Array.from(pageText.matchAll(SPACED_SKU_PATTERN), ([, prefix, suffix]) => `${prefix}${suffix}`);
+  const noDigitMatches = pageText.match(/\b(BP(?!\s*\d)|SCRIBE|UC|APNL?-(?:DF|SDR))\b/gi) || [];
   // Catch APPRON with space before dimensions (e.g. "APPRON 59X21")
   const appronMatches: string[] = [];
   let appM: RegExpExecArray | null;
@@ -295,7 +297,7 @@ function extractSkusFromText(pageText: string): string[] {
   }
   const skus = new Set<string>();
 
-  for (const m of [...matches, ...noDigitMatches, ...appronMatches]) {
+  for (const m of [...matches, ...spacedMatches, ...noDigitMatches, ...appronMatches]) {
     const upper = normalizeSkuLabel(m);
     if (APPLIANCE_RE.test(upper)) continue;
     if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) continue;
@@ -311,7 +313,8 @@ function countSkusFromText(pageText: string): Record<string, number> {
   if (!pageText) return counts;
 
   const matches = pageText.match(SKU_PATTERN) || [];
-  const noDigitMatches = pageText.match(/\b(BP|SCRIBE|UC)\b/gi) || [];
+  const spacedMatches = Array.from(pageText.matchAll(SPACED_SKU_PATTERN), ([, prefix, suffix]) => `${prefix}${suffix}`);
+  const noDigitMatches = pageText.match(/\b(BP(?!\s*\d)|SCRIBE|UC|APNL?-(?:DF|SDR))\b/gi) || [];
   // Catch APPRON with space before dimensions
   const appronMatches: string[] = [];
   let appM2: RegExpExecArray | null;
@@ -320,7 +323,7 @@ function countSkusFromText(pageText: string): Record<string, number> {
     appronMatches.push(`APPRON${appM2[1]}`);
   }
 
-  for (const m of [...matches, ...noDigitMatches, ...appronMatches]) {
+  for (const m of [...matches, ...spacedMatches, ...noDigitMatches, ...appronMatches]) {
     const upper = normalizeSkuLabel(m);
     if (APPLIANCE_RE.test(upper)) continue;
     if (/^UNIT\b/i.test(upper) || /^ELEV/i.test(upper) || /^FLOOR/i.test(upper) || /^TYPE\s/i.test(upper)) continue;
@@ -334,7 +337,7 @@ function countSkusFromText(pageText: string): Record<string, number> {
 function classifySku(sku: string): string {
   const normalizedSku = normalizeSkuLabel(sku);
   if (/^(BLB|BLW|BRW)/i.test(normalizedSku)) return "Wall";
-  if (/^(W|WDC|UB|WC|OH)\d/i.test(normalizedSku)) return "Wall";
+  if (/^(RW|W|WDC|UB|WC|OH)\d/i.test(normalizedSku)) return "Wall";
   if (/^(HAW|HAWDC)\d/i.test(normalizedSku)) return "Wall";
   if (/^HCW\d/i.test(normalizedSku)) return "Wall";
   if (/^HW\d/i.test(normalizedSku)) return "Wall";
@@ -342,9 +345,9 @@ function classifySku(sku: string): string {
   if (/^(HALC|HAUC|HCUC|HCYC)\d/i.test(normalizedSku)) return "Tall";
   if (/^(V|VB|VD|VDB|VDC)\d/i.test(normalizedSku)) return "Vanity";
   if (/^(HAV|HAVDB)\d/i.test(normalizedSku)) return "Vanity";
-  if (/^(BP|SCRIBE)$/i.test(normalizedSku)) return "Accessory";
-  if (/^(FIL|BF|WF|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|TF|APPRON|UREP|REP)\d/i.test(normalizedSku)) return "Accessory";
-  if (/^(HABLB|HAB|HADB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HCDB|HCLS|HWSB|HWS)\d/i.test(normalizedSku)) return "Base";
+  if (/^(BP|SCRIBE|UC|APNL?-(?:DF|SDR))$/i.test(normalizedSku)) return "Accessory";
+  if (/^(FIL|BF|WF|FSH|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|TF|TEPF|APPRON|UREP|REP|BP)\d/i.test(normalizedSku)) return "Accessory";
+  if (/^(SCB|HABLB|HAB|HADB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HCDB|HCLS|HWSB|HWS)\d/i.test(normalizedSku)) return "Base";
   return "Base";
 }
 
@@ -397,8 +400,8 @@ const CABINET_PREFIXES = [
   'HCBMW','HCBM','HCOC','HCUC','HCYC','HCDB','HCLS','HWSB','HWS',
   'BFFIL','WFFIL','TKRUN',
   'HAB','HAW','HAV','HAL','HCB','HSS',
-  'BLB','BLW','BRW','WDC','PTC','VDC',
-  'DB','SB','CB','EB','LS','LSB','WC','UB','OH','BF','WF','TF','TK','UC','VB','VD','FIL','CM','LR','EP','FP','DWR','HC','HW','HS','HA','SA','SV','PT','TC','UT',
+  'BLB','BLW','BRW','WDC','PTC','VDC','TEPF',
+  'DB','SB','SCB','CB','EB','LS','LSB','RW','WC','UB','OH','BF','WF','FSH','TF','TEP','TK','UC','VB','VD','FIL','CM','LR','EP','FP','DWR','HC','HW','HS','HA','SA','SV','PT','TC','UT','BP',
   'APPRON','UREP','REP',
   'B','W','T','V',
 ];
@@ -801,7 +804,7 @@ Return it as "unitTypeName" in your response. Return null if no unit type is fou
     const extractPrompt = `Extract ALL cabinet SKU labels from this 2020 Design shop drawing plan view.
 ${unitTypeDetectInstructions}
 For each cabinet found, provide:
-1. sku: The SKU label exactly as written (e.g. B24, W3036, DB15, BF3, WF6X30, LS36-L, BLW36/3930-L, B09FH, APPRON59X21, DWR1). For APPRON labels with dimensions like "APPRON 59X21", combine into one string without spaces: "APPRON59X21".
+1. sku: The SKU label exactly as written (e.g. B24, W3036, DB15, RW4818BD, BP12WP, TF1.52496L, APNL-DF, SCB33R, FSH4210S, BF3, WF6X30, LS36-L, BLW36/3930-L, B09FH, APPRON59X21, DWR1). For APPRON labels with dimensions like "APPRON 59X21", combine into one string without spaces: "APPRON59X21".
 2. type: Classify by prefix:
    - "Base" → B, DB, SB, CB, EB, LS, LSB, HCDB, HCLS, HWS, HWSB, HAB, HABLB, HADB, HAOC, HASB, HACB, HAEB (but NOT BLB/BLW/BRW — those are Wall, NOT HAV — those are Vanity)
     - "Wall" → W, WDC, UB, WC, OH, BLB, BLW, BRW, HAW, HAWDC, HCW, HW (ONLY when the prefix is exactly HW followed immediately by digits; HWS/HWSB are Base)
@@ -857,13 +860,13 @@ SKIP THESE — NOT CABINET SKUs:
 - Non-SKU text: unit numbers, elevation titles, dimension text, page numbers
 
 VALID SKU PREFIXES (a label must start with letters followed by a digit):
-B, DB, SB, CB, EB, LS, LSB, W, WDC, UB, WC, OH, BLB, BLW, BRW, T, TF, UT, TC, PT, PTC, UC, V, VB, VD, VDC, FIL, BF, WF, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR, APPRON
+B, BP, DB, SB, SCB, CB, EB, LS, LSB, RW, W, WDC, UB, WC, OH, BLB, BLW, BRW, T, TF, TEP, TEPF, UT, TC, PT, PTC, UC, V, VB, VD, VDC, FIL, BF, WF, FSH, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR, APPRON
 Also accept manufacturer-specific longer prefixes (e.g. HA, HAV, HAVDB, HALC, HAUC, SA, SV) followed by digits.
 
 VALID NO-DIGIT SKUS:
-UC, SCRIBE, BP
+UC, SCRIBE, BP, APN-DF, APNL-DF, APN-SDR, APNL-SDR
 
-FINAL SWEEP: After your initial scan, go back and specifically look for: B09FH, B06FH, B12FH, B15FH, B18FH (filler-head base — VERY commonly missed when adjacent to vanity SKUs like V3021B, VB30, VD24 in bath elevations — ALWAYS scan beside every vanity cabinet for a narrow B##FH sliver), BF3, BF6, WF3X30, WF6X30, TF3X96, DWR1, DWR3, DWR6, CM8, TK, TKRUN, EP, LR, UC, SCRIBE, BP, HAVDB12, HAVDB18, HAVDB15, VDB12, VDB15, VDB18 (vanity drawer-base — small narrow rectangles under vanity tops, very commonly missed), APPRON (with dimensions like "APPRON 59X21" — report as "APPRON59X21" without the space). These appear as very small labels on narrow shapes. DWR labels are often rotated vertically — scan rotated text carefully.
+FINAL SWEEP: After your initial scan, go back and specifically look for: RW4818BD / RW4812BD / other RW labels, TF1.52496L or TEPF-style tall end panels, BP12WP, W181813R, APNL-DF / APN-DF, FSH4210S, SCB33R, B09FH, B06FH, B12FH, B15FH, B18FH (filler-head base — VERY commonly missed when adjacent to vanity SKUs like V3021B, VB30, VD24 in bath elevations — ALWAYS scan beside every vanity cabinet for a narrow B##FH sliver), BF3, BF6, WF3X30, WF6X30, TF3X96, DWR1, DWR3, DWR6, CM8, TK, TKRUN, EP, LR, UC, SCRIBE, BP, HAVDB12, HAVDB18, HAVDB15, VDB12, VDB15, VDB18 (vanity drawer-base — small narrow rectangles under vanity tops, very commonly missed), APPRON (with dimensions like "APPRON 59X21" — report as "APPRON59X21" without the space). These appear as very small labels on narrow shapes. DWR labels are often rotated vertically — scan rotated text carefully.
 ${isStrip ? '\nNOTE: This image shows a CROPPED SECTION of a larger drawing page. Extract all cabinet labels visible in this cropped section.\n' : ''}${textLayerSkus.length > 0 ? `\nTEXT LAYER CROSS-REFERENCE — the PDF text layer detected these SKUs on this page:\n${textLayerSkus.join(', ')}\nMake sure ALL of these appear in your results if they are visible as labels on the drawing. If any are missing from your results, look harder for them.\n` : ''}${unitType ? `\nUnit type context: ${unitType}` : ""}
 If no cabinet SKUs are found, return {"items":[]}`;
 
@@ -1143,7 +1146,7 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
     }
 
     // Reconcile under-counted small accessories using text-layer occurrence counts (conservative floor).
-    const ACCESSORY_FLOOR_RE = /^(BF|WF|FIL|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|TF)\d/i;
+    const ACCESSORY_FLOOR_RE = /^(BF|WF|FSH|FIL|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|TF|TEPF|BP)\d/i;
     items = items.map((item) => {
       const textCount = textLayerSkuCounts[item.sku] ?? 0;
       if (!ACCESSORY_FLOOR_RE.test(item.sku) || textCount < 2) return item;
