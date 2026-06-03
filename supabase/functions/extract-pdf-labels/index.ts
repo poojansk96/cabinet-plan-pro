@@ -334,7 +334,7 @@ function countSkusFromText(pageText: string): Record<string, number> {
 function classifySku(sku: string): string {
   const normalizedSku = normalizeSkuLabel(sku);
   if (/^(BLB|BLW|BRW)/i.test(normalizedSku)) return "Wall";
-  if (/^(W|WDC|UB|WC|OH)\d/i.test(normalizedSku)) return "Wall";
+  if (/^(RW|W|WDC|UB|WC|OH)\d/i.test(normalizedSku)) return "Wall";
   if (/^(HAW|HAWDC)\d/i.test(normalizedSku)) return "Wall";
   if (/^HCW\d/i.test(normalizedSku)) return "Wall";
   if (/^HW\d/i.test(normalizedSku)) return "Wall";
@@ -342,9 +342,9 @@ function classifySku(sku: string): string {
   if (/^(HALC|HAUC|HCUC|HCYC)\d/i.test(normalizedSku)) return "Tall";
   if (/^(V|VB|VD|VDB|VDC)\d/i.test(normalizedSku)) return "Vanity";
   if (/^(HAV|HAVDB)\d/i.test(normalizedSku)) return "Vanity";
-  if (/^(BP|SCRIBE)$/i.test(normalizedSku)) return "Accessory";
+  if (/^(BP|SCRIBE|UC|APNL?-(?:DF|SDR))$/i.test(normalizedSku)) return "Accessory";
   if (/^(FIL|BF|WF|FSH|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|TF|TEPF|APPRON|UREP|REP|BP)\d/i.test(normalizedSku)) return "Accessory";
-  if (/^(HABLB|HAB|HADB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HCDB|HCLS|HWSB|HWS)\d/i.test(normalizedSku)) return "Base";
+  if (/^(SCB|HABLB|HAB|HADB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HCDB|HCLS|HWSB|HWS)\d/i.test(normalizedSku)) return "Base";
   return "Base";
 }
 
