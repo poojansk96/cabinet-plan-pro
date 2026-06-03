@@ -978,7 +978,7 @@ IMPORTANT: Only include a SKU if you can actually SEE it as a printed label on t
 ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
 
         try {
-          const recovery: any = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, useAccuModel ? "gemini-3-flash-preview" : "gemini-3.1-flash-lite-preview", qwenModel, pageImage, recoveryPrompt, 0.3, 4096, EXTRACT_SCHEMA);
+          const recovery: any = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, useAccuModel ? "gemini-3-flash-preview" : "gemini-3.5-flash", qwenModel, pageImage, recoveryPrompt, 0.3, 4096, EXTRACT_SCHEMA);
           const recoveredItems = (recovery.items ?? []).filter((item: any) => {
             const normalized = normalizeSkuLabel(String(item.sku || ''));
             return normalized && isValidSku(normalized) && !extractedAfterVerify.has(normalized);
