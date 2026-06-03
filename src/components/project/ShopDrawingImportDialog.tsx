@@ -683,8 +683,8 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         for (let s = 0; s < 6; s++) onStepDone?.();
         return {
           ...fullData,
-          unitTypeName: resolvedType.primary,
-          unitTypeAliases: resolvedType.aliases,
+          unitTypeName: resolvedPrimary,
+          unitTypeAliases: resolvedAliases,
           pageText,
         };
       }
