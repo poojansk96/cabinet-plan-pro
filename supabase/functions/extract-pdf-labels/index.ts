@@ -239,7 +239,7 @@ const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RAN
 const SKU_PREFIX_RE = /^[A-Z]{1,8}\d/i;
 const NO_DIGIT_OK = /^(BP|SCRIBE|UC|APNL?-(?:DF|SDR))$/i;
 const SHORT_ACCESSORY_STRIP_SKU_RE = /^(?:DWR|BF|FIL|CM|EP|FP|LR|RW|FSH|SCB|TEPF?|BP)\d(?:[A-Z0-9.\-\/]*)$/i;
-const STRONG_STRIP_SKU_RE = /^(?:UC|BP|SCRIBE|APNL?-(?:DF|SDR)|APPRON|UREP|REP|(?:DWR|BF|FIL|CM|EP|FP|LR|RW|FSH|SCB|TEPF?|BP)\d(?:[A-Z0-9.\-\/]*)|[A-Z]{2,8}\d[A-Z0-9.\-\/]{2,})$/i;
+const STRONG_STRIP_SKU_RE = /^(?:UC|BP|SCRIBE|APNL?-(?:DF|SDR)|APPRON|UREP|REP|(?:DWR|BF|FIL|CM|EP|FP|LR|RW|FSH|SCB|TEPF?|BP)\d(?:[A-Z0-9.\-\/]*)|(?:W|B|T|V)\d{2,}[A-Z0-9.\-\/]*|[A-Z]{2,8}\d[A-Z0-9.\-\/]{2,})$/i;
 const SPLIT_SUFFIX_RE = /(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)$/i;
 
 function normalizeSkuLabel(value: string): string {
@@ -1143,7 +1143,7 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
     }
 
     // Reconcile under-counted small accessories using text-layer occurrence counts (conservative floor).
-    const ACCESSORY_FLOOR_RE = /^(BF|WF|FIL|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|TF)\d/i;
+    const ACCESSORY_FLOOR_RE = /^(BF|WF|FSH|FIL|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|TF|TEPF|BP)\d/i;
     items = items.map((item) => {
       const textCount = textLayerSkuCounts[item.sku] ?? 0;
       if (!ACCESSORY_FLOOR_RE.test(item.sku) || textCount < 2) return item;
