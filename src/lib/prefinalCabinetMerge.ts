@@ -11,9 +11,14 @@ export interface PositionedPdfTextItem {
   transform?: number[];
 }
 
-// Includes legacy/manufacturer SKUs: RW, SCB, FSH, BP12WP, TEP/TEPF panels, UF/BEP/WEP/DP/SP/PNL/TKB.
-const SKU_PATTERN = /\b(BP|DB|SB|SCB|CB|EB|LS|LSB|RW|W|WDC|UB|WC|OH|BLB|BLW|BRW|TEPF|TEP|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDB|VDC|FIL|BF|WF|FSH|BFFIL|WFFIL|TK|TKB|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS|UF|BEP|WEP|DP|SP|PNL|B)\d[\w.\-\/]*(?:\((?:SPLIT|O|OPEN|C|CLOSED)\)|\[(?:SPLIT)\]|_SPLIT|-\((?:O|OPEN|C|CLOSED)\))?/gi;
-const SPACED_SKU_PATTERN = /\b(BP|SCB|RW|FSH|TEPF|TEP|TF|W|B|SB|BF|WF)\s+(\d[\w.\-\/]*)\b/gi;
+// Includes legacy/manufacturer SKUs: RW, SCB, SCW, FSH, BP12WP, TEP/TEPF panels, UF/BEP/WEP/DP/SP/PNL/TKB.
+const SKU_PATTERN = /\b(BP|DB|SB|SCB|SCW|CB|EB|LS|LSB|RW|W|WDC|UB|WC|OH|BLB|BLW|BRW|TEPF|TEP|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDB|VDC|FIL|BF|WF|FSH|BFFIL|WFFIL|TK|TKB|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS|UF|BEP|WEP|DP|SP|PNL|B)\d[\w.\-\/]*(?:\((?:SPLIT|O|OPEN|C|CLOSED)\)|\[(?:SPLIT)\]|_SPLIT|-\((?:O|OPEN|C|CLOSED)\))?/gi;
+const SPACED_SKU_PATTERN = /\b(BP|SCB|SCW|RW|FSH|TEPF|TEP|TF|W|B|SB|BF|WF)\s+(\d[\w.\-\/]*)\b/gi;
+// Generic cabinet/accessory fallback for unknown prefixes: 1-6 letters + a 2+ digit dimension
+// cluster + a trailing letter suffix (e.g. SCW244213R, B24R, W334213BD). Requiring a trailing
+// letter avoids capturing architectural sheet numbers (A101, S200). Appliances are still
+// excluded downstream by APPLIANCE_RE inside isValidSku.
+const GENERIC_SKU_PATTERN = /\b[A-Z]{1,6}\d{2,}[\w.\-\/]*[A-Z]\b/gi;
 const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
 const SKU_PREFIX_RE = /^[A-Z]{1,8}\d/i;
 const NO_DIGIT_OK = /^(BP|SCRIBE|UC|APNL?-(?:DF|SDR))$/i;
@@ -52,7 +57,28 @@ function isValidSku(value: string): boolean {
 function extractSkuMatches(text: string): string[] {
   if (!text) return [];
 
-  const matches = text.match(SKU_PATTERN) || [];
+  // Whitelist + generic fallback share digit-based tokens, so dedupe by character
+  // position (longer/more-specific match wins) to avoid double-counting the same SKU.
+  type Hit = { value: string; start: number; end: number };
+  const digitHits: Hit[] = [];
+  const pushHits = (pattern: RegExp) => {
+    for (const m of text.matchAll(new RegExp(pattern.source, 'gi'))) {
+      const start = m.index ?? 0;
+      digitHits.push({ value: m[0], start, end: start + m[0].length });
+    }
+  };
+  pushHits(SKU_PATTERN);
+  pushHits(GENERIC_SKU_PATTERN);
+  digitHits.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
+  const dedupedDigitMatches: string[] = [];
+  let lastEnd = -1;
+  for (const hit of digitHits) {
+    if (hit.start >= lastEnd) {
+      dedupedDigitMatches.push(hit.value);
+      lastEnd = hit.end;
+    }
+  }
+
   const spacedMatches = Array.from(text.matchAll(SPACED_SKU_PATTERN), ([, prefix, suffix]) => `${prefix}${suffix}`);
   const noDigitMatches = text.match(/\b(BP(?!\s*\d)|SCRIBE|UC|APNL?-(?:DF|SDR))\b/gi) || [];
   const appronMatches: string[] = [];
@@ -62,7 +88,7 @@ function extractSkuMatches(text: string): string[] {
     appronMatches.push(`APPRON${appronMatch[1]}`);
   }
 
-  return [...matches, ...spacedMatches, ...noDigitMatches, ...appronMatches]
+  return [...dedupedDigitMatches, ...spacedMatches, ...noDigitMatches, ...appronMatches]
     .map(normalizePrefinalSkuLabel)
     .filter((sku) => isValidSku(sku));
 }

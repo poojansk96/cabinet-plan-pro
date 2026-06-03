@@ -51,6 +51,26 @@ describe('extractPlanSkuCountsFromTextItems', () => {
     expect(counts.SCB33R).toBe(2);
   });
 
+  it('counts SCW corner wall SKUs and ignores appliance SKUs in the plan', () => {
+    const counts = extractPlanSkuCountsFromTextItems([
+      { str: 'SCW244213R', transform: [1, 0, 0, 1, 500, 420] },
+      { str: 'W334213BD', transform: [1, 0, 0, 1, 510, 385] },
+      { str: 'B24R', transform: [1, 0, 0, 1, 520, 360] },
+      { str: 'SCB33R', transform: [1, 0, 0, 1, 530, 340] },
+      { str: 'REF3636', transform: [1, 0, 0, 1, 540, 320] },
+      { str: 'RANGE30', transform: [1, 0, 0, 1, 550, 300] },
+      { str: 'DW24', transform: [1, 0, 0, 1, 560, 280] },
+    ]);
+
+    expect(counts.SCW244213R).toBe(1);
+    expect(counts.W334213BD).toBe(1);
+    expect(counts.B24R).toBe(1);
+    expect(counts.SCB33R).toBe(1);
+    expect(counts.REF3636).toBeUndefined();
+    expect(counts.RANGE30).toBeUndefined();
+    expect(counts.DW24).toBeUndefined();
+  });
+
   it('keeps the main plan cluster and ignores a remote duplicate occurrence', () => {
     const counts = extractPlanSkuCountsFromTextItems([
       { str: 'W2430B', transform: [1, 0, 0, 1, 320, 420] },

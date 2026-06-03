@@ -231,8 +231,12 @@ async function callAI(
 
 // ── SKU Helpers ──
 
-const SKU_PATTERN = /\b(BP|DB|SB|SCB|CB|EB|LS|LSB|RW|W|WDC|UB|WC|OH|BLB|BLW|BRW|TEPF|TEP|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDB|VDC|FIL|BF|WF|FSH|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS|B)\d[\w.\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
-const SPACED_SKU_PATTERN = /\b(BP|SCB|RW|FSH|TEPF|TEP|TF|W|B|SB|BF|WF)\s+(\d[\w.\-\/]*)\b/gi;
+const SKU_PATTERN = /\b(BP|DB|SB|SCB|SCW|CB|EB|LS|LSB|RW|W|WDC|UB|WC|OH|BLB|BLW|BRW|TEPF|TEP|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDB|VDC|FIL|BF|WF|FSH|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS|B)\d[\w.\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
+const SPACED_SKU_PATTERN = /\b(BP|SCB|SCW|RW|FSH|TEPF|TEP|TF|W|B|SB|BF|WF)\s+(\d[\w.\-\/]*)\b/gi;
+// Generic cabinet/accessory fallback for unknown prefixes: 1-6 letters + a 2+ digit dimension
+// cluster + a trailing letter suffix (e.g. SCW244213R, B24R, W334213BD). Requiring a trailing
+// letter avoids capturing architectural sheet numbers (A101, S200). Appliances stay excluded by APPLIANCE_RE.
+const GENERIC_SKU_PATTERN = /\b[A-Z]{1,6}\d{2,}[\w.\-\/]*[A-Z]\b/gi;
 // Secondary pattern for APPRON with space before dimensions (e.g. "APPRON 59X21")
 const APPRON_DIM_PATTERN = /\bAPPRON\s+(\d+X\d+)\b/gi;
 const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
@@ -283,9 +287,31 @@ function isValidSku(s: string): boolean {
   return SKU_PREFIX_RE.test(upper);
 }
 
+// Returns whitelist + generic-fallback SKU tokens, deduped by character position so the same
+// substring isn't counted twice (longer/more-specific match wins on overlap).
+function digitSkuTokens(pageText: string): string[] {
+  const hits: { value: string; start: number; end: number }[] = [];
+  for (const pattern of [SKU_PATTERN, GENERIC_SKU_PATTERN]) {
+    for (const m of pageText.matchAll(new RegExp(pattern.source, 'gi'))) {
+      const start = m.index ?? 0;
+      hits.push({ value: m[0], start, end: start + m[0].length });
+    }
+  }
+  hits.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
+  const out: string[] = [];
+  let lastEnd = -1;
+  for (const hit of hits) {
+    if (hit.start >= lastEnd) {
+      out.push(hit.value);
+      lastEnd = hit.end;
+    }
+  }
+  return out;
+}
+
 function extractSkusFromText(pageText: string): string[] {
   if (!pageText) return [];
-  const matches = pageText.match(SKU_PATTERN) || [];
+  const matches = digitSkuTokens(pageText);
   const spacedMatches = Array.from(pageText.matchAll(SPACED_SKU_PATTERN), ([, prefix, suffix]) => `${prefix}${suffix}`);
   const noDigitMatches = pageText.match(/\b(BP(?!\s*\d)|SCRIBE|UC|APNL?-(?:DF|SDR))\b/gi) || [];
   // Catch APPRON with space before dimensions (e.g. "APPRON 59X21")
@@ -312,7 +338,7 @@ function countSkusFromText(pageText: string): Record<string, number> {
   const counts: Record<string, number> = {};
   if (!pageText) return counts;
 
-  const matches = pageText.match(SKU_PATTERN) || [];
+  const matches = digitSkuTokens(pageText);
   const spacedMatches = Array.from(pageText.matchAll(SPACED_SKU_PATTERN), ([, prefix, suffix]) => `${prefix}${suffix}`);
   const noDigitMatches = pageText.match(/\b(BP(?!\s*\d)|SCRIBE|UC|APNL?-(?:DF|SDR))\b/gi) || [];
   // Catch APPRON with space before dimensions
@@ -337,7 +363,7 @@ function countSkusFromText(pageText: string): Record<string, number> {
 function classifySku(sku: string): string {
   const normalizedSku = normalizeSkuLabel(sku);
   if (/^(BLB|BLW|BRW)/i.test(normalizedSku)) return "Wall";
-  if (/^(RW|W|WDC|UB|WC|OH)\d/i.test(normalizedSku)) return "Wall";
+  if (/^(RW|W|WDC|UB|WC|OH|SCW)\d/i.test(normalizedSku)) return "Wall";
   if (/^(HAW|HAWDC)\d/i.test(normalizedSku)) return "Wall";
   if (/^HCW\d/i.test(normalizedSku)) return "Wall";
   if (/^HW\d/i.test(normalizedSku)) return "Wall";
