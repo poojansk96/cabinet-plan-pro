@@ -54,7 +54,7 @@ function extractSkuMatches(text: string): string[] {
 
   const matches = text.match(SKU_PATTERN) || [];
   const spacedMatches = Array.from(text.matchAll(SPACED_SKU_PATTERN), ([, prefix, suffix]) => `${prefix}${suffix}`);
-  const noDigitMatches = text.match(/\b(BP|SCRIBE|UC|APNL?-(?:DF|SDR))\b/gi) || [];
+  const noDigitMatches = text.match(/\b(BP(?!\s*\d)|SCRIBE|UC|APNL?-(?:DF|SDR))\b/gi) || [];
   const appronMatches: string[] = [];
   let appronMatch: RegExpExecArray | null;
   const appronPattern = /\bAPPRON\s+(\d+X\d+)\b/gi;
