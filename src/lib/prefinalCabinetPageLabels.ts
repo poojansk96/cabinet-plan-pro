@@ -35,8 +35,13 @@ export function extractPrefinalCabinetPageLabelFromText(pageText: string): strin
   const ordered: Array<[RegExp, string]> = [
     [/\bMUD\s*ROOM\s*\/\s*DROP\s+ZONE\s*\/\s*LOCKERS\b/, 'MUDROOM / DROP ZONE / LOCKERS'],
     [/\bGATHERING\s+ROOM\b(?=.*\bWET\s+BAR\b)/, 'GATHERING ROOM WET BAR'],
+    [/\bLOWER\s+LEVEL\s+BAR\b/, 'LOWER LEVEL BAR'],
     [/\bOWNER'?S\s+BATH\b(?=.*\bDRESSING\s+AREA\b)|\bDRESSING\s+AREA\b(?=.*\bOWNER'?S\s+BATH\b)/, "OWNER'S BATH & DRESSING AREA"],
     [/\bOWNER'?S\s+BATH\b/, "OWNER'S BATH"],
+    [/\bMASTER\s+BATH\b/, 'MASTER BATH'],
+    [/\bOFFICE\s+BATH\b/, 'OFFICE BATH'],
+    [/\bLOWER\s+LEVEL\s+BATH\b/, 'LOWER LEVEL BATH'],
+    [/\bLOWER\s+BATH\b/, 'LOWER BATH'],
     [/\bBASEMENT\s+KITCHEN\b/, 'BASEMENT KITCHEN'],
     [/\bMAIN\s+LAUNDRY\b/, 'MAIN LAUNDRY'],
     [/\bUPPER\s+LAUNDRY\b/, 'UPPER LAUNDRY'],
