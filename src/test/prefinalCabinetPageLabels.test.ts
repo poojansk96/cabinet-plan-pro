@@ -51,4 +51,11 @@ describe('prefinal cabinet page label extraction', () => {
     expect(hasResidentialPrefinalUnitTypeHint('2BR TYPE B1 UNIT # 401')).toBe(true);
     expect(hasResidentialPrefinalUnitTypeHint('MAIN FLOOR GATHERING ROOM WET BAR')).toBe(false);
   });
+
+  it('keeps full bath and lower-level bar labels from the attached floor plan text', () => {
+    expect(extractPrefinalCabinetPageLabelFromText('MAIN FLOOR BF3 VSB24 V1221L MASTER BATH 3DB1221D')).toBe('MASTER BATH');
+    expect(extractPrefinalCabinetPageLabelFromText('MAIN FLOOR OFFICE BATH V1521R VSB33 V1521L TOIL.STD BF3')).toBe('OFFICE BATH');
+    expect(extractPrefinalCabinetPageLabelFromText('LOWER FLOOR TOIL.STD LOWER LEVEL BATH VSB42 BF3')).toBe('LOWER LEVEL BATH');
+    expect(extractPrefinalCabinetPageLabelFromText('LOWER FLOOR BMC24 B33 BF3 LOWER LEVEL BAR DWR3 SB33')).toBe('LOWER LEVEL BAR');
+  });
 });
