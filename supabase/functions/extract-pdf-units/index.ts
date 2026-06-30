@@ -207,17 +207,25 @@ serve(async (req) => {
             geminiParts.push({ inlineData: { mimeType: "image/jpeg", data: base64Data } });
           }
           geminiParts.push({ text: systemPrompt + "\n\n" + userPrompt });
-          response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                contents: [{ role: "user", parts: geminiParts }],
-                generationConfig: { temperature: 0.1 },
-              }),
-            }
-          );
+          const ac = new AbortController();
+          const to = setTimeout(() => ac.abort(), 55000);
+          try {
+            response = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                signal: ac.signal,
+                body: JSON.stringify({
+                  contents: [{ role: "user", parts: geminiParts }],
+                  // thinkingLevel "low" prevents Gemini 3 from spinning on dense plans (which caused 150s idle timeouts)
+                  generationConfig: { temperature: 0.1, maxOutputTokens: 8192, thinkingConfig: { thinkingLevel: "low" } },
+                }),
+              }
+            );
+          } finally {
+            clearTimeout(to);
+          }
         } catch (fetchErr) {
           console.error(`Page ${pageIndex + 1} fetch error [${model}] (attempt ${attempt + 1}):`, fetchErr);
           if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
