@@ -213,7 +213,8 @@ export default function ProjectDetail() {
             </div>
           </div>
 
-          {/* Appliance Takeoff Block */}
+          {/* Appliance Takeoff Block — hidden per user request */}
+          {false && (
           <div className="flex flex-col rounded-lg px-3 py-1.5 border" style={{ background: 'hsl(var(--section-appliance-light))', borderColor: 'hsl(var(--section-appliance-border))' }}>
             <div className="flex items-center gap-1.5">
               <Refrigerator size={14} style={{ color: 'hsl(215 28% 10%)' }} />
@@ -236,6 +237,7 @@ export default function ProjectDetail() {
               ))}
             </div>
           </div>
+          )}
 
           {/* Prefinal Block */}
           <div className="flex flex-col rounded-lg px-3 py-1.5 border" style={{ background: 'hsl(var(--section-prefinal-light))', borderColor: 'hsl(var(--section-prefinal-border))' }}>
