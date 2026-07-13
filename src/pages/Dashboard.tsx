@@ -225,7 +225,7 @@ function ProTipsCard() {
 }
 
 export default function Dashboard() {
-  const { projects, deleteProject, updateProject } = useProjectStore();
+  const { projects, deleteProject, updateProject, clearAllData } = useProjectStore();
   const [introOpen, setIntroOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -236,6 +236,16 @@ export default function Dashboard() {
       deleteProject(id);
     }
   };
+
+  const handleClearAll = () => {
+    if (projects.length === 0) return;
+    if (window.confirm(
+      'Erase ALL locally stored data on this device? This permanently removes every project and all personal data (customer, superintendent, and takeoff-person names). This cannot be undone.'
+    )) {
+      clearAllData();
+    }
+  };
+
 
   const handleRename = (id: string) => {
     const project = projects.find(p => p.id === id);
@@ -316,6 +326,18 @@ export default function Dashboard() {
               <Plus size={16} />
               New Project
             </Link>
+            {projects.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClearAll}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium text-muted-foreground border border-border hover:bg-destructive/10 hover:text-destructive hover:border-destructive/40 transition-colors focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="Erase all locally stored data"
+                title="Erase all locally stored data on this device"
+              >
+                <Trash2 size={13} />
+                Clear all data
+              </button>
+            )}
           </div>
         </div>
       </header>
