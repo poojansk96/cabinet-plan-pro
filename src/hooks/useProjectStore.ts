@@ -58,8 +58,27 @@ export function useProjectStore() {
   }, []);
 
   const deleteProject = useCallback((id: string) => {
+    // Remove the project AND its associated pre-final data (which can hold
+    // customer / superintendent / takeoff-person names) so no PII lingers.
+    try { localStorage.removeItem(`prefinal_${id}`); } catch { /* ignore */ }
     commit(store.filter(p => p.id !== id));
   }, []);
+
+  // Wipe ALL locally stored data — every project plus all prefinal_* blobs.
+  // This is the "delete all my data" / right-to-erasure control: it clears
+  // every field that could contain personal data from this browser.
+  const clearAllData = useCallback(() => {
+    try {
+      const keys: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k === STORAGE_KEY || k.startsWith('prefinal_'))) keys.push(k);
+      }
+      keys.forEach(k => localStorage.removeItem(k));
+    } catch { /* ignore */ }
+    commit([]);
+  }, []);
+
 
   const getProject = useCallback((id: string) => {
     return store.find(p => p.id === id);
