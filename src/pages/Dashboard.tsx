@@ -225,7 +225,7 @@ function ProTipsCard() {
 }
 
 export default function Dashboard() {
-  const { projects, deleteProject, updateProject } = useProjectStore();
+  const { projects, deleteProject, updateProject, clearAllData } = useProjectStore();
   const [introOpen, setIntroOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
