@@ -298,6 +298,7 @@ export function useProjectStore() {
     createProject,
     updateProject,
     deleteProject,
+    clearAllData,
     getProject,
     addUnit,
     updateUnit,
