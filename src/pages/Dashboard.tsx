@@ -326,6 +326,18 @@ export default function Dashboard() {
               <Plus size={16} />
               New Project
             </Link>
+            {projects.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClearAll}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium text-muted-foreground border border-border hover:bg-destructive/10 hover:text-destructive hover:border-destructive/40 transition-colors focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="Erase all locally stored data"
+                title="Erase all locally stored data on this device"
+              >
+                <Trash2 size={13} />
+                Clear all data
+              </button>
+            )}
           </div>
         </div>
       </header>
