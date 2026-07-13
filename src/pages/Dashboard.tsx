@@ -237,6 +237,16 @@ export default function Dashboard() {
     }
   };
 
+  const handleClearAll = () => {
+    if (projects.length === 0) return;
+    if (window.confirm(
+      'Erase ALL locally stored data on this device? This permanently removes every project and all personal data (customer, superintendent, and takeoff-person names). This cannot be undone.'
+    )) {
+      clearAllData();
+    }
+  };
+
+
   const handleRename = (id: string) => {
     const project = projects.find(p => p.id === id);
     if (!project) return;
