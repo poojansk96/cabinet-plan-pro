@@ -1,5 +1,19 @@
 # Welcome to your Lovable project
 
+## 🔐 Security & Secrets
+
+All secrets are loaded from environment variables — none are hardcoded in the source.
+
+- **Frontend (`VITE_*`) values are public.** They are inlined into the browser bundle at build time. Only put public-safe values here: the Supabase URL and the **anon/publishable** key. The anon key is safe client-side **only when Row Level Security (RLS) is enabled on every table**. This app currently stores data in `localStorage` and has no exposed database tables — enable RLS before adding any.
+- **Never** place the `SUPABASE_SERVICE_ROLE_KEY`, database connection string, or any private API key (Gemini, OpenAI, Anthropic, Dialagram, Stripe secret, etc.) in a `VITE_`-prefixed variable or anywhere in client code. These live only as backend/edge-function secrets.
+- Copy `.env.example` to `.env` and fill in your own values. `.env` is git-ignored.
+
+### ⚠️ Rotate previously-committed secrets
+
+If any real secret was ever hardcoded or committed to `.env` in the past, **that value still lives in git history** even after this cleanup. Rotate/regenerate any such credential immediately (Supabase keys, Gemini/OpenAI/Anthropic/Dialagram keys, etc.) — treat any previously committed value as compromised.
+
+
+
 ## Project info
 
 **URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
