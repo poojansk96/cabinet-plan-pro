@@ -876,11 +876,20 @@ export default function PreFinalSummaryModule({ project, mode = 'prefinal' }: Pr
      );
 
      // Pricing totals (safe so blanks/missing data never show #VALUE!)
+     if (isEstimate) {
+       setFormula(
+         cabTotRow.getCell(colPricingList),
+         safeSumColRange(excelCol(colPricingList), dataRangeStartRow, dataRangeEndRow),
+         0
+       );
+       cabTotRow.getCell(colPricingList).numFmt = '$#,##0.00';
+     }
      setFormula(
        cabTotRow.getCell(colPricingBid),
        safeSumColRange(excelCol(colPricingBid), dataRangeStartRow, dataRangeEndRow),
        0
      );
+
      setFormula(
        cabTotRow.getCell(colPricingAdditional),
        safeSumColRange(excelCol(colPricingAdditional), dataRangeStartRow, dataRangeEndRow),
