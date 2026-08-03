@@ -498,11 +498,14 @@ export default function PreFinalSummaryModule({ project, mode = 'prefinal' }: Pr
     const colPullsTotal = colPullsFirstType + nTypes;
     const colSpacer2 = colPullsTotal + 1;
 
-    const colPricingBid = colSpacer2 + 1;
-    const colPricingAdditional = colSpacer2 + 2;
-    const colPricingTotal = colSpacer2 + 3;
-    const colPricingFirstType = colSpacer2 + 4;
+    // Estimate mode adds a "List" price column to the left of Bid Cost
+    const colPricingList = isEstimate ? colSpacer2 + 1 : 0;
+    const colPricingBid = colSpacer2 + (isEstimate ? 2 : 1);
+    const colPricingAdditional = colPricingBid + 1;
+    const colPricingTotal = colPricingBid + 2;
+    const colPricingFirstType = colPricingBid + 3;
     const colPricingTypeTotal = colPricingFirstType + nTypes;
+
     const colSpacer3 = colPricingTypeTotal + 1;
 
     const colTotalCabLabel = colSpacer3 + 1;
