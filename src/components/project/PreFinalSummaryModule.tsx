@@ -750,10 +750,12 @@ export default function PreFinalSummaryModule({ project, mode = 'prefinal' }: Pr
         rowValues.push('');
         rowValues.push('');
 
-        // Pricing (formulas)
+        // Pricing (formulas) — estimate mode has an extra List column
+        if (isEstimate) rowValues.push('');
         rowValues.push('');
         rowValues.push('');
         rowValues.push('');
+
         cabTypes.forEach(() => rowValues.push(''));
         rowValues.push('');
         rowValues.push('');
