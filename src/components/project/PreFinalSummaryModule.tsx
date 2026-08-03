@@ -2497,7 +2497,14 @@ export default function PreFinalSummaryModule({ project, mode = 'prefinal' }: Pr
           </button>
 
           <button
-            onClick={handleExportPDF}
+            onClick={() => {
+              if (isEstimate && !doorStyle) {
+                alert('Select a door style before exporting — list prices depend on it.');
+                return;
+              }
+              handleExportPDF();
+            }}
+
             disabled={pdfLoading}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium text-white transition-colors disabled:opacity-70"
             style={{ background: 'hsl(var(--primary))' }}
