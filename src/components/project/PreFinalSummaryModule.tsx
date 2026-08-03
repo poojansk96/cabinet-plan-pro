@@ -619,6 +619,23 @@ export default function PreFinalSummaryModule({ project, mode = 'prefinal' }: Pr
     ucTotalCell.font = { bold: true, size: 8 };
     ucTotalCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
 
+    // Estimate mode: editable cost factor cell sitting above the Bid Cost column.
+    // Bid Cost per SKU = List × this factor, so changing it repriices the whole sheet.
+    let costFactorRef = '';
+    if (isEstimate) {
+      const labelCell = unitCountRow.getCell(colPricingList);
+      labelCell.value = 'Cost factor →';
+      labelCell.font = { bold: true, italic: true, size: 8 };
+      labelCell.alignment = { horizontal: 'right' };
+      const factorCell = unitCountRow.getCell(colPricingBid);
+      factorCell.value = costFactor;
+      factorCell.numFmt = '0.00';
+      factorCell.alignment = { horizontal: 'center' };
+      factorCell.font = { bold: true, size: 9 };
+      factorCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC000' } };
+      costFactorRef = `$${excelCol(colPricingBid)}$${unitCountRow.number}`;
+    }
+
     // Header row
     const headerValues: (string | number)[] = [];
     headerValues.push(''); // blank col
@@ -631,9 +648,11 @@ export default function PreFinalSummaryModule({ project, mode = 'prefinal' }: Pr
     cabTypes.forEach(t => headerValues.push(t));
     headerValues.push('Total');
     headerValues.push('');
+    if (isEstimate) headerValues.push('List');
     headerValues.push('Bid Cost');
     headerValues.push('Additional');
     headerValues.push('Total Cost');
+
     cabTypes.forEach(t => headerValues.push(t));
     headerValues.push('Total');
     headerValues.push('');
