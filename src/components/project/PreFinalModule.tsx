@@ -701,7 +701,7 @@ export default function PreFinalModule({ project }: Props) {
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
                   style={{ background: 'hsl(var(--primary))' }}
                 >
-                  <FileUp size={12} /> Upload 2020 floor plans
+                  <FileUp size={12} /> Upload 2020/ProKitchen floor plans
                 </button>
                 {(store.unitTypes.length > 0 || store.unitNumbers.length > 0) && (
                   <button
@@ -794,7 +794,7 @@ export default function PreFinalModule({ project }: Props) {
 
             {store.unitTypes.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground text-sm">
-                No data yet — import a 2020 shop drawing PDF or add unit types manually.
+                No data yet — import a 2020/ProKitchen shop drawing PDF or add unit types manually.
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -960,7 +960,7 @@ export default function PreFinalModule({ project }: Props) {
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
                   style={{ background: 'hsl(var(--primary))' }}
                 >
-                  <FileUp size={12} /> Upload 2020 Floor plan
+                  <FileUp size={12} /> Upload 2020/ProKitchen floor plan
                 </button>
                 {store.cabinetRows.length > 0 && (
                   <button
@@ -1018,7 +1018,7 @@ export default function PreFinalModule({ project }: Props) {
 
             {allSkus.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground text-sm">
-                Import a 2020 shop drawing PDF to extract cabinet and accessory labels.
+                Import a 2020/ProKitchen shop drawing PDF to extract cabinet and accessory labels.
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -1334,7 +1334,7 @@ export default function PreFinalModule({ project }: Props) {
 
             {store.stoneRows.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground text-sm">
-                No data yet — import 2020 countertop shop drawings to extract stone dimensions.
+                No data yet — import 2020/ProKitchen countertop shop drawings to extract stone dimensions.
               </div>
             ) : (
               <div className="space-y-3">
@@ -1706,7 +1706,7 @@ export default function PreFinalModule({ project }: Props) {
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
                   style={{ background: 'hsl(142 50% 50%)' }}
                 >
-                  <FileUp size={12} /> Upload 2020 Ctop plans
+                  <FileUp size={12} /> Upload 2020/ProKitchen Ctop plans
                 </button>
                 {store.laminateRows.length > 0 && (
                   <button
@@ -1721,7 +1721,7 @@ export default function PreFinalModule({ project }: Props) {
 
             {store.laminateRows.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground text-sm">
-                No data yet — import 2020 countertop shop drawings to extract laminate LFT dimensions.
+                No data yet — import 2020/ProKitchen countertop shop drawings to extract laminate LFT dimensions.
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -2005,7 +2005,7 @@ export default function PreFinalModule({ project }: Props) {
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
                   style={{ background: 'hsl(280 45% 58%)' }}
                 >
-                  <FileUp size={12} /> Upload 2020 Ctop plans
+                  <FileUp size={12} /> Upload 2020/ProKitchen Ctop plans
                 </button>
                 {store.vtopRows.length > 0 && (
                   <button
@@ -2020,7 +2020,7 @@ export default function PreFinalModule({ project }: Props) {
 
             {store.vtopRows.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground text-sm">
-                No data yet — import 2020 countertop shop drawings to extract vanity top sizes.
+                No data yet — import 2020/ProKitchen countertop shop drawings to extract vanity top sizes.
               </div>
             ) : (
               <div className="overflow-x-auto">
