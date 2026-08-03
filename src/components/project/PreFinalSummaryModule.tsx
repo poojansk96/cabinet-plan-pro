@@ -2451,16 +2451,51 @@ export default function PreFinalSummaryModule({ project, mode = 'prefinal' }: Pr
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <BarChart3 size={16} className="text-primary" />
-          <h2 className="font-semibold text-sm">Prefinal Summary</h2>
+          <h2 className="font-semibold text-sm">{isEstimate ? 'Estimate Summary' : 'Prefinal Summary'}</h2>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {isEstimate && (
+            <>
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                Door style
+                <select
+                  value={doorStyle}
+                  onChange={e => setDoorStyle(e.target.value)}
+                  className="border border-border rounded px-2 py-1 text-xs bg-background text-foreground"
+                >
+                  <option value="">Select…</option>
+                  {USCD_DOOR_STYLES.map(d => (
+                    <option key={d.code} value={d.code}>{d.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                Cost factor
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={costFactor}
+                  onChange={e => setCostFactor(Number(e.target.value) || 0)}
+                  className="w-16 border border-border rounded px-2 py-1 text-xs bg-background text-foreground text-right font-mono"
+                />
+              </label>
+            </>
+          )}
           <button
-            onClick={handleExportExcel}
+            onClick={() => {
+              if (isEstimate && !doorStyle) {
+                alert('Select a door style before exporting — list prices depend on it.');
+                return;
+              }
+              handleExportExcel();
+            }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-border text-foreground hover:bg-secondary transition-colors"
           >
             <Download size={12} />
             Export Excel
           </button>
+
           <button
             onClick={handleExportPDF}
             disabled={pdfLoading}
