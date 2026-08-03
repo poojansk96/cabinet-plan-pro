@@ -6,10 +6,13 @@ import autoTable from 'jspdf-autotable';
 import type { Project } from '@/types/project';
 import { splitPrefinalUnitRowsByAssignment, usePrefinalStore, type PrefinalUnitNumber, type PrefinalCabinetRow, type PrefinalVtopRow } from '@/hooks/usePrefinalStore';
 import { formatDoorStyle, formatKitchenTops, formatVanityTops, formatAdditionalTops, getDoorStylePendingFields } from '@/lib/formatSpecs';
+import { USCD_DOOR_STYLES, getListPrice } from '@/lib/uscdPrices';
 interface Props {
   project: Project;
+  mode?: 'prefinal' | 'estimate';
   [key: string]: unknown;
 }
+
 
 // Cabinet type display order
 const CAB_TYPE_ORDER = ['Wall', 'Base', 'Tall', 'Vanity', 'Accessory'];
@@ -125,9 +128,29 @@ const WHITE = [255, 255, 255] as [number, number, number];
 const TEXT_DARK = [20, 30, 48] as [number, number, number];
 const TEXT_MID = [80, 95, 115] as [number, number, number];
 
-export default function PreFinalSummaryModule({ project }: Props) {
+export default function PreFinalSummaryModule({ project, mode = 'prefinal' }: Props) {
   const store = usePrefinalStore(project.id);
   const [pdfLoading, setPdfLoading] = useState(false);
+
+  // ─── Estimate – ProKitchen: door style + cost factor (US Cabinet Depot list pricing) ───
+  const isEstimate = mode === 'estimate';
+  const doorStyleKey = `est_door_style_${project.id}`;
+  const costFactorKey = `est_cost_factor_${project.id}`;
+  const [doorStyle, setDoorStyleState] = useState<string>(() => {
+    try { return localStorage.getItem(doorStyleKey) || ''; } catch { return ''; }
+  });
+  const [costFactor, setCostFactorState] = useState<number>(() => {
+    try { return Number(localStorage.getItem(costFactorKey)) || 0.23; } catch { return 0.23; }
+  });
+  const setDoorStyle = (v: string) => {
+    setDoorStyleState(v);
+    try { localStorage.setItem(doorStyleKey, v); } catch { /* ignore */ }
+  };
+  const setCostFactor = (v: number) => {
+    setCostFactorState(v);
+    try { localStorage.setItem(costFactorKey, String(v)); } catch { /* ignore */ }
+  };
+
 
   const normalizeTypeKey = (value: string) =>
     String(value || '').toUpperCase().trim().replace(/^TYPE\s+/, '').replace(/[^A-Z0-9]/g, '');
@@ -475,11 +498,14 @@ export default function PreFinalSummaryModule({ project }: Props) {
     const colPullsTotal = colPullsFirstType + nTypes;
     const colSpacer2 = colPullsTotal + 1;
 
-    const colPricingBid = colSpacer2 + 1;
-    const colPricingAdditional = colSpacer2 + 2;
-    const colPricingTotal = colSpacer2 + 3;
-    const colPricingFirstType = colSpacer2 + 4;
+    // Estimate mode adds a "List" price column to the left of Bid Cost
+    const colPricingList = isEstimate ? colSpacer2 + 1 : 0;
+    const colPricingBid = colSpacer2 + (isEstimate ? 2 : 1);
+    const colPricingAdditional = colPricingBid + 1;
+    const colPricingTotal = colPricingBid + 2;
+    const colPricingFirstType = colPricingBid + 3;
     const colPricingTypeTotal = colPricingFirstType + nTypes;
+
     const colSpacer3 = colPricingTypeTotal + 1;
 
     const colTotalCabLabel = colSpacer3 + 1;
@@ -506,7 +532,9 @@ export default function PreFinalSummaryModule({ project }: Props) {
     for (let i = 0; i < nTypes; i++) colWidths.push({ width: 6 });
     colWidths.push({ width: 8 });
     colWidths.push({ width: 3 });
+    if (isEstimate) colWidths.push({ width: 10 }); // List
     colWidths.push({ width: 10 }); // Bid Cost
+
     colWidths.push({ width: 10 }); // Additional
     colWidths.push({ width: 10 }); // Total Cost
     for (let i = 0; i < nTypes; i++) colWidths.push({ width: 8 });
@@ -527,8 +555,10 @@ export default function PreFinalSummaryModule({ project }: Props) {
     sectionRow.getCell(colSku).font = { bold: true, size: 9 };
     sectionRow.getCell(colPullsPerCab).value = 'PULLS';
     sectionRow.getCell(colPullsPerCab).font = { bold: true, size: 9 };
-    sectionRow.getCell(colPricingBid).value = 'PRICING';
-    sectionRow.getCell(colPricingBid).font = { bold: true, size: 9 };
+    const pricingTitleCol = isEstimate ? colPricingList : colPricingBid;
+    sectionRow.getCell(pricingTitleCol).value = 'PRICING';
+    sectionRow.getCell(pricingTitleCol).font = { bold: true, size: 9 };
+
     sectionRow.getCell(colTotalCabLabel).value = 'TOTAL CABINET COUNT';
     sectionRow.getCell(colTotalCabLabel).font = { bold: true, size: 9 };
     sectionRow.getCell(colCpuLabel).value = '*Cabinet Count Per Unit';
@@ -589,6 +619,23 @@ export default function PreFinalSummaryModule({ project }: Props) {
     ucTotalCell.font = { bold: true, size: 8 };
     ucTotalCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FB' } };
 
+    // Estimate mode: editable cost factor cell sitting above the Bid Cost column.
+    // Bid Cost per SKU = List × this factor, so changing it repriices the whole sheet.
+    let costFactorRef = '';
+    if (isEstimate) {
+      const labelCell = unitCountRow.getCell(colPricingList);
+      labelCell.value = 'Cost factor →';
+      labelCell.font = { bold: true, italic: true, size: 8 };
+      labelCell.alignment = { horizontal: 'right' };
+      const factorCell = unitCountRow.getCell(colPricingBid);
+      factorCell.value = costFactor;
+      factorCell.numFmt = '0.00';
+      factorCell.alignment = { horizontal: 'center' };
+      factorCell.font = { bold: true, size: 9 };
+      factorCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC000' } };
+      costFactorRef = `$${excelCol(colPricingBid)}$${unitCountRow.number}`;
+    }
+
     // Header row
     const headerValues: (string | number)[] = [];
     headerValues.push(''); // blank col
@@ -601,9 +648,11 @@ export default function PreFinalSummaryModule({ project }: Props) {
     cabTypes.forEach(t => headerValues.push(t));
     headerValues.push('Total');
     headerValues.push('');
+    if (isEstimate) headerValues.push('List');
     headerValues.push('Bid Cost');
     headerValues.push('Additional');
     headerValues.push('Total Cost');
+
     cabTypes.forEach(t => headerValues.push(t));
     headerValues.push('Total');
     headerValues.push('');
@@ -701,10 +750,12 @@ export default function PreFinalSummaryModule({ project }: Props) {
         rowValues.push('');
         rowValues.push('');
 
-        // Pricing (formulas)
+        // Pricing (formulas) — estimate mode has an extra List column
+        if (isEstimate) rowValues.push('');
         rowValues.push('');
         rowValues.push('');
         rowValues.push('');
+
         cabTypes.forEach(() => rowValues.push(''));
         rowValues.push('');
         rowValues.push('');
@@ -825,11 +876,20 @@ export default function PreFinalSummaryModule({ project }: Props) {
      );
 
      // Pricing totals (safe so blanks/missing data never show #VALUE!)
+     if (isEstimate) {
+       setFormula(
+         cabTotRow.getCell(colPricingList),
+         safeSumColRange(excelCol(colPricingList), dataRangeStartRow, dataRangeEndRow),
+         0
+       );
+       cabTotRow.getCell(colPricingList).numFmt = '$#,##0.00';
+     }
      setFormula(
        cabTotRow.getCell(colPricingBid),
        safeSumColRange(excelCol(colPricingBid), dataRangeStartRow, dataRangeEndRow),
        0
      );
+
      setFormula(
        cabTotRow.getCell(colPricingAdditional),
        safeSumColRange(excelCol(colPricingAdditional), dataRangeStartRow, dataRangeEndRow),
@@ -902,9 +962,21 @@ export default function PreFinalSummaryModule({ project }: Props) {
       bidCell.numFmt = '$#,##0.00';
       addCell.numFmt = '$#,##0.00';
 
+      if (isEstimate) {
+        // List price comes from the US Cabinet Depot book for the selected door style
+        const listCell = rowObj.getCell(colPricingList);
+        const list = getListPrice(skuVal, doorStyle);
+        if (list != null) listCell.value = list;
+        listCell.numFmt = '$#,##0.00';
+        listCell.alignment = { horizontal: 'center' };
+        // Bid Cost = List × cost factor
+        setFormula(bidCell, `ROUND(${safeMul(ref(colPricingList, r), costFactorRef)},2)`, 0);
+      }
+
       // Total Cost = Bid + Additional
       setFormula(totCell, safeAdd(ref(colPricingBid, r), ref(colPricingAdditional, r)), 0);
       totCell.numFmt = '$#,##0.00';
+
 
       if (nTypes === 0) {
         setFormula(typeTotCell, '0', 0);
@@ -2379,18 +2451,60 @@ export default function PreFinalSummaryModule({ project }: Props) {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <BarChart3 size={16} className="text-primary" />
-          <h2 className="font-semibold text-sm">Prefinal Summary</h2>
+          <h2 className="font-semibold text-sm">{isEstimate ? 'Estimate Summary' : 'Prefinal Summary'}</h2>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {isEstimate && (
+            <>
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                Door style
+                <select
+                  value={doorStyle}
+                  onChange={e => setDoorStyle(e.target.value)}
+                  className="border border-border rounded px-2 py-1 text-xs bg-background text-foreground"
+                >
+                  <option value="">Select…</option>
+                  {USCD_DOOR_STYLES.map(d => (
+                    <option key={d.code} value={d.code}>{d.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                Cost factor
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={costFactor}
+                  onChange={e => setCostFactor(Number(e.target.value) || 0)}
+                  className="w-16 border border-border rounded px-2 py-1 text-xs bg-background text-foreground text-right font-mono"
+                />
+              </label>
+            </>
+          )}
           <button
-            onClick={handleExportExcel}
+            onClick={() => {
+              if (isEstimate && !doorStyle) {
+                alert('Select a door style before exporting — list prices depend on it.');
+                return;
+              }
+              handleExportExcel();
+            }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-border text-foreground hover:bg-secondary transition-colors"
           >
             <Download size={12} />
             Export Excel
           </button>
+
           <button
-            onClick={handleExportPDF}
+            onClick={() => {
+              if (isEstimate && !doorStyle) {
+                alert('Select a door style before exporting — list prices depend on it.');
+                return;
+              }
+              handleExportPDF();
+            }}
+
             disabled={pdfLoading}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium text-white transition-colors disabled:opacity-70"
             style={{ background: 'hsl(var(--primary))' }}
