@@ -962,9 +962,21 @@ export default function PreFinalSummaryModule({ project, mode = 'prefinal' }: Pr
       bidCell.numFmt = '$#,##0.00';
       addCell.numFmt = '$#,##0.00';
 
+      if (isEstimate) {
+        // List price comes from the US Cabinet Depot book for the selected door style
+        const listCell = rowObj.getCell(colPricingList);
+        const list = getListPrice(skuVal, doorStyle);
+        if (list != null) listCell.value = list;
+        listCell.numFmt = '$#,##0.00';
+        listCell.alignment = { horizontal: 'center' };
+        // Bid Cost = List × cost factor
+        setFormula(bidCell, `ROUND(${safeMul(ref(colPricingList, r), costFactorRef)},2)`, 0);
+      }
+
       // Total Cost = Bid + Additional
       setFormula(totCell, safeAdd(ref(colPricingBid, r), ref(colPricingAdditional, r)), 0);
       totCell.numFmt = '$#,##0.00';
+
 
       if (nTypes === 0) {
         setFormula(typeTotCell, '0', 0);
