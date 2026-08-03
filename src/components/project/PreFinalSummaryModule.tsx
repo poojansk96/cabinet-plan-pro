@@ -128,9 +128,29 @@ const WHITE = [255, 255, 255] as [number, number, number];
 const TEXT_DARK = [20, 30, 48] as [number, number, number];
 const TEXT_MID = [80, 95, 115] as [number, number, number];
 
-export default function PreFinalSummaryModule({ project }: Props) {
+export default function PreFinalSummaryModule({ project, mode = 'prefinal' }: Props) {
   const store = usePrefinalStore(project.id);
   const [pdfLoading, setPdfLoading] = useState(false);
+
+  // ─── Estimate – ProKitchen: door style + cost factor (US Cabinet Depot list pricing) ───
+  const isEstimate = mode === 'estimate';
+  const doorStyleKey = `est_door_style_${project.id}`;
+  const costFactorKey = `est_cost_factor_${project.id}`;
+  const [doorStyle, setDoorStyleState] = useState<string>(() => {
+    try { return localStorage.getItem(doorStyleKey) || ''; } catch { return ''; }
+  });
+  const [costFactor, setCostFactorState] = useState<number>(() => {
+    try { return Number(localStorage.getItem(costFactorKey)) || 0.23; } catch { return 0.23; }
+  });
+  const setDoorStyle = (v: string) => {
+    setDoorStyleState(v);
+    try { localStorage.setItem(doorStyleKey, v); } catch { /* ignore */ }
+  };
+  const setCostFactor = (v: number) => {
+    setCostFactorState(v);
+    try { localStorage.setItem(costFactorKey, String(v)); } catch { /* ignore */ }
+  };
+
 
   const normalizeTypeKey = (value: string) =>
     String(value || '').toUpperCase().trim().replace(/^TYPE\s+/, '').replace(/[^A-Z0-9]/g, '');
