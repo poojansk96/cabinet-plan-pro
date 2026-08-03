@@ -79,6 +79,9 @@
     --section-prefinal: 263 70% 50%;
     --section-prefinal-light: 263 100% 98%;
     --section-prefinal-border: 263 60% 90%;
+    --section-estimate: 173 80% 34%;
+    --section-estimate-light: 173 70% 97%;
+    --section-estimate-border: 173 50% 86%;
   }
 }
 
@@ -215,6 +218,10 @@
   .module-tab.active[data-section="prefinal"] {
     color: hsl(0 0% 100%);
     background: hsl(var(--section-prefinal));
+  }
+  .module-tab.active[data-section="estimate"] {
+    color: hsl(0 0% 100%);
+    background: hsl(var(--section-estimate));
   }
 
   /* Stat card */

@@ -15,7 +15,7 @@ import ApplianceModule from '@/components/project/ApplianceModule';
 import AICommandButton from '@/components/project/AICommandButton';
 import ExtractionProgressFloat from '@/components/project/ExtractionProgressFloat';
 
-type Tab = 'units' | 'cabinets' | 'countertops' | 'summary' | 'project-info' | 'prefinal-units' | 'prefinal-summary' | 'app-units' | 'app-takeoff' | 'app-summary';
+type Tab = 'units' | 'cabinets' | 'countertops' | 'summary' | 'project-info' | 'prefinal-units' | 'prefinal-summary' | 'app-units' | 'app-takeoff' | 'app-summary' | 'est-project-info' | 'est-units' | 'est-summary';
 
 const CABINET_TAKEOFF_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'units', label: 'Units', icon: <Users size={14} /> },
@@ -28,6 +28,12 @@ const APPLIANCE_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'app-units', label: 'Units', icon: <Users size={14} /> },
   { key: 'app-takeoff', label: 'Appliance', icon: <Zap size={14} /> },
   { key: 'app-summary', label: 'Appliance Summary', icon: <BarChart3 size={14} /> },
+];
+
+const ESTIMATE_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
+  { key: 'est-project-info', label: 'Project Info', icon: <FileText size={14} /> },
+  { key: 'est-units', label: 'Unit & Cabinet Count', icon: <ClipboardCheck size={14} /> },
+  { key: 'est-summary', label: 'Estimate Summary', icon: <BarChart3 size={14} /> },
 ];
 
 const PREFINAL_TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
@@ -68,7 +74,13 @@ export default function ProjectDetail() {
     );
   }
 
-  const activeSection = activeTab.startsWith('app-') ? 'appliance' : activeTab.startsWith('prefinal') || activeTab === 'project-info' ? 'prefinal' : 'cabinet';
+  const activeSection = activeTab.startsWith('app-')
+    ? 'appliance'
+    : activeTab.startsWith('est-')
+      ? 'estimate'
+      : activeTab.startsWith('prefinal') || activeTab === 'project-info'
+        ? 'prefinal'
+        : 'cabinet';
 
   const selectedUnit = selectedUnitId
     ? project.units.find(u => u.id === selectedUnitId) ?? project.units[0]
@@ -160,15 +172,16 @@ export default function ProjectDetail() {
               {activeSection === 'cabinet' && <DoorOpen size={14} style={{ color: 'hsl(var(--section-cabinet))' }} />}
               {activeSection === 'appliance' && <Refrigerator size={14} style={{ color: 'hsl(var(--section-appliance))' }} />}
               {activeSection === 'prefinal' && <Package size={14} style={{ color: 'hsl(var(--section-prefinal))' }} />}
+              {activeSection === 'estimate' && <Package size={14} style={{ color: 'hsl(var(--section-estimate))' }} />}
               <span className={`px-1.5 py-0.5 rounded text-xs font-semibold flex-shrink-0 ${
                 project.type === 'Commercial' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
               }`}>{project.type}</span>
               <h1 className="font-bold text-sm truncate">{project.name}</h1>
               <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded flex-shrink-0 hidden md:inline-block" style={{
-                color: activeSection === 'cabinet' ? 'hsl(var(--section-cabinet))' : activeSection === 'appliance' ? 'hsl(var(--section-appliance))' : 'hsl(var(--section-prefinal))',
-                background: activeSection === 'cabinet' ? 'hsl(var(--section-cabinet-light))' : activeSection === 'appliance' ? 'hsl(var(--section-appliance-light))' : 'hsl(var(--section-prefinal-light))',
+                color: activeSection === 'cabinet' ? 'hsl(var(--section-cabinet))' : activeSection === 'appliance' ? 'hsl(var(--section-appliance))' : activeSection === 'estimate' ? 'hsl(var(--section-estimate))' : 'hsl(var(--section-prefinal))',
+                background: activeSection === 'cabinet' ? 'hsl(var(--section-cabinet-light))' : activeSection === 'appliance' ? 'hsl(var(--section-appliance-light))' : activeSection === 'estimate' ? 'hsl(var(--section-estimate-light))' : 'hsl(var(--section-prefinal-light))',
               }}>
-                {activeSection === 'cabinet' ? 'Cabinet Takeoff' : activeSection === 'appliance' ? 'Appliance Takeoff' : 'Prefinal'}
+                {activeSection === 'cabinet' ? 'Cabinet Takeoff' : activeSection === 'appliance' ? 'Appliance Takeoff' : activeSection === 'estimate' ? 'Estimate – ProKitchen' : 'Prefinal'}
               </span>
               {project.address && <span className="text-xs text-muted-foreground hidden lg:block truncate">— {project.address}</span>}
             </div>
@@ -243,9 +256,9 @@ export default function ProjectDetail() {
           <div className="flex flex-col rounded-lg px-3 py-1.5 border" style={{ background: 'hsl(var(--section-prefinal-light))', borderColor: 'hsl(var(--section-prefinal-border))' }}>
             <div className="flex items-center gap-1.5">
               <Package size={14} style={{ color: 'hsl(215 28% 10%)' }} />
-              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'hsl(215 28% 10%)' }}>Prefinal – 2020/ProKitchen Shop</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'hsl(215 28% 10%)' }}>Prefinal – 2020 Shops</span>
             </div>
-            <p className="text-[9px] mb-1 leading-tight" style={{ color: 'hsl(var(--muted-foreground))' }}>Upload 2020 or ProKitchen floorplan and ctop drawings PDF. Extract units, cabinets, top sqft, liner feet and vtop sizes.</p>
+            <p className="text-[9px] mb-1 leading-tight" style={{ color: 'hsl(var(--muted-foreground))' }}>Upload 2020 floorplan and ctop drawings PDF. Extract units, cabinets, top sqft, liner feet and vtop sizes.</p>
             <p className="text-[9px] mb-1 leading-tight font-semibold" style={{ color: 'hsl(var(--section-prefinal))' }}>📊 Formula-ready Excel report</p>
             <div className="flex items-center gap-1">
               {PREFINAL_TABS.map((tab) => (
@@ -253,6 +266,31 @@ export default function ProjectDetail() {
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
                   data-section="prefinal"
+                  className={`module-tab flex items-center gap-1.5 ${activeTab === tab.key ? 'active' : ''}`}
+                  aria-selected={activeTab === tab.key}
+                  role="tab"
+                >
+                  {tab.icon}
+                  <span className="hidden sm:inline">{tab.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Estimate – ProKitchen Block */}
+          <div className="flex flex-col rounded-lg px-3 py-1.5 border" style={{ background: 'hsl(var(--section-estimate-light))', borderColor: 'hsl(var(--section-estimate-border))' }}>
+            <div className="flex items-center gap-1.5">
+              <Package size={14} style={{ color: 'hsl(215 28% 10%)' }} />
+              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'hsl(215 28% 10%)' }}>Estimate – ProKitchen</span>
+            </div>
+            <p className="text-[9px] mb-1 leading-tight" style={{ color: 'hsl(var(--muted-foreground))' }}>Upload ProKitchen floorplan and ctop drawings PDF. Extract units, cabinets, top sqft, liner feet and vtop sizes.</p>
+            <p className="text-[9px] mb-1 leading-tight font-semibold" style={{ color: 'hsl(var(--section-estimate))' }}>📊 Formula-ready Excel report</p>
+            <div className="flex items-center gap-1">
+              {ESTIMATE_TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  data-section="estimate"
                   className={`module-tab flex items-center gap-1.5 ${activeTab === tab.key ? 'active' : ''}`}
                   aria-selected={activeTab === tab.key}
                   role="tab"
@@ -279,10 +317,13 @@ export default function ProjectDetail() {
             {activeTab === 'project-info' && <ProjectInfoModule project={project} onSave={(updates) => updateProject(project.id, updates)} />}
             {activeTab === 'prefinal-units' && <PreFinalModule key="prefinal" {...storeProps} />}
             {activeTab === 'prefinal-summary' && <PreFinalSummaryModule {...storeProps} />}
+            {activeTab === 'est-project-info' && <ProjectInfoModule project={project} onSave={(updates) => updateProject(project.id, updates)} />}
+            {activeTab === 'est-units' && <PreFinalModule key="prefinal" {...storeProps} />}
+            {activeTab === 'est-summary' && <PreFinalSummaryModule {...storeProps} />}
           </div>
         </main>
 
-        {!activeTab.startsWith('prefinal') && activeTab !== 'project-info' && (
+        {!activeTab.startsWith('prefinal') && !activeTab.startsWith('est-') && activeTab !== 'project-info' && (
           <aside className="w-56 flex-shrink-0 hidden lg:block overflow-auto border-l" style={{ borderColor: 'hsl(var(--border))', background: 'hsl(var(--panel-bg))' }}>
             <SummaryPanel project={project} activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab as Tab)} />
           </aside>
