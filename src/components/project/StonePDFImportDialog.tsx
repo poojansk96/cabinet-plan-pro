@@ -431,7 +431,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div className="bg-background rounded-lg shadow-xl w-full max-w-4xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <h3 className="font-semibold text-sm">📐 Stone SQFT — Extract from 2020 Shop Drawings</h3>
+          <h3 className="font-semibold text-sm">📐 Stone SQFT — Extract from 2020/ProKitchen Shop Drawings</h3>
           <button onClick={onClose} className="p-1 hover:bg-secondary rounded"><X size={16} /></button>
         </div>
 
@@ -444,7 +444,7 @@ export default function StonePDFImportDialog({ onImport, onClose, prefinalPerson
               onClick={() => fileInputRef.current?.click()}
             >
               <Upload size={40} className="mx-auto mb-3 text-muted-foreground" />
-              <p className="text-sm font-medium mb-1">Drop 2020 countertop shop drawings here</p>
+              <p className="text-sm font-medium mb-1">Drop 2020/ProKitchen countertop shop drawings here</p>
               <p className="text-xs text-muted-foreground">AI will extract dimensions, classify Kitchen vs Bath, and calculate SQFT</p>
               <input ref={fileInputRef} type="file" accept=".pdf" multiple className="hidden" onChange={handleFileSelect} />
               {error && <p className="text-destructive text-xs mt-3">{error}</p>}
