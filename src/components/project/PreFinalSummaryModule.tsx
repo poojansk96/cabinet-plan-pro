@@ -532,7 +532,9 @@ export default function PreFinalSummaryModule({ project, mode = 'prefinal' }: Pr
     for (let i = 0; i < nTypes; i++) colWidths.push({ width: 6 });
     colWidths.push({ width: 8 });
     colWidths.push({ width: 3 });
+    if (isEstimate) colWidths.push({ width: 10 }); // List
     colWidths.push({ width: 10 }); // Bid Cost
+
     colWidths.push({ width: 10 }); // Additional
     colWidths.push({ width: 10 }); // Total Cost
     for (let i = 0; i < nTypes; i++) colWidths.push({ width: 8 });
