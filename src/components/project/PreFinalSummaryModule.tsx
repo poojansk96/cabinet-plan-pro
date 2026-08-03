@@ -6,10 +6,13 @@ import autoTable from 'jspdf-autotable';
 import type { Project } from '@/types/project';
 import { splitPrefinalUnitRowsByAssignment, usePrefinalStore, type PrefinalUnitNumber, type PrefinalCabinetRow, type PrefinalVtopRow } from '@/hooks/usePrefinalStore';
 import { formatDoorStyle, formatKitchenTops, formatVanityTops, formatAdditionalTops, getDoorStylePendingFields } from '@/lib/formatSpecs';
+import { USCD_DOOR_STYLES, getListPrice } from '@/lib/uscdPrices';
 interface Props {
   project: Project;
+  mode?: 'prefinal' | 'estimate';
   [key: string]: unknown;
 }
+
 
 // Cabinet type display order
 const CAB_TYPE_ORDER = ['Wall', 'Base', 'Tall', 'Vanity', 'Accessory'];
