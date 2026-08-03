@@ -555,8 +555,10 @@ export default function PreFinalSummaryModule({ project, mode = 'prefinal' }: Pr
     sectionRow.getCell(colSku).font = { bold: true, size: 9 };
     sectionRow.getCell(colPullsPerCab).value = 'PULLS';
     sectionRow.getCell(colPullsPerCab).font = { bold: true, size: 9 };
-    sectionRow.getCell(colPricingBid).value = 'PRICING';
-    sectionRow.getCell(colPricingBid).font = { bold: true, size: 9 };
+    const pricingTitleCol = isEstimate ? colPricingList : colPricingBid;
+    sectionRow.getCell(pricingTitleCol).value = 'PRICING';
+    sectionRow.getCell(pricingTitleCol).font = { bold: true, size: 9 };
+
     sectionRow.getCell(colTotalCabLabel).value = 'TOTAL CABINET COUNT';
     sectionRow.getCell(colTotalCabLabel).font = { bold: true, size: 9 };
     sectionRow.getCell(colCpuLabel).value = '*Cabinet Count Per Unit';
