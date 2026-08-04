@@ -936,7 +936,6 @@ export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
               Pre-Final Cabinet Count
 
               <div className="ml-auto flex items-center gap-2 flex-wrap">
-                {/* AI Provider Toggle (Gemini default vs Qwen) */}
                 {/* Fast Gemini lite mode is kept as the cabinet aiModel; Accu (3.1 thinking) toggle removed in favor of Qwen */}
                 <button
                   onClick={() => setShowCabinetImport(true)}
