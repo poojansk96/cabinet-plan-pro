@@ -55,7 +55,7 @@ function isValidSku(value: string): boolean {
   return SKU_PREFIX_RE.test(upper);
 }
 
-function extractSkuMatches(text: string): string[] {
+export function extractSkuMatches(text: string): string[] {
   if (!text) return [];
 
   // Whitelist + generic fallback share digit-based tokens, so dedupe by character
