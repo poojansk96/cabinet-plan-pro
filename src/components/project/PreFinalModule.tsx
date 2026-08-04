@@ -30,27 +30,9 @@ function normalizeUnitType(raw: string): string {
   return s;
 }
 
-// Qwen provider toggle removed — Gemini only
-function _UnusedProviderToggle({ value, onChange }: { value: 'gemini' | 'dialagram'; onChange: (v: 'gemini' | 'dialagram') => void }) {
-  return (
-    <div className="inline-flex items-center rounded border border-border overflow-hidden text-[10px] font-medium" title="AI Provider">
-      <button
-        type="button"
-        onClick={() => onChange('gemini')}
-        className={`px-2 py-1 transition-colors ${value === 'gemini' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-secondary'}`}
-      >
-        Gemini
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange('dialagram')}
-        className={`px-2 py-1 transition-colors ${value === 'dialagram' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-secondary'}`}
-      >
-        Qwen
-      </button>
-    </div>
-  );
-}
+// Qwen (Dialagram) provider toggle removed — Gemini only
+
+
 
 export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
   const store = usePrefinalStore(project.id);
