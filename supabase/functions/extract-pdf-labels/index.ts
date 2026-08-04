@@ -598,7 +598,7 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     const DIALAGRAM_API_KEY = Deno.env.get("DIALAGRAM_API_KEY");
 
-    const { pageImage, pageImageRotated180, unitType, pageText, speedMode, classificationOverride, isStrip, skipClassify, aiModel, aiProvider, dialagramModel } = await req.json();
+    const { pageImage, pageImageRotated180, unitType, pageText, speedMode, classificationOverride, isStrip, skipClassify, aiModel, aiProvider, dialagramModel, geminiModelOverride } = await req.json();
     const provider: "gemini" | "dialagram" = aiProvider === "dialagram" ? "dialagram" : "gemini";
     const qwenModel: string = dialagramModel || "qwen-3.6-plus";
     if (provider === "gemini" && !GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
@@ -907,7 +907,11 @@ If no cabinet SKUs are found, return {"items":[]}`;
     // ── Step 2a: Initial extraction ──
     const useAccuModel = aiModel === 'accu';
     // Pre-Final cabinet count uses the fast (non-accu) Gemini path.
-    const extractionModel = useAccuModel ? "gemini-3-flash-preview" : "gemini-3.5-flash";
+    // Estimate – ProKitchen sends geminiModelOverride to run a different Gemini model.
+    const overrideModel = typeof geminiModelOverride === 'string' && /^gemini-[\w.\-]+$/.test(geminiModelOverride)
+      ? geminiModelOverride
+      : null;
+    const extractionModel = overrideModel ?? (useAccuModel ? "gemini-3-flash-preview" : "gemini-3.5-flash");
     console.log(`Using provider: ${provider}, geminiModel: ${extractionModel}, qwenModel: ${qwenModel} (aiModel=${aiModel})`);
     let extracted: any = { items: [] };
     try {
@@ -956,7 +960,7 @@ ${isStrip ? '\nNOTE: This is a CROPPED SECTION of a larger page. Only report wha
 Return ALL valid cabinet SKUs (kept from original + newly found). If the original list was correct, return it unchanged.`;
 
       try {
-        const verified: any = await callGemini(GEMINI_API_KEY!, useAccuModel ? "gemini-3-flash-preview" : "gemini-3.5-flash", pageImage, verifyPrompt, 0.1, 8192, EXTRACT_SCHEMA);
+        const verified: any = await callGemini(GEMINI_API_KEY!, extractionModel, pageImage, verifyPrompt, 0.1, 8192, EXTRACT_SCHEMA);
         const verifiedItems = verified.items ?? [];
         if (verifiedItems.length > 0) {
           // Use verification results but never let it drop count below 50% of original
@@ -1014,7 +1018,7 @@ IMPORTANT: Only include a SKU if you can actually SEE it as a printed label on t
 ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
 
         try {
-          const recovery: any = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, useAccuModel ? "gemini-3-flash-preview" : "gemini-3.5-flash", qwenModel, pageImage, recoveryPrompt, 0.3, 4096, EXTRACT_SCHEMA);
+          const recovery: any = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, extractionModel, qwenModel, pageImage, recoveryPrompt, 0.3, 4096, EXTRACT_SCHEMA);
           const recoveredItems = (recovery.items ?? []).filter((item: any) => {
             const normalized = normalizeSkuLabel(String(item.sku || ''));
             return normalized && isValidSku(normalized) && !extractedAfterVerify.has(normalized);
@@ -1061,7 +1065,7 @@ RULES:
 - Return an empty list if every label is already upright and listed above.`;
 
       try {
-        const sweep: any = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, useAccuModel ? "gemini-3-flash-preview" : "gemini-3.5-flash", qwenModel, sweepImage, rotatedSweepPrompt, 0.2, 4096, EXTRACT_SCHEMA);
+        const sweep: any = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, extractionModel, qwenModel, sweepImage, rotatedSweepPrompt, 0.2, 4096, EXTRACT_SCHEMA);
         let added = 0;
         for (const item of (sweep.items ?? [])) {
           const raw = String(item.sku || '');
