@@ -32,6 +32,9 @@ export function extractPrefinalCabinetPageLabelFromText(pageText: string): strin
   const upperBath = text.match(/\bUPPER\s+BATH\s+(\d+(?:\.\d+)?)\b/);
   if (upperBath) return `UPPER BATH ${upperBath[1]}`;
 
+  const numberedBath = text.match(/\bBATH(?:ROOM)?\s*#\s*(\d+(?:\.\d+)?)\b/);
+  if (numberedBath) return `BATH #${numberedBath[1]}`;
+
   const ordered: Array<[RegExp, string]> = [
     [/\bMUD\s*ROOM\s*\/\s*DROP\s+ZONE\s*\/\s*LOCKERS\b/, 'MUDROOM / DROP ZONE / LOCKERS'],
     [/\bGATHERING\s+ROOM\b(?=.*\bWET\s+BAR\b)/, 'GATHERING ROOM WET BAR'],
@@ -39,6 +42,7 @@ export function extractPrefinalCabinetPageLabelFromText(pageText: string): strin
     [/\bOWNER'?S\s+BATH\b(?=.*\bDRESSING\s+AREA\b)|\bDRESSING\s+AREA\b(?=.*\bOWNER'?S\s+BATH\b)/, "OWNER'S BATH & DRESSING AREA"],
     [/\bOWNER'?S\s+BATH\b/, "OWNER'S BATH"],
     [/\bMASTER\s+BATH\b/, 'MASTER BATH'],
+    [/\bM\.?\s*BATH\b/, 'MASTER BATH'],
     [/\bOFFICE\s+BATH\b/, 'OFFICE BATH'],
     [/\bLOWER\s+LEVEL\s+BATH\b/, 'LOWER LEVEL BATH'],
     [/\bLOWER\s+BATH\b/, 'LOWER BATH'],
@@ -46,11 +50,14 @@ export function extractPrefinalCabinetPageLabelFromText(pageText: string): strin
     [/\bMAIN\s+LAUNDRY\b/, 'MAIN LAUNDRY'],
     [/\bUPPER\s+LAUNDRY\b/, 'UPPER LAUNDRY'],
     [/\bPOWDER\s+BATH\b/, 'POWDER BATH'],
+    [/\bPOWDER\s+ROOM\b(?:\s*\(\s*PWD\s*\))?|\bPWD\b/, 'POWDER ROOM'],
     [/\bPOOL\s+BATH\b/, 'POOL BATH'],
     [/\bBUNK\s*ROOM\s+BATH\b/, 'BUNKROOM BATH'],
     [/\bGUEST\s+BATH\b/, 'GUEST BATH'],
     [/\bOFFICE\s+BOOKCASE\b/, 'OFFICE BOOKCASE'],
     [/\bWET\s+BAR\b/, 'WET BAR'],
+    [/\bBUTLER'?S\s+PANTRY\b/, "BUTLER'S PANTRY"],
+    [/\bMUD\s*ROOM\s*-\s*LAUNDRY\b/, 'MUDROOM - LAUNDRY'],
     [/\bPANTRY\b/, 'PANTRY'],
     [/\bKITCHEN\b/, 'KITCHEN'],
     [/\bLAUNDRY\b/, 'LAUNDRY'],

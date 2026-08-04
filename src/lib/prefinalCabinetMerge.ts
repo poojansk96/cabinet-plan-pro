@@ -11,8 +11,9 @@ export interface PositionedPdfTextItem {
   transform?: number[];
 }
 
-// Includes legacy/manufacturer SKUs: RW, SCB, SCW, FSH, BP12WP, TEP/TEPF panels, UF/BEP/WEP/DP/SP/PNL/TKB.
-const SKU_PATTERN = /\b(BP|DB|SB|SCB|SCW|CB|EB|LS|LSB|RW|W|WDC|UB|WC|OH|BLB|BLW|BRW|TEPF|TEP|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDB|VDC|FIL|BF|WF|FSH|BFFIL|WFFIL|TK|TKB|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS|UF|BEP|WEP|DP|SP|PNL|B)\d[\w.\-\/]*(?:\((?:SPLIT|O|OPEN|C|CLOSED)\)|\[(?:SPLIT)\]|_SPLIT|-\((?:O|OPEN|C|CLOSED)\))?/gi;
+// Includes legacy/manufacturer SKUs: OC oven cabinets, RW, SCB, SCW, FSH, BP12WP,
+// TEP/TEPF panels, UF/BEP/WEP/DP/SP/PNL/TKB.
+const SKU_PATTERN = /\b(BP|DB|SB|SCB|SCW|CB|EB|OC|LS|LSB|RW|W|WDC|UB|WC|OH|BLB|BLW|BRW|TEPF|TEP|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDB|VDC|FIL|BF|WF|FSH|BFFIL|WFFIL|TK|TKB|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS|UF|BEP|WEP|DP|SP|PNL|B)\d[\w.\-\/]*(?:\((?:SPLIT|O|OPEN|C|CLOSED)\)|\[(?:SPLIT)\]|_SPLIT|-\((?:O|OPEN|C|CLOSED)\))?/gi;
 const SPACED_SKU_PATTERN = /\b(BP|SCB|SCW|RW|FSH|TEPF|TEP|TF|W|B|SB|BF|WF)\s+(\d[\w.\-\/]*)\b/gi;
 // Generic cabinet/accessory fallback for unknown prefixes: 1-6 letters + a 2+ digit dimension
 // cluster + a trailing letter suffix (e.g. SCW244213R, B24R, W334213BD). Requiring a trailing
@@ -321,7 +322,7 @@ export function mergePrefinalExtractionPasses(
     const upper = String(sku || '').toUpperCase().trim();
     return /^(UC|BP|SCRIBE|APNL?-(?:DF|SDR))$/.test(upper)
       || /^(?:DWR|BF|FIL|CM|EP|FP|LR|RW|FSH|SCB|TEPF?|BP)\d(?:[A-Z0-9.\-\/]*)$/.test(upper)
-      || /^(?:W|B|T|V)\d{2,}[A-Z0-9.\-\/]*$/.test(upper)
+      || /^(?:W|B|T|V|OC)\d{2,}[A-Z0-9.\-\/]*$/.test(upper)
       // Filler-head base cabinets like B09FH, B06FH, B12FH, B15FH, B18FH —
       // very narrow rectangles drawn beside vanities; commonly only seen on a
       // single strip pass but always real when present.
