@@ -642,6 +642,25 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         console.warn(`Text extraction failed for page ${p}:`, e);
       }
 
+      // ── OCR FALLBACK (raster-only pages) ──
+      // No usable text layer means rotated run labels like "3xDB24" have no
+      // corroboration source, so OCR the rendered page at 0/90/180/270°.
+      if (Object.keys(planTextSkuCounts).length === 0) {
+        onStatus(`Reading rotated labels (OCR) on "${file.name}" page ${p}/${pdf.numPages}…`);
+        try {
+          const { ocrPlanSkuCountsFromCanvas } = await import('@/lib/prefinalOcrSkus');
+          const ocrCounts = await ocrPlanSkuCountsFromCanvas(canvas, canvasW, canvasH);
+          if (Object.keys(ocrCounts).length > 0) {
+            planTextSkuCounts = ocrCounts;
+            const ocrTokens = Object.keys(ocrCounts).join(' ');
+            pageText = pageText ? `${pageText} ${ocrTokens}` : ocrTokens;
+            console.log(`OCR fallback page ${p}: ${ocrTokens}`);
+          }
+        } catch (e) {
+          console.warn(`OCR fallback failed for page ${p}:`, e);
+        }
+      }
+
       onStatus(`AI analyzing "${file.name}" page ${p}/${pdf.numPages}…`);
 
       // Retry helper: try up to 3 times with a 5-minute timeout each attempt
