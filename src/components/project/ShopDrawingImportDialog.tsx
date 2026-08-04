@@ -625,6 +625,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       // Render to canvas (kept in memory for strip cropping)
       const { canvas, width: canvasW, height: canvasH } = await renderPageToCanvasData(page);
       const pageImage = await canvasToBase64Full(canvas);
+      const pageImageRotated180 = await canvasRotated180ToBase64(canvas, canvasW, canvasH);
 
       // Extract text layer from the PDF page for cross-referencing
       let pageText = '';
