@@ -260,7 +260,11 @@ export function mergePrefinalExtractionPasses(
     if (!item?.sku) continue;
     const key = keyOf(item);
     const normalizedSku = normalizePrefinalSkuLabel(item.sku);
-    const hasPlanTextEvidence = (planTextSkuCounts[normalizedSku] ?? 0) > 0;
+    const directionalBase = isAmbiguousDirectionalUcSku(normalizedSku)
+      ? stripDirectionalSuffix(normalizedSku)
+      : '';
+    const hasPlanTextEvidence = (planTextSkuCounts[normalizedSku] ?? 0) > 0
+      || (directionalBase ? (planTextSkuCounts[directionalBase] ?? 0) > 0 : false);
     const hasAnyPlanTextEvidence = Object.keys(planTextSkuCounts).length > 0;
 
     // When the PDF has a usable embedded text layer, a full-page vision-only
