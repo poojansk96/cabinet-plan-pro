@@ -226,6 +226,7 @@ export function mergePrefinalExtractionPasses(
   if (!passes.length) return [];
 
   const map = new Map<string, ExtractedCabinetPassItem>();
+  const unconfirmedFull = new Map<string, ExtractedCabinetPassItem>();
   const stripOnly = new Map<string, { item: ExtractedCabinetPassItem; support: number; maxQty: number }>();
   const stripStats = new Map<string, { support: number; maxQty: number }>();
   const qtyObservations = new Map<string, number[]>();
@@ -258,6 +259,23 @@ export function mergePrefinalExtractionPasses(
   for (const item of passes[0] ?? []) {
     if (!item?.sku) continue;
     const key = keyOf(item);
+    const normalizedSku = normalizePrefinalSkuLabel(item.sku);
+    const directionalBase = isAmbiguousDirectionalUcSku(normalizedSku)
+      ? stripDirectionalSuffix(normalizedSku)
+      : '';
+    const hasPlanTextEvidence = (planTextSkuCounts[normalizedSku] ?? 0) > 0
+      || (directionalBase ? (planTextSkuCounts[directionalBase] ?? 0) > 0 : false);
+    const hasAnyPlanTextEvidence = Object.keys(planTextSkuCounts).length > 0;
+
+    // When the PDF has a usable embedded text layer, a full-page vision-only
+    // token must be seen again in a detail crop before it enters the count.
+    // This blocks fabricated labels made from nearby dimensions (DB6-91) while
+    // still allowing genuinely visible OCR-only labels to be recovered by the
+    // independent overlapping strip passes.
+    if (hasAnyPlanTextEvidence && !hasPlanTextEvidence) {
+      unconfirmedFull.set(key, { ...item });
+      continue;
+    }
     const existing = map.get(key);
     if (existing) {
       existing.quantity = Math.max(Number(existing.quantity) || 1, Number(item.quantity) || 1);
@@ -290,6 +308,17 @@ export function mergePrefinalExtractionPasses(
       const existing = map.get(key);
       if (existing) {
         existing.quantity = Math.max(Number(existing.quantity) || 1, qty);
+        seenInThisStrip.add(key);
+        continue;
+      }
+
+      const fullPageCandidate = unconfirmedFull.get(key);
+      if (fullPageCandidate) {
+        map.set(key, {
+          ...fullPageCandidate,
+          quantity: Math.max(Number(fullPageCandidate.quantity) || 1, qty),
+        });
+        unconfirmedFull.delete(key);
         seenInThisStrip.add(key);
         continue;
       }

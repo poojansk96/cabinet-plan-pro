@@ -757,7 +757,7 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
 
       let classification: any = { pageType: "plan_view", unitTypeName: null, isCommonArea: false };
       try {
-        classification = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, "gemini-3.1-flash-lite-preview", qwenModel, pageImage, classifyPrompt, 0.1, 1024, CLASSIFY_SCHEMA);
+        classification = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, "gemini-3.5-flash", qwenModel, pageImage, classifyPrompt, 0.1, 1024, CLASSIFY_SCHEMA);
       } catch (e: any) {
         if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -888,6 +888,7 @@ SKIP THESE — NOT CABINET SKUs:
 - Appliances: REF, REFRIG, DW, DISHWASHER, RANGE, HOOD, MICRO, OTR, OVEN, VENT, DISP, CKT
 - Sheet/callout references: B1/A4-403, A404, A3-201, B2/A5-100 (contain "/" or don't match cabinet prefix)
 - Non-SKU text: unit numbers, elevation titles, dimension text, page numbers
+- NEVER construct a SKU by joining a cabinet prefix/width to nearby dimension text. For example, do not invent "DB6-91" from a DB6 fragment beside a 91-inch dimension. If the complete token is not visibly printed as one label, omit it.
 
 VALID SKU PREFIXES (a label must start with letters followed by a digit):
 B, BP, DB, SB, SCB, CB, EB, OC, LS, LSB, RW, W, WDC, UB, WC, OH, BLB, BLW, BRW, T, TF, TEP, TEPF, UT, TC, PT, PTC, UC, V, VB, VD, VDC, FIL, BF, WF, FSH, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR, APPRON
@@ -903,7 +904,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
     // ── Step 2a: Initial extraction ──
     const useAccuModel = aiModel === 'accu';
     // Pre-Final cabinet count uses the fast (non-accu) Gemini path.
-    const extractionModel = useAccuModel ? "gemini-3-flash-preview" : "gemini-3.1-flash-lite-preview";
+    const extractionModel = useAccuModel ? "gemini-3-flash-preview" : "gemini-3.5-flash";
     console.log(`Using provider: ${provider}, geminiModel: ${extractionModel}, qwenModel: ${qwenModel} (aiModel=${aiModel})`);
     let extracted: any = { items: [] };
     try {
@@ -952,7 +953,7 @@ ${isStrip ? '\nNOTE: This is a CROPPED SECTION of a larger page. Only report wha
 Return ALL valid cabinet SKUs (kept from original + newly found). If the original list was correct, return it unchanged.`;
 
       try {
-        const verified: any = await callGemini(GEMINI_API_KEY!, useAccuModel ? "gemini-3-flash-preview" : "gemini-3.1-flash-lite-preview", pageImage, verifyPrompt, 0.1, 8192, EXTRACT_SCHEMA);
+        const verified: any = await callGemini(GEMINI_API_KEY!, useAccuModel ? "gemini-3-flash-preview" : "gemini-3.5-flash", pageImage, verifyPrompt, 0.1, 8192, EXTRACT_SCHEMA);
         const verifiedItems = verified.items ?? [];
         if (verifiedItems.length > 0) {
           // Use verification results but never let it drop count below 50% of original
@@ -1010,7 +1011,7 @@ IMPORTANT: Only include a SKU if you can actually SEE it as a printed label on t
 ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
 
         try {
-          const recovery: any = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, useAccuModel ? "gemini-3-flash-preview" : "gemini-3.1-flash-lite-preview", qwenModel, pageImage, recoveryPrompt, 0.3, 4096, EXTRACT_SCHEMA);
+          const recovery: any = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, useAccuModel ? "gemini-3-flash-preview" : "gemini-3.5-flash", qwenModel, pageImage, recoveryPrompt, 0.3, 4096, EXTRACT_SCHEMA);
           const recoveredItems = (recovery.items ?? []).filter((item: any) => {
             const normalized = normalizeSkuLabel(String(item.sku || ''));
             return normalized && isValidSku(normalized) && !extractedAfterVerify.has(normalized);
@@ -1252,6 +1253,13 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
     // Filter out SKUs that don't match any known cabinet prefix pattern
     // and are not confirmed by the text layer (prevents fabricated SKUs like PSX23H)
     items = items.filter((item) => {
+      // A common vision error joins a short cabinet fragment to a nearby plan
+      // dimension, producing tokens such as DB6-91. Keep an unusual numeric
+      // suffix only when the embedded PDF text independently confirms it.
+      if (/^[A-Z]{1,8}\d{1,2}-\d{2,}$/i.test(item.sku) && !textLayerSkuSet.has(item.sku)) {
+        console.log(`Filtered dimension-joined SKU not confirmed by text: ${item.sku}`);
+        return false;
+      }
       if (SKU_PATTERN.test(item.sku)) { SKU_PATTERN.lastIndex = 0; return true; }
       SKU_PATTERN.lastIndex = 0;
       if (NO_DIGIT_OK.test(item.sku)) return true;
