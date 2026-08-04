@@ -208,7 +208,7 @@ async function callDialagram(
   throw new Error("AI model temporarily unavailable");
 }
 
-// ── OpenAI (GPT-5.6 Sol, medium thinking) via Lovable AI Gateway ──
+// ── OpenAI (GPT-5.6 Sol) direct API ──
 async function callOpenAI(
   apiKey: string,
   model: string,
@@ -216,19 +216,23 @@ async function callOpenAI(
   prompt: string,
   maxTokens = 8192,
   expectStructured = false,
+  reasoningEffort: "none" | "medium" = "none",
 ): Promise<any> {
-  const MAX_RETRIES = 3;
+  const MAX_RETRIES = 2;
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     let response: Response | null = null;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 75_000);
     try {
       response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        signal: controller.signal,
         body: JSON.stringify({
           model,
           // GPT-5 family: no temperature / max_tokens allowed
           max_completion_tokens: maxTokens,
-          reasoning_effort: "medium",
+          reasoning_effort: reasoningEffort,
           ...(expectStructured ? { response_format: { type: "json_object" } } : {}),
           messages: [
             { role: "system", content: "You are a vision AI that analyzes 2020 Design / ProKitchen shop drawings provided as images. Always inspect the attached image. When asked for JSON output, respond with ONLY valid json, no markdown fences." },
@@ -241,8 +245,13 @@ async function callOpenAI(
       });
     } catch (fetchErr) {
       console.error(`OpenAI fetch error (attempt ${attempt + 1}):`, fetchErr);
+      if (fetchErr instanceof DOMException && fetchErr.name === "AbortError") {
+        throw new Error("AI request timed out");
+      }
       if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
       throw new Error("AI model temporarily unavailable");
+    } finally {
+      clearTimeout(timeoutId);
     }
     if (response.status === 429) throw new Error("rate_limit");
     if (response.status === 402) throw new Error("credits");
@@ -282,6 +291,7 @@ async function callAI(
   responseSchema?: any,
   openaiKey?: string,
   openaiModel = "gpt-5.6-sol",
+  openaiReasoningEffort: "none" | "medium" = "none",
 ): Promise<any> {
   if (provider === "dialagram") {
     if (!dialagramKey) throw new Error("DIALAGRAM_API_KEY not configured");
@@ -289,7 +299,7 @@ async function callAI(
   }
   if (provider === "openai") {
     if (!openaiKey) throw new Error("OPENAI_API_KEY not configured");
-    return callOpenAI(openaiKey, openaiModel, pageImage, prompt, maxTokens, !!responseSchema);
+    return callOpenAI(openaiKey, openaiModel, pageImage, prompt, maxTokens, !!responseSchema, openaiReasoningEffort);
   }
   if (!geminiKey) throw new Error("GEMINI_API_KEY not configured");
   return callGemini(geminiKey, geminiModel, pageImage, prompt, temperature, maxTokens, responseSchema);
@@ -987,7 +997,9 @@ If no cabinet SKUs are found, return {"items":[]}`;
     console.log(`Using provider: ${provider}, geminiModel: ${extractionModel}, qwenModel: ${qwenModel} (aiModel=${aiModel})`);
     let extracted: any = { items: [] };
     try {
-      extracted = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, extractionModel, qwenModel, pageImage, extractPrompt, 0.2, 8192, EXTRACT_SCHEMA, OPENAI_API_KEY, openaiModel);
+      // Keep the requested medium reasoning on the full-page Estimate pass.
+      // Crop/detail passes use no reasoning so six parallel requests cannot stall the job.
+      extracted = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, extractionModel, qwenModel, pageImage, extractPrompt, 0.2, 8192, EXTRACT_SCHEMA, OPENAI_API_KEY, openaiModel, isStrip ? "none" : "medium");
     } catch (e: any) {
       if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
