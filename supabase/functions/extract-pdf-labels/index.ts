@@ -1117,6 +1117,17 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
       finalItems = [];
     }
 
+    // ── Expand leading multiplier notation (e.g. "3xDB24" → DB24 qty 3) ──
+    finalItems = finalItems.map((c: any) => {
+      const raw = String(c.sku ?? '').trim();
+      const m = raw.match(/^(\d{1,2})\s*[xX]\s*([A-Za-z].*)$/);
+      if (!m) return c;
+      const mult = parseInt(m[1], 10);
+      if (!Number.isFinite(mult) || mult < 1 || mult > 20) return c;
+      console.log(`Expanded multiplier label "${raw}" → ${m[2]} x${mult}`);
+      return { ...c, sku: m[2], quantity: Math.max(1, Number(c.quantity) || 1) * mult };
+    });
+
     // ── Normalize and filter ──
     let items = finalItems
       .filter((c: any) => c.sku && /^[A-Za-z]/.test(c.sku) && (/\d/.test(c.sku) || NO_DIGIT_OK.test(String(c.sku).trim())))
