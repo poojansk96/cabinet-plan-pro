@@ -56,7 +56,7 @@ export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
   const [cabinetAiModel, setCabinetAiModel] = useState<'fast' | 'accu'>('fast');
   // AI provider toggles — Gemini default; Qwen (dialagram, qwen-3.6-plus) optional
   const [unitAiProvider, setUnitAiProvider] = useState<'gemini' | 'dialagram'>('gemini');
-  const [cabinetAiProvider, setCabinetAiProvider] = useState<'gemini' | 'dialagram'>('gemini');
+  const [cabinetAiProvider, setCabinetAiProvider] = useState<'gemini' | 'dialagram' | 'openai'>('gemini');
   // Stone/Laminate/Vtop AI provider — Gemini is now the default across all sections
   // (Stone SQFT, Laminate, CMarble/Swanstone, and Vtop) per user request.
   const [stoneAiProvider, setStoneAiProvider] = useState<'gemini' | 'dialagram'>('gemini');
@@ -584,7 +584,7 @@ export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
           speedMode="thorough"
           skipClassify
           aiModel={cabinetAiModel}
-          geminiModelOverride={mode === 'estimate' ? 'gemini-3.5-flash-lite' : undefined}
+          geminiModelOverride={mode === 'estimate' && cabinetAiProvider === 'gemini' ? 'gemini-3.5-flash-lite' : undefined}
           aiProvider={cabinetAiProvider}
           dialagramModel="qwen-3.6-plus"
         />
@@ -937,6 +937,27 @@ export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
 
               <div className="ml-auto flex items-center gap-2 flex-wrap">
                 {/* Fast Gemini lite mode is kept as the cabinet aiModel; Accu (3.1 thinking) toggle removed in favor of Qwen */}
+                {mode === 'estimate' && (
+                  <div className="flex items-center gap-1 border border-border rounded p-0.5 bg-background">
+                    {([
+                      { key: 'gemini' as const, label: 'Gemini 3.5 Flash Lite' },
+                      { key: 'openai' as const, label: 'GPT-5.6 Sol (medium)' },
+                    ]).map(opt => (
+                      <button
+                        key={opt.key}
+                        onClick={() => setCabinetAiProvider(opt.key)}
+                        className={`px-2 py-1 rounded text-[11px] font-semibold transition-colors ${
+                          cabinetAiProvider === opt.key
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                        title={opt.key === 'openai' ? 'Extract cabinet SKUs with GPT-5.6 Sol, medium thinking' : 'Extract cabinet SKUs with Gemini 3.5 Flash Lite'}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <button
                   onClick={() => setShowCabinetImport(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"

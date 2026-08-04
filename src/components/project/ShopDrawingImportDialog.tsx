@@ -45,7 +45,7 @@ interface Props {
   skipClassify?: boolean;
   aiModel?: 'fast' | 'accu';
   geminiModelOverride?: string;
-  aiProvider?: 'gemini' | 'dialagram';
+  aiProvider?: 'gemini' | 'dialagram' | 'openai';
   dialagramModel?: string;
 }
 
