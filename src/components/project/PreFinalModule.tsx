@@ -10,6 +10,7 @@ import { usePrefinalStore, type PrefinalStoneRow, type PrefinalVtopRow } from '@
 
 interface Props {
   project: Project;
+  mode?: 'prefinal' | 'estimate';
   selectedUnit?: Unit;
   selectedUnitId?: string | null;
   setSelectedUnitId?: (id: string) => void;
@@ -50,7 +51,7 @@ function ProviderToggle({ value, onChange }: { value: 'gemini' | 'dialagram'; on
   );
 }
 
-export default function PreFinalModule({ project }: Props) {
+export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
   const store = usePrefinalStore(project.id);
   const [activeSubTab, setActiveSubTab] = useState<'units' | 'cabinets' | 'stone' | 'laminate' | 'cmarble'>('units');
 
@@ -600,6 +601,7 @@ export default function PreFinalModule({ project }: Props) {
           speedMode="thorough"
           skipClassify
           aiModel={cabinetAiModel}
+          geminiModelOverride={mode === 'estimate' ? 'gemini-3.5-flash-lite' : undefined}
           aiProvider={cabinetAiProvider}
           dialagramModel="qwen-3.6-plus"
         />
