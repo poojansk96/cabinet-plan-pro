@@ -1162,7 +1162,7 @@ RULES:
       }
     }
 
-    console.log(`Final: ${finalItems.length} items`);
+    console.log(`Final: ${finalItems.length} items [${finalItems.map((i: any) => `${i.sku}x${i.quantity ?? 1}`).join(', ')}]`);
 
     // ── Common area hallucination guard ──
     // Fixture-only common areas (Restroom, Lobby, etc.) should never have cabinets.
