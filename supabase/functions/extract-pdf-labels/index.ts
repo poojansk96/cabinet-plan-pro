@@ -1061,7 +1061,7 @@ RULES:
 - Return an empty list if every label is already upright and listed above.`;
 
       try {
-        const sweep: any = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, useAccuModel ? "gemini-3-flash-preview" : "gemini-3.5-flash", qwenModel, pageImage, rotatedSweepPrompt, 0.2, 4096, EXTRACT_SCHEMA);
+        const sweep: any = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, useAccuModel ? "gemini-3-flash-preview" : "gemini-3.5-flash", qwenModel, sweepImage, rotatedSweepPrompt, 0.2, 4096, EXTRACT_SCHEMA);
         let added = 0;
         for (const item of (sweep.items ?? [])) {
           const raw = String(item.sku || '');
