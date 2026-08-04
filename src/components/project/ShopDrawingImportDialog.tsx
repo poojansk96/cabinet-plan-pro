@@ -677,7 +677,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       };
 
       // ── PASS 1: Full page (extract, with optional classification skip) ──
-      const fullResponse = await fetchWithRetry(JSON.stringify({ pageImage, unitType, pageText, speedMode, skipClassify, aiModel, aiProvider, dialagramModel }));
+      const fullResponse = await fetchWithRetry(JSON.stringify({ pageImage, pageImageRotated180, unitType, pageText, speedMode, skipClassify, aiModel, aiProvider, dialagramModel }));
       if (!fullResponse.ok) {
         const status = fullResponse.status;
         if (status === 429) throw new Error('rate_limit');
