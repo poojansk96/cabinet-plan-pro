@@ -598,7 +598,7 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     const DIALAGRAM_API_KEY = Deno.env.get("DIALAGRAM_API_KEY");
 
-    const { pageImage, unitType, pageText, speedMode, classificationOverride, isStrip, skipClassify, aiModel, aiProvider, dialagramModel } = await req.json();
+    const { pageImage, pageImageRotated180, unitType, pageText, speedMode, classificationOverride, isStrip, skipClassify, aiModel, aiProvider, dialagramModel } = await req.json();
     const provider: "gemini" | "dialagram" = aiProvider === "dialagram" ? "dialagram" : "gemini";
     const qwenModel: string = dialagramModel || "qwen-3.6-plus";
     if (provider === "gemini" && !GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
