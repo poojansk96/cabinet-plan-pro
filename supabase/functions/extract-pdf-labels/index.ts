@@ -676,7 +676,7 @@ serve(async (req) => {
     const DIALAGRAM_API_KEY = Deno.env.get("DIALAGRAM_API_KEY");
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 
-    const { pageImage, pageImageRotated180, unitType, pageText, speedMode, classificationOverride, isStrip, skipClassify, aiModel, aiProvider, dialagramModel, geminiModelOverride } = await req.json();
+    const { pageImage, pageImageRotated180, unitType, pageText, speedMode, classificationOverride, isStrip, skipClassify, aiModel, aiProvider, dialagramModel, geminiModelOverride, catalog, catalogSkus } = await req.json();
     const provider: "gemini" | "dialagram" | "openai" =
       aiProvider === "dialagram" ? "dialagram" : aiProvider === "openai" ? "openai" : "gemini";
     // GPT-5.6 Sol with medium thinking (Estimate – ProKitchen cabinet count toggle)
