@@ -7,6 +7,7 @@ import UnitTypeImportDialog from './UnitTypeImportDialog';
 import StonePDFImportDialog, { type StoneExtractedRow } from './StonePDFImportDialog';
 import VtopPDFImportDialog, { type VtopImportRow, formatVtopSku, getVtopSidesplashItems } from './VtopPDFImportDialog';
 import { usePrefinalStore, type PrefinalStoneRow, type PrefinalVtopRow } from '@/hooks/usePrefinalStore';
+import { USCD_CATALOG_SKUS } from '@/lib/uscdPrices';
 
 interface Props {
   project: Project;
