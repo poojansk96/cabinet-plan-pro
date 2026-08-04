@@ -1065,7 +1065,7 @@ RULES:
         let added = 0;
         for (const item of (sweep.items ?? [])) {
           const raw = String(item.sku || '');
-          const multMatch = raw.trim().match(/^(\d{1,2})\s*[xX]\s*([A-Za-z].*)$/);
+          const multMatch = raw.trim().match(/^(\d{1,2})\s*[xX\u00d7vV*]\s*([A-Za-z]{1,6}\d[\w.\-\/]*)$/);
           const skuText = multMatch ? multMatch[2] : raw;
           const multiplier = multMatch ? parseInt(multMatch[1], 10) : 1;
           const normalized = normalizeSkuLabel(skuText);
@@ -1176,7 +1176,7 @@ RULES:
     // ── Expand leading multiplier notation (e.g. "3xDB24" → DB24 qty 3) ──
     finalItems = finalItems.map((c: any) => {
       const raw = String(c.sku ?? '').trim();
-      const m = raw.match(/^(\d{1,2})\s*[xX]\s*([A-Za-z].*)$/);
+      const m = raw.match(/^(\d{1,2})\s*[xX\u00d7vV*]\s*([A-Za-z]{1,6}\d[\w.\-\/]*)$/);
       if (!m) return c;
       const mult = parseInt(m[1], 10);
       if (!Number.isFinite(mult) || mult < 1 || mult > 20) return c;

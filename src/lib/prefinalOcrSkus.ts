@@ -53,7 +53,7 @@ async function canvasToBlob(canvas: AnyCanvas): Promise<Blob> {
 export function parseOcrSkuToken(token: string): { sku: string; qty: number } | null {
   const raw = String(token || '').trim();
   if (!raw) return null;
-  const mult = raw.match(/^(\d{1,2})\s*[xX]\s*([A-Za-z].*)$/);
+  const mult = raw.match(/^(\d{1,2})\s*[xX\u00d7vV*]\s*([A-Za-z]{1,6}\d[\w.\-\/]*)$/);
   const body = mult ? mult[2] : raw;
   const qty = mult ? Math.max(1, parseInt(mult[1], 10) || 1) : 1;
   const matches = extractSkuMatches(body);
