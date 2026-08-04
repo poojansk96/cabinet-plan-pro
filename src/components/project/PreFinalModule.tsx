@@ -587,6 +587,8 @@ export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
           geminiModelOverride={mode === 'estimate' && cabinetAiProvider === 'gemini' ? 'gemini-3.5-flash-lite' : undefined}
           aiProvider={cabinetAiProvider}
           dialagramModel="qwen-3.6-plus"
+          catalog={mode === 'estimate' ? 'uscd' : undefined}
+          catalogSkus={mode === 'estimate' ? USCD_CATALOG_SKUS : undefined}
         />
       )}
 
