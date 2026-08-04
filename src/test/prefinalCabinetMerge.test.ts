@@ -105,6 +105,14 @@ describe('extractPlanSkuCountsFromTextItems', () => {
     expect(counts.VDB15).toBe(1);
   });
 
+  it('extracts OC339624 oven-cabinet SKU from text items', () => {
+    const counts = extractPlanSkuCountsFromTextItems([
+      { str: 'OC339624', transform: [1, 0, 0, 1, 360, 410] },
+    ]);
+
+    expect(counts.OC339624).toBe(1);
+  });
+
   it('classifies VDB15 under vanity, not base', () => {
     expect(classifyPrefinalCabinetSku('VDB15')).toBe('Vanity');
   });
@@ -186,6 +194,17 @@ describe('mergePrefinalExtractionPasses', () => {
     expect(bySku['APNL-DF']).toBe(1);
     expect(bySku.FSH4210S).toBe(2);
     expect(bySku.SCB33R).toBe(1);
+  });
+
+  it('preserves a strip-only OC339624 oven cabinet', () => {
+    const merged = mergePrefinalExtractionPasses([
+      [],
+      [{ sku: 'OC339624', room: 'Kitchen', type: 'Tall', quantity: 1 }],
+    ]);
+
+    expect(merged).toEqual([
+      { sku: 'OC339624', room: 'Kitchen', type: 'Tall', quantity: 1 },
+    ]);
   });
 
   it('recovers the missing +1 on higher-quantity repeated SKUs', () => {

@@ -9,6 +9,7 @@ const AMENITY_ROOM_RE = /\b(TOILET|SALOON|SALON|LIBRARY|LOUNGE|GAME\s*ROOM|THEAT
 
 const RESIDENTIAL_TYPE_RE = /\b(TYPE\s*\d|UNIT\s*[A-Z]\b|\d\s*BR\b|STUDIO|BED(?:ROOM)?|APARTMENT|APT)\b/i;
 const PREFINAL_COMMON_AREA_LABELS: Array<{ label: string; re: RegExp }> = [
+  { label: 'Powder Room', re: /\bPOWDER\s*ROOM\b|\bPWD\b/i },
   { label: 'Toilet', re: /\bTOILET\b/i },
   { label: 'Library', re: /\bLIBRARY\b/i },
   { label: 'Saloon', re: /\bSALOON\b/i },
@@ -62,5 +63,10 @@ describe('amenity room detection (Franklin Ridge cases)', () => {
     expect(isCommonAreaType('Toilet-AS')).toBe(true);
     expect(isCommonAreaType('Saloon')).toBe(true);
     expect(isCommonAreaType('Library')).toBe(true);
+  });
+
+  it('resolves Powder Room directly instead of relying on a last-resort page label', () => {
+    expect(extractCommonAreaLabel('POWDER ROOM (PWD)')).toBe('Powder Room');
+    expect(isCommonAreaType('Powder Room')).toBe(true);
   });
 });

@@ -205,6 +205,7 @@ export function isCommonAreaType(value: string): boolean {
 
 const COMMON_AREA_LABELS: Array<{ label: string; re: RegExp }> = [
   { label: 'Kitchenette', re: /\bKITCHENETTE\b/i },
+  { label: 'Powder Room', re: /\bPOWDER\s*ROOM\b|\bPWD\b/i },
   { label: 'Toilet', re: /\bTOILET\b/i },
   { label: 'Library', re: /\bLIBRARY\b/i },
   { label: 'Saloon', re: /\bSALOON\b/i },

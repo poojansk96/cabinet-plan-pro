@@ -58,4 +58,13 @@ describe('prefinal cabinet page label extraction', () => {
     expect(extractPrefinalCabinetPageLabelFromText('LOWER FLOOR TOIL.STD LOWER LEVEL BATH VSB42 BF3')).toBe('LOWER LEVEL BATH');
     expect(extractPrefinalCabinetPageLabelFromText('LOWER FLOOR BMC24 B33 BF3 LOWER LEVEL BAR DWR3 SB33')).toBe('LOWER LEVEL BAR');
   });
+
+  it('keeps every uploaded room page independent, including abbreviated bath titles', () => {
+    expect(extractPrefinalCabinetPageLabelFromText('MASTER BATH OC339624')).toBe('MASTER BATH');
+    expect(extractPrefinalCabinetPageLabelFromText('M BATH OC339624')).toBe('MASTER BATH');
+    expect(extractPrefinalCabinetPageLabelFromText('POWDER ROOM (PWD) VSB21')).toBe('POWDER ROOM');
+    expect(extractPrefinalCabinetPageLabelFromText('BATH #1 VSB21')).toBe('BATH #1');
+    expect(extractPrefinalCabinetPageLabelFromText("BUTLER'S PANTRY DWR3")).toBe("BUTLER'S PANTRY");
+    expect(extractPrefinalCabinetPageLabelFromText('MUDROOM - LAUNDRY OC339624')).toBe('MUDROOM - LAUNDRY');
+  });
 });
