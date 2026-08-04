@@ -231,7 +231,7 @@ async function callAI(
 
 // ── SKU Helpers ──
 
-const SKU_PATTERN = /\b(BP|DB|SB|SCB|SCW|CB|EB|OC|LS|LSB|RW|W|WDC|UB|WC|OH|BLB|BLW|BRW|TEPF|TEP|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDB|VDC|FIL|BF|WF|FSH|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS|B)\d[\w.\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
+const SKU_PATTERN = /\b(BP|DB|SB|SCB|SCW|CB|EB|OC|LS|LSB|RW|W|WDC|UB|WC|OH|BLB|BLW|BRW|TEPF|TEP|T|TF|UT|TC|PT|PTC|UC|VSB|VSD|VS|V|VB|VD|VDB|VDC|FIL|BF|WF|FSH|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS|F|B)\d[\w.\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
 const SPACED_SKU_PATTERN = /\b(BP|SCB|SCW|RW|FSH|TEPF|TEP|TF|W|B|SB|BF|WF)\s+(\d[\w.\-\/]*)\b/gi;
 // Generic cabinet/accessory fallback for unknown prefixes: 1-6 letters + a 2+ digit dimension
 // cluster + a trailing letter suffix (e.g. SCW244213R, B24R, W334213BD). Requiring a trailing
@@ -370,8 +370,9 @@ function classifySku(sku: string): string {
   if (/^(T|UT|TC|PT|PTC|UC)(\d|$)/i.test(normalizedSku)) return "Tall";
   if (/^OC\d/i.test(normalizedSku)) return "Tall";
   if (/^(HALC|HAUC|HCUC|HCYC)\d/i.test(normalizedSku)) return "Tall";
-  if (/^(V|VB|VD|VDB|VDC)\d/i.test(normalizedSku)) return "Vanity";
+  if (/^(VSB|VSD|VS|V|VB|VD|VDB|VDC)\d/i.test(normalizedSku)) return "Vanity";
   if (/^(HAV|HAVDB)\d/i.test(normalizedSku)) return "Vanity";
+  if (/^F\d+[A-Z]?$/i.test(normalizedSku)) return "Accessory"; // filler tags like F3, F34, F342 (3" x 42")
   if (/^(BP|SCRIBE|UC|APNL?-(?:DF|SDR))$/i.test(normalizedSku)) return "Accessory";
   if (/^(FIL|BF|WF|FSH|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|TF|TEPF|APPRON|UREP|REP|BP)\d/i.test(normalizedSku)) return "Accessory";
   if (/^(SCB|HABLB|HAB|HADB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HCDB|HCLS|HWSB|HWS)\d/i.test(normalizedSku)) return "Base";
@@ -597,7 +598,7 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     const DIALAGRAM_API_KEY = Deno.env.get("DIALAGRAM_API_KEY");
 
-    const { pageImage, unitType, pageText, speedMode, classificationOverride, isStrip, skipClassify, aiModel, aiProvider, dialagramModel } = await req.json();
+    const { pageImage, pageImageRotated180, unitType, pageText, speedMode, classificationOverride, isStrip, skipClassify, aiModel, aiProvider, dialagramModel } = await req.json();
     const provider: "gemini" | "dialagram" = aiProvider === "dialagram" ? "dialagram" : "gemini";
     const qwenModel: string = dialagramModel || "qwen-3.6-plus";
     if (provider === "gemini" && !GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
@@ -849,7 +850,9 @@ COUNTING — CRITICAL:
 - FILLER-HEAD CABINETS: B09FH, B06FH, B12FH, B15FH, B18FH — these are VERY NARROW rectangles (6"-18" wide). They appear as thin slivers between larger cabinets or at the end of a run. ACTIVELY LOOK FOR THESE — they are commonly missed.
 - VANITY-ADJACENT FILLER-HEAD: In bathroom elevations, a B##FH (e.g. B09FH, B12FH) is OFTEN drawn directly NEXT TO a vanity SKU like V3021B, VB30, VD24, VDB18. The label is tiny and vertical/rotated. WHENEVER you see a vanity (V/VB/VD/VDB/VDC) cabinet, scan the BOTH sides of it for a narrow B##FH sliver — this is the single most commonly missed cabinet on bath elevations. If found, classify the B##FH as "Base" with room "Bath".
 - Corner cabinets (LS, LSB) at wall junction = count ONCE even if label appears at junction of two wall runs.
-- Look for "xN" or "(2)" multiplier notation next to labels.
+- Look for "xN" or "(2)" multiplier notation next to labels. A label written as "3xDB24" means SKU DB24 with quantity 3 — return sku "DB24", quantity 3.
+- REPORT EVERY CABINET/VANITY/FILLER LABEL EVEN IF THE PREFIX IS UNFAMILIAR. Examples seen on bath plans: "VS30S" (vanity sink base), "F342" (3"x42" filler), "DB24", "3xDB24", "VSB36". Do NOT omit a label just because its prefix is not in the list above — report it verbatim and classify by best guess.
+- DO NOT report plumbing/fixture tags that are just item numbers such as "DB6-01", "VSH-03", "VSM-01", "CB-01-R" (letters + 1-2 digits + dash + 2 digits). Those are fixture callouts, not cabinets.
 - PROCESS THIS PAGE INDEPENDENTLY. Never borrow a room title, orientation, SKU, or count from another PDF page.
 - BATHROOM PAGES: MASTER BATH, M BATH, BATH #1, POWDER ROOM, and PWD are valid cabinet pages. Scan every vanity run and count all rotated/vertical labels; do not return an empty list merely because the page has only one short vanity run.
 - ROTATED LABELS: mentally rotate text printed vertically, upside-down, or along a cabinet edge. For example OC339624 must remain OC339624, not be dropped because it is vertical.
@@ -1031,6 +1034,60 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
       }
     }
 
+    // ── STEP 2d: ROTATED / MIRRORED LABEL SWEEP ──
+    // 2020/ProKitchen plan views print many labels sideways or upside-down along a
+    // cabinet run (e.g. "3xDB24" between two vanity sinks, "F342" on a filler sliver).
+    // The main pass regularly reads only the upright labels, so run one focused sweep
+    // that looks ONLY for rotated text and merge anything new.
+    if (!isStrip) {
+      const alreadyFound = new Set(finalItems.map((i: any) => normalizeSkuLabel(String(i.sku || ''))));
+      const sweepImage = (typeof pageImageRotated180 === 'string' && pageImageRotated180.length > 0) ? pageImageRotated180 : pageImage;
+      const sweepIsFlipped = sweepImage !== pageImage;
+      const rotatedSweepPrompt = `This is a 2020 Design / ProKitchen plan view${sweepIsFlipped ? ', shown ROTATED 180 DEGREES (upside-down) on purpose so that labels printed upside-down on the original page now read normally' : ''}. Many cabinet labels are printed SIDEWAYS (rotated 90 degrees), UPSIDE-DOWN (rotated 180 degrees), or MIRRORED along a cabinet run.
+
+TASK: Find ONLY the cabinet/vanity/filler/accessory SKU labels whose text is NOT upright. Mentally rotate the page in every direction and read every label drawn along a wall, inside a cabinet rectangle, on a narrow filler sliver, or between two sinks.
+
+Already found (do NOT repeat these): ${[...alreadyFound].join(', ') || 'none'}
+
+For each additional rotated label you can actually SEE, return:
+- sku: exact label as printed (e.g. VS30S, DB24, F342, W2442, B09FH). If the label reads "3xDB24" return sku "DB24" with quantity 3.
+- type: Base/Wall/Tall/Vanity/Accessory
+- room: Kitchen/Bath/Laundry/Pantry/Other
+- quantity: number of separate occurrences
+
+RULES:
+- Do NOT return dimension text ("48\"", "28 3/4\""), room titles, or fixture callouts shaped like DB6-01 / VSH-03 / VSM-01 / CB-01-R.
+- Do NOT invent labels. Only what is visibly printed.
+- Return an empty list if every label is already upright and listed above.`;
+
+      try {
+        const sweep: any = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, useAccuModel ? "gemini-3-flash-preview" : "gemini-3.5-flash", qwenModel, sweepImage, rotatedSweepPrompt, 0.2, 4096, EXTRACT_SCHEMA);
+        let added = 0;
+        for (const item of (sweep.items ?? [])) {
+          const raw = String(item.sku || '');
+          const multMatch = raw.trim().match(/^(\d{1,2})\s*[xX]\s*([A-Za-z].*)$/);
+          const skuText = multMatch ? multMatch[2] : raw;
+          const multiplier = multMatch ? parseInt(multMatch[1], 10) : 1;
+          const normalized = normalizeSkuLabel(skuText);
+          if (!normalized || !isValidSku(normalized)) continue;
+          if (APPLIANCE_RE.test(normalized)) continue;
+          if (alreadyFound.has(normalized)) continue;
+          finalItems.push({
+            sku: normalized,
+            type: item.type || classifySku(normalized),
+            room: item.room || 'Kitchen',
+            quantity: Math.max(1, Number(item.quantity) || 1) * (Number.isFinite(multiplier) ? multiplier : 1),
+          });
+          alreadyFound.add(normalized);
+          added++;
+          console.log(`Rotated sweep added: ${normalized}`);
+        }
+        console.log(`Step 2d (rotated sweep): +${added} SKUs`);
+      } catch (e: any) {
+        console.warn(`Step 2d rotated sweep error (non-fatal): ${e.message}`);
+      }
+    }
+
     // ── RECOVERY: If extraction is empty but text layer has SKUs ──
     // This catches MIRROR pages and cases where the AI fails to read labels.
     // Seed with qty=1 each (text counts are unreliable due to legends/notes).
@@ -1115,6 +1172,17 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
       console.log(`Fixture-only common area guard: clearing ${finalItems.length} likely-hallucinated items for ${detectedUnitType ?? 'unknown'}`);
       finalItems = [];
     }
+
+    // ── Expand leading multiplier notation (e.g. "3xDB24" → DB24 qty 3) ──
+    finalItems = finalItems.map((c: any) => {
+      const raw = String(c.sku ?? '').trim();
+      const m = raw.match(/^(\d{1,2})\s*[xX]\s*([A-Za-z].*)$/);
+      if (!m) return c;
+      const mult = parseInt(m[1], 10);
+      if (!Number.isFinite(mult) || mult < 1 || mult > 20) return c;
+      console.log(`Expanded multiplier label "${raw}" → ${m[2]} x${mult}`);
+      return { ...c, sku: m[2], quantity: Math.max(1, Number(c.quantity) || 1) * mult };
+    });
 
     // ── Normalize and filter ──
     let items = finalItems
@@ -1267,6 +1335,15 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
       // Check prefix match in text layer
       for (const tlSku of textLayerSkuSet) {
         if (item.sku.startsWith(tlSku) || tlSku.startsWith(item.sku)) return true;
+      }
+      // Scanned / raster-only pages (image-based PDFs) have NO text layer at all, so
+      // text-layer confirmation is impossible. Dropping every unlisted prefix there
+      // silently wiped whole rooms (e.g. MASTER BATH: VS30S, F342, DB24). Accept any
+      // cabinet-shaped label (letters + digits, not an appliance) on those pages —
+      // the dimension-joined guard above still rejects hallucinations like DB6-91.
+      if (textLayerSkuSet.size === 0 && SKU_PREFIX_RE.test(item.sku) && !APPLIANCE_RE.test(item.sku)) {
+        console.log(`Accepted unlisted-prefix SKU on text-layer-less page: ${item.sku}`);
+        return true;
       }
       console.log(`Filtered unknown-prefix SKU not in text layer: ${item.sku}`);
       return false;

@@ -110,6 +110,31 @@ async function canvasToBase64Full(canvas: OffscreenCanvas | HTMLCanvasElement): 
   return (canvas as HTMLCanvasElement).toDataURL('image/jpeg', 0.95).split(',')[1];
 }
 
+// Upside-down copy of the page: 2020/ProKitchen prints many run labels
+// (e.g. "3xDB24") rotated 180°, which the vision model reads far better
+// once the image itself is flipped.
+async function canvasRotated180ToBase64(canvas: OffscreenCanvas | HTMLCanvasElement, w: number, h: number): Promise<string> {
+  const draw = (ctx: any) => {
+    ctx.translate(w, h);
+    ctx.rotate(Math.PI);
+    ctx.drawImage(canvas as any, 0, 0, w, h);
+  };
+  if (typeof OffscreenCanvas !== 'undefined') {
+    const rot = new OffscreenCanvas(w, h);
+    draw(rot.getContext('2d')!);
+    const blob = await rot.convertToBlob({ type: 'image/jpeg', quality: 0.7 });
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
+  }
+  const rot = document.createElement('canvas');
+  rot.width = w;
+  rot.height = h;
+  draw(rot.getContext('2d')!);
+  return rot.toDataURL('image/jpeg', 0.92).split(',')[1];
+}
+
 async function canvasCropToBase64(
   sourceCanvas: OffscreenCanvas | HTMLCanvasElement,
   sx: number, sy: number, sw: number, sh: number
@@ -600,6 +625,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       // Render to canvas (kept in memory for strip cropping)
       const { canvas, width: canvasW, height: canvasH } = await renderPageToCanvasData(page);
       const pageImage = await canvasToBase64Full(canvas);
+      const pageImageRotated180 = await canvasRotated180ToBase64(canvas, canvasW, canvasH);
 
       // Extract text layer from the PDF page for cross-referencing
       let pageText = '';
@@ -651,7 +677,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       };
 
       // ── PASS 1: Full page (extract, with optional classification skip) ──
-      const fullResponse = await fetchWithRetry(JSON.stringify({ pageImage, unitType, pageText, speedMode, skipClassify, aiModel, aiProvider, dialagramModel }));
+      const fullResponse = await fetchWithRetry(JSON.stringify({ pageImage, pageImageRotated180, unitType, pageText, speedMode, skipClassify, aiModel, aiProvider, dialagramModel }));
       if (!fullResponse.ok) {
         const status = fullResponse.status;
         if (status === 429) throw new Error('rate_limit');
