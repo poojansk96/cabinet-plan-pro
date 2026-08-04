@@ -208,9 +208,69 @@ async function callDialagram(
   throw new Error("AI model temporarily unavailable");
 }
 
+// ── OpenAI (GPT-5.6 Sol, medium thinking) via Lovable AI Gateway ──
+async function callOpenAI(
+  apiKey: string,
+  model: string,
+  pageImage: string,
+  prompt: string,
+  maxTokens = 8192,
+  expectStructured = false,
+): Promise<any> {
+  const MAX_RETRIES = 3;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    let response: Response | null = null;
+    try {
+      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Lovable-API-Key": apiKey },
+        body: JSON.stringify({
+          model,
+          // GPT-5 family: no temperature / max_tokens allowed
+          max_completion_tokens: maxTokens,
+          reasoning_effort: "medium",
+          ...(expectStructured ? { response_format: { type: "json_object" } } : {}),
+          messages: [
+            { role: "system", content: "You are a vision AI that analyzes 2020 Design / ProKitchen shop drawings provided as images. Always inspect the attached image. When asked for JSON output, respond with ONLY valid json, no markdown fences." },
+            { role: "user", content: [
+              { type: "text", text: prompt },
+              { type: "image_url", image_url: { url: `data:image/jpeg;base64,${pageImage}` } },
+            ]},
+          ],
+        }),
+      });
+    } catch (fetchErr) {
+      console.error(`OpenAI fetch error (attempt ${attempt + 1}):`, fetchErr);
+      if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
+      throw new Error("AI model temporarily unavailable");
+    }
+    if (response.status === 429) throw new Error("rate_limit");
+    if (response.status === 402) throw new Error("credits");
+    if (response.status >= 500 && attempt < MAX_RETRIES - 1) {
+      await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+      continue;
+    }
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("OpenAI gateway error:", response.status, errText.slice(0, 400));
+      throw new Error(`AI error: ${response.status}`);
+    }
+    const data = await response.json();
+    const text: string = data.choices?.[0]?.message?.content ?? "";
+    if (!text) throw new Error("OpenAI empty response");
+    if (!expectStructured) return text;
+    const cleaned = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
+    try { return JSON.parse(cleaned); } catch {
+      console.error("OpenAI JSON parse failed, raw:", text.slice(0, 300));
+      return { items: [] };
+    }
+  }
+  throw new Error("AI model temporarily unavailable");
+}
+
 // ── AI router ──
 async function callAI(
-  provider: "gemini" | "dialagram",
+  provider: "gemini" | "dialagram" | "openai",
   geminiKey: string | undefined,
   dialagramKey: string | undefined,
   geminiModel: string,
@@ -220,14 +280,21 @@ async function callAI(
   temperature: number,
   maxTokens: number,
   responseSchema?: any,
+  openaiKey?: string,
+  openaiModel = "openai/gpt-5.6-sol",
 ): Promise<any> {
   if (provider === "dialagram") {
     if (!dialagramKey) throw new Error("DIALAGRAM_API_KEY not configured");
     return callDialagram(dialagramKey, qwenModel, pageImage, prompt, temperature, maxTokens, !!responseSchema);
   }
+  if (provider === "openai") {
+    if (!openaiKey) throw new Error("LOVABLE_API_KEY not configured");
+    return callOpenAI(openaiKey, openaiModel, pageImage, prompt, maxTokens, !!responseSchema);
+  }
   if (!geminiKey) throw new Error("GEMINI_API_KEY not configured");
   return callGemini(geminiKey, geminiModel, pageImage, prompt, temperature, maxTokens, responseSchema);
 }
+
 
 // ── SKU Helpers ──
 
@@ -597,12 +664,17 @@ serve(async (req) => {
   try {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     const DIALAGRAM_API_KEY = Deno.env.get("DIALAGRAM_API_KEY");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     const { pageImage, pageImageRotated180, unitType, pageText, speedMode, classificationOverride, isStrip, skipClassify, aiModel, aiProvider, dialagramModel, geminiModelOverride } = await req.json();
-    const provider: "gemini" | "dialagram" = aiProvider === "dialagram" ? "dialagram" : "gemini";
+    const provider: "gemini" | "dialagram" | "openai" =
+      aiProvider === "dialagram" ? "dialagram" : aiProvider === "openai" ? "openai" : "gemini";
+    // GPT-5.6 Sol with medium thinking (Estimate – ProKitchen cabinet count toggle)
+    const openaiModel = "openai/gpt-5.6-sol";
     const qwenModel: string = dialagramModel || "qwen-3.6-plus";
     if (provider === "gemini" && !GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
     if (provider === "dialagram" && !DIALAGRAM_API_KEY) throw new Error("DIALAGRAM_API_KEY not configured");
+    if (provider === "openai" && !LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
     if (!pageImage || typeof pageImage !== "string") {
       return new Response(JSON.stringify({ error: "pageImage (base64 string) required" }), {
@@ -758,7 +830,7 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
 
       let classification: any = { pageType: "plan_view", unitTypeName: null, isCommonArea: false };
       try {
-        classification = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, "gemini-3.5-flash", qwenModel, pageImage, classifyPrompt, 0.1, 1024, CLASSIFY_SCHEMA);
+        classification = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, "gemini-3.5-flash", qwenModel, pageImage, classifyPrompt, 0.1, 1024, CLASSIFY_SCHEMA, LOVABLE_API_KEY, openaiModel);
       } catch (e: any) {
         if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -915,7 +987,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
     console.log(`Using provider: ${provider}, geminiModel: ${extractionModel}, qwenModel: ${qwenModel} (aiModel=${aiModel})`);
     let extracted: any = { items: [] };
     try {
-      extracted = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, extractionModel, qwenModel, pageImage, extractPrompt, 0.2, 8192, EXTRACT_SCHEMA);
+      extracted = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, extractionModel, qwenModel, pageImage, extractPrompt, 0.2, 8192, EXTRACT_SCHEMA, LOVABLE_API_KEY, openaiModel);
     } catch (e: any) {
       if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -1018,7 +1090,7 @@ IMPORTANT: Only include a SKU if you can actually SEE it as a printed label on t
 ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
 
         try {
-          const recovery: any = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, extractionModel, qwenModel, pageImage, recoveryPrompt, 0.3, 4096, EXTRACT_SCHEMA);
+          const recovery: any = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, extractionModel, qwenModel, pageImage, recoveryPrompt, 0.3, 4096, EXTRACT_SCHEMA, LOVABLE_API_KEY, openaiModel);
           const recoveredItems = (recovery.items ?? []).filter((item: any) => {
             const normalized = normalizeSkuLabel(String(item.sku || ''));
             return normalized && isValidSku(normalized) && !extractedAfterVerify.has(normalized);
@@ -1065,7 +1137,7 @@ RULES:
 - Return an empty list if every label is already upright and listed above.`;
 
       try {
-        const sweep: any = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, extractionModel, qwenModel, sweepImage, rotatedSweepPrompt, 0.2, 4096, EXTRACT_SCHEMA);
+        const sweep: any = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, extractionModel, qwenModel, sweepImage, rotatedSweepPrompt, 0.2, 4096, EXTRACT_SCHEMA, LOVABLE_API_KEY, openaiModel);
         let added = 0;
         for (const item of (sweep.items ?? [])) {
           const raw = String(item.sku || '');
