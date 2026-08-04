@@ -208,7 +208,7 @@ async function callDialagram(
   throw new Error("AI model temporarily unavailable");
 }
 
-// ── OpenAI (GPT-5.6 Sol, medium thinking) via Lovable AI Gateway ──
+// ── OpenAI (GPT-5.6 Sol) direct API ──
 async function callOpenAI(
   apiKey: string,
   model: string,
@@ -217,18 +217,24 @@ async function callOpenAI(
   maxTokens = 8192,
   expectStructured = false,
 ): Promise<any> {
-  const MAX_RETRIES = 3;
+  const MAX_RETRIES = 2;
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     let response: Response | null = null;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 75_000);
     try {
       response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        signal: controller.signal,
         body: JSON.stringify({
           model,
           // GPT-5 family: no temperature / max_tokens allowed
           max_completion_tokens: maxTokens,
-          reasoning_effort: "medium",
+          // GPT-5.6 chat-completions must run without reasoning here. Medium
+          // reasoning made each image pass take 60s+ and six crop passes then
+          // exhausted the edge-function request window.
+          reasoning_effort: "none",
           ...(expectStructured ? { response_format: { type: "json_object" } } : {}),
           messages: [
             { role: "system", content: "You are a vision AI that analyzes 2020 Design / ProKitchen shop drawings provided as images. Always inspect the attached image. When asked for JSON output, respond with ONLY valid json, no markdown fences." },
@@ -241,8 +247,13 @@ async function callOpenAI(
       });
     } catch (fetchErr) {
       console.error(`OpenAI fetch error (attempt ${attempt + 1}):`, fetchErr);
+      if (fetchErr instanceof DOMException && fetchErr.name === "AbortError") {
+        throw new Error("AI request timed out");
+      }
       if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
       throw new Error("AI model temporarily unavailable");
+    } finally {
+      clearTimeout(timeoutId);
     }
     if (response.status === 429) throw new Error("rate_limit");
     if (response.status === 402) throw new Error("credits");
