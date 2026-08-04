@@ -207,6 +207,34 @@ describe('mergePrefinalExtractionPasses', () => {
     ]);
   });
 
+  it('rejects an uncorroborated full-page dimension hallucination such as DB6-91', () => {
+    const merged = mergePrefinalExtractionPasses([
+      [
+        { sku: 'V3021B', room: 'Bath', type: 'Vanity', quantity: 1 },
+        { sku: 'DB6-91', room: 'Bath', type: 'Base', quantity: 1 },
+      ],
+      [{ sku: 'V3021B', room: 'Bath', type: 'Vanity', quantity: 1 }],
+    ], {
+      V3021B: 1,
+      OC339624: 1,
+    });
+
+    expect(merged.map((row) => row.sku)).toEqual(['V3021B']);
+  });
+
+  it('keeps a text-missing cabinet when full-page vision and a detail crop agree', () => {
+    const merged = mergePrefinalExtractionPasses([
+      [{ sku: 'B09FH', room: 'Bath', type: 'Base', quantity: 1 }],
+      [{ sku: 'B09FH', room: 'Bath', type: 'Base', quantity: 1 }],
+    ], {
+      V3021B: 1,
+    });
+
+    expect(merged).toEqual([
+      { sku: 'B09FH', room: 'Bath', type: 'Base', quantity: 1 },
+    ]);
+  });
+
   it('recovers the missing +1 on higher-quantity repeated SKUs', () => {
     const merged = mergePrefinalExtractionPasses([
       [{ sku: 'W2430B', room: 'Kitchen', type: 'Wall', quantity: 3 }],
