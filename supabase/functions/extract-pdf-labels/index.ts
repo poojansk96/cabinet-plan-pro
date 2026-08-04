@@ -208,9 +208,69 @@ async function callDialagram(
   throw new Error("AI model temporarily unavailable");
 }
 
+// ── OpenAI (GPT-5.6 Sol, medium thinking) via Lovable AI Gateway ──
+async function callOpenAI(
+  apiKey: string,
+  model: string,
+  pageImage: string,
+  prompt: string,
+  maxTokens = 8192,
+  expectStructured = false,
+): Promise<any> {
+  const MAX_RETRIES = 3;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    let response: Response | null = null;
+    try {
+      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Lovable-API-Key": apiKey },
+        body: JSON.stringify({
+          model,
+          // GPT-5 family: no temperature / max_tokens allowed
+          max_completion_tokens: maxTokens,
+          reasoning_effort: "medium",
+          ...(expectStructured ? { response_format: { type: "json_object" } } : {}),
+          messages: [
+            { role: "system", content: "You are a vision AI that analyzes 2020 Design / ProKitchen shop drawings provided as images. Always inspect the attached image. When asked for JSON output, respond with ONLY valid json, no markdown fences." },
+            { role: "user", content: [
+              { type: "text", text: prompt },
+              { type: "image_url", image_url: { url: `data:image/jpeg;base64,${pageImage}` } },
+            ]},
+          ],
+        }),
+      });
+    } catch (fetchErr) {
+      console.error(`OpenAI fetch error (attempt ${attempt + 1}):`, fetchErr);
+      if (attempt < MAX_RETRIES - 1) { await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); continue; }
+      throw new Error("AI model temporarily unavailable");
+    }
+    if (response.status === 429) throw new Error("rate_limit");
+    if (response.status === 402) throw new Error("credits");
+    if (response.status >= 500 && attempt < MAX_RETRIES - 1) {
+      await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+      continue;
+    }
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("OpenAI gateway error:", response.status, errText.slice(0, 400));
+      throw new Error(`AI error: ${response.status}`);
+    }
+    const data = await response.json();
+    const text: string = data.choices?.[0]?.message?.content ?? "";
+    if (!text) throw new Error("OpenAI empty response");
+    if (!expectStructured) return text;
+    const cleaned = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
+    try { return JSON.parse(cleaned); } catch {
+      console.error("OpenAI JSON parse failed, raw:", text.slice(0, 300));
+      return { items: [] };
+    }
+  }
+  throw new Error("AI model temporarily unavailable");
+}
+
 // ── AI router ──
 async function callAI(
-  provider: "gemini" | "dialagram",
+  provider: "gemini" | "dialagram" | "openai",
   geminiKey: string | undefined,
   dialagramKey: string | undefined,
   geminiModel: string,
@@ -220,14 +280,21 @@ async function callAI(
   temperature: number,
   maxTokens: number,
   responseSchema?: any,
+  openaiKey?: string,
+  openaiModel = "openai/gpt-5.6-sol",
 ): Promise<any> {
   if (provider === "dialagram") {
     if (!dialagramKey) throw new Error("DIALAGRAM_API_KEY not configured");
     return callDialagram(dialagramKey, qwenModel, pageImage, prompt, temperature, maxTokens, !!responseSchema);
   }
+  if (provider === "openai") {
+    if (!openaiKey) throw new Error("LOVABLE_API_KEY not configured");
+    return callOpenAI(openaiKey, openaiModel, pageImage, prompt, maxTokens, !!responseSchema);
+  }
   if (!geminiKey) throw new Error("GEMINI_API_KEY not configured");
   return callGemini(geminiKey, geminiModel, pageImage, prompt, temperature, maxTokens, responseSchema);
 }
+
 
 // ── SKU Helpers ──
 
