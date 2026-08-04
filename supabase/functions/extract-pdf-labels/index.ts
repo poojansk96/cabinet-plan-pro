@@ -221,9 +221,9 @@ async function callOpenAI(
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     let response: Response | null = null;
     try {
-      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Lovable-API-Key": apiKey },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
         body: JSON.stringify({
           model,
           // GPT-5 family: no temperature / max_tokens allowed
