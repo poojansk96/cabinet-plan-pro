@@ -46,6 +46,8 @@ interface Props {
   aiModel?: 'fast' | 'accu';
   geminiModelOverride?: string;
   aiProvider?: 'gemini' | 'dialagram' | 'openai';
+  catalog?: 'uscd';
+  catalogSkus?: string[];
   dialagramModel?: string;
 }
 
@@ -525,7 +527,7 @@ function resolvePageUnitType(
   return { primary: null, aliases: [] };
 }
 
-export default function ShopDrawingImportDialog({ unitType, onImport, onClose, prefinalPerson, speedMode = 'fast', skipClassify = false, aiModel = 'fast', geminiModelOverride, aiProvider = 'gemini', dialagramModel = 'qwen-3.6-plus' }: Props) {
+export default function ShopDrawingImportDialog({ unitType, onImport, onClose, prefinalPerson, speedMode = 'fast', skipClassify = false, aiModel = 'fast', geminiModelOverride, aiProvider = 'gemini', dialagramModel = 'qwen-3.6-plus', catalog, catalogSkus }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<LabelRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -697,7 +699,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       };
 
       // ── PASS 1: Full page (extract, with optional classification skip) ──
-      const fullResponse = await fetchWithRetry(JSON.stringify({ pageImage, pageImageRotated180, unitType, pageText, speedMode, skipClassify, aiModel, geminiModelOverride, aiProvider, dialagramModel }));
+      const fullResponse = await fetchWithRetry(JSON.stringify({ pageImage, pageImageRotated180, unitType, pageText, speedMode, skipClassify, aiModel, geminiModelOverride, aiProvider, dialagramModel, catalog, catalogSkus }));
       if (!fullResponse.ok) {
         const status = fullResponse.status;
         if (status === 429) throw new Error('rate_limit');
@@ -763,6 +765,8 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
             geminiModelOverride,
             aiProvider,
             dialagramModel,
+            catalog,
+            catalogSkus,
           }));
           if (stripResponse.ok) {
             const stripData = await stripResponse.json();
