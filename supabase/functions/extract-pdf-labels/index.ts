@@ -911,7 +911,65 @@ IMPORTANT: If the title block shows a variant like "-AS" or "-MIRROR", you MUST 
 Return it as "unitTypeName" in your response. Return null if no unit type is found.
 ` : '';
 
+    // ═══════════════════════════════════════════════════════════
+    // US CABINET DEPOT CATALOG MODE (Estimate – ProKitchen)
+    // Gives the model an expert-estimator persona plus the real
+    // USCD SKU vocabulary so misread labels snap to valid codes.
+    // ═══════════════════════════════════════════════════════════
+    const isUscdCatalog = String(catalog || '').toLowerCase() === 'uscd';
+    const catalogList: string[] = isUscdCatalog && Array.isArray(catalogSkus)
+      ? catalogSkus.map((s: unknown) => String(s || '').toUpperCase().trim()).filter(Boolean)
+      : [];
+    const catalogSet = new Set(catalogList);
+
+    const editDistanceAtMostOne = (a: string, b: string): boolean => {
+      if (a === b) return true;
+      if (Math.abs(a.length - b.length) > 1) return false;
+      let i = 0, j = 0, edits = 0;
+      while (i < a.length && j < b.length) {
+        if (a[i] === b[j]) { i++; j++; continue; }
+        edits++;
+        if (edits > 1) return false;
+        if (a.length === b.length) { i++; j++; }
+        else if (a.length > b.length) i++;
+        else j++;
+      }
+      if (i < a.length || j < b.length) edits++;
+      return edits <= 1;
+    };
+
+    // Snap a reported SKU to the closest real USCD code when it is an obvious misread.
+    const snapToCatalog = (sku: string): string => {
+      if (!catalogSet.size) return sku;
+      const upper = sku.toUpperCase().trim();
+      if (!upper || catalogSet.has(upper)) return upper;
+      // Handed suffixes are legitimate variants of a catalog base code.
+      const handed = upper.match(/^(.+?)(-(?:L|R))$/);
+      if (handed && catalogSet.has(handed[1])) return upper;
+      const matches = catalogList.filter((candidate) => editDistanceAtMostOne(upper, candidate));
+      if (matches.length === 1) {
+        console.log(`USCD catalog snap: "${upper}" → "${matches[0]}"`);
+        return matches[0];
+      }
+      return upper;
+    };
+
+    const uscdCatalogBlock = isUscdCatalog ? `
+YOU ARE A SENIOR USA CABINET ESTIMATOR (US CABINET DEPOT / ProKitchen).
+THINK LIKE A HUMAN ESTIMATOR DOING A REAL TAKEOFF, NOT LIKE AN OCR ENGINE:
+- Walk the plan room by room, wall by wall, exactly as an estimator would: start at one corner, follow the run left→right, and account for EVERY rectangle drawn. If a cabinet box is drawn, it HAS a label — find it (it may be rotated, tiny, faint, or placed outside the box with a leader line).
+- Before you answer, check your own list against the drawing: every drawn cabinet/vanity/filler/panel box must map to exactly one reported SKU. If a box has no SKU in your list, go back and read its label again.
+- Never invent a code, and never "clean up" a code. Report what is printed, then rely on the catalog below to confirm it is a real product.
+- Accessories are part of the takeoff and are the most commonly missed items: fillers (BF/WF/FIL/F##), toe kick (TK/TKRUN), crown (CM), light rail (LR), scribe, end/finished panels (EP/FP/BP/APN/APNL/TEP/TEPF/TF), dishwasher panels, drawer stacks (DWR), apron fronts (APPRON). Count each printed label.
+- USCD naming logic (use it to sanity-check what you read): letters = product family, digits = width then height (then depth if a third pair), trailing letters = options, -L/-R = hinge/hand. A code must be dimensionally sensible (e.g. W3030 = 30" wide 30" high wall; B24 = 24" base). If your reading is not dimensionally sensible, re-read the digits (common confusions: 3↔8, 5↔6, 0↔8, 1↔7, B↔8, S↔5, O↔0, I/l↔1).
+${catalogList.length ? `
+VALID US CABINET DEPOT SKU VOCABULARY (${catalogList.length} codes). A label you read SHOULD match one of these (a "-L"/"-R" hand suffix may be added):
+${catalogList.join(', ')}
+RULE: If your reading differs from a vocabulary code by one character, the vocabulary code is the correct SKU — report the vocabulary code. If your reading is NOT in the vocabulary at all and no close match exists, still report it verbatim (special/custom items exist) — do NOT drop it.
+` : ''}` : '';
+
     const extractPrompt = `Extract ALL cabinet SKU labels from this 2020 Design shop drawing plan view.
+${uscdCatalogBlock}
 ${unitTypeDetectInstructions}
 For each cabinet found, provide:
 1. sku: The SKU label exactly as written (e.g. B24, W3036, DB15, OC339624, RW4818BD, BP12WP, TF1.52496L, APNL-DF, SCB33R, FSH4210S, BF3, WF6X30, LS36-L, BLW36/3930-L, B09FH, APPRON59X21, DWR1). For APPRON labels with dimensions like "APPRON 59X21", combine into one string without spaces: "APPRON59X21".
