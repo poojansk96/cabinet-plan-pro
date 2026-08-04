@@ -1041,7 +1041,9 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
     // that looks ONLY for rotated text and merge anything new.
     if (!isStrip) {
       const alreadyFound = new Set(finalItems.map((i: any) => normalizeSkuLabel(String(i.sku || ''))));
-      const rotatedSweepPrompt = `This is a 2020 Design / ProKitchen plan view. Many cabinet labels are printed SIDEWAYS (rotated 90 degrees), UPSIDE-DOWN (rotated 180 degrees), or MIRRORED along a cabinet run.
+      const sweepImage = (typeof pageImageRotated180 === 'string' && pageImageRotated180.length > 0) ? pageImageRotated180 : pageImage;
+      const sweepIsFlipped = sweepImage !== pageImage;
+      const rotatedSweepPrompt = `This is a 2020 Design / ProKitchen plan view${sweepIsFlipped ? ', shown ROTATED 180 DEGREES (upside-down) on purpose so that labels printed upside-down on the original page now read normally' : ''}. Many cabinet labels are printed SIDEWAYS (rotated 90 degrees), UPSIDE-DOWN (rotated 180 degrees), or MIRRORED along a cabinet run.
 
 TASK: Find ONLY the cabinet/vanity/filler/accessory SKU labels whose text is NOT upright. Mentally rotate the page in every direction and read every label drawn along a wall, inside a cabinet rectangle, on a narrow filler sliver, or between two sinks.
 
