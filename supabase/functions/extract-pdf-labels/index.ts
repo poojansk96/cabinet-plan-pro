@@ -370,8 +370,9 @@ function classifySku(sku: string): string {
   if (/^(T|UT|TC|PT|PTC|UC)(\d|$)/i.test(normalizedSku)) return "Tall";
   if (/^OC\d/i.test(normalizedSku)) return "Tall";
   if (/^(HALC|HAUC|HCUC|HCYC)\d/i.test(normalizedSku)) return "Tall";
-  if (/^(V|VB|VD|VDB|VDC)\d/i.test(normalizedSku)) return "Vanity";
+  if (/^(VSB|VSD|VS|V|VB|VD|VDB|VDC)\d/i.test(normalizedSku)) return "Vanity";
   if (/^(HAV|HAVDB)\d/i.test(normalizedSku)) return "Vanity";
+  if (/^F\d{2,}$/i.test(normalizedSku)) return "Accessory"; // filler tags like F342 (3" x 42")
   if (/^(BP|SCRIBE|UC|APNL?-(?:DF|SDR))$/i.test(normalizedSku)) return "Accessory";
   if (/^(FIL|BF|WF|FSH|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|TF|TEPF|APPRON|UREP|REP|BP)\d/i.test(normalizedSku)) return "Accessory";
   if (/^(SCB|HABLB|HAB|HADB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HCDB|HCLS|HWSB|HWS)\d/i.test(normalizedSku)) return "Base";
