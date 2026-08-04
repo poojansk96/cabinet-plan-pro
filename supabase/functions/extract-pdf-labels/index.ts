@@ -1354,6 +1354,9 @@ RULES:
         if (textLayerSkuSet.size > 0) {
           sku = fixMergedAdjacentLabel(sku, textLayerSkuSet);
         }
+        if (isUscdCatalog) {
+          sku = snapToCatalog(sku);
+        }
         // Preserve full SKU labels exactly as written; collapse SPLIT only when not present in plan text.
         const normalizedType = classifySku(sku);
         const rawRoom = String(c.room ?? "Kitchen").trim();
