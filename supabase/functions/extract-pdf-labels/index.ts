@@ -850,7 +850,9 @@ COUNTING — CRITICAL:
 - FILLER-HEAD CABINETS: B09FH, B06FH, B12FH, B15FH, B18FH — these are VERY NARROW rectangles (6"-18" wide). They appear as thin slivers between larger cabinets or at the end of a run. ACTIVELY LOOK FOR THESE — they are commonly missed.
 - VANITY-ADJACENT FILLER-HEAD: In bathroom elevations, a B##FH (e.g. B09FH, B12FH) is OFTEN drawn directly NEXT TO a vanity SKU like V3021B, VB30, VD24, VDB18. The label is tiny and vertical/rotated. WHENEVER you see a vanity (V/VB/VD/VDB/VDC) cabinet, scan the BOTH sides of it for a narrow B##FH sliver — this is the single most commonly missed cabinet on bath elevations. If found, classify the B##FH as "Base" with room "Bath".
 - Corner cabinets (LS, LSB) at wall junction = count ONCE even if label appears at junction of two wall runs.
-- Look for "xN" or "(2)" multiplier notation next to labels.
+- Look for "xN" or "(2)" multiplier notation next to labels. A label written as "3xDB24" means SKU DB24 with quantity 3 — return sku "DB24", quantity 3.
+- REPORT EVERY CABINET/VANITY/FILLER LABEL EVEN IF THE PREFIX IS UNFAMILIAR. Examples seen on bath plans: "VS30S" (vanity sink base), "F342" (3"x42" filler), "DB24", "3xDB24", "VSB36". Do NOT omit a label just because its prefix is not in the list above — report it verbatim and classify by best guess.
+- DO NOT report plumbing/fixture tags that are just item numbers such as "DB6-01", "VSH-03", "VSM-01", "CB-01-R" (letters + 1-2 digits + dash + 2 digits). Those are fixture callouts, not cabinets.
 - PROCESS THIS PAGE INDEPENDENTLY. Never borrow a room title, orientation, SKU, or count from another PDF page.
 - BATHROOM PAGES: MASTER BATH, M BATH, BATH #1, POWDER ROOM, and PWD are valid cabinet pages. Scan every vanity run and count all rotated/vertical labels; do not return an empty list merely because the page has only one short vanity run.
 - ROTATED LABELS: mentally rotate text printed vertically, upside-down, or along a cabinet edge. For example OC339624 must remain OC339624, not be dropped because it is vertical.
