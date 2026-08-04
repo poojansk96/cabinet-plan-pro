@@ -1269,6 +1269,15 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
       for (const tlSku of textLayerSkuSet) {
         if (item.sku.startsWith(tlSku) || tlSku.startsWith(item.sku)) return true;
       }
+      // Scanned / raster-only pages (image-based PDFs) have NO text layer at all, so
+      // text-layer confirmation is impossible. Dropping every unlisted prefix there
+      // silently wiped whole rooms (e.g. MASTER BATH: VS30S, F342, DB24). Accept any
+      // cabinet-shaped label (letters + digits, not an appliance) on those pages —
+      // the dimension-joined guard above still rejects hallucinations like DB6-91.
+      if (textLayerSkuSet.size === 0 && SKU_PREFIX_RE.test(item.sku) && !APPLIANCE_RE.test(item.sku)) {
+        console.log(`Accepted unlisted-prefix SKU on text-layer-less page: ${item.sku}`);
+        return true;
+      }
       console.log(`Filtered unknown-prefix SKU not in text layer: ${item.sku}`);
       return false;
     });
