@@ -420,3 +420,6 @@ export function hasListPrice(sku: string): boolean {
   const key = normalize(sku);
   return Boolean(NORMALIZED[key] ?? LOOSE[key.replace(/[^A-Z0-9]/g, '')]);
 }
+
+/** All US Cabinet Depot SKU codes in the price book (uppercase, as printed). */
+export const USCD_CATALOG_SKUS: string[] = Object.keys(USCD_LIST_PRICES).map(s => s.toUpperCase().trim());
