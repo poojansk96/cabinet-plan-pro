@@ -30,26 +30,9 @@ function normalizeUnitType(raw: string): string {
   return s;
 }
 
-function ProviderToggle({ value, onChange }: { value: 'gemini' | 'dialagram'; onChange: (v: 'gemini' | 'dialagram') => void }) {
-  return (
-    <div className="inline-flex items-center rounded border border-border overflow-hidden text-[10px] font-medium" title="AI Provider">
-      <button
-        type="button"
-        onClick={() => onChange('gemini')}
-        className={`px-2 py-1 transition-colors ${value === 'gemini' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-secondary'}`}
-      >
-        Gemini
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange('dialagram')}
-        className={`px-2 py-1 transition-colors ${value === 'dialagram' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-secondary'}`}
-      >
-        Qwen
-      </button>
-    </div>
-  );
-}
+// Qwen (Dialagram) provider toggle removed — Gemini only
+
+
 
 export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
   const store = usePrefinalStore(project.id);
@@ -697,7 +680,6 @@ export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
               Pre-Final Unit Count
 
               <div className="ml-auto flex items-center gap-2 flex-wrap">
-                <ProviderToggle value={unitAiProvider} onChange={setUnitAiProvider} />
                 <button
                   onClick={() => setShowUnitImport(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
@@ -954,8 +936,6 @@ export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
               Pre-Final Cabinet Count
 
               <div className="ml-auto flex items-center gap-2 flex-wrap">
-                {/* AI Provider Toggle (Gemini default vs Qwen) */}
-                <ProviderToggle value={cabinetAiProvider} onChange={setCabinetAiProvider} />
                 {/* Fast Gemini lite mode is kept as the cabinet aiModel; Accu (3.1 thinking) toggle removed in favor of Qwen */}
                 <button
                   onClick={() => setShowCabinetImport(true)}
@@ -1295,7 +1275,6 @@ export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <ProviderToggle value={stoneAiProvider} onChange={setStoneAiProvider} />
                   <button
                     onClick={() => setShowStoneImport(true)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
@@ -1322,7 +1301,6 @@ export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
                 Stone Area
 
                 <div className="ml-auto flex items-center gap-2 flex-wrap">
-                  <ProviderToggle value={stoneAiProvider} onChange={setStoneAiProvider} />
                   <button
                     onClick={() => setShowStoneImport(true)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
@@ -1702,7 +1680,6 @@ export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
               P-Laminate KTOP
 
               <div className="ml-auto flex items-center gap-2 flex-wrap">
-                <ProviderToggle value={stoneAiProvider} onChange={setStoneAiProvider} />
                 <button
                   onClick={() => setShowLaminateImport(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
@@ -2001,7 +1978,6 @@ export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
               🛁 Cmarble/Swan Vtop
 
               <div className="ml-auto flex items-center gap-2 flex-wrap">
-                <ProviderToggle value={vtopAiProvider} onChange={setVtopAiProvider} />
                 <button
                   onClick={() => setShowVtopImport(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white transition-colors"
