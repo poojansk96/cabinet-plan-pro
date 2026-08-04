@@ -1034,6 +1034,58 @@ ${isStrip ? '\nThis is a CROPPED SECTION of a larger page.\n' : ''}`;
       }
     }
 
+    // ── STEP 2d: ROTATED / MIRRORED LABEL SWEEP ──
+    // 2020/ProKitchen plan views print many labels sideways or upside-down along a
+    // cabinet run (e.g. "3xDB24" between two vanity sinks, "F342" on a filler sliver).
+    // The main pass regularly reads only the upright labels, so run one focused sweep
+    // that looks ONLY for rotated text and merge anything new.
+    if (!isStrip) {
+      const alreadyFound = new Set(finalItems.map((i: any) => normalizeSkuLabel(String(i.sku || ''))));
+      const rotatedSweepPrompt = `This is a 2020 Design / ProKitchen plan view. Many cabinet labels are printed SIDEWAYS (rotated 90 degrees), UPSIDE-DOWN (rotated 180 degrees), or MIRRORED along a cabinet run.
+
+TASK: Find ONLY the cabinet/vanity/filler/accessory SKU labels whose text is NOT upright. Mentally rotate the page in every direction and read every label drawn along a wall, inside a cabinet rectangle, on a narrow filler sliver, or between two sinks.
+
+Already found (do NOT repeat these): ${[...alreadyFound].join(', ') || 'none'}
+
+For each additional rotated label you can actually SEE, return:
+- sku: exact label as printed (e.g. VS30S, DB24, F342, W2442, B09FH). If the label reads "3xDB24" return sku "DB24" with quantity 3.
+- type: Base/Wall/Tall/Vanity/Accessory
+- room: Kitchen/Bath/Laundry/Pantry/Other
+- quantity: number of separate occurrences
+
+RULES:
+- Do NOT return dimension text ("48\"", "28 3/4\""), room titles, or fixture callouts shaped like DB6-01 / VSH-03 / VSM-01 / CB-01-R.
+- Do NOT invent labels. Only what is visibly printed.
+- Return an empty list if every label is already upright and listed above.`;
+
+      try {
+        const sweep: any = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, useAccuModel ? "gemini-3-flash-preview" : "gemini-3.5-flash", qwenModel, pageImage, rotatedSweepPrompt, 0.2, 4096, EXTRACT_SCHEMA);
+        let added = 0;
+        for (const item of (sweep.items ?? [])) {
+          const raw = String(item.sku || '');
+          const multMatch = raw.trim().match(/^(\d{1,2})\s*[xX]\s*([A-Za-z].*)$/);
+          const skuText = multMatch ? multMatch[2] : raw;
+          const multiplier = multMatch ? parseInt(multMatch[1], 10) : 1;
+          const normalized = normalizeSkuLabel(skuText);
+          if (!normalized || !isValidSku(normalized)) continue;
+          if (APPLIANCE_RE.test(normalized)) continue;
+          if (alreadyFound.has(normalized)) continue;
+          finalItems.push({
+            sku: normalized,
+            type: item.type || classifySku(normalized),
+            room: item.room || 'Kitchen',
+            quantity: Math.max(1, Number(item.quantity) || 1) * (Number.isFinite(multiplier) ? multiplier : 1),
+          });
+          alreadyFound.add(normalized);
+          added++;
+          console.log(`Rotated sweep added: ${normalized}`);
+        }
+        console.log(`Step 2d (rotated sweep): +${added} SKUs`);
+      } catch (e: any) {
+        console.warn(`Step 2d rotated sweep error (non-fatal): ${e.message}`);
+      }
+    }
+
     // ── RECOVERY: If extraction is empty but text layer has SKUs ──
     // This catches MIRROR pages and cases where the AI fails to read labels.
     // Seed with qty=1 each (text counts are unreliable due to legends/notes).
