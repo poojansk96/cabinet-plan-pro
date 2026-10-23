@@ -4,6 +4,7 @@ import type { DetectedUnit, PDFExtractionResult } from '@/lib/pdfExtractor';
 import type { UnitType } from '@/types/project';
 import { toast } from 'sonner';
 import { startExtraction, useExtractionJobByType, clearExtractionJob } from '@/hooks/useExtractionStore';
+import { takeoffUnitKey } from '@/lib/takeoffUnitIdentity';
 
 const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-pdf-units`;
 
@@ -184,7 +185,8 @@ export default function PDFImportDialog({ onImport, onClose, takeoffPerson }: Pr
         const canvas = document.createElement('canvas');
         canvas.width = viewport.width;
         canvas.height = viewport.height;
-        const ctx = canvas.getContext('2d')!;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Unable to render PDF page');
         await page.render({ canvasContext: ctx, viewport }).promise;
         let imageDataUrl = canvas.toDataURL('image/jpeg', 0.65);
         
@@ -256,7 +258,6 @@ export default function PDFImportDialog({ onImport, onClose, takeoffPerson }: Pr
             
             const data = await resp.json();
             if (data.units && Array.isArray(data.units)) {
-              const normalizeUnitKey = (value: string) => value.toUpperCase().replace(/[^A-Z0-9]/g, '');
               const floorRank = (value: string) => {
                 const n = parseFloat(String(value || '').replace(/^Floor\s*/i, ''));
                 return Number.isNaN(n) ? Infinity : n;
@@ -266,8 +267,7 @@ export default function PDFImportDialog({ onImport, onClose, takeoffPerson }: Pr
                 const unitNumber = String(unit.unitNumber ?? '').trim().toUpperCase();
                 if (!unitNumber) continue;
 
-                const bldgKey = normalizeUnitKey(String(unit.detectedBldg ?? ''));
-                const key = `${bldgKey}__${normalizeUnitKey(unitNumber)}`;
+                const key = takeoffUnitKey(String(unit.detectedBldg ?? ''), unitNumber, String(unit.detectedFloor ?? ''));
                 const candidate = {
                   ...unit,
                   unitNumber,

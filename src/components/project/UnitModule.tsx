@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Plus, Trash2, Copy, Users, FileUp, Eraser } from 'lucide-react';
 import type { Project, Unit, UnitType } from '@/types/project';
 import PDFImportDialog from './PDFImportDialog';
+import { takeoffUnitKey } from '@/lib/takeoffUnitIdentity';
 
 
 const blankForm = () => ({ unitNumber: '', type: '' as UnitType, bldg: '', floor: '', notes: '' });
@@ -57,17 +58,16 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
   };
 
   const handlePDFImport = (units: Array<{ unitNumber: string; type: UnitType; floor: string; bldg: string }>) => {
-    const normalizeUnitKey = (val: string) => String(val || '').toUpperCase().replace(/\s+/g, '');
     const parseFloor = (f: string) => {
       const n = parseFloat(String(f || '').replace(/^Floor\s*/i, ''));
       return isNaN(n) ? Infinity : n;
     };
 
-    // Deduplicate imported rows by normalized unit number, keeping the lowest floor
+    // A repeated printed number on another floor is a distinct plan unit.
     const bestImportedByUnit = new Map<string, typeof units[0]>();
     for (const u of units) {
-      const key = normalizeUnitKey(u.unitNumber);
-      if (!key) continue;
+      const key = takeoffUnitKey(u.bldg, u.unitNumber, u.floor);
+      if (!u.unitNumber.trim()) continue;
       const existing = bestImportedByUnit.get(key);
       if (!existing || parseFloor(u.floor) < parseFloor(existing.floor)) {
         bestImportedByUnit.set(key, u);
@@ -77,10 +77,10 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
     let lastUnit: Unit | null = null;
     let addedCount = 0;
 
-    // Apply imported rows against current project data, collapsing duplicates to one (lowest floor) per unit number
+    // Other buildings with the same apartment number must remain untouched.
     for (const imported of bestImportedByUnit.values()) {
-      const key = normalizeUnitKey(imported.unitNumber);
-      const matches = project.units.filter(pu => normalizeUnitKey(pu.unitNumber) === key);
+      const key = takeoffUnitKey(imported.bldg, imported.unitNumber, imported.floor);
+      const matches = project.units.filter(pu => takeoffUnitKey(pu.bldg, pu.unitNumber, pu.floor) === key);
 
       if (matches.length === 0) {
         lastUnit = addUnit(project.id, {
@@ -106,7 +106,7 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
         bldg: best.bldg || '',
       });
 
-      // Remove duplicate existing rows for the same normalized unit number
+      // Remove duplicate existing rows only within this building.
       for (const dup of matches.slice(1)) {
         deleteUnit(project.id, dup.id);
       }
