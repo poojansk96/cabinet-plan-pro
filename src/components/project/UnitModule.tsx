@@ -63,10 +63,10 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
       return isNaN(n) ? Infinity : n;
     };
 
-    // Deduplicate only within the same building, keeping the existing lowest-floor policy.
+    // A repeated printed number on another floor is a distinct plan unit.
     const bestImportedByUnit = new Map<string, typeof units[0]>();
     for (const u of units) {
-      const key = takeoffUnitKey(u.bldg, u.unitNumber);
+      const key = takeoffUnitKey(u.bldg, u.unitNumber, u.floor);
       if (!u.unitNumber.trim()) continue;
       const existing = bestImportedByUnit.get(key);
       if (!existing || parseFloor(u.floor) < parseFloor(existing.floor)) {
@@ -79,8 +79,8 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
 
     // Other buildings with the same apartment number must remain untouched.
     for (const imported of bestImportedByUnit.values()) {
-      const key = takeoffUnitKey(imported.bldg, imported.unitNumber);
-      const matches = project.units.filter(pu => takeoffUnitKey(pu.bldg, pu.unitNumber) === key);
+      const key = takeoffUnitKey(imported.bldg, imported.unitNumber, imported.floor);
+      const matches = project.units.filter(pu => takeoffUnitKey(pu.bldg, pu.unitNumber, pu.floor) === key);
 
       if (matches.length === 0) {
         lastUnit = addUnit(project.id, {

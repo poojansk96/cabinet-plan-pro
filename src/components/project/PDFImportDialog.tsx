@@ -267,7 +267,7 @@ export default function PDFImportDialog({ onImport, onClose, takeoffPerson }: Pr
                 const unitNumber = String(unit.unitNumber ?? '').trim().toUpperCase();
                 if (!unitNumber) continue;
 
-                const key = takeoffUnitKey(String(unit.detectedBldg ?? ''), unitNumber);
+                const key = takeoffUnitKey(String(unit.detectedBldg ?? ''), unitNumber, String(unit.detectedFloor ?? ''));
                 const candidate = {
                   ...unit,
                   unitNumber,
