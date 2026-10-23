@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { expandPageBuildingUnits } from './buildingUnits.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,7 +19,15 @@ Scan every word of the page text for a building identifier. Building names appea
 - Title block text (often at top or bottom): look for lines like "BUILDING: East", "BLDG: 1", "PROJECT: ... BUILDING: ..."
 - Sheet title: e.g. "FLOOR PLAN - EAST BUILDING LEVEL 2" → building = "East Building"
 
-RULE: If you find ANY building identifier anywhere on the page, set pageBuilding to it and apply to ALL units on that page unless a unit clearly has a different building label.
+RULE: Use the building identifier belonging to each floor-plan section, not an unrelated elevation or reference note. A shared title such as BUILDING C,E,N&P or BUILDING L&M represents DISTINCT buildings, never one combined building.
+
+SHARED TYPICAL PLANS — MANDATORY:
+- Read ALL unit-number lines in EVERY apartment label box, including stacked numbers and slash-separated numbers. Never take only the first number.
+- Match the printed number order to the building order in THAT plan title/key. Example: BUILDING L&M and a label with 417 above 518 means Building L unit 417 AND Building M unit 518, with the same printed type and section floor. Return unitNumbers:["417","518"] and detectedBldg:"Building L&M" so the server pairs them deterministically.
+- If a typical floor plan explicitly applies to C,E,N&P and prints only 702 for a unit, return that printed number with detectedBldg:"Building C,E,N&P"; it applies separately to each named building. Do NOT invent different numbers for those buildings.
+- If individual building-specific numbers are printed, use those instead of copying the first number to every building.
+- Scan every shared building, apartment label, and floor-plan section on THIS page. Do not infer units or building mappings from other pages.
+- If pairing is unclear, retain the printed numbers for review rather than inventing assignments.
 
 STEP 2 — FIND EVERY UNIT THAT VISUALLY HAS CABINETS AND/OR COUNTERTOPS:
 Scan the ENTIRE floor plan IMAGE methodically — do NOT skip any area. For EVERY enclosed room/space on the plan, check if it contains cabinets or countertops. Only include a unit if you can VISUALLY SEE one or more of the following DRAWN INSIDE that unit's boundary:
@@ -137,6 +146,7 @@ Return ONLY valid JSON (no markdown fences, no explanation):
   "units": [
     {
       "unitNumber": "101" | "?-1",
+      "unitNumbers": ["101", "201"],
       "detectedType": "Type A - 2 Bedroom" | "?" | null,
       "detectedFloor": "1" | null,
       "detectedBldg": "East Building" | null,
@@ -288,7 +298,7 @@ serve(async (req) => {
     }
 
     const pageBuilding = parsed?.pageBuilding ?? null;
-    const units = (parsed?.units ?? []).map((u: any) => ({
+    const units = expandPageBuildingUnits(parsed?.units ?? [], pageBuilding).map((u: any) => ({
       unitNumber: (u.unitNumber ?? "").trim(),
       detectedType: u.detectedType ?? null,
       detectedFloor: u.detectedFloor ?? null,
@@ -313,6 +323,8 @@ Your job:
 3. Add any MISSED units — scan the entire image for enclosed spaces with cabinets/countertops that are not in the list.
 4. Verify building names, unit numbers, detected types, and floor assignments are correct.
 5. Common areas (laundry, mail room, restroom, office, community room) with cabinets ARE valid — do NOT remove them.
+6. Shared plan titles represent SEPARATE buildings. Read every stacked/slash-separated apartment number; pair numbers in the title's building order. L&M with 417/518 means Building L unit 417 and Building M unit 518, NEVER both in a combined building. A single printed number on a typical plan explicitly shared by C,E,N&P applies to all four buildings separately. Do not invent unprinted numbers.
+7. Preserve separate rows for the same number in different buildings; this is NOT duplication. Check every floor-plan section on this page only.
 
 Return the corrected list as JSON:
 {"pageBuilding": "${pageBuilding || ''}", "units": [{"unitNumber":"101","detectedType":"TYPE A","detectedFloor":"1","detectedBldg":"BLDG 1","kitchenConfidence":"high"}]}`;
@@ -333,7 +345,7 @@ Return the corrected list as JSON:
                   { inlineData: { mimeType: "image/jpeg", data: base64Data } },
                   { text: verifyPrompt },
                 ]}],
-                generationConfig: { temperature: 0.1, maxOutputTokens: 4096, thinkingConfig: { thinkingLevel: "low" } },
+                generationConfig: { temperature: 0.1, maxOutputTokens: 8192, thinkingConfig: { thinkingLevel: "low" } },
               }),
             }
           );
@@ -350,13 +362,14 @@ Return the corrected list as JSON:
           try {
             const cleaned = verifyContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
             verifyParsed = JSON.parse(cleaned);
+            if (Array.isArray(verifyParsed)) verifyParsed = { units: verifyParsed };
           } catch {
             const match = verifyContent.match(/\{[\s\S]*"units"\s*:\s*\[[\s\S]*\]\s*\}/);
             if (match) { try { verifyParsed = JSON.parse(match[0]); } catch {} }
           }
 
           if (verifyParsed?.units?.length > 0) {
-            const verifiedUnits = (verifyParsed.units ?? []).map((u: any) => ({
+            const verifiedUnits = expandPageBuildingUnits(verifyParsed.units ?? [], verifyParsed.pageBuilding ?? pageBuilding).map((u: any) => ({
               unitNumber: (u.unitNumber ?? "").trim(),
               detectedType: u.detectedType ?? null,
               detectedFloor: u.detectedFloor ?? null,
