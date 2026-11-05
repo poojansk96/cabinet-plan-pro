@@ -24,8 +24,8 @@ describe('takeoff shared building rows', () => {
   it('flags unpaired numbers without inventing building assignments', () => {
     expect(expandPageBuildingUnits([{ unitNumber: '101/201/301', detectedBldg: 'Building L&M' }]).every(u => u.detectedBldg === null)).toBe(true);
   });
-  it('preserves separate first and second floor units when their printed numbers repeat', () => {
-    expect(takeoffUnitKey('Building L', '417', '1')).not.toBe(takeoffUnitKey('Building L', '417', '2'));
+  it('treats a unit number repeated on two floors of one building as a single unit', () => {
+    expect(takeoffUnitKey('Building L', '417', '1')).toBe(takeoffUnitKey('Building L', '417', '2'));
     expect(takeoffUnitKey('Building L', '417', 'Floor 1')).toBe(takeoffUnitKey('Building L', '417', '1'));
   });
 });

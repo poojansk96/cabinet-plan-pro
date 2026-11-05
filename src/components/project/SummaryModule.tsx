@@ -1,3 +1,4 @@
+import { TAKEOFF_DUP_FLAG } from '@/lib/takeoffUnitIdentity';
 import { useState } from 'react';
 import { BarChart3, Download, FileText, Loader2 } from 'lucide-react';
 import ExcelJS from 'exceljs';
@@ -217,6 +218,7 @@ export default function SummaryModule({ project }: Props) {
         if (colNumber <= 1) return;
         cell.border = allBorders;
         if (colNumber > 4) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        if ((u.notes || '').startsWith(TAKEOFF_DUP_FLAG)) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
       });
     });
 

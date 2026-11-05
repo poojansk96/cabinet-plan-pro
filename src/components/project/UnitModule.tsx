@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Plus, Trash2, Copy, Users, FileUp, Eraser } from 'lucide-react';
 import type { Project, Unit, UnitType } from '@/types/project';
 import PDFImportDialog from './PDFImportDialog';
-import { takeoffUnitKey } from '@/lib/takeoffUnitIdentity';
+import { takeoffUnitKey, TAKEOFF_DUP_FLAG } from '@/lib/takeoffUnitIdentity';
 
 
 const blankForm = () => ({ unitNumber: '', type: '' as UnitType, bldg: '', floor: '', notes: '' });
@@ -63,11 +63,14 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
       return isNaN(n) ? Infinity : n;
     };
 
-    // A repeated printed number on another floor is a distinct plan unit.
+    // A repeated number in the same building is one unit (e.g. 2-floor townhouse); keep lowest floor.
     const bestImportedByUnit = new Map<string, typeof units[0]>();
+    const typesByKey = new Map<string, Set<string>>();
     for (const u of units) {
       const key = takeoffUnitKey(u.bldg, u.unitNumber, u.floor);
       if (!u.unitNumber.trim()) continue;
+      if (!typesByKey.has(key)) typesByKey.set(key, new Set());
+      if (u.type && String(u.type).trim() !== '?') typesByKey.get(key)!.add(String(u.type));
       const existing = bestImportedByUnit.get(key);
       if (!existing || parseFloor(u.floor) < parseFloor(existing.floor)) {
         bestImportedByUnit.set(key, u);
@@ -88,7 +91,7 @@ export default function UnitModule({ project, selectedUnitId, setSelectedUnitId,
           type: imported.type,
           floor: imported.floor || '',
           bldg: imported.bldg || '',
-          notes: '',
+          notes: (typesByKey.get(key)?.size ?? 0) > 1 ? `${TAKEOFF_DUP_FLAG} (types ${[...typesByKey.get(key)!].join(' / ')})` : '',
         });
         addedCount++;
         continue;
