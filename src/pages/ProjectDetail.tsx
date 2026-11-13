@@ -277,7 +277,8 @@ export default function ProjectDetail() {
             </div>
           </div>
 
-          {/* Estimate – ProKitchen Block */}
+          {/* Estimate – ProKitchen Block — hidden per user request */}
+          {false && (
           <div className="flex flex-col rounded-lg px-3 py-1.5 border" style={{ background: 'hsl(var(--section-estimate-light))', borderColor: 'hsl(var(--section-estimate-border))' }}>
             <div className="flex items-center gap-1.5">
               <Package size={14} style={{ color: 'hsl(215 28% 10%)' }} />
@@ -301,6 +302,7 @@ export default function ProjectDetail() {
               ))}
             </div>
           </div>
+          )}
         </div>
       </header>
 
