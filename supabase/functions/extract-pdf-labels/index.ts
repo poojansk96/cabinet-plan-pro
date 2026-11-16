@@ -840,7 +840,7 @@ ${unitType ? `\nContext: current unit type is "${unitType}"` : ""}`;
 
       let classification: any = { pageType: "plan_view", unitTypeName: null, isCommonArea: false };
       try {
-        classification = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, "gemini-3.5-flash", qwenModel, pageImage, classifyPrompt, 0.1, 1024, CLASSIFY_SCHEMA, OPENAI_API_KEY, openaiModel);
+        classification = await callAI(provider, GEMINI_API_KEY, DIALAGRAM_API_KEY, "gemini-3.5-flash-lite", qwenModel, pageImage, classifyPrompt, 0.1, 1024, CLASSIFY_SCHEMA, OPENAI_API_KEY, openaiModel);
       } catch (e: any) {
         if (e.message === "rate_limit") return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         if (e.message === "credits") return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -1051,7 +1051,7 @@ If no cabinet SKUs are found, return {"items":[]}`;
     const overrideModel = typeof geminiModelOverride === 'string' && /^gemini-[\w.\-]+$/.test(geminiModelOverride)
       ? geminiModelOverride
       : null;
-    const extractionModel = overrideModel ?? (useAccuModel ? "gemini-3-flash-preview" : "gemini-3.5-flash");
+    const extractionModel = overrideModel ?? (useAccuModel ? "gemini-3-flash-preview" : "gemini-3.5-flash-lite");
     console.log(`Using provider: ${provider}, geminiModel: ${extractionModel}, qwenModel: ${qwenModel} (aiModel=${aiModel})`);
     let extracted: any = { items: [] };
     try {
