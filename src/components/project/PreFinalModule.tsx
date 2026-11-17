@@ -8,6 +8,7 @@ import StonePDFImportDialog, { type StoneExtractedRow } from './StonePDFImportDi
 import VtopPDFImportDialog, { type VtopImportRow, formatVtopSku, getVtopSidesplashItems } from './VtopPDFImportDialog';
 import { usePrefinalStore, type PrefinalStoneRow, type PrefinalVtopRow } from '@/hooks/usePrefinalStore';
 import { USCD_CATALOG_SKUS } from '@/lib/uscdPrices';
+import { matchPrefinalCabinetUnitType, resolvePrefinalCabinetTypeForPage } from '@/lib/prefinalCabinetPageLabels';
 
 interface Props {
   project: Project;
@@ -109,8 +110,7 @@ export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
       const key = toTypeKey(raw);
       if (!key) return '';
 
-      const exact = knownTypes.find(t => toTypeKey(t) === key);
-      return exact || '';
+      return matchPrefinalCabinetUnitType(raw, knownTypes) || '';
     };
 
 
@@ -122,7 +122,7 @@ export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
     const orderedTypes: string[] = [];
 
     for (const row of rows) {
-      const rawType = (row as any).detectedUnitType || detectedUnitType || '';
+      const rawType = row.detectedUnitType ?? detectedUnitType ?? '';
       const normalizedIncoming = rawType ? normalizeUnitType(rawType) : '';
       const incomingKey = toTypeKey(normalizedIncoming);
       const knownResolved = resolveKnownType(rawType) || resolveKnownType(normalizedIncoming);
@@ -132,7 +132,7 @@ export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
       // is an unusual room name (STAIR, UNISEX BATH, CORRIDOR, etc.) and even
       // if no cabinet SKUs were extracted. Only fall back to "Unassigned" when
       // the dialog truly produced no label at all.
-      const finalType = knownResolved || (incomingKey ? normalizedIncoming : 'Unassigned');
+      const finalType = knownResolved || resolvePrefinalCabinetTypeForPage('', incomingKey ? normalizedIncoming : '', knownTypes);
 
       // Skip placeholder rows used solely to carry the type through to the store.
       if (row.sku === '__PLACEHOLDER__') {
@@ -142,7 +142,7 @@ export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
       }
 
       if (!rowsByType.has(finalType)) rowsByType.set(finalType, []);
-      rowsByType.get(finalType)!.push(row);
+      rowsByType.get(finalType)?.push(row);
       if (!orderedTypes.includes(finalType)) orderedTypes.push(finalType);
     }
 
@@ -157,7 +157,7 @@ export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
       const normalizedOrder = importTypeOrder.map(t => {
         const norm = normalizeUnitType(t);
         const resolved = resolveKnownType(t) || resolveKnownType(norm);
-        return resolved || norm;
+        return resolved || resolvePrefinalCabinetTypeForPage('', norm, knownTypes);
       });
 
       // 2) Key-based dedup so "Type A" / "TYPE A" / "type-a" can't all reserve a slot.
@@ -577,6 +577,7 @@ export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
       {/* Cabinet Import Dialog */}
       {showCabinetImport && (
         <ShopDrawingImportDialog
+          knownUnitTypes={store.unitTypes}
           onImport={(rows, detectedUnitType, importTypeOrder) => {
             handleCabinetImport(rows, detectedUnitType, importTypeOrder);
           }}

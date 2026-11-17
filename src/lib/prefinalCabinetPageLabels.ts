@@ -3,6 +3,9 @@ function normalizePageText(value: string): string {
     .toUpperCase()
     .replace(/[\u2018\u2019]/g, "'")
     .replace(/[\u2010-\u2015]/g, '-')
+    // pdf.js can expose a title's individually positioned letters as "U n i t".
+    .replace(/\bU\s+N\s+I\s+T\b/g, 'UNIT')
+    .replace(/\bT\s+Y\s+P\s+E\b/g, 'TYPE')
     .replace(/\s*\/\s*/g, ' / ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -20,12 +23,36 @@ export function isGenericPrefinalCabinetPageLabel(value: string): boolean {
     || /^(?:PLAN|FLOOR PLAN|CABINET PLAN|SHOP DRAWING|SHEET)$/.test(text);
 }
 
-const UNIT_TYPE_LABEL_RE = /\bUNIT[\s-]+([A-Z]{1,2})\s*-?\s*(\d{1,2}(?:\.\d)?)(?![\d])/;
+const UNIT_TYPE_LABEL_RE = /\b(?:UNIT|TYPE)[\s-]+([A-Z]{1,2})\s*-?\s*(\d{1,2}(?:\.\d)?)(?![\d])((?:\s*-\s*(?:AS|ADA|MIRROR|REV|ALT|OPTION)\b)*)(\s*\([^)]*\))?/;
 
 /** Reads a floor-plan sheet label like "Unit-A2" / "Unit B-3" as "TYPE A2" / "TYPE B3". */
 export function extractPrefinalUnitTypeLabelFromText(pageText: string): string | null {
   const m = normalizePageText(pageText).match(UNIT_TYPE_LABEL_RE);
-  return m ? `TYPE ${m[1]}${m[2]}` : null;
+  return m ? `TYPE ${m[1]}${m[2]}${(m[3] || '').replace(/\s*-\s*/g, '-')}${m[4] || ''}`.trim() : null;
+}
+
+/** Match complete codes, never prefixes: A must not become A1, or A1 become A10. */
+export function matchPrefinalCabinetUnitType(raw: string, knownTypes: string[]): string | null {
+  const key = (value: string) => normalizePageText(value).replace(/^TYPE[\s-]+/, '').replace(/\s+/g, '').replace(/\s*-\s*/g, '-');
+  const incoming = key(raw);
+  if (!incoming) return null;
+  const exact = knownTypes.find(t => key(t) === incoming);
+  if (exact) return exact;
+  // A floor plan may omit the explanatory parenthesis printed in Unit Count.
+  // Only a unique complete base code can recover that full saved name.
+  if (!/^[A-Z]{1,2}\d{1,2}(?:\.\d)?(?:-(?:AS|ADA|MIRROR|REV|ALT|OPTION))*$/.test(incoming)) return null;
+  const candidates = knownTypes.filter(t => key(t).replace(/\([^)]*\)$/, '') === incoming);
+  return candidates.length === 1 ? candidates[0] : null;
+}
+
+export function resolvePrefinalCabinetTypeForPage(pageText: string, aiType: string, knownTypes: string[]): string {
+  const sheet = extractPrefinalUnitTypeLabelFromText(pageText);
+  const raw = sheet || aiType;
+  const known = matchPrefinalCabinetUnitType(raw, knownTypes);
+  if (known) return known;
+  // A project with residential types must not acquire room-name/partial-type columns.
+  if (knownTypes.some(t => extractPrefinalUnitTypeLabelFromText(t))) return 'Unassigned';
+  return raw || 'Unassigned';
 }
 
 export function hasResidentialPrefinalUnitTypeHint(pageText: string): boolean {

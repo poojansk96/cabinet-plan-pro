@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { matchPrefinalCabinetUnitType } from '@/lib/prefinalCabinetPageLabels';
 
 export interface PrefinalUnitNumber {
   name: string;
@@ -117,7 +118,7 @@ function normalizeStoredCabinetRow(row: any, knownTypes: string[]): PrefinalCabi
     type: classifyPrefinalCabinetSku(sku),
     room: String(row?.room || 'Kitchen').trim() || 'Kitchen',
     quantity: Math.max(1, Number(row?.quantity) || 1),
-    unitType: resolveExistingTypeName(String(row?.unitType || '').trim(), knownTypes) || 'Unassigned',
+    unitType: matchPrefinalCabinetUnitType(String(row?.unitType || '').trim(), knownTypes) || resolveExistingTypeName(String(row?.unitType || '').trim(), knownTypes) || 'Unassigned',
   };
 }
 
@@ -364,7 +365,7 @@ function loadData(projectId: string): PrefinalData {
     const seenCabTypeKeys = new Set<string>();
     const dedupedCabTypes: string[] = [];
     for (const t of rawCabTypes) {
-      const resolved = resolveExistingTypeName(String(t).trim(), [...dedupedCabTypes, ...dedupedUnitTypes]);
+      const resolved = matchPrefinalCabinetUnitType(String(t).trim(), dedupedUnitTypes) || resolveExistingTypeName(String(t).trim(), [...dedupedCabTypes, ...dedupedUnitTypes]);
       const key = normalizeTypeKeyPart(resolved);
       if (!key || seenCabTypeKeys.has(key)) continue;
       seenCabTypeKeys.add(key);

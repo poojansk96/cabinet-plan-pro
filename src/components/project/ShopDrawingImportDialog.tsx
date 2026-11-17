@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { FileUp, X, Loader2, CheckCircle, AlertCircle, Sparkles, Trash2, FilePlus, FileText } from 'lucide-react';
 import type { CabinetType, Room } from '@/types/project';
 import { extractPlanSkuCountsFromTextItems, mergePrefinalExtractionPasses, expandGluedPrefinalItems } from '@/lib/prefinalCabinetMerge';
-import { extractPrefinalCabinetPageLabelFromText, extractPrefinalUnitTypeLabelFromText, hasResidentialPrefinalUnitTypeHint, isGenericPrefinalCabinetPageLabel } from '@/lib/prefinalCabinetPageLabels';
+import { extractPrefinalCabinetPageLabelFromText, extractPrefinalUnitTypeLabelFromText, hasResidentialPrefinalUnitTypeHint, isGenericPrefinalCabinetPageLabel, resolvePrefinalCabinetTypeForPage } from '@/lib/prefinalCabinetPageLabels';
 import { toast } from 'sonner';
 import { startExtraction, useExtractionJobByType, clearExtractionJob } from '@/hooks/useExtractionStore';
 
@@ -37,6 +37,7 @@ export interface LabelRow {
 }
 
 interface Props {
+  knownUnitTypes?: string[];
   unitType?: string;
   onImport: (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[], detectedUnitType?: string, typeOrder?: string[]) => void;
   onClose: () => void;
@@ -527,7 +528,7 @@ function resolvePageUnitType(
   return { primary: null, aliases: [] };
 }
 
-export default function ShopDrawingImportDialog({ unitType, onImport, onClose, prefinalPerson, speedMode = 'fast', skipClassify = false, aiModel = 'fast', geminiModelOverride, aiProvider = 'gemini', dialagramModel = 'qwen-3.6-plus', catalog, catalogSkus }: Props) {
+export default function ShopDrawingImportDialog({ unitType, knownUnitTypes = [], onImport, onClose, prefinalPerson, speedMode = 'fast', skipClassify = false, aiModel = 'fast', geminiModelOverride, aiProvider = 'gemini', dialagramModel = 'qwen-3.6-plus', catalog, catalogSkus }: Props) {
   const [step, setStep] = useState<Step>('upload');
   const [rows, setRows] = useState<LabelRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -719,11 +720,12 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       const isCommonArea = forcePageLabel ? true : (fullData.isCommonArea ?? false);
       const resolvedType = resolvePageUnitType(fullData.unitTypeName, pageText, isCommonArea);
       const sheetUnitType = extractPrefinalUnitTypeLabelFromText(pageText);
-      const resolvedPrimary = sheetUnitType
+      const pagePrimary = sheetUnitType
         ? sheetUnitType
         : forcePageLabel || isGenericPrefinalCabinetPageLabel(resolvedType.primary || '')
           ? (deterministicPageLabel || resolvedType.primary)
           : resolvedType.primary;
+      const resolvedPrimary = resolvePrefinalCabinetTypeForPage(pageText, pagePrimary || '', knownUnitTypes);
       const resolvedAliases = resolvedPrimary
         ? [resolvedPrimary]
         : resolvedType.aliases;
@@ -834,6 +836,11 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
 
       if (pageResult) {
         const data = pageResult;
+        // Title pages supply Units, never cabinet columns or placeholder rows.
+        if (String(data.pageType || '').includes('title')) {
+          onPageDone?.();
+          continue;
+        }
         const resolvedPageType = String(data.unitTypeName || '').trim();
         const resolvedTypeAliases = Array.isArray((data as any).unitTypeAliases)
           ? (data as any).unitTypeAliases.map((value: unknown) => normalizeTypeText(String(value || ''))).filter(Boolean)
