@@ -317,7 +317,7 @@ export default function ProjectDetail() {
             {activeTab === 'app-takeoff' && <ApplianceModule {...storeProps} />}
             {activeTab === 'app-summary' && <ApplianceModule {...storeProps} />}
             {activeTab === 'project-info' && <ProjectInfoModule project={project} onSave={(updates) => updateProject(project.id, updates)} />}
-            {activeTab === 'prefinal-units' && <PreFinalModule key="prefinal" {...storeProps} />}
+            <div hidden={activeTab !== 'prefinal-units'}><PreFinalModule key="prefinal" {...storeProps} /></div>
             {activeTab === 'prefinal-summary' && <PreFinalSummaryModule {...storeProps} />}
             {activeTab === 'est-project-info' && <ProjectInfoModule project={project} onSave={(updates) => updateProject(project.id, updates)} />}
             {activeTab === 'est-units' && <PreFinalModule key="estimate" {...storeProps} mode="estimate" />}
