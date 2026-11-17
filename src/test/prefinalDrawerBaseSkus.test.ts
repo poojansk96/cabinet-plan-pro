@@ -22,7 +22,7 @@ describe('Prefinal 3-drawer bases (3DB12) and WR wall cabinets', () => {
     ] as any, page).map(i => i.sku);
     expect(out).toEqual(['3DB12', 'WR361824']);
   });
-  const pages: Record<number, string[]> = { 12: ['3DB12', '3DB21', 'WR361824'], 14: ['3DB12', 'WR361824'], 18: ['3DB12', 'WR361824'] };
+  const pages: Record<number, string[]> = { 2: ['WR361824'], 4: ['WR361824'], 6: ['3DB18', '3DB12', 'WR361824'], 8: ['3DB12', 'WR361824'], 10: ['3DB12', 'WR361824'], 12: ['3DB12', '3DB21', 'WR361824'], 14: ['3DB12', 'WR361824'], 16: ['WR361824'], 18: ['3DB12', 'WR361824'], 20: ['3DB21', 'WR361824'], 22: ['3DB21', 'WR361824'] };
   for (const [p, skus] of Object.entries(pages)) {
     const f = `/tmp/cc_p${p}.txt`;
     it.skipIf(!existsSync(f))(`Coconut Creek page ${p} text layer has ${skus.join(', ')}`, () => {
