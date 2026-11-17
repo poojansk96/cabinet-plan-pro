@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { FileUp, X, Loader2, CheckCircle, AlertCircle, Sparkles, Trash2, FilePlus, FileText } from 'lucide-react';
 import type { CabinetType, Room } from '@/types/project';
-import { extractPlanSkuCountsFromTextItems, mergePrefinalExtractionPasses, expandGluedPrefinalItems } from '@/lib/prefinalCabinetMerge';
+import { extractPlanSkuCountsFromTextItems, mergePrefinalExtractionPasses, expandGluedPrefinalItems, lockPrefinalItemsToPlanText } from '@/lib/prefinalCabinetMerge';
 import { extractPrefinalCabinetPageLabelFromText, extractPrefinalUnitTypeLabelFromText, hasResidentialPrefinalUnitTypeHint, isGenericPrefinalCabinetPageLabel, resolvePrefinalCabinetTypeForPage } from '@/lib/prefinalCabinetPageLabels';
 import { toast } from 'sonner';
 import { startExtraction, useExtractionJobByType, clearExtractionJob } from '@/hooks/useExtractionStore';
@@ -646,6 +646,9 @@ export default function ShopDrawingImportDialog({ unitType, knownUnitTypes = [],
         console.warn(`Text extraction failed for page ${p}:`, e);
       }
 
+      // Real embedded text only (OCR tokens are too noisy to lock labels against).
+      const textLayerText = pageText;
+
       // ── OCR FALLBACK (raster-only pages) ──
       // No usable text layer means rotated run labels like "3xDB24" have no
       // corroboration source, so OCR the rendered page at 0/90/180/270°.
@@ -801,7 +804,11 @@ export default function ShopDrawingImportDialog({ unitType, knownUnitTypes = [],
       }
 
       // ── Merge all passes: MAX qty per SKU+room ──
-      const merged = mergePrefinalExtractionPasses(allPassItems, planTextSkuCounts);
+      // Every label must be printed on the page's own text layer (no made-up / partial SKUs).
+      const merged = lockPrefinalItemsToPlanText(
+        mergePrefinalExtractionPasses(allPassItems.map(expandGluedPrefinalItems), planTextSkuCounts),
+        textLayerText,
+      );
       console.log(`Page ${p}: ${fullItems.length} full-page + strips → ${merged.length} merged items`);
 
       return {

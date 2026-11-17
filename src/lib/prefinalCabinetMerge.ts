@@ -13,7 +13,7 @@ export interface PositionedPdfTextItem {
 
 // Includes legacy/manufacturer SKUs: OC oven cabinets, RW, SCB, SCW, FSH, BP12WP,
 // TEP/TEPF panels, UF/BEP/WEP/DP/SP/PNL/TKB.
-const SKU_PATTERN = /\b(BP|DB|SB|SCB|SCW|CB|EB|OC|LS|LSB|RW|W|WDC|UB|WC|OH|BLB|BLW|BRW|TEPF|TEP|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDB|VDC|FIL|BF|WF|FSH|BFFIL|WFFIL|TK|TKB|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS|UF|BEP|WEP|DP|SP|PNL|B)\d[\w.\-\/]*(?:\((?:SPLIT|O|OPEN|C|CLOSED)\)|\[(?:SPLIT)\]|_SPLIT|-\((?:O|OPEN|C|CLOSED)\))?/gi;
+const SKU_PATTERN = /\b(TP|WR|BER|PFTE|PWF|BP|DB|SB|SCB|SCW|CB|EB|OC|LS|LSB|RW|W|WDC|UB|WC|OH|BLB|BLW|BRW|TEPF|TEP|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDB|VDC|FIL|BF|WF|FSH|BFFIL|WFFIL|TK|TKB|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS|UF|BEP|WEP|DP|SP|PNL|B)\d[\w.\-\/]*(?:\((?:SPLIT|O|OPEN|C|CLOSED)\)|\[(?:SPLIT)\]|_SPLIT|-\((?:O|OPEN|C|CLOSED)\))?/gi;
 const SPACED_SKU_PATTERN = /\b(BP|SCB|SCW|RW|FSH|TEPF|TEP|TF|W|B|SB|BF|WF)\s+(\d[\w.\-\/]*)\b/gi;
 // Generic cabinet/accessory fallback for unknown prefixes: 1-6 letters + a 2+ digit dimension
 // cluster + a trailing letter suffix (e.g. SCW244213R, B24R, W334213BD). Requiring a trailing
@@ -490,8 +490,8 @@ export function mergePrefinalExtractionPasses(
   return output;
 }
 // Cabinet family prefixes that can start a new label glued onto the previous one.
-const GLUED_SKU_PREFIXES = 'WA|WDC|WC|W|BLW|BLB|BRW|BP|SCB|SB|DB|LSB|LS|CB|EB|OC|RW|B|UC|UB|TEP|TEPF|TF|TC|PT|UT|VSB|VSD|VDB|VDC|VB|VD|VS|V|BF|WF|FSH|FIL';
-const GLUED_SPLIT_RE = new RegExp(`(?<=\\d)(?=(?:${GLUED_SKU_PREFIXES})\\d)`, 'g');
+const GLUED_SKU_PREFIXES = 'WA|WDC|WC|WR|W|TP|P|BLW|BLB|BRW|BP|SCB|SB|DB|LSB|LS|CB|EB|OC|RW|B|UC|UB|TEP|TEPF|TF|TC|PT|UT|VSB|VSD|VDB|VDC|VB|VD|VS|V|BF|WF|FSH|FIL';
+const GLUED_SPLIT_RE = new RegExp(`(?<=\\d|\\d[LR])(?=(?:${GLUED_SKU_PREFIXES})\\d)`, 'g');
 
 /**
  * Split labels that were read as one string, e.g. "W12361W183612WA24243612L"
@@ -501,6 +501,9 @@ const GLUED_SPLIT_RE = new RegExp(`(?<=\\d)(?=(?:${GLUED_SKU_PREFIXES})\\d)`, 'g
 export function splitGluedPrefinalSkus(sku: string): string[] {
   const value = String(sku || '').trim();
   if (!value || /[\s/]/.test(value)) return [value];
+  // "TF2490.TF390" / "W3012,B18" — two labels joined by punctuation.
+  const punct = value.split(/[.,;]+(?=[A-Z]{1,6}\d)/i).filter(Boolean);
+  if (punct.length > 1) return punct.flatMap(splitGluedPrefinalSkus);
   const raw = value.split(GLUED_SPLIT_RE).filter(Boolean);
   // A leading piece with no letters is a multiplier/count (e.g. "3DB21"), not its own SKU.
   const parts: string[] = [];
@@ -514,4 +517,50 @@ export function splitGluedPrefinalSkus(sku: string): string[] {
 export function expandGluedPrefinalItems<T extends { sku?: unknown }>(items: T[]): T[] {
   return items.flatMap((item) => splitGluedPrefinalSkus(String(item?.sku ?? '')).map((part, i, all) =>
     all.length > 1 ? { ...item, sku: part } : item));
+}
+
+// AI-added accessory lines that are never printed as plan labels.
+const LOCK_EXEMPT_RE = /^(TK\d|TKB|TKRUN|CM\d|LR\d|SM\d|SCRIBE|TF3X96|APNL?-)/i;
+
+/** Every label-like token printed on the page text layer (glued tokens split). */
+export function collectPlanTextSkuTokens(pageText: string): Set<string> {
+  const tokens = new Set<string>();
+  const upper = String(pageText || '').toUpperCase();
+  for (const m of upper.matchAll(/(?:\d(?=[A-Z]))?[A-Z]{1,8}\d[A-Z0-9.\-\/]*/g)) {
+    for (const piece of splitGluedPrefinalSkus(m[0].replace(/[.\-]+$/, ''))) {
+      const norm = normalizePrefinalSkuLabel(piece);
+      if (norm.length >= 3 && !APPLIANCE_RE.test(norm)) tokens.add(norm);
+    }
+  }
+  return tokens;
+}
+
+/**
+ * When the page has a real text layer, every cabinet label must exist on it.
+ * Glued labels are split, a truncated/partial label snaps to the ONE printed
+ * label that contains it (P249024 → TP249024, W12361 → W123612L), and labels
+ * with no printed match (W12, W18, TF2490) are dropped.
+ */
+export function lockPrefinalItemsToPlanText<T extends ExtractedCabinetPassItem>(items: T[], pageText: string): T[] {
+  const expanded = expandGluedPrefinalItems(items);
+  const tokens = collectPlanTextSkuTokens(pageText);
+  if (tokens.size < 3) return expanded;
+  const tokenList = Array.from(tokens);
+  const out = new Map<string, T>();
+  for (const item of expanded) {
+    const sku = normalizePrefinalSkuLabel(item?.sku);
+    if (!sku) continue;
+    let resolved: string | null = null;
+    if (tokens.has(sku) || LOCK_EXEMPT_RE.test(sku)) resolved = sku;
+    else if (sku.length >= 5 && /\d{3,}/.test(sku)) {
+      const candidates = tokenList.filter((t) => t !== sku && (t.startsWith(sku) || t.endsWith(sku)));
+      if (candidates.length === 1) resolved = candidates[0];
+    }
+    if (!resolved) continue;
+    const key = `${resolved}|${String(item.room || 'Kitchen')}`;
+    const prev = out.get(key);
+    if (prev) prev.quantity = Math.max(Number(prev.quantity) || 1, Number(item.quantity) || 1);
+    else out.set(key, { ...item, sku: resolved });
+  }
+  return Array.from(out.values());
 }
