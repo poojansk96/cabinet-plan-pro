@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { FileUp, X, Loader2, CheckCircle, AlertCircle, Sparkles, Trash2, FilePlus, FileText } from 'lucide-react';
 import type { CabinetType, Room } from '@/types/project';
-import { extractPlanSkuCountsFromTextItems, mergePrefinalExtractionPasses } from '@/lib/prefinalCabinetMerge';
+import { extractPlanSkuCountsFromTextItems, mergePrefinalExtractionPasses, expandGluedPrefinalItems } from '@/lib/prefinalCabinetMerge';
 import { extractPrefinalCabinetPageLabelFromText, hasResidentialPrefinalUnitTypeHint, isGenericPrefinalCabinetPageLabel } from '@/lib/prefinalCabinetPageLabels';
 import { toast } from 'sonner';
 import { startExtraction, useExtractionJobByType, clearExtractionJob } from '@/hooks/useExtractionStore';
@@ -835,7 +835,7 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
         const resolvedTypeAliases = Array.isArray((data as any).unitTypeAliases)
           ? (data as any).unitTypeAliases.map((value: unknown) => normalizeTypeText(String(value || ''))).filter(Boolean)
           : [];
-        const pageItems = Array.isArray(data.items) ? data.items : [];
+        const pageItems = expandGluedPrefinalItems(Array.isArray(data.items) ? data.items : []);
         const hasCabinetRows = pageItems.length > 0;
         const isCommonAreaPage = Boolean((data as any).isCommonArea);
         const pageTextRaw = String((data as any).pageText || '');

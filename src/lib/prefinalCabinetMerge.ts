@@ -489,3 +489,29 @@ export function mergePrefinalExtractionPasses(
 
   return output;
 }
+// Cabinet family prefixes that can start a new label glued onto the previous one.
+const GLUED_SKU_PREFIXES = 'WA|WDC|WC|W|BLW|BLB|BRW|BP|SCB|SB|DB|LSB|LS|CB|EB|OC|RW|B|UC|UB|TEP|TEPF|TF|TC|PT|UT|VSB|VSD|VDB|VDC|VB|VD|VS|V|BF|WF|FSH|FIL';
+const GLUED_SPLIT_RE = new RegExp(`(?<=\\d)(?=(?:${GLUED_SKU_PREFIXES})\\d)`, 'g');
+
+/**
+ * Split labels that were read as one string, e.g. "W12361W183612WA24243612L"
+ * → ["W12361", "W183612", "WA24243612L"]. A new label starts wherever a digit
+ * is immediately followed by a cabinet prefix and another digit.
+ */
+export function splitGluedPrefinalSkus(sku: string): string[] {
+  const value = String(sku || '').trim();
+  if (!value || /[\s/]/.test(value)) return [value];
+  const raw = value.split(GLUED_SPLIT_RE).filter(Boolean);
+  // A leading piece with no letters is a multiplier/count (e.g. "3DB21"), not its own SKU.
+  const parts: string[] = [];
+  for (const piece of raw) {
+    if (parts.length && !/[A-Z]/i.test(parts[parts.length - 1])) parts[parts.length - 1] += piece;
+    else parts.push(piece);
+  }
+  return parts.length > 1 ? parts : [value];
+}
+
+export function expandGluedPrefinalItems<T extends { sku?: unknown }>(items: T[]): T[] {
+  return items.flatMap((item) => splitGluedPrefinalSkus(String(item?.sku ?? '')).map((part, i, all) =>
+    all.length > 1 ? { ...item, sku: part } : item));
+}
