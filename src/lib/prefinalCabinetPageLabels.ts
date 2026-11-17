@@ -35,8 +35,64 @@ const TYPE_SUFFIX_RE = '(?:-(?:AS|ADA|MIRROR|REV|ALT|OPTION))*';
 const TYPE_CODE_RE = new RegExp(`^[A-Z]{1,3}(?:\\d{1,2}(?:\\.\\d)?)?${TYPE_SUFFIX_RE}$`);
 const NON_CODE_WORDS = new Set(['TYPE', 'NO', 'NUM', 'NUMBER', 'PLAN', 'PLANS', 'MIX', 'A', 'I']);
 
+/** Strips "TYPE - UNIT" style prefixes and letter-hyphen-digit gaps: "TYPE - UNIT A-3" -> "A3". */
 function typeKey(value: string): string {
-  return normalizePageText(value).replace(/^TYPE[\s-]+/, '').replace(/\s+/g, '').replace(/\s*-\s*/g, '-');
+  return normalizePageText(value)
+    .replace(/^(?:(?:TYPE|UNIT)\b[\s:-]*)+/, '')
+    .replace(/\s+/g, '')
+    .replace(/(^|[^A-Z])([A-Z]{1,3})-(\d)/g, '$1$2$3');
+}
+
+/** Saved name without its "TYPE - UNIT" prefix, spacing kept: "TYPE - UNIT A-1/A-6" -> "A-1 / A-6". */
+function savedNameCore(saved: string): string {
+  return normalizePageText(saved).replace(/^(?:(?:TYPE|UNIT)\b[\s:-]*)+/, '').trim();
+}
+
+function escapeRe(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Regex for a saved name as printed on its own floor plan: spaces, hyphens and
+ * slashes between tokens are interchangeable ("B4/B5" ~ "B4-B5", "A-3" ~ "A3").
+ * Short codes need a UNIT/TYPE prefix so SKUs and dimensions never match.
+ */
+function savedNamePattern(core: string): RegExp | null {
+  const tokens = core.match(/[A-Z]+|\d+(?:\.\d+)?|\([^)]*\)/g);
+  if (!tokens || tokens.length === 0) return null;
+  const body = tokens.map(t => t.startsWith('(')
+    ? `\\(\\s*${t.slice(1, -1).trim().split(/\s+/).map(escapeRe).join('\\s*')}\\s*\\)`
+    : escapeRe(t)).join('[\\s\\-/]*');
+  // A bare name needs to be distinctive: "STUDIO 1", "ST - STUDIO" — never a room word alone.
+  const distinctive = tokens.includes('STUDIO')
+    || (tokens.some(t => /^[A-Z]{4,}$/.test(t)) && tokens.some(t => /^\d/.test(t)));
+  const prefix = distinctive ? '' : '(?:UNIT|TYPE)[\\s:-]*';
+  return new RegExp(`(?<![A-Z0-9.])${prefix}${body}(?![A-Z0-9]|\\.\\d)`);
+}
+
+/**
+ * Finds the saved Unit Count name printed on this page. The longest printed name
+ * wins ("B1.1" over "B1"); two different names of equal length are ambiguous.
+ */
+export function findSavedPrefinalTypeOnPage(pageText: string, knownTypes: string[]): string | null {
+  const text = normalizePageText(pageText);
+  if (!text) return null;
+  let best: { type: string; len: number } | null = null;
+  let tie = false;
+  for (const type of knownTypes) {
+    const core = savedNameCore(type);
+    const variants = [core, core.replace(/\s*\([^)]*\)\s*$/, '')].filter((v, i, a) => v && a.indexOf(v) === i);
+    for (const variant of variants) {
+      const re = savedNamePattern(variant);
+      const m = re ? text.match(re) : null;
+      if (!m) continue;
+      const len = m[0].replace(/^(?:UNIT|TYPE)[\s:-]*/, '').length;
+      if (!best || len > best.len) { best = { type, len }; tie = false; }
+      else if (len === best.len && best.type !== type) tie = true;
+      break;
+    }
+  }
+  return best && !tie ? best.type : null;
 }
 
 /**
@@ -50,6 +106,7 @@ function savedTypeCodes(saved: string): string[] {
   codes.add(base);
   for (const alt of base.split('/').filter(Boolean)) {
     codes.add(alt);
+    codes.add(alt.replace(/^([A-Z]{1,3})-(\d)/, '$1$2'));
     // Drop a trailing descriptive word ("ST-STUDIO"), never a variant suffix ("A1-AS").
     const m = alt.match(/^([A-Z]{1,3}(?:\d{1,2}(?:\.\d)?)?)-([A-Z]{3,})$/);
     if (m && !/^(?:ADA|REV|ALT|MIRROR|OPTION)$/.test(m[2])) codes.add(m[1]);
@@ -81,6 +138,8 @@ function letterOnlySheetCodes(pageText: string): string[] {
 }
 
 export function resolvePrefinalCabinetTypeForPage(pageText: string, aiType: string, knownTypes: string[]): string {
+  const printed = findSavedPrefinalTypeOnPage(pageText, knownTypes);
+  if (printed) return printed;
   const sheet = extractPrefinalUnitTypeLabelFromText(pageText);
   const raw = sheet || aiType;
   const known = matchPrefinalCabinetUnitType(raw, knownTypes);
