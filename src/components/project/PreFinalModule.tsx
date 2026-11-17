@@ -95,7 +95,7 @@ export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
   };
 
   // ── Cabinet import handler ────────────────────────────────────────────────
-  const handleCabinetImport = (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[], detectedUnitType?: string, importTypeOrder?: string[]) => {
+  const handleCabinetImport = (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[], detectedUnitType?: string, importTypeOrder?: string[], typeSources?: Record<string, { pageText: string; rawType: string }>) => {
     const toTypeKey = (value: string) =>
       String(value || '')
         .toUpperCase()
@@ -112,6 +112,13 @@ export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
 
       return matchPrefinalCabinetUnitType(raw, knownTypes) || '';
     };
+    // Re-match a page against the Unit Count names saved NOW (they may have changed
+    // while cabinets were processing), using that page's own text.
+    const rematchFromPage = (resolved: string, pageText?: string, rawType?: string): string => {
+      if (pageText === undefined) return '';
+      const hit = resolvePrefinalCabinetTypeForPage(pageText, rawType || '', knownTypes);
+      return hit && hit !== 'Unassigned' && knownTypes.includes(hit) ? hit : '';
+    };
 
 
     const rowsByType = new Map<string, typeof rows>();
@@ -125,7 +132,8 @@ export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
       const rawType = row.detectedUnitType ?? detectedUnitType ?? '';
       const normalizedIncoming = rawType ? normalizeUnitType(rawType) : '';
       const incomingKey = toTypeKey(normalizedIncoming);
-      const knownResolved = resolveKnownType(rawType) || resolveKnownType(normalizedIncoming);
+      const knownResolved = resolveKnownType(rawType) || resolveKnownType(normalizedIncoming)
+        || rematchFromPage(rawType, row.pageText, row.pageRawType);
 
       // Pre-Final cabinet uploads are user-curated FLOOR PLAN pages — every page
       // that comes back with ANY label MUST become a column, even if the label
@@ -156,7 +164,8 @@ export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
       // 1) Resolve each page-order type against known Unit Count types (preserves casing).
       const normalizedOrder = importTypeOrder.map(t => {
         const norm = normalizeUnitType(t);
-        const resolved = resolveKnownType(t) || resolveKnownType(norm);
+        const src = typeSources?.[t];
+        const resolved = resolveKnownType(t) || resolveKnownType(norm) || rematchFromPage(t, src?.pageText, src?.rawType);
         return resolved || resolvePrefinalCabinetTypeForPage('', norm, knownTypes);
       });
 
@@ -578,8 +587,8 @@ export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
       {showCabinetImport && (
         <ShopDrawingImportDialog
           knownUnitTypes={store.unitTypes}
-          onImport={(rows, detectedUnitType, importTypeOrder) => {
-            handleCabinetImport(rows, detectedUnitType, importTypeOrder);
+          onImport={(rows, detectedUnitType, importTypeOrder, typeSources) => {
+            handleCabinetImport(rows, detectedUnitType, importTypeOrder, typeSources);
           }}
           onClose={() => setShowCabinetImport(false)}
           prefinalPerson={project.specs?.takeoffPerson}

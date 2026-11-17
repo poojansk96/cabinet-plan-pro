@@ -34,12 +34,15 @@ export interface LabelRow {
   selected: boolean;
   sourceFile?: string;
   detectedUnitType?: string;  // AI-detected unit type from the PDF
+  /** This page's own text + sheet label, so the type can be re-matched to the Unit Count names current at import time. */
+  pageText?: string;
+  pageRawType?: string;
 }
 
 interface Props {
   knownUnitTypes?: string[];
   unitType?: string;
-  onImport: (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[], detectedUnitType?: string, typeOrder?: string[]) => void;
+  onImport: (rows: Omit<LabelRow, 'selected' | 'sourceFile'>[], detectedUnitType?: string, typeOrder?: string[], typeSources?: Record<string, { pageText: string; rawType: string }>) => void;
   onClose: () => void;
   prefinalPerson?: string;
   speedMode?: 'fast' | 'thorough';
@@ -550,6 +553,9 @@ export default function ShopDrawingImportDialog({ unitType, knownUnitTypes = [],
   const addMoreRef = useRef<HTMLInputElement>(null);
 
   // ── Pick up background job results ──────────────────────────────────
+  // Unit Count may still be loading while cabinets process: always read the latest names.
+  const knownUnitTypesRef = useRef(knownUnitTypes);
+  knownUnitTypesRef.current = knownUnitTypes;
   const bgJob = useExtractionJobByType('cabinet');
   const bgPickedUpRef = useRef(false);
 
@@ -728,7 +734,7 @@ export default function ShopDrawingImportDialog({ unitType, knownUnitTypes = [],
         : forcePageLabel || isGenericPrefinalCabinetPageLabel(resolvedType.primary || '')
           ? (deterministicPageLabel || resolvedType.primary)
           : resolvedType.primary;
-      const resolvedPrimary = resolvePrefinalCabinetTypeForPage(pageText, pagePrimary || '', knownUnitTypes);
+      const resolvedPrimary = resolvePrefinalCabinetTypeForPage(pageText, pagePrimary || '', knownUnitTypesRef.current);
       const resolvedAliases = resolvedPrimary
         ? [resolvedPrimary]
         : resolvedType.aliases;
@@ -742,6 +748,7 @@ export default function ShopDrawingImportDialog({ unitType, knownUnitTypes = [],
           ...fullData,
           unitTypeName: resolvedPrimary,
           unitTypeAliases: resolvedAliases,
+          rawUnitType: pagePrimary || '',
           pageText,
         };
       }
@@ -815,6 +822,7 @@ export default function ShopDrawingImportDialog({ unitType, knownUnitTypes = [],
         items: merged,
         unitTypeName: resolvedPrimary,
         unitTypeAliases: resolvedAliases,
+        rawUnitType: pagePrimary || '',
         isCommonArea,
         pageText,
       };
@@ -902,6 +910,8 @@ export default function ShopDrawingImportDialog({ unitType, knownUnitTypes = [],
           selected: true,
           sourceFile: file.name,
           detectedUnitType: effectiveResolvedPageType,
+          pageText: pageTextRaw,
+          pageRawType: String((data as any).rawUnitType || ''),
         }));
         allRows.push(...pageRows);
 
@@ -916,6 +926,8 @@ export default function ShopDrawingImportDialog({ unitType, knownUnitTypes = [],
             selected: false,
             sourceFile: file.name,
             detectedUnitType: effectiveResolvedPageType,
+            pageText: pageTextRaw,
+            pageRawType: String((data as any).rawUnitType || ''),
           } as any);
         }
       } else {
@@ -1153,7 +1165,13 @@ export default function ShopDrawingImportDialog({ unitType, knownUnitTypes = [],
   const handleImport = () => {
     const selected = rows.filter(r => r.selected).map(({ selected: _, sourceFile: __, ...rest }) => rest);
     if (selected.length === 0 && typeOrder.length === 0) return;
-    onImport(selected, detectedUnitType ?? undefined, typeOrder.length > 0 ? typeOrder : undefined);
+    // First page behind each type (placeholder rows included) for import-time re-matching.
+    const typeSources: Record<string, { pageText: string; rawType: string }> = {};
+    for (const r of rows) {
+      const t = r.detectedUnitType;
+      if (t && r.pageText !== undefined && !typeSources[t]) typeSources[t] = { pageText: r.pageText, rawType: r.pageRawType || '' };
+    }
+    onImport(selected, detectedUnitType ?? undefined, typeOrder.length > 0 ? typeOrder : undefined, typeSources);
   };
 
   const sourceFiles = Array.from(new Set(rows.map(r => r.sourceFile ?? 'Unknown')));
