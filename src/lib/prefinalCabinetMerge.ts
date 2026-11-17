@@ -13,7 +13,7 @@ export interface PositionedPdfTextItem {
 
 // Includes legacy/manufacturer SKUs: OC oven cabinets, RW, SCB, SCW, FSH, BP12WP,
 // TEP/TEPF panels, UF/BEP/WEP/DP/SP/PNL/TKB.
-const SKU_PATTERN = /\b(TP|WR|BER|PFTE|PWF|BP|DB|SB|SCB|SCW|CB|EB|OC|LS|LSB|RW|W|WDC|UB|WC|OH|BLB|BLW|BRW|TEPF|TEP|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDB|VDC|FIL|BF|WF|FSH|BFFIL|WFFIL|TK|TKB|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS|UF|BEP|WEP|DP|SP|PNL|B)\d[\w.\-\/]*(?:\((?:SPLIT|O|OPEN|C|CLOSED)\)|\[(?:SPLIT)\]|_SPLIT|-\((?:O|OPEN|C|CLOSED)\))?/gi;
+const SKU_PATTERN = /(?:(?<![0-9])[2-5]DB|\b(?:TP|WR|BER|PFTE|PWF|BP|DB|SB|SCB|SCW|CB|EB|OC|LS|LSB|RW|W|WDC|UB|WC|OH|BLB|BLW|BRW|TEPF|TEP|T|TF|UT|TC|PT|PTC|UC|V|VB|VD|VDB|VDC|FIL|BF|WF|FSH|BFFIL|WFFIL|TK|TKB|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS|UF|BEP|WEP|DP|SP|PNL|B))\d[\w.\-\/]*(?:\((?:SPLIT|O|OPEN|C|CLOSED)\)|\[(?:SPLIT)\]|_SPLIT|-\((?:O|OPEN|C|CLOSED)\))?/gi;
 const SPACED_SKU_PATTERN = /\b(BP|SCB|SCW|RW|FSH|TEPF|TEP|TF|W|B|SB|BF|WF)\s+(\d[\w.\-\/]*)\b/gi;
 // Generic cabinet/accessory fallback for unknown prefixes: 1-6 letters + a 2+ digit dimension
 // cluster + a trailing letter suffix (e.g. SCW244213R, B24R, W334213BD). Requiring a trailing
@@ -21,7 +21,8 @@ const SPACED_SKU_PATTERN = /\b(BP|SCB|SCW|RW|FSH|TEPF|TEP|TF|W|B|SB|BF|WF)\s+(\d
 // excluded downstream by APPLIANCE_RE inside isValidSku.
 const GENERIC_SKU_PATTERN = /\b[A-Z]{1,6}\d{2,}[\w.\-\/]*[A-Z]\b/gi;
 const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
-const SKU_PREFIX_RE = /^[A-Z]{1,8}\d/i;
+// "3DB12" = 3-drawer base 12": a real SKU that starts with its drawer count.
+const SKU_PREFIX_RE = /^(?:[2-5](?=DB\d))?[A-Z]{1,8}\d/i;
 const NO_DIGIT_OK = /^(BP|SCRIBE|UC|APNL?-(?:DF|SDR))$/i;
 
 type SkuOccurrence = {
@@ -352,6 +353,7 @@ export function mergePrefinalExtractionPasses(
     return /^(UC|BP|SCRIBE|APNL?-(?:DF|SDR))$/.test(upper)
       || /^(?:DWR|BF|FIL|CM|EP|FP|LR|RW|FSH|SCB|TEPF?|BP)\d(?:[A-Z0-9.\-\/]*)$/.test(upper)
       || /^(?:W|B|T|V|OC)\d{2,}[A-Z0-9.\-\/]*$/.test(upper)
+      || /^[2-5]DB\d{2}[A-Z0-9\-]*$/.test(upper)
       // Filler-head base cabinets like B09FH, B06FH, B12FH, B15FH, B18FH —
       // very narrow rectangles drawn beside vanities; commonly only seen on a
       // single strip pass but always real when present.
@@ -491,7 +493,7 @@ export function mergePrefinalExtractionPasses(
 }
 // Cabinet family prefixes that can start a new label glued onto the previous one.
 const GLUED_SKU_PREFIXES = 'WA|WDC|WC|WR|W|TP|P|BLW|BLB|BRW|BP|SCB|SB|DB|LSB|LS|CB|EB|OC|RW|B|UC|UB|TEP|TEPF|TF|TC|PT|UT|VSB|VSD|VDB|VDC|VB|VD|VS|V|BF|WF|FSH|FIL';
-const GLUED_SPLIT_RE = new RegExp(`(?<=\\d|\\d[LR])(?=(?:${GLUED_SKU_PREFIXES})\\d)`, 'g');
+const GLUED_SPLIT_RE = new RegExp(`(?<=\\d|\\d[LR])(?=(?:${GLUED_SKU_PREFIXES})\\d)|(?<=[A-Z])(?=[2-5]DB\\d)`, 'g');
 
 /**
  * Split labels that were read as one string, e.g. "W12361W183612WA24243612L"

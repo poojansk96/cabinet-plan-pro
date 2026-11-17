@@ -308,7 +308,7 @@ async function callAI(
 
 // ── SKU Helpers ──
 
-const SKU_PATTERN = /\b(BP|DB|SB|SCB|SCW|CB|EB|OC|LS|LSB|RW|W|WDC|UB|WC|OH|BLB|BLW|BRW|TEPF|TEP|T|TF|UT|TC|PT|PTC|UC|VSB|VSD|VS|V|VB|VD|VDB|VDC|FIL|BF|WF|FSH|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS|F|B)\d[\w.\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
+const SKU_PATTERN = /(?:(?<![0-9])[2-5]DB|\b(?:WR|BP|DB|SB|SCB|SCW|CB|EB|OC|LS|LSB|RW|W|WDC|UB|WC|OH|BLB|BLW|BRW|TEPF|TEP|T|TF|UT|TC|PT|PTC|UC|VSB|VSD|VS|V|VB|VD|VDB|VDC|FIL|BF|WF|FSH|BFFIL|WFFIL|TK|TKRUN|CM|LR|EP|FP|DWR|HA|HAV|HAVDB|HAUC|HALC|HAL|HAB|HADB|HABLB|HAOC|HASB|HACB|HAEB|HALS|HALSB|HAWDC|HAW|SA|SV|APPRON|UREP|REP|HCOC|HCUC|HCYC|HCDB|HCLS|HCBMW|HCBM|HCB|HC|HWSB|HWS|HW|HSS|HS|F|B))\d[\w.\-\/]*(?:\((?:SPLIT)\)|\[(?:SPLIT)\]|_SPLIT)?/gi;
 const SPACED_SKU_PATTERN = /\b(BP|SCB|SCW|RW|FSH|TEPF|TEP|TF|W|B|SB|BF|WF)\s+(\d[\w.\-\/]*)\b/gi;
 // Generic cabinet/accessory fallback for unknown prefixes: 1-6 letters + a 2+ digit dimension
 // cluster + a trailing letter suffix (e.g. SCW244213R, B24R, W334213BD). Requiring a trailing
@@ -318,7 +318,8 @@ const GENERIC_SKU_PATTERN = /\b[A-Z]{1,6}\d{2,}[\w.\-\/]*[A-Z]\b/gi;
 const APPRON_DIM_PATTERN = /\bAPPRON\s+(\d+X\d+)\b/gi;
 const APPLIANCE_RE = /^(REF|REFRIG|REFRIGERATOR|DW(?!R)|DDW|DISHWASHER|DISHW|RANGE|HOOD|MICRO|OTR|OVEN|COOK|STOVE|MW|WM|WASHER|DRYER|FREEZER|WINE|ICE|TRASH|COMPACT|SINK|FAN|VENT|DISP|CKT)/i;
 // Relaxed: accept any 1-8 letter prefix followed by a digit (catches manufacturer-specific SKUs like HAV, HALC)
-const SKU_PREFIX_RE = /^[A-Z]{1,8}\d/i;
+// "3DB12" = 3-drawer base 12" — a real SKU that starts with its drawer count.
+const SKU_PREFIX_RE = /^(?:[2-5](?=DB\d))?[A-Z]{1,8}\d/i;
 const NO_DIGIT_OK = /^(BP|SCRIBE|UC|APNL?-(?:DF|SDR))$/i;
 const SHORT_ACCESSORY_STRIP_SKU_RE = /^(?:DWR|BF|FIL|CM|EP|FP|LR|RW|FSH|SCB|TEPF?|BP)\d(?:[A-Z0-9.\-\/]*)$/i;
 const STRONG_STRIP_SKU_RE = /^(?:UC|BP|SCRIBE|APNL?-(?:DF|SDR)|APPRON|UREP|REP|(?:DWR|BF|FIL|CM|EP|FP|LR|RW|FSH|SCB|TEPF?|BP)\d(?:[A-Z0-9.\-\/]*)|(?:W|B|T|V|OC)\d{2,}[A-Z0-9.\-\/]*|[A-Z]{2,8}\d[A-Z0-9.\-\/]{2,})$/i;
@@ -379,11 +380,26 @@ function digitSkuTokens(pageText: string): string[] {
   let lastEnd = -1;
   for (const hit of hits) {
     if (hit.start >= lastEnd) {
-      out.push(hit.value);
+      out.push(...splitGluedTextToken(hit.value));
       lastEnd = hit.end;
     }
   }
   return out;
+}
+
+// Labels printed touching each other ("B12-R3DB12", "3DB12B09-R", "W1236LW3036") split
+// where a new cabinet prefix + digit starts. A leading digit-only piece stays attached
+// ("3" + "DB12" -> "3DB12", the 3-drawer base).
+const GLUED_TEXT_PREFIXES = 'WA|WDC|WC|WR|W|TP|BLW|BLB|BRW|BP|SCB|SB|DB|LSB|LS|CB|EB|OC|RW|B|UC|UB|TEPF|TEP|TF|TC|PT|UT|VSB|VSD|VDB|VDC|VB|VD|VS|V|BF|WF|FSH|FIL';
+const GLUED_TEXT_SPLIT_RE = new RegExp(`(?<=\\d|\\d[LR])(?=(?:${GLUED_TEXT_PREFIXES})\\d)|(?<=[A-Z])(?=[2-5]DB\\d)`, 'gi');
+function splitGluedTextToken(value: string): string[] {
+  const raw = value.split(GLUED_TEXT_SPLIT_RE).filter(Boolean);
+  const parts: string[] = [];
+  for (const piece of raw) {
+    if (parts.length && !/[A-Z]/i.test(parts[parts.length - 1])) parts[parts.length - 1] += piece;
+    else parts.push(piece);
+  }
+  return parts.length > 1 ? parts : [value];
 }
 
 function extractSkusFromText(pageText: string): string[] {
@@ -440,7 +456,7 @@ function countSkusFromText(pageText: string): Record<string, number> {
 function classifySku(sku: string): string {
   const normalizedSku = normalizeSkuLabel(sku);
   if (/^(BLB|BLW|BRW)/i.test(normalizedSku)) return "Wall";
-  if (/^(RW|W|WDC|UB|WC|OH|SCW)\d/i.test(normalizedSku)) return "Wall";
+  if (/^(RW|WR|W|WDC|UB|WC|OH|SCW)\d/i.test(normalizedSku)) return "Wall";
   if (/^(HAW|HAWDC)\d/i.test(normalizedSku)) return "Wall";
   if (/^HCW\d/i.test(normalizedSku)) return "Wall";
   if (/^HW\d/i.test(normalizedSku)) return "Wall";
@@ -506,7 +522,7 @@ const CABINET_PREFIXES = [
   'BFFIL','WFFIL','TKRUN',
   'HAB','HAW','HAV','HAL','HCB','HSS',
   'BLB','BLW','BRW','WDC','PTC','VDC','TEPF',
-  'DB','SB','SCB','CB','EB','OC','LS','LSB','RW','WC','UB','OH','BF','WF','FSH','TF','TEP','TK','UC','VB','VD','FIL','CM','LR','EP','FP','DWR','HC','HW','HS','HA','SA','SV','PT','TC','UT','BP',
+  'DB','SB','SCB','CB','EB','OC','LS','LSB','RW','WR','WC','UB','OH','BF','WF','FSH','TF','TEP','TK','UC','VB','VD','FIL','CM','LR','EP','FP','DWR','HC','HW','HS','HA','SA','SV','PT','TC','UT','BP',
   'APPRON','UREP','REP',
   'B','W','T','V',
 ];
@@ -995,7 +1011,7 @@ COUNTING — CRITICAL:
 - FILLER-HEAD CABINETS: B09FH, B06FH, B12FH, B15FH, B18FH — these are VERY NARROW rectangles (6"-18" wide). They appear as thin slivers between larger cabinets or at the end of a run. ACTIVELY LOOK FOR THESE — they are commonly missed.
 - VANITY-ADJACENT FILLER-HEAD: In bathroom elevations, a B##FH (e.g. B09FH, B12FH) is OFTEN drawn directly NEXT TO a vanity SKU like V3021B, VB30, VD24, VDB18. The label is tiny and vertical/rotated. WHENEVER you see a vanity (V/VB/VD/VDB/VDC) cabinet, scan the BOTH sides of it for a narrow B##FH sliver — this is the single most commonly missed cabinet on bath elevations. If found, classify the B##FH as "Base" with room "Bath".
 - Corner cabinets (LS, LSB) at wall junction = count ONCE even if label appears at junction of two wall runs.
-- Look for "xN" or "(2)" multiplier notation next to labels. A label written as "3xDB24" means SKU DB24 with quantity 3 — return sku "DB24", quantity 3.
+- Look for "xN" or "(2)" multiplier notation next to labels. A label written as "3xDB24" (with an x) means SKU DB24 with quantity 3 — return sku "DB24", quantity 3. A label like "3DB12" / "3DB21" with NO x is a 3-DRAWER BASE cabinet SKU — return it verbatim as sku "3DB12", type Base, quantity 1 per printed label.
 - REPORT EVERY CABINET/VANITY/FILLER LABEL EVEN IF THE PREFIX IS UNFAMILIAR. Examples seen on bath plans: "VS30S" (vanity sink base), "F342" (3"x42" filler), "DB24", "3xDB24", "VSB36". Do NOT omit a label just because its prefix is not in the list above — report it verbatim and classify by best guess.
 - DO NOT report plumbing/fixture tags that are just item numbers such as "DB6-01", "VSH-03", "VSM-01", "CB-01-R" (letters + 1-2 digits + dash + 2 digits). Those are fixture callouts, not cabinets.
 - PROCESS THIS PAGE INDEPENDENTLY. Never borrow a room title, orientation, SKU, or count from another PDF page.
@@ -1038,14 +1054,14 @@ SKIP THESE — NOT CABINET SKUs:
 - Non-SKU text: unit numbers, elevation titles, dimension text, page numbers
 - NEVER construct a SKU by joining a cabinet prefix/width to nearby dimension text. For example, do not invent "DB6-91" from a DB6 fragment beside a 91-inch dimension. If the complete token is not visibly printed as one label, omit it.
 
-VALID SKU PREFIXES (a label must start with letters followed by a digit):
-B, BP, DB, SB, SCB, CB, EB, OC, LS, LSB, RW, W, WDC, UB, WC, OH, BLB, BLW, BRW, T, TF, TEP, TEPF, UT, TC, PT, PTC, UC, V, VB, VD, VDC, FIL, BF, WF, FSH, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR, APPRON
+VALID SKU PREFIXES (a label must start with letters followed by a digit; the only exception is drawer bases like 3DB12 / 3DB21 / 4DB18 that start with the drawer count):
+B, BP, DB, 3DB, WR (wall refrigerator cabinet, e.g. WR361824), SB, SCB, CB, EB, OC, LS, LSB, RW, W, WDC, UB, WC, OH, BLB, BLW, BRW, T, TF, TEP, TEPF, UT, TC, PT, PTC, UC, V, VB, VD, VDC, FIL, BF, WF, FSH, BFFIL, WFFIL, TK, TKRUN, CM, LR, EP, FP, DWR, APPRON
 Also accept manufacturer-specific longer prefixes (e.g. HA, HAV, HAVDB, HALC, HAUC, SA, SV) followed by digits.
 
 VALID NO-DIGIT SKUS:
 UC, SCRIBE, BP, APN-DF, APNL-DF, APN-SDR, APNL-SDR
 
-FINAL SWEEP: After your initial scan, go back and specifically look for: OC339624 / other OC oven cabinets, RW4818BD / RW4812BD / other RW labels, TF1.52496L or TEPF-style tall end panels, BP12WP, W181813R, APNL-DF / APN-DF, FSH4210S, SCB33R, B09FH, B06FH, B12FH, B15FH, B18FH (filler-head base — VERY commonly missed when adjacent to vanity SKUs like V3021B, VB30, VD24 in bath elevations — ALWAYS scan beside every vanity cabinet for a narrow B##FH sliver), BF3, BF6, WF3X30, WF6X30, TF3X96, DWR1, DWR3, DWR6, CM8, TK, TKRUN, EP, LR, UC, SCRIBE, BP, HAVDB12, HAVDB18, HAVDB15, VDB12, VDB15, VDB18 (vanity drawer-base — small narrow rectangles under vanity tops, very commonly missed), APPRON (with dimensions like "APPRON 59X21" — report as "APPRON59X21" without the space). These appear as very small labels on narrow shapes. DWR and OC labels may be rotated vertically — scan rotated text carefully.
+FINAL SWEEP: After your initial scan, go back and specifically look for: 3DB12 / 3DB15 / 3DB21 drawer bases (often printed touching a neighbouring label, e.g. "B12-R3DB12" = B12-R + 3DB12), WR361824 wall cabinets above the refrigerator, OC339624 / other OC oven cabinets, RW4818BD / RW4812BD / other RW labels, TF1.52496L or TEPF-style tall end panels, BP12WP, W181813R, APNL-DF / APN-DF, FSH4210S, SCB33R, B09FH, B06FH, B12FH, B15FH, B18FH (filler-head base — VERY commonly missed when adjacent to vanity SKUs like V3021B, VB30, VD24 in bath elevations — ALWAYS scan beside every vanity cabinet for a narrow B##FH sliver), BF3, BF6, WF3X30, WF6X30, TF3X96, DWR1, DWR3, DWR6, CM8, TK, TKRUN, EP, LR, UC, SCRIBE, BP, HAVDB12, HAVDB18, HAVDB15, VDB12, VDB15, VDB18 (vanity drawer-base — small narrow rectangles under vanity tops, very commonly missed), APPRON (with dimensions like "APPRON 59X21" — report as "APPRON59X21" without the space). These appear as very small labels on narrow shapes. DWR and OC labels may be rotated vertically — scan rotated text carefully.
 ${isStrip ? '\nNOTE: This image shows a CROPPED SECTION of a larger drawing page. Extract all cabinet labels visible in this cropped section.\n' : ''}${textLayerSkus.length > 0 ? `\nTEXT LAYER CROSS-REFERENCE — the PDF text layer detected these SKUs on this page:\n${textLayerSkus.join(', ')}\nMake sure ALL of these appear in your results if they are visible as labels on the drawing. If any are missing from your results, look harder for them.\n` : ''}${unitType ? `\nUnit type context: ${unitType}` : ""}
 If no cabinet SKUs are found, return {"items":[]}`;
 
@@ -1343,7 +1359,7 @@ RULES:
 
     // ── Normalize and filter ──
     let items = finalItems
-      .filter((c: any) => c.sku && /^[A-Za-z]/.test(c.sku) && (/\d/.test(c.sku) || NO_DIGIT_OK.test(String(c.sku).trim())))
+      .filter((c: any) => c.sku && /^(?:[A-Za-z]|[2-5]DB\d)/i.test(c.sku) && (/\d/.test(c.sku) || NO_DIGIT_OK.test(String(c.sku).trim())))
       .filter((c: any) => {
         const upper = String(c.sku).toUpperCase().trim();
         if (APPLIANCE_RE.test(upper)) return false;

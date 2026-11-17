@@ -225,7 +225,8 @@ export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
     // Extract width from SKU: ALWAYS first 2 digits after letter prefix
     // W3030→30, W1830→18, UC18X90→18, UX1890→18, UC1221X90→12, B36→36, VDB12→12
     const parseWidthFromSku = (sku: string): number => {
-      const cleaned = sku.replace(/\s/g, '');
+      // "3DB12" (3-drawer base): the leading drawer count is not part of the width.
+      const cleaned = sku.replace(/\s/g, '').replace(/^[2-5](?=DB\d)/i, '');
       const m = cleaned.match(/^[A-Za-z]+(\d{2})/);
       if (!m) return 0;
       return Number(m[1]) || 0;
@@ -477,7 +478,7 @@ export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
   });
 
   const parseSkuDims = (sku: string): { width: number; height: number } => {
-    const cleaned = sku.replace(/\s/g, '').toUpperCase();
+    const cleaned = sku.replace(/\s/g, '').toUpperCase().replace(/^[2-5](?=DB\d)/, '');
     // Special handling for BLW/BRW/BLB/HABLB pattern: "BLW27/3030-L" → height 30 (last 2 digits of "3030")
     const blwMatch = cleaned.match(/^(?:HA)?(?:BLW|BRW|BLB)(\d+)\/(\d+)/);
     if (blwMatch) {
@@ -999,7 +1000,7 @@ export default function PreFinalModule({ project, mode = 'prefinal' }: Props) {
                             // Calculate qty from wall cabinet widths per type
                             // ALWAYS first 2 digits after letter prefix = width
                             const parseWidth = (sku: string): number => {
-                              const m = sku.replace(/\s/g, '').match(/^[A-Za-z]+(\d{2})/);
+                              const m = sku.replace(/\s/g, '').replace(/^[2-5](?=DB\d)/i, '').match(/^[A-Za-z]+(\d{2})/);
                               return m ? (Number(m[1]) || 0) : 0;
                             };
                             const isWall = (r: { type: string; sku: string }) => {
