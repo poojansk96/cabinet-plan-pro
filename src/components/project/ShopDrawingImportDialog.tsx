@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { FileUp, X, Loader2, CheckCircle, AlertCircle, Sparkles, Trash2, FilePlus, FileText } from 'lucide-react';
 import type { CabinetType, Room } from '@/types/project';
-import { extractPlanSkuCountsFromTextItems, mergePrefinalExtractionPasses, expandGluedPrefinalItems, lockPrefinalItemsToPlanText } from '@/lib/prefinalCabinetMerge';
+import { extractPlanSkuCountsFromTextItems, mergePrefinalExtractionPasses, expandGluedPrefinalItems, lockPrefinalItemsToPlanText, type ExtractedCabinetPassItem } from '@/lib/prefinalCabinetMerge';
 import { extractPrefinalCabinetPageLabelFromText, extractPrefinalUnitTypeLabelFromText, hasResidentialPrefinalUnitTypeHint, isGenericPrefinalCabinetPageLabel, resolvePrefinalCabinetTypeForPage } from '@/lib/prefinalCabinetPageLabels';
 import { toast } from 'sonner';
 import { startExtraction, useExtractionJobByType, clearExtractionJob } from '@/hooks/useExtractionStore';
@@ -806,7 +806,7 @@ export default function ShopDrawingImportDialog({ unitType, knownUnitTypes = [],
       // ── Merge all passes: MAX qty per SKU+room ──
       // Every label must be printed on the page's own text layer (no made-up / partial SKUs).
       const merged = lockPrefinalItemsToPlanText(
-        mergePrefinalExtractionPasses(allPassItems.map(expandGluedPrefinalItems), planTextSkuCounts),
+        mergePrefinalExtractionPasses(allPassItems.map((pass) => expandGluedPrefinalItems(pass as ExtractedCabinetPassItem[])), planTextSkuCounts),
         textLayerText,
       );
       console.log(`Page ${p}: ${fullItems.length} full-page + strips → ${merged.length} merged items`);
