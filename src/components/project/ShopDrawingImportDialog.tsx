@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { FileUp, X, Loader2, CheckCircle, AlertCircle, Sparkles, Trash2, FilePlus, FileText } from 'lucide-react';
 import type { CabinetType, Room } from '@/types/project';
 import { extractPlanSkuCountsFromTextItems, mergePrefinalExtractionPasses, expandGluedPrefinalItems } from '@/lib/prefinalCabinetMerge';
-import { extractPrefinalCabinetPageLabelFromText, hasResidentialPrefinalUnitTypeHint, isGenericPrefinalCabinetPageLabel } from '@/lib/prefinalCabinetPageLabels';
+import { extractPrefinalCabinetPageLabelFromText, extractPrefinalUnitTypeLabelFromText, hasResidentialPrefinalUnitTypeHint, isGenericPrefinalCabinetPageLabel } from '@/lib/prefinalCabinetPageLabels';
 import { toast } from 'sonner';
 import { startExtraction, useExtractionJobByType, clearExtractionJob } from '@/hooks/useExtractionStore';
 
@@ -718,9 +718,12 @@ export default function ShopDrawingImportDialog({ unitType, onImport, onClose, p
       const forcePageLabel = Boolean(deterministicPageLabel && !hasResidentialPrefinalUnitTypeHint(pageText));
       const isCommonArea = forcePageLabel ? true : (fullData.isCommonArea ?? false);
       const resolvedType = resolvePageUnitType(fullData.unitTypeName, pageText, isCommonArea);
-      const resolvedPrimary = forcePageLabel || isGenericPrefinalCabinetPageLabel(resolvedType.primary || '')
-        ? (deterministicPageLabel || resolvedType.primary)
-        : resolvedType.primary;
+      const sheetUnitType = extractPrefinalUnitTypeLabelFromText(pageText);
+      const resolvedPrimary = sheetUnitType
+        ? sheetUnitType
+        : forcePageLabel || isGenericPrefinalCabinetPageLabel(resolvedType.primary || '')
+          ? (deterministicPageLabel || resolvedType.primary)
+          : resolvedType.primary;
       const resolvedAliases = resolvedPrimary
         ? [resolvedPrimary]
         : resolvedType.aliases;

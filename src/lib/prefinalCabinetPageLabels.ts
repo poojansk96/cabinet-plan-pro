@@ -20,8 +20,17 @@ export function isGenericPrefinalCabinetPageLabel(value: string): boolean {
     || /^(?:PLAN|FLOOR PLAN|CABINET PLAN|SHOP DRAWING|SHEET)$/.test(text);
 }
 
+const UNIT_TYPE_LABEL_RE = /\bUNIT[\s-]+([A-Z]{1,2})\s*-?\s*(\d{1,2}(?:\.\d)?)(?![\d])/;
+
+/** Reads a floor-plan sheet label like "Unit-A2" / "Unit B-3" as "TYPE A2" / "TYPE B3". */
+export function extractPrefinalUnitTypeLabelFromText(pageText: string): string | null {
+  const m = normalizePageText(pageText).match(UNIT_TYPE_LABEL_RE);
+  return m ? `TYPE ${m[1]}${m[2]}` : null;
+}
+
 export function hasResidentialPrefinalUnitTypeHint(pageText: string): boolean {
   const text = normalizePageText(pageText);
+  if (UNIT_TYPE_LABEL_RE.test(text)) return true;
   return /\b(?:STUDIO|\d+\s*BR|\d+\s*BED(?:ROOM)?|TYPE\s+[A-Z0-9._-]+|UNIT\s+TYPE|APT\s+TYPE|APARTMENT\s+TYPE)\b/.test(text);
 }
 
