@@ -647,6 +647,7 @@ const EXTRACT_SCHEMA = {
   type: "OBJECT",
   properties: {
     unitTypeName: { type: "STRING", nullable: true },
+    isTitlePage: { type: "BOOLEAN", nullable: true },
     items: {
       type: "ARRAY",
       items: {
@@ -969,6 +970,10 @@ RULE: If your reading differs from a vocabulary code by one character, the vocab
 ` : ''}` : '';
 
     const extractPrompt = `Extract ALL cabinet SKU labels from this 2020 Design shop drawing plan view.
+
+PAGE CHECK FIRST: The user uploads 2 pages per unit type — a TITLE PAGE (unit type name + list of unit numbers, project info, no drawn cabinet layout) and a FLOOR PLAN page (drawn cabinets). If THIS page is the title/cover page with no drawn cabinet layout, set "isTitlePage": true and return "items": []. Otherwise set "isTitlePage": false. Cabinets are taken ONLY from floor plan pages.
+
+SCOPE: Report ONLY cabinets and cabinet-related accessories (fillers, panels, end panels, toe kick, crown, light rail, scribe, drawer stacks, apron fronts, roll-out trays and similar cabinet parts). Do NOT report appliances, plumbing fixtures, sinks, faucets, countertops, backsplashes, hardware, lighting, doors, windows, furniture, room names, notes or any other non-cabinet items.
 ${uscdCatalogBlock}
 ${unitTypeDetectInstructions}
 For each cabinet found, provide:
@@ -1068,6 +1073,12 @@ If no cabinet SKUs are found, return {"items":[]}`;
     // When skipClassify, the extraction also returns unitTypeName
     if (skipClassify && !isStrip && extracted.unitTypeName) {
       detectedUnitType = extracted.unitTypeName;
+    }
+    if (!isStrip && extracted.isTitlePage === true) {
+      console.log("Title page detected — cabinets are taken only from floor plan pages, skipping.");
+      return new Response(JSON.stringify({ items: [], unitTypeName: null, pageType: "title_page", isCommonArea }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
     let finalItems = splitMergedSkus(rawItems, textLayerSkus);
     console.log(`Step 2a (${useAccuModel ? 'accu' : 'lite'}): ${rawItems.length} raw → ${finalItems.length} after split`);

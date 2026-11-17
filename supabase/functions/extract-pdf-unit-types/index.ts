@@ -8,16 +8,10 @@ const corsHeaders = {
 
 const SYSTEM_PROMPT = `You are an expert millwork estimator reading a page from a 2020 Design shop drawing PDF.
 
-YOUR TASK: Extract ALL unit / room identifiers from this page. Every page the user uploads is intentional — NEVER skip a page.
-
-ACCEPT ALL PAGE TYPES — any page that shows a space with cabinets or millwork is valid:
-- Standard apartment floor plans (top-down view)
-- Common area plans: restroom, laundry, mail room, office, community room, package room, janitor closet, etc.
-- Elevation drawings that reference a unit/room
-- Enlarged unit plans, detail plans
-- ANY page that contains a unit number or room identifier
-
-ONLY return {"bldg":null,"units":[]} if the page is truly a cover/title page with NO unit or room references at all.
+YOUR TASK: The user uploads 2 pages per unit type: a TITLE PAGE (shows the unit type name and the list of unit numbers) and a FLOOR PLAN page (drawn cabinets/rooms).
+- Read ONLY the TITLE PAGE. Take the unit type name and every unit number listed on it.
+- If THIS page is a FLOOR PLAN / drawing page (drawn cabinets, walls, rooms, elevations, dimensions), IGNORE it completely and return {"bldg":null,"units":[]} — even if unit numbers or a type name appear on it.
+- Process this page on its own; never use information from other pages.
 
 EXTRACT:
 
@@ -36,7 +30,7 @@ EXTRACT:
    - Unit numbers are apartment/suite identifiers (e.g., 230, 101, A-502, PH-1)
    - For common areas that don't have an explicit unit number but have a room number (e.g., "103", "110"), use that room number as the unitNumber
    - If a common area page has NO unit/room number at all, use "1" as unitNumber so the entry is not lost
-   - Usually listed as a COMMA-SEPARATED sequence on the floor plan page
+   - Usually listed as a COMMA-SEPARATED sequence on the title page
    - COUNT every single number. Read the list CHARACTER BY CHARACTER.
    - Each unit number gets its OWN entry in the output array, all sharing the SAME unit type
    - DOUBLE-CHECK: re-read the comma-separated text and verify your count matches
@@ -366,7 +360,7 @@ serve(async (req) => {
         console.warn(`Qwen Pass 1 failed: ${err.message}`);
       }
     } else {
-      const MODELS = ["gemini-3.1-flash-preview", "gemini-3-flash-preview"];
+      const MODELS = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite-preview"];
       for (const model of MODELS) {
         let modelSucceeded = false;
         for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
@@ -428,7 +422,7 @@ serve(async (req) => {
 
     // PASS 2: Verification — re-send the image with first-pass results (SKIP in fast mode)
     let finalUnits = firstPassUnits;
-    if (!isFastMode) {
+    if (!isFastMode && firstPassUnits.length > 0) {
       try {
         const VERIFY_PROMPT = `You are verifying extracted unit data from a 2020 Design shop drawing page.
 
@@ -472,7 +466,7 @@ Return the corrected JSON (same format), no other text. Each entry MUST have a "
             generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
           });
           const verifyRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-preview:generateContent?key=${GEMINI_API_KEY}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
             { method: "POST", headers: { "Content-Type": "application/json" }, body: verifyBody }
           );
           if (verifyRes.ok) {
