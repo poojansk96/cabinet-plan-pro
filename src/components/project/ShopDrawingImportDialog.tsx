@@ -90,7 +90,7 @@ async function renderPageToCanvasData(page: any): Promise<{ canvas: OffscreenCan
   if (typeof OffscreenCanvas !== 'undefined') {
     const canvas = new OffscreenCanvas(w, h);
     const ctx = canvas.getContext('2d')!;
-    await page.render({ canvasContext: ctx, viewport }).promise;
+    await page.render({ canvasContext: ctx, viewport, intent: 'print' }).promise;
     return { canvas, width: w, height: h };
   }
 
@@ -98,7 +98,7 @@ async function renderPageToCanvasData(page: any): Promise<{ canvas: OffscreenCan
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext('2d')!;
-  await page.render({ canvasContext: ctx, viewport }).promise;
+  await page.render({ canvasContext: ctx, viewport, intent: 'print' }).promise;
   return { canvas, width: w, height: h };
 }
 

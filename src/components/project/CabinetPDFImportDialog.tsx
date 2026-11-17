@@ -40,7 +40,7 @@ async function renderPageToBase64(page: any, scale = 2): Promise<string> {
   canvas.width = viewport.width;
   canvas.height = viewport.height;
   const ctx = canvas.getContext('2d')!;
-  await page.render({ canvasContext: ctx, viewport }).promise;
+  await page.render({ canvasContext: ctx, viewport, intent: 'print' }).promise;
   return canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
 }
 

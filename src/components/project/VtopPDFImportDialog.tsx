@@ -97,7 +97,7 @@ async function renderPageToCanvasData(page: any, maxPx = 3200, maxScale = 4.5): 
   if (typeof OffscreenCanvas !== 'undefined') {
     const canvas = new OffscreenCanvas(width, height);
     const ctx = canvas.getContext('2d')!;
-    await page.render({ canvasContext: ctx, viewport }).promise;
+    await page.render({ canvasContext: ctx, viewport, intent: 'print' }).promise;
     return { canvas, width, height };
   }
 
@@ -105,7 +105,7 @@ async function renderPageToCanvasData(page: any, maxPx = 3200, maxScale = 4.5): 
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d')!;
-  await page.render({ canvasContext: ctx, viewport }).promise;
+  await page.render({ canvasContext: ctx, viewport, intent: 'print' }).promise;
   return { canvas, width, height };
 }
 

@@ -34,7 +34,7 @@ async function renderPageToBase64(page: any, scale = 3): Promise<string> {
     canvas.height = vp.height;
     ctx = canvas.getContext('2d');
   }
-  await page.render({ canvasContext: ctx, viewport: vp }).promise;
+  await page.render({ canvasContext: ctx, viewport: vp, intent: 'print' }).promise;
   let blob: Blob;
   if (canvas instanceof OffscreenCanvas) {
     blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.85 });

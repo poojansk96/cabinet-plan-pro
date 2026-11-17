@@ -55,7 +55,7 @@ async function renderPageToBase64(page: any, maxPx = 4096, quality = 0.95): Prom
   if (typeof OffscreenCanvas !== 'undefined') {
     const canvas = new OffscreenCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
     const ctx = canvas.getContext('2d')!;
-    await page.render({ canvasContext: ctx, viewport }).promise;
+    await page.render({ canvasContext: ctx, viewport, intent: 'print' }).promise;
     const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality });
     const buf = await blob.arrayBuffer();
     const bytes = new Uint8Array(buf);
@@ -67,7 +67,7 @@ async function renderPageToBase64(page: any, maxPx = 4096, quality = 0.95): Prom
   canvas.width = viewport.width;
   canvas.height = viewport.height;
   const ctx = canvas.getContext('2d')!;
-  await page.render({ canvasContext: ctx, viewport }).promise;
+  await page.render({ canvasContext: ctx, viewport, intent: 'print' }).promise;
   return canvas.toDataURL('image/jpeg', quality).split(',')[1];
 }
 

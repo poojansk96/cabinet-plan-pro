@@ -97,7 +97,7 @@ async function renderPageToBase64(page: any): Promise<string> {
     canvas.width = viewport.width;
     canvas.height = viewport.height;
     const ctx = canvas.getContext('2d')!;
-    await page.render({ canvasContext: ctx, viewport }).promise;
+    await page.render({ canvasContext: ctx, viewport, intent: 'print' }).promise;
     const base64 = canvas.toDataURL('image/jpeg', 0.95).split(',')[1];
     const byteSize = base64.length * 0.75; // approximate decoded size
     if (byteSize <= MAX_PAYLOAD_BYTES) {
@@ -112,7 +112,7 @@ async function renderPageToBase64(page: any): Promise<string> {
   canvas.width = viewport.width;
   canvas.height = viewport.height;
   const ctx = canvas.getContext('2d')!;
-  await page.render({ canvasContext: ctx, viewport }).promise;
+  await page.render({ canvasContext: ctx, viewport, intent: 'print' }).promise;
   return canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
 }
 

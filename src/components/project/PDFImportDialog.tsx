@@ -187,7 +187,7 @@ export default function PDFImportDialog({ onImport, onClose, takeoffPerson }: Pr
         canvas.height = viewport.height;
         const ctx = canvas.getContext('2d');
         if (!ctx) throw new Error('Unable to render PDF page');
-        await page.render({ canvasContext: ctx, viewport }).promise;
+        await page.render({ canvasContext: ctx, viewport, intent: 'print' }).promise;
         let imageDataUrl = canvas.toDataURL('image/jpeg', 0.65);
         
         // Adaptive downscale if image is too large (>3MB base64)
@@ -197,7 +197,7 @@ export default function PDFImportDialog({ onImport, onClose, takeoffPerson }: Pr
           const lowerViewport = page.getViewport({ scale: lowerScale });
           canvas.width = lowerViewport.width;
           canvas.height = lowerViewport.height;
-          await page.render({ canvasContext: ctx, viewport: lowerViewport }).promise;
+          await page.render({ canvasContext: ctx, viewport: lowerViewport, intent: 'print' }).promise;
           imageDataUrl = canvas.toDataURL('image/jpeg', 0.5);
         }
         pageImages.push(imageDataUrl);
